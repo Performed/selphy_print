@@ -43,148 +43,78 @@
  *
  */
 
-// Compile with gcc -o es_print print_libusb.c -lusb-1.0 -Wall
+// Compile with gcc -o es_print es_print_libusb.c -lusb-1.0 -Wall
 
 #define VERSION "0.20"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include <libusb-1.0/libusb.h>
 
-#if (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define cpu_to_le32(__x) __x
-#else
-#define cpu_to_le32(x) \
-({ \
-        uint32_t __x = (x); \
-        ((uint32_t)( \
-                (((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-                (((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-                (((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-                (((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
-})
-#endif
-
-/* Printer types */
-enum {
-	P_ES1 = 0,
-	P_ES2_20,
-	P_ES3_30,
-	P_ES40,
-	P_CP_XXX,
-	P_END
-};
-
-static char *models[P_END] = { "SELPHY ES1",
-			       "SELPHY ES2/ES20",
-			       "SELPHY ES3/ES30",
-			       "SELPHY ES40/CP790",
-			       "SELPHY CP Series (Except CP790)",
-};
-
-#define MAX_HEADER 28
-
-static const int init_lengths[P_END] = { 12, 16, 16, 16, 12 };
-static const int foot_lengths[P_END] = { 0, 0, 12, 12, 0 };
-
-/* Does NOT include header length! */
-#define RDBUF_LEN 12
-
-static const int es40_plane_lengths[4] = { 2227456, 1601600, 698880, 2976512 };
-
-static const int16_t init_readbacks[P_END][RDBUF_LEN] = { { 0x02, 0x00, 0x00, 0x00, 0x02, 0x01, -1, 0x01, 0x00, 0x00, 0x00, 0x00 },
-							  { 0x02, 0x00, 0x00, 0x00, -1, 0x00, -1, -1, 0x00, 0x00, 0x00, 0x00 },
-							  { 0x00, 0xff, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-							  { 0xde, 0xad, 0xba, 0xbe }, // XXX ES40/CP790
-							  { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, 0x00 },
-};
-
-static const int16_t ready_y_readbacks[P_END][RDBUF_LEN] = { { 0x04, 0x00, 0x01, 0x00, 0x02, 0x01, -1, 0x01, 0x00, 0x00, 0x00, 0x00 },
-							     { 0x03, 0x00, 0x01, 0x00, -1, 0x00, -1, -1, 0x00, 0x00, 0x00, 0x00 },
-							     { 0x01, 0xff, 0x01, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-							     { 0xde, 0xad, 0xba, 0xbe }, // XXX ES40/CP790
-							     { 0x02, 0x00, 0x00, 0x00, 0x70, 0x00, -1, 0x00, 0x00, 0x00, 0x00, 0x00 },
-};
-
-static const int16_t ready_m_readbacks[P_END][RDBUF_LEN] = { { 0x04, 0x00, 0x03, 0x00, 0x02, 0x01, -1, 0x01, 0x00, 0x00, 0x00, 0x00 },
-							     { 0x06, 0x00, 0x03, 0x00, -1, 0x00, -1, -1, 0x00, 0x00, 0x00, 0x00 },
-							     { 0x03, 0xff, 0x02, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-							     { 0xde, 0xad, 0xba, 0xbe }, // XXX ES40/CP790
-							     { 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, 0x00 },
-};
-
-static const int16_t ready_c_readbacks[P_END][RDBUF_LEN] = { { 0x04, 0x00, 0x07, 0x00, 0x02, 0x01, -1, 0x01, 0x00, 0x00, 0x00, 0x00 },
-							     { 0x09, 0x00, 0x07, 0x00, -1, 0x00, -1, -1, 0x00, 0x00, 0x00, 0x00 },
-							     { 0x05, 0xff, 0x03, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-							     { 0xde, 0xad, 0xba, 0xbe }, // XXX ES40/CP790
-							     { 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, 0x00 },
-};
-
-static const int16_t done_c_readbacks[P_END][RDBUF_LEN] = { { 0x04, 0x00, 0x00, 0x00, 0x02, 0x01, -1, 0x01, 0x00, 0x00, 0x00, 0x00 },
-							    { 0x09, 0x00, 0x00, 0x00, -1, 0x00, -1, -1, 0x00, 0x00, 0x00, 0x00 },
-							    { 0x00, 0xff, 0x10, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-							    { 0xde, 0xad, 0xba, 0xbe }, // XXX ES40/CP790
-							    { 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, 0x00 },
-};
-
-static int16_t paper_codes[P_END][256];
-static const int16_t paper_code_offsets[P_END] = { 6, 4, -1, -1, 6 };
-
-static void setup_paper_codes(void)
-{
-	/* Default all to IGNORE */
-	int i, j;
-	for (i = 0; i < P_END ; i++)
-		for (j = 0 ; j < 256 ; j++) 
-			paper_codes[i][j] = -1;
-	
-	/* SELPHY ES1 paper codes */
-	paper_codes[P_ES1][0x11] = 0x01;
-	paper_codes[P_ES1][0x12] = 0x02;  // ??
-	paper_codes[P_ES1][0x13] = 0x03;
-	
-	/* SELPHY ES2/20 paper codes */
-	paper_codes[P_ES2_20][0x01] = 0x01;
-	paper_codes[P_ES2_20][0x02] = 0x02; // ??
-	paper_codes[P_ES2_20][0x03] = 0x03;
-	
-	/* SELPHY ES3/30 paper codes */
-	//  paper_codes[P_ES3_30][0x01] = -1;
-	//  paper_codes[P_ES3_30][0x02] = -1;
-	//  paper_codes[P_ES3_30][0x03] = -1;
-	
-	/* SELPHY ES40/CP790 paper codes */
-	//  paper_codes[P_ES40][0x00] = -1;
-	//  paper_codes[P_ES40][0x01] = -1;
-	//  paper_codes[P_ES40][0x02] = -1;
-	//  paper_codes[P_ES40][0x03] = -1;
-
-	/* SELPHY CP-760 paper codes */
-	paper_codes[P_CP_XXX][0x01] = 0x11;
-	paper_codes[P_CP_XXX][0x02] = 0x22;
-	//  paper_codes[P_CP_XXX][0x03] = -1;
-	//  paper_codes[P_CP_XXX][0x04] = -1;
-}
+#include "es_print_common.h"
 
 /* USB Identifiers */
 #define USB_VID_CANON     0x0a49
 #define USB_PID_CANON_ES1 0x3184 // XXX
-#define USB_PID_CANON_ES2 0x3185
+#define USB_PID_CANON_ES2 0x3185 
+#define USB_PID_CANON_ES20 1 //
+#define USB_PID_CANON_ES3 2 
+#define USB_PID_CANON_ES30 3
+#define USB_PID_CANON_ES40 4
+#define USB_PID_CANON_CP790 5
+#define USB_PID_CANON_CP_XXX 6
 
-/* Program states */
-enum {
-	S_IDLE = 0,
-	S_PRINTER_READY,
-	S_PRINTER_INIT_SENT,
-	S_PRINTER_READY_Y,
-	S_PRINTER_Y_SENT,
-	S_PRINTER_READY_M,
-	S_PRINTER_M_SENT,
-	S_PRINTER_READY_C,
-	S_PRINTER_C_SENT,
-	S_PRINTER_DONE,
-	S_FINISHED,
-};
+#define ENDPOINT_UP   0x00
+#define ENDPOINT_DOWN 0x01
+
+#define BUF_LEN 4096
+
+static int dump_data_libusb (int remaining, int present, int data_fd, 
+			     struct libusb_device_handle *dev, 
+			     uint8_t *buf, uint16_t buflen) {
+	int cnt;
+	int i;
+	int wrote;
+	int num;
+
+	while (remaining) {
+		cnt = read(data_fd, buf + present, (remaining < (buflen-present)) ? remaining : (buflen-present));
+		if (present)
+			present = 0;
+		
+		if (cnt < 0)
+			return -1;
+
+		i = libusb_bulk_transfer(dev, ENDPOINT_DOWN,
+					 buf,
+					 cnt,
+					 &num,
+					 2000);
+		if (i < 0) {
+			fprintf(stderr, "libusb error(%d)\n", i);
+			return -1;
+		}
+
+		if (num != cnt) {
+			/* Realign buffer.. */
+			present = cnt - num;
+			memmove(buf, buf + num, present);
+		}
+		wrote += num;
+		remaining -= num;
+	}
+	
+	fprintf(stderr, "Wrote %d bytes (%d)\n", wrote, buflen);
+	
+	return wrote;
+}
 
 int main (int argc, char **argv)
 {
@@ -198,6 +128,22 @@ int main (int argc, char **argv)
 	int ret = 0;
 	int claimed;
 
+	uint8_t rdbuf[RDBUF_LEN], rdbuf2[RDBUF_LEN];
+	int last_state, state = S_IDLE;
+
+	int plane_len = 0;
+
+	int bw_mode = 0;
+	int16_t paper_code_offset = -1;
+	int16_t paper_code = -1;
+
+	uint8_t buffer[BUF_LEN];
+
+	int data_fd = fileno(stdin);
+
+	/* Static initialization */
+	setup_paper_codes();
+	
 	/* Cmdline help */
 	if (argc < 2) {
 		fprintf(stderr, "SELPHY ES Print Assist version %s\n\nUsage:\n\t%s infile\n",
@@ -207,8 +153,69 @@ int main (int argc, char **argv)
 		exit(1);
 	}
 
-	/* Static initialization */
-	setup_paper_codes();
+	/* Open Input File */
+	if (!strcmp("-", argv[1])) {
+		data_fd = open(argv[1], O_RDONLY);
+		if (data_fd < 0) {
+			perror("Can't open input file");
+			exit(1);
+		}
+	}
+
+	/* Figure out printer this file is intended for */
+	read(data_fd, buffer, MAX_HEADER);
+	// printer_type, bw_mode
+
+	if (buffer[0] != 0x40 &&
+	    buffer[1] != 0x00) {
+		fprintf(stderr, "Unrecognized file format!\n");
+		return(-1);
+	}
+
+	if (buffer[12] == 0x40 &&
+	    buffer[13] == 0x01) {
+		if (buffer[2] == 0x00) {
+			printer_type = P_CP_XXX;  /* Unpadded */
+		} else {
+			printer_type = P_ES1;
+			bw_mode = (buffer[2] == 0x20);
+		}
+		
+		plane_len = *(uint32_t*)(&buffer[16]);
+		plane_len = cpu_to_le32(plane_len);
+		goto found;
+	}
+
+	plane_len = cpu_to_le32(plane_len);
+	plane_len = *(uint32_t*)(&buffer[12]);
+
+	if (buffer[16] == 0x40 &&
+	    buffer[17] == 0x01) {
+		if (buffer[4] == 0x02) {
+			printer_type = P_ES2_20;
+			bw_mode = (buffer[7] == 0x01);
+			goto found;
+		}
+		if (es40_plane_lengths[buffer[2]] == plane_len) {
+			printer_type = P_ES40; 
+			bw_mode = (buffer[3] == 0x01);
+			goto found;
+		} else {
+			printer_type = P_ES3_30; 
+			bw_mode = (buffer[3] == 0x01);
+			goto found;
+		}
+	}
+
+	fprintf(stderr, "Unrecognized file format!\n");
+	return -1;
+	
+found:
+
+	plane_len += 12; /* Add in plane header */
+	paper_code_offset = paper_code_offsets[printer_type];
+	if (paper_code_offset != -1)
+		paper_code = paper_codes[printer_type][paper_code_offset];
 
 	/* Libusb setup */
 	libusb_init(&ctx);
@@ -229,26 +236,42 @@ int main (int argc, char **argv)
 
 		switch(desc.idProduct) {
 		case USB_PID_CANON_ES1:
-			printer_type = P_ES1;
+			if (printer_type == P_ES1)
+				goto found2;
+			break;
 		case USB_PID_CANON_ES2:
-			printer_type = P_ES2_20;
+		case USB_PID_CANON_ES20:
+			if (printer_type == P_ES2_20)
+				goto found2;
+			break;
+		case USB_PID_CANON_ES3:
+		case USB_PID_CANON_ES30:
+			if (printer_type == P_ES3_30)
+				goto found2;
+			break;
+		case USB_PID_CANON_ES40:
+		case USB_PID_CANON_CP790:
+			if (printer_type == P_ES40)
+				goto found2;
+			break;
+		case USB_PID_CANON_CP_XXX:
+			if (printer_type == P_CP_XXX)
+				goto found2;
 			break;
 		default:
 			fprintf(stderr, "Found Unrecognized Canon Printer: %04x\n", 
 				desc.idProduct);
-			ret = 1;
-			goto done;
+			break;
 		}
-		
-		break;
 	}
 
 	if (i == num) {
 		ret = 1;
-		fprintf(stderr, "No suitable printers found\n");
+		fprintf(stderr, "No suitable printers found (looking for %s)\n", models[printer_type]);
 		goto done;
 	}
 
+found2:
 	fprintf(stderr, "Found a %s printer\r\n", models[printer_type]);
 
 	libusb_open(list[i], &dev);
@@ -259,10 +282,114 @@ int main (int argc, char **argv)
 
 	libusb_claim_interface(dev, 0);
 
+top:
+	/* Read in the printer status */
+	ret = libusb_bulk_transfer(dev, ENDPOINT_UP,
+				   rdbuf,
+				   RDBUF_LEN,
+				   &num,
+				   2000);
+	if (ret < 0) {
+		fprintf(stderr, "libusb error (%d)\n", ret);
+		goto done;
+	}
 
-	//XXX do something..
+	if (memcmp(rdbuf, rdbuf2, RDBUF_LEN)) {
+		fprintf(stderr, "readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
+			rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
+			rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7],
+			rdbuf[8], rdbuf[9], rdbuf[10], rdbuf[11]);
+		memcpy(rdbuf2, rdbuf, RDBUF_LEN);
+	} else {
+		sleep(1);
+	}
+	if (state != last_state) {
+		fprintf(stderr, "last_state %d new %d\n", last_state, state);
+		last_state = state;
+	}
+	fflush(stderr);       
 
+	switch(state) {
+	case S_IDLE:
+		if (!fancy_memcmp(rdbuf, init_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+			state = S_PRINTER_READY;
+		}
+		break;
+	case S_PRINTER_READY:
+		fprintf(stderr, "Sending init sequence (%d bytes)\n", init_lengths[printer_type]);
 
+		/* Send printer init */
+		ret = libusb_bulk_transfer(dev, ENDPOINT_DOWN,
+					   buffer,
+					   init_lengths[printer_type],
+					   &num,
+					   2000);
+		if (ret < 0) {
+			fprintf(stderr, "libusb error (%d)\n", ret);
+			goto done;
+		}
+
+		/* Realign plane data to start of buffer.. */
+		memmove(buffer, buffer+init_lengths[printer_type],
+			MAX_HEADER-init_lengths[printer_type]);
+
+		state = S_PRINTER_INIT_SENT;
+		break;
+	case S_PRINTER_INIT_SENT:
+		if (!fancy_memcmp(rdbuf, ready_y_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+			state = S_PRINTER_READY_Y;
+		}
+		break;
+	case S_PRINTER_READY_Y:
+		if (bw_mode)
+			fprintf(stderr, "Sending BLACK plane\n");
+		else
+			fprintf(stderr, "Sending YELLOW plane\n");
+		dump_data_libusb(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev, buffer, BUF_LEN);
+		state = S_PRINTER_Y_SENT;
+		break;
+	case S_PRINTER_Y_SENT:
+		// handle bw_mode?  transition to S_PRINTER_DONE?
+		if (!fancy_memcmp(rdbuf, ready_m_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+			state = S_PRINTER_READY_M;
+		}
+		break;
+	case S_PRINTER_READY_M:
+		fprintf(stderr, "Sending MAGENTA plane\n");
+		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
+		state = S_PRINTER_M_SENT;
+		break;
+	case S_PRINTER_M_SENT:
+		if (!fancy_memcmp(rdbuf, ready_c_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+			state = S_PRINTER_READY_C;
+		}
+		break;
+	case S_PRINTER_READY_C:
+		fprintf(stderr, "Sending CYAN plane\n");
+		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
+		state = S_PRINTER_C_SENT;
+		break;
+	case S_PRINTER_C_SENT:
+		if (!fancy_memcmp(rdbuf, done_c_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+			state = S_PRINTER_DONE;
+		}
+		break;
+	case S_PRINTER_DONE:
+		if (foot_lengths[printer_type]) {
+			fprintf(stderr, "Sending cleanup sequence\n");
+			dump_data_libusb(foot_lengths[printer_type], 0, data_fd, dev, buffer, BUF_LEN);
+		}
+		state = S_FINISHED;
+		break;
+	case S_FINISHED:
+		fprintf(stderr, "All data sent to printer!\n");
+		break;
+	}
+	if (state != S_FINISHED)
+		goto top;
+
+	/* Done printing */
+	
 	libusb_release_interface(dev, 0);
 
 	if (claimed)
@@ -273,5 +400,8 @@ int main (int argc, char **argv)
 done:
 	libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
+
+	close(data_fd);
+
 	return ret;
 }
