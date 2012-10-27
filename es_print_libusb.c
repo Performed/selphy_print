@@ -154,7 +154,7 @@ int main (int argc, char **argv)
 	}
 
 	/* Open Input File */
-	if (!strcmp("-", argv[1])) {
+	if (strcmp("-", argv[1])) {
 		data_fd = open(argv[1], O_RDONLY);
 		if (data_fd < 0) {
 			perror("Can't open input file");
@@ -164,7 +164,6 @@ int main (int argc, char **argv)
 
 	/* Figure out printer this file is intended for */
 	read(data_fd, buffer, MAX_HEADER);
-	// printer_type, bw_mode
 
 	if (buffer[0] != 0x40 &&
 	    buffer[1] != 0x00) {
@@ -211,6 +210,7 @@ int main (int argc, char **argv)
 	return -1;
 	
 found:
+	fprintf(stderr, "File intended for a '%s' printer %s\r\n", models[printer_type], bw_mode? "B/W" : "");
 
 	plane_len += 12; /* Add in plane header */
 	paper_code_offset = paper_code_offsets[printer_type];
@@ -349,9 +349,11 @@ top:
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
-		// handle bw_mode?  transition to S_PRINTER_DONE?
 		if (!fancy_memcmp(rdbuf, ready_m_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
-			state = S_PRINTER_READY_M;
+			if (bw_mode)
+				state = S_PRINTER_DONE;
+			else
+				state = S_PRINTER_READY_M;
 		}
 		break;
 	case S_PRINTER_READY_M:
