@@ -255,9 +255,11 @@ found:
     state = S_PRINTER_Y_SENT;
     break;
   case S_PRINTER_Y_SENT:
-    // handle bw_mode?  transition to S_PRINTER_DONE?
     if (!fancy_memcmp(rdbuf, ready_m_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
-      state = S_PRINTER_READY_M;
+      if (bw_mode)
+	state = S_PRINTER_DONE;
+      else
+	state = S_PRINTER_READY_M;
     }
     break;
   case S_PRINTER_READY_M:
