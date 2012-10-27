@@ -40,24 +40,31 @@
 
 #define BUF_LEN 4096
 
-int dump_data_new(int remaining, int data_fd, int dev_fd, uint8_t *buf, uint16_t buflen)
+int dump_data_new(int remaining, int present, int data_fd, 
+		  int dev_fd, uint8_t *buf, uint16_t buflen)
 {
   int cnt;
   int i;
   int wrote;
 
-  while (remaining) {
+  while (remaining > 0) {
     cnt = read(data_fd, buf, (remaining < buflen) ? remaining : buflen);
 
     if (cnt < 0)
       return -1;
 
+    if (present) {
+	    cnt += present;
+	    present = 0;
+    }
+
     i = write(dev_fd, buf, cnt);
     if (i < 0)
       return wrote;
-    if (i != cnt) {  // XXX worth handling this?  retry write?
-      fprintf(stderr, "write mismatch R/W %d/%d ...\n", cnt, i);
-      return wrote;
+    if (i != cnt) {
+	    /* Realign buffer.. */
+	    present = cnt - i;
+	    memmove(buf, buf + i, present);
     }
     wrote += i;
     remaining -= cnt;
@@ -97,10 +104,13 @@ int main(int argc, char **argv)
   }
 
   /* Open input file */
-  data_fd = open(argv[1], O_RDONLY);
-  if (data_fd < 0) {
-    perror("Can't open input file");
-    exit(1);
+  data_fd = fileno(stdin);
+  if (strcmp("-", argv[1])) {
+    data_fd = open(argv[1], O_RDONLY);
+    if (data_fd < 0) {
+      perror("Can't open input file");
+      exit(1);
+    }
   }
 
   /* Open output device */
@@ -125,7 +135,7 @@ int main(int argc, char **argv)
   } 
   
   /* Figure out printer this file is intended for */
-  read(data_fd, buffer, MAX_HEADER + 1024);  /* Read in header */
+  read(data_fd, buffer, MAX_HEADER);
 
   if (buffer[0] != 0x40 &&
       buffer[1] != 0x00) {
@@ -217,6 +227,10 @@ found:
   case S_PRINTER_READY:
     fprintf(stderr, "Sending init sequence (%d bytes)\n", init_lengths[printer_type]);
     write(dev_fd, buffer, init_lengths[printer_type]); /* Send printer_init */
+    /* Realign plane data to start of buffer.. */
+    memmove(buffer, buffer+init_lengths[printer_type],
+	    MAX_HEADER-init_lengths[printer_type]);
+
     state = S_PRINTER_INIT_SENT;
     break;
   case S_PRINTER_INIT_SENT:
@@ -229,7 +243,7 @@ found:
       fprintf(stderr, "Sending BLACK plane\n");
     else
       fprintf(stderr, "Sending YELLOW plane\n");
-    dump_data_new(plane_len, data_fd, dev_fd, buffer, BUF_LEN);
+    dump_data_new(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev_fd, buffer, BUF_LEN);
     state = S_PRINTER_Y_SENT;
     break;
   case S_PRINTER_Y_SENT:
@@ -242,7 +256,7 @@ found:
     break;
   case S_PRINTER_READY_M:
     fprintf(stderr, "Sending MAGENTA plane\n");
-    dump_data_new(plane_len, data_fd, dev_fd, buffer, BUF_LEN);
+    dump_data_new(plane_len, 0, data_fd, dev_fd, buffer, BUF_LEN);
     state = S_PRINTER_M_SENT;
     break;
   case S_PRINTER_M_SENT:
@@ -252,18 +266,18 @@ found:
     break;
   case S_PRINTER_READY_C:
     fprintf(stderr, "Sending CYAN plane\n");
-    dump_data_new(plane_len, data_fd, dev_fd, buffer, BUF_LEN);
+    dump_data_new(plane_len, 0, data_fd, dev_fd, buffer, BUF_LEN);
     state = S_PRINTER_C_SENT;
     break;
   case S_PRINTER_C_SENT:
-    if (!fancy_memcmp(rdbuf, done_c_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+	  if (!fancy_memcmp(rdbuf, done_c_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
       state = S_PRINTER_DONE;
     }
     break;
   case S_PRINTER_DONE:
     if (foot_lengths[printer_type]) {
       fprintf(stderr, "Sending cleanup sequence\n");
-      dump_data_new(foot_lengths[printer_type], data_fd, dev_fd, buffer, BUF_LEN);
+      dump_data_new(foot_lengths[printer_type], 0, data_fd, dev_fd, buffer, BUF_LEN);
     }
     state = S_FINISHED;
     break;
