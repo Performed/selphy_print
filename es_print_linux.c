@@ -154,9 +154,6 @@ int main(int argc, char **argv)
 	if (paper_code_offset != -1)
 		paper_code = paper_codes[printer_type][paper_code_offset];
 
-	/* Rewind stream to start of first plane. */
-	lseek(data_fd, init_lengths[printer_type], SEEK_SET);
-
 top:
 
 	read(dev_fd, rdbuf, RDBUF_LEN);  /* Read the status from printer */
