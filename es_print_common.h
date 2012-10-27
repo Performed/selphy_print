@@ -65,7 +65,8 @@ static const int foot_lengths[P_END] = { 0, 0, 12, 12, 0 };
 
 /* Does NOT include header length! */
 #define RDBUF_LEN 12
-
+#define BUF_LEN 4096
+  	
 static const int es40_plane_lengths[4] = { 2227456, 1601600, 698880, 2976512 };
 
 static const int16_t init_readbacks[P_END][RDBUF_LEN] = { { 0x02, 0x00, 0x00, 0x00, 0x02, 0x01, -1, 0x01, 0x00, 0x00, 0x00, 0x00 },

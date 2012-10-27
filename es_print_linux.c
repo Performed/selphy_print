@@ -38,10 +38,10 @@
 
 #include "es_print_common.h"
 
-#define BUF_LEN 4096
+#define dump_data dump_data_linux
 
-int dump_data_new(int remaining, int present, int data_fd, 
-		  int dev_fd, uint8_t *buf, uint16_t buflen)
+int dump_data_linux(int remaining, int present, int data_fd, 
+		    int dev_fd, uint8_t *buf, uint16_t buflen)
 {
 	int cnt;
 	int i;
@@ -243,7 +243,7 @@ top:
 			fprintf(stderr, "Sending BLACK plane\n");
 		else
 			fprintf(stderr, "Sending YELLOW plane\n");
-		dump_data_new(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev_fd, buffer, BUF_LEN);
+		dump_data(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev_fd, buffer, BUF_LEN);
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
@@ -256,7 +256,7 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		fprintf(stderr, "Sending MAGENTA plane\n");
-		dump_data_new(plane_len, 0, data_fd, dev_fd, buffer, BUF_LEN);
+		dump_data(plane_len, 0, data_fd, dev_fd, buffer, BUF_LEN);
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
@@ -266,7 +266,7 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		fprintf(stderr, "Sending CYAN plane\n");
-		dump_data_new(plane_len, 0, data_fd, dev_fd, buffer, BUF_LEN);
+		dump_data(plane_len, 0, data_fd, dev_fd, buffer, BUF_LEN);
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
@@ -277,7 +277,7 @@ top:
 	case S_PRINTER_DONE:
 		if (foot_lengths[printer_type]) {
 			fprintf(stderr, "Sending cleanup sequence\n");
-			dump_data_new(foot_lengths[printer_type], 0, data_fd, dev_fd, buffer, BUF_LEN);
+			dump_data(foot_lengths[printer_type], 0, data_fd, dev_fd, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
 		break;

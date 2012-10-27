@@ -38,6 +38,8 @@
 
 #include "es_print_common.h"
 
+#define dump_data dump_data_libusb
+
 /* USB Identifiers */
 #define USB_VID_CANON     0x04a9
 #define USB_PID_CANON_ES1 0x3141
@@ -52,11 +54,9 @@
 #define ENDPOINT_UP   0x81
 #define ENDPOINT_DOWN 0x02
 
-#define BUF_LEN 4096
-
-static int dump_data_libusb (int remaining, int present, int data_fd, 
-			     struct libusb_device_handle *dev, 
-			     uint8_t *buf, uint16_t buflen) {
+static int dump_data_libusb(int remaining, int present, int data_fd, 
+			    struct libusb_device_handle *dev, 
+			    uint8_t *buf, uint16_t buflen) {
 	int cnt;
 	int i;
 	int wrote;
@@ -346,7 +346,7 @@ top:
 			fprintf(stderr, "Sending BLACK plane\n");
 		else
 			fprintf(stderr, "Sending YELLOW plane\n");
-		dump_data_libusb(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev, buffer, BUF_LEN);
+		dump_data(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev, buffer, BUF_LEN);
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
@@ -359,7 +359,7 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		fprintf(stderr, "Sending MAGENTA plane\n");
-		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
+		dump_data(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
@@ -369,7 +369,7 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		fprintf(stderr, "Sending CYAN plane\n");
-		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
+		dump_data(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
@@ -380,7 +380,7 @@ top:
 	case S_PRINTER_DONE:
 		if (foot_lengths[printer_type]) {
 			fprintf(stderr, "Sending cleanup sequence\n");
-			dump_data_libusb(foot_lengths[printer_type], 0, data_fd, dev, buffer, BUF_LEN);
+			dump_data(foot_lengths[printer_type], 0, data_fd, dev, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
 		break;
