@@ -30,15 +30,15 @@
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define cpu_to_le32(__x) __x
 #else
-#define cpu_to_le32(x) \
-({ \
-        uint32_t __x = (x); \
-        ((uint32_t)( \
-                (((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-                (((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-                (((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-                (((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
-})
+#define cpu_to_le32(x)							\
+	({								\
+		uint32_t __x = (x);					\
+		((uint32_t)(						\
+			(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
+			(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
+			(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
+			(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
+	})
 #endif
 
 /* Printer types */
@@ -146,22 +146,22 @@ static void setup_paper_codes(void)
 
 static int fancy_memcmp(const uint8_t *buf_a, const int16_t *buf_b, uint len, int16_t papercode_offset, int16_t papercode_val) 
 {
-  int i;
-
-  for (i = 0 ; i < len ; i++) {
-    if (papercode_offset != -1 && i == papercode_offset) {
-      if (papercode_val == -1)
-	continue;
-      else if (buf_a[i] != papercode_val)
-	return INCORRECT_PAPER;
-    } else if (buf_b[i] == -1)
-      continue;
-    else if (buf_a[i] > buf_b[i])
-      return 1;
-    else if (buf_a[i] < buf_b[i])
-      return -1;
-  }
-  return 0;
+	int i;
+  
+	for (i = 0 ; i < len ; i++) {
+		if (papercode_offset != -1 && i == papercode_offset) {
+			if (papercode_val == -1)
+				continue;
+			else if (buf_a[i] != papercode_val)
+				return INCORRECT_PAPER;
+		} else if (buf_b[i] == -1)
+			continue;
+		else if (buf_a[i] > buf_b[i])
+			return 1;
+		else if (buf_a[i] < buf_b[i])
+			return -1;
+	}
+	return 0;
 }
 
 /* Program states */
