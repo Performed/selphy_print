@@ -61,18 +61,18 @@
 #include "es_print_common.h"
 
 /* USB Identifiers */
-#define USB_VID_CANON     0x0a49
-#define USB_PID_CANON_ES1 0x3184 // XXX
+#define USB_VID_CANON     0x04a9
+#define USB_PID_CANON_ES1 0x3141
 #define USB_PID_CANON_ES2 0x3185 
-#define USB_PID_CANON_ES20 1 //
-#define USB_PID_CANON_ES3 2 
-#define USB_PID_CANON_ES30 3
-#define USB_PID_CANON_ES40 4
-#define USB_PID_CANON_CP790 5
-#define USB_PID_CANON_CP_XXX 6
+#define USB_PID_CANON_ES20 1 // XXX
+#define USB_PID_CANON_ES3 2  // XXX
+#define USB_PID_CANON_ES30 0x31B0
+#define USB_PID_CANON_ES40 4 // XXX
+#define USB_PID_CANON_CP790 5 // XXX
+#define USB_PID_CANON_CP_XXX 6 // XXX
 
-#define ENDPOINT_UP   0x00
-#define ENDPOINT_DOWN 0x01
+#define ENDPOINT_UP   0x81
+#define ENDPOINT_DOWN 0x02
 
 #define BUF_LEN 4096
 
@@ -129,7 +129,7 @@ int main (int argc, char **argv)
 	int claimed;
 
 	uint8_t rdbuf[RDBUF_LEN], rdbuf2[RDBUF_LEN];
-	int last_state, state = S_IDLE;
+	int last_state = -1, state = S_IDLE;
 
 	int plane_len = 0;
 
@@ -227,10 +227,10 @@ found:
 		struct libusb_device_descriptor desc;
 
 		libusb_get_device_descriptor(list[i], &desc);
-
+#if 0
 		if (desc.bDeviceClass != LIBUSB_CLASS_PRINTER)
 			continue;
-
+#endif
 		if (desc.idVendor != USB_VID_CANON)
 			continue;
 
@@ -274,13 +274,26 @@ found:
 found2:
 	fprintf(stderr, "Found a %s printer\r\n", models[printer_type]);
 
-	libusb_open(list[i], &dev);
+	ret = libusb_open(list[i], &dev);
+	if (ret) {
+		fprintf(stderr, "Could not open device (Need to be root?) (%d)\r\n", ret);
+		goto done;
+	}
 	
 	claimed = libusb_kernel_driver_active(dev, 0);
-	if (claimed)
-		libusb_detach_kernel_driver(dev, 0);
+	if (claimed) {
+		ret = libusb_detach_kernel_driver(dev, 0);
+		if (ret) {
+			fprintf(stderr, "Could not detach printer from kernel (%d)\r\n", ret);
+			goto done;
+		}
+	}
 
-	libusb_claim_interface(dev, 0);
+	ret = libusb_claim_interface(dev, 0);
+	if (ret) {
+		fprintf(stderr, "Could not claim printer interface (%d)\r\n", ret);
+		goto done;
+	}
 
 top:
 	/* Read in the printer status */

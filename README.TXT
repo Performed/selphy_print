@@ -1,4 +1,3 @@
-
 /* 
 
  Selphy ES1:
