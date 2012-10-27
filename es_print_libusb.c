@@ -78,13 +78,13 @@
 
 static int dump_data_libusb (int remaining, int present, int data_fd, 
 			     struct libusb_device_handle *dev, 
-			     uint8_t *buf, uint16_t buflen) {
+			     uint8_t *buf, uint16_t buflen, uint16_t packet_size) {
 	int cnt;
 	int i;
 	int wrote;
 	int num;
 
-	while (remaining) {
+	while (remaining > 0) {
 		cnt = read(data_fd, buf + present, (remaining < (buflen-present)) ? remaining : (buflen-present));
 		if (present)
 			present = 0;
@@ -92,6 +92,8 @@ static int dump_data_libusb (int remaining, int present, int data_fd,
 		if (cnt < 0)
 			return -1;
 
+		if (cnt < packet_size)
+			cnt = packet_size;
 		i = libusb_bulk_transfer(dev, ENDPOINT_DOWN,
 					 buf,
 					 cnt,
@@ -111,7 +113,7 @@ static int dump_data_libusb (int remaining, int present, int data_fd,
 		remaining -= num;
 	}
 	
-	fprintf(stderr, "Wrote %d bytes (%d)\n", wrote, buflen);
+	fprintf(stderr, "Wrote %d bytes\n", wrote);
 	
 	return wrote;
 }
@@ -123,6 +125,10 @@ int main (int argc, char **argv)
 	struct libusb_device_handle *dev;
 
 	int printer_type = P_END;
+
+	int iface = 0;
+//	int packet_size = 64;
+	int packet_size = 1;
 
 	int num, i;
 	int ret = 0;
@@ -227,10 +233,7 @@ found:
 		struct libusb_device_descriptor desc;
 
 		libusb_get_device_descriptor(list[i], &desc);
-#if 0
-		if (desc.bDeviceClass != LIBUSB_CLASS_PRINTER)
-			continue;
-#endif
+
 		if (desc.idVendor != USB_VID_CANON)
 			continue;
 
@@ -272,6 +275,15 @@ found:
 	}
 
 found2:
+
+#if 0
+	// XXX pull interface list, and make sure we have the right one.
+	// XXX validate packet_size
+		if (interface.bInterfaceClass != LIBUSB_CLASS_PRINTER)
+			continue;
+#endif
+
+
 	fprintf(stderr, "Found a %s printer\r\n", models[printer_type]);
 
 	ret = libusb_open(list[i], &dev);
@@ -280,16 +292,16 @@ found2:
 		goto done;
 	}
 	
-	claimed = libusb_kernel_driver_active(dev, 0);
+	claimed = libusb_kernel_driver_active(dev, iface);
 	if (claimed) {
-		ret = libusb_detach_kernel_driver(dev, 0);
+		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
 			fprintf(stderr, "Could not detach printer from kernel (%d)\r\n", ret);
 			goto done;
 		}
 	}
 
-	ret = libusb_claim_interface(dev, 0);
+	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
 		fprintf(stderr, "Could not claim printer interface (%d)\r\n", ret);
 		goto done;
@@ -334,11 +346,12 @@ top:
 		/* Send printer init */
 		ret = libusb_bulk_transfer(dev, ENDPOINT_DOWN,
 					   buffer,
-					   init_lengths[printer_type],
+		( init_lengths[printer_type] < packet_size ? packet_size : init_lengths[printer_type]),
+//		init_lengths[printer_type],
 					   &num,
 					   2000);
 		if (ret < 0) {
-			fprintf(stderr, "libusb error (%d)\n", ret);
+			fprintf(stderr, "libusb error (%d) (%d)\n", ret, num);
 			goto done;
 		}
 
@@ -358,7 +371,7 @@ top:
 			fprintf(stderr, "Sending BLACK plane\n");
 		else
 			fprintf(stderr, "Sending YELLOW plane\n");
-		dump_data_libusb(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev, buffer, BUF_LEN);
+		dump_data_libusb(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev, buffer, BUF_LEN, packet_size);
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
@@ -371,7 +384,7 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		fprintf(stderr, "Sending MAGENTA plane\n");
-		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
+		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN, packet_size);
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
@@ -381,7 +394,7 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		fprintf(stderr, "Sending CYAN plane\n");
-		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
+		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN, packet_size);
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
@@ -392,7 +405,7 @@ top:
 	case S_PRINTER_DONE:
 		if (foot_lengths[printer_type]) {
 			fprintf(stderr, "Sending cleanup sequence\n");
-			dump_data_libusb(foot_lengths[printer_type], 0, data_fd, dev, buffer, BUF_LEN);
+			dump_data_libusb(foot_lengths[printer_type], 0, data_fd, dev, buffer, BUF_LEN, packet_size);
 		}
 		state = S_FINISHED;
 		break;
@@ -405,10 +418,10 @@ top:
 
 	/* Done printing */
 	
-	libusb_release_interface(dev, 0);
+	libusb_release_interface(dev, iface);
 
 	if (claimed)
-		libusb_attach_kernel_driver(dev, 0);
+		libusb_attach_kernel_driver(dev, iface);
 
 	libusb_close(dev);
 
