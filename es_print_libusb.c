@@ -78,7 +78,7 @@
 
 static int dump_data_libusb (int remaining, int present, int data_fd, 
 			     struct libusb_device_handle *dev, 
-			     uint8_t *buf, uint16_t buflen, uint16_t packet_size) {
+			     uint8_t *buf, uint16_t buflen) {
 	int cnt;
 	int i;
 	int wrote;
@@ -86,14 +86,15 @@ static int dump_data_libusb (int remaining, int present, int data_fd,
 
 	while (remaining > 0) {
 		cnt = read(data_fd, buf + present, (remaining < (buflen-present)) ? remaining : (buflen-present));
-		if (present)
-			present = 0;
 		
 		if (cnt < 0)
 			return -1;
 
-		if (cnt < packet_size)
-			cnt = packet_size;
+		if (present) {
+			cnt += present;
+			present = 0;
+		}
+
 		i = libusb_bulk_transfer(dev, ENDPOINT_DOWN,
 					 buf,
 					 cnt,
@@ -127,8 +128,6 @@ int main (int argc, char **argv)
 	int printer_type = P_END;
 
 	int iface = 0;
-//	int packet_size = 64;
-	int packet_size = 1;
 
 	int num, i;
 	int ret = 0;
@@ -278,7 +277,6 @@ found2:
 
 #if 0
 	// XXX pull interface list, and make sure we have the right one.
-	// XXX validate packet_size
 		if (interface.bInterfaceClass != LIBUSB_CLASS_PRINTER)
 			continue;
 #endif
@@ -346,8 +344,7 @@ top:
 		/* Send printer init */
 		ret = libusb_bulk_transfer(dev, ENDPOINT_DOWN,
 					   buffer,
-		( init_lengths[printer_type] < packet_size ? packet_size : init_lengths[printer_type]),
-//		init_lengths[printer_type],
+					   init_lengths[printer_type],
 					   &num,
 					   2000);
 		if (ret < 0) {
@@ -371,7 +368,7 @@ top:
 			fprintf(stderr, "Sending BLACK plane\n");
 		else
 			fprintf(stderr, "Sending YELLOW plane\n");
-		dump_data_libusb(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev, buffer, BUF_LEN, packet_size);
+		dump_data_libusb(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev, buffer, BUF_LEN);
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
@@ -384,7 +381,7 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		fprintf(stderr, "Sending MAGENTA plane\n");
-		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN, packet_size);
+		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
@@ -394,7 +391,7 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		fprintf(stderr, "Sending CYAN plane\n");
-		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN, packet_size);
+		dump_data_libusb(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
@@ -405,7 +402,7 @@ top:
 	case S_PRINTER_DONE:
 		if (foot_lengths[printer_type]) {
 			fprintf(stderr, "Sending cleanup sequence\n");
-			dump_data_libusb(foot_lengths[printer_type], 0, data_fd, dev, buffer, BUF_LEN, packet_size);
+			dump_data_libusb(foot_lengths[printer_type], 0, data_fd, dev, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
 		break;
