@@ -179,3 +179,57 @@ enum {
 	S_PRINTER_DONE,
 	S_FINISHED,
 };
+
+static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len) 
+{
+	int printer_type = -1;
+
+	if (buffer[0] != 0x40 &&
+	    buffer[1] != 0x00) {
+		fprintf(stderr, "Unrecognized file format!\n");
+		goto done;
+	}
+	
+	if (buffer[12] == 0x40 &&
+	    buffer[13] == 0x01) {
+		if (buffer[2] == 0x00) {
+			printer_type = P_CP_XXX;
+		} else {
+			printer_type = P_ES1;
+			*bw_mode = (buffer[2] == 0x20);
+		}
+
+		*plane_len = *(uint32_t*)(&buffer[16]);
+		goto done;
+	}
+
+	*plane_len = *(uint32_t*)(&buffer[12]);
+
+	if (buffer[16] == 0x40 &&
+	    buffer[17] == 0x01) {
+
+		if (buffer[4] == 0x02) {
+			printer_type = P_ES2_20;
+			*bw_mode = (buffer[7] == 0x01);
+			goto done;
+		}
+    
+		if (es40_plane_lengths[buffer[2]] == *plane_len) {
+			printer_type = P_ES40; 
+			*bw_mode = (buffer[3] == 0x01);
+			goto done;
+		} else {
+			printer_type = P_ES3_30; 
+			*bw_mode = (buffer[3] == 0x01);
+			goto done;
+		}
+	}
+
+	fprintf(stderr, "Unrecognized file format!\n");
+	return -1;
+
+done:
+	*plane_len = cpu_to_le32(*plane_len);
+
+	return printer_type;
+}

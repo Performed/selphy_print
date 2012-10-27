@@ -137,53 +137,11 @@ int main(int argc, char **argv)
 	/* Figure out printer this file is intended for */
 	read(data_fd, buffer, MAX_HEADER);
 
-	if (buffer[0] != 0x40 &&
-	    buffer[1] != 0x00) {
-		fprintf(stderr, "Unrecognized file format!\n");
+	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
+	if (printer_type < 0) {
 		return(-1);
 	}
 
-	if (buffer[12] == 0x40 &&
-	    buffer[13] == 0x01) {
-		if (buffer[2] == 0x00) {
-			printer_type = P_CP_XXX;  /* Unpadded */
-		} else {
-			printer_type = P_ES1;
-			bw_mode = (buffer[2] == 0x20);
-		}
-
-		plane_len = *(uint32_t*)(&buffer[16]);
-		plane_len = cpu_to_le32(plane_len);
-		goto found;
-	}
-
-	plane_len = cpu_to_le32(plane_len);
-	plane_len = *(uint32_t*)(&buffer[12]);
-
-	if (buffer[16] == 0x40 &&
-	    buffer[17] == 0x01) {
-
-		if (buffer[4] == 0x02) {
-			printer_type = P_ES2_20;
-			bw_mode = (buffer[7] == 0x01);
-			goto found;
-		}
-    
-		if (es40_plane_lengths[buffer[2]] == plane_len) {
-			printer_type = P_ES40; 
-			bw_mode = (buffer[3] == 0x01);
-			goto found;
-		} else {
-			printer_type = P_ES3_30; 
-			bw_mode = (buffer[3] == 0x01);
-			goto found;
-		}
-	}
-
-	fprintf(stderr, "Unrecognized file format!\n");
-	return -1;
-
-found:
 	if (printer_type != printer_type2) {
 		fprintf(stderr, "File intended for a %s printer, aborting!\n", models[printer_type]);
 		return (-1);
