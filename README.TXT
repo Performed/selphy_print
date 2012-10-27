@@ -1,3 +1,22 @@
+ *
+ *   The SELPHY ES-series printers from Canon requires intelligent buffering
+ *   of the raw spool data in order to keep the printer from locking up.  
+ *
+ *   Known supported printers:
+ * 
+ *     SELPHY ES1, SELPHY ES2, SELPHY ES30 
+ *
+ *   Supported but untested:
+ *
+ *     SELPHY ES20, SELPHY ES3 
+ *     SELPHY CP-760 and all other CP-series printers EXCEPT for CP-790
+ * 
+ *   NOT currently supported:
+ *
+ *     SELPHY ES40, CP-790
+ *       (They use different stream formats, and may have different readbacks;
+ *        I will update this as needed and as I get hardware to test..)
+
 /* 
 
  Selphy ES1:

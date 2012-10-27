@@ -1,29 +1,11 @@
 /*
- *   Canon SELPHY ES1 series print assister 
+ *   Canon SELPHY ES series print assister -- Native Linux version
  *
- *   (c) 2007-2011 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2007-2012 Solomon Peachy <pizza@shaftnet.org>
  *
- *   The SELPHY ES-series printers from Canon requires intelligent buffering
- *   of the raw spool data in order to keep the printer from locking up.  
- *
- *   Known supported printers:
- * 
- *     SELPHY ES1, SELPHY ES2, SELPHY ES30 
- *
- *   Supported but untested:
- *
- *     SELPHY ES20, SELPHY ES3 
- *     SELPHY CP-760 and all other CP-series printers EXCEPT for CP-790
- * 
- *   NOT currently supported:
- *
- *     SELPHY ES40, CP-790
- *       (They use different stream formats, and may have different readbacks;
- *        I will update this as needed and as I get hardware to test..)
- *
- *   The latest version of this program can be found at:
+ *   The latest version of this program can be found at
  *  
- *     http://www.shaftnet.org/users/pizza/es_print_assist.c
+ *   http://git.shaftnet.org/git/gitweb.cgi?p=selphy_print.git
  *  
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
@@ -42,10 +24,6 @@
  *          [http://www.gnu.org/licenses/gpl-3.0.html]
  *
  */
-
-// Compile with:  gcc -o es_print -Wall es_print_assist.c
-
-#define VERSION "0.14"
 
 #include <sys/time.h>
 #include <sys/types.h>
