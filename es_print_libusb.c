@@ -1,5 +1,5 @@
 /*
- *   Canon SELPHY ES series print assister -- libusb-1 version
+ *   Canon SELPHY series print assister -- libusb-1.0 version
  *
  *   (c) 2007-2012 Solomon Peachy <pizza@shaftnet.org>
  *

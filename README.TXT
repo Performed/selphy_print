@@ -1,24 +1,37 @@
- *
- *   The SELPHY ES-series printers from Canon requires intelligent buffering
- *   of the raw spool data in order to keep the printer from locking up.  
- *
- *   Known supported printers:
- * 
- *     SELPHY ES1, SELPHY ES2, SELPHY ES30 
- *
- *   Supported but untested:
- *
- *     SELPHY ES20, SELPHY ES3 
- *     SELPHY CP-760 and all other CP-series printers EXCEPT for CP-790
- * 
- *   NOT currently supported:
- *
- *     SELPHY ES40, CP-790
- *       (They use different stream formats, and may have different readbacks;
- *        I will update this as needed and as I get hardware to test..)
+ ***************************************************************************
 
-/* 
+   Canon SELPHY ES series print assister 
 
+   (c) 2007-2012 Solomon Peachy <pizza@shaftnet.org>
+
+   The latest version of this program can be found at
+  
+   http://git.shaftnet.org/git/gitweb.cgi?p=selphy_print.git
+
+ ***************************************************************************
+ 
+   The SELPHY ES-series printers from Canon requires intelligent buffering
+   of the raw print data in order to keep the printer from locking up.  
+
+   Known supported & tested printers:
+  
+     SELPHY ES1, ES2, ES30 
+
+   Supported but untested:
+
+     SELPHY ES20, ES3
+     SELPHY CP10, CP100, CP200, CP220, CP300, CP330, CP400, CP500, CP510,
+            CP520, CP530, CP600, CP710, CP720, CP730, CP740, CP750, CP760,
+	    CP770, CP780
+ 
+   NOT currently supported:
+
+     SELPHY ES40, CP-790
+        I need the readback codes for these printers in order to proceed.
+     SELPHY CP-810, CP-900
+        Currently unknown stream format (and possibly unknown readback codes)
+
+ ***************************************************************************
  Selphy ES1:
 
    Init func:   40 00 [typeA] [pgcode] 00 00 00 00 00 00 00 00
@@ -46,22 +59,19 @@
    06 00 00 00 02 01 [pg] 01 00 00 00 00   [?? transitions to this]
    02 00 00 00 02 01 [pg] 01 00 00 00 00   [..transitions back to idle]
 
-   Readbacks for other paper types are currently unknown.
-
    Known paper types for all ES printers:  P, Pbw, C, Cl
    Additional types for ES3/30/40:         Pg, Ps
 
    Known pg codes:   0x01   -- P-size
                      0x03   -- C-size
 
+   Readbacks for other paper types are currently unknown.
+
    P*   sizes are 100x148mm "postcards"
    CP_L sizes are 89x119mm "labels"
    Card sizes are 54x86mm "cards"
 
-*/
-
-/* 
-
+ ***************************************************************************
  Selphy ES2/20:
 
    Init func:   40 00 [pgcode] 00  02 00 00 [type]  00 00 00 [pg2] [length, 32-bit LE]
@@ -104,10 +114,8 @@
 
    [pg2] is: 0x00 for P-paper
              0x01 for C-paper (label)
-*/
 
-/* 
-
+ ***************************************************************************
  Selphy ES3/30:
 
    Init func:   40 00 [pgcode] [type]  00 00 00 00  00 00 00 00 [length, 32-bit LE]
@@ -137,11 +145,8 @@
    13 ff 03 00 ff ff ff ff 00 00 00 00   [?]
    00 ff 10 00 ff ff ff ff 00 00 00 00   [done, ready for footer]
 
-*/
-
-/* 
-
- Selphy ES40:   (May be supported if necessary)
+ ***************************************************************************
+ Selphy ES40:
 
    Init func:   40 00 [pgcode] [type]  00 00 00 00  00 00 00 00 [length, 32-bit LE]
    Plane func:  40 01 [plane] 00  00 00 00 00  00 00 00 00 
@@ -159,11 +164,8 @@
 
    Readback codes are unknown.
 
-*/
-
-/* 
-
- Selphy CP790:   (May be supported if necessary)
+ ***************************************************************************
+ Selphy CP790:
 
    Init func:   40 00 [pgcode] 00  00 00 00 00  00 00 00 00 [length, 32-bit LE]
    Plane func:  40 01 [plane] 00  00 00 00 00  00 00 00 00 
@@ -180,11 +182,8 @@
 
    Readback codes are unknown.
 
-*/
-
-/*
-
- Selphy CP-XXX (except for CP-790):
+ ***************************************************************************
+ Selphy CP-series (except for CP-790, CP-810, CP-900):
  
    Init func:   40 00 00 [pgcode] 00 00 00 00 00 00 00 00
    Plane func:  40 01 00 [plane] [length, 32-bit LE] 00 00 00 00 
@@ -196,7 +195,7 @@
    'Card' paper  pgcode 0x03   plane length  698880 bytes.
    'Wide' paper  pgcode 0x04   plane length 2976512 bytes.
 
-   Known readback values from a SELPHY CP-760:
+   Known readback values (From a SELPHY CP-760)
 
    01 00 00 00 00 00 [pg] 00 00 00 00 00   [idle, waiting for init]
    02 00 00 00 70 00 [pg] 00 00 00 00 00   [waiting for Y data]
@@ -209,5 +208,3 @@
    'CP_L' paper has a code of 0x22
 
    Readback codes for other paper types are unknown.
-
-*/

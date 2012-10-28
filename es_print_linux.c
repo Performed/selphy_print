@@ -1,5 +1,5 @@
 /*
- *   Canon SELPHY ES series print assister -- Native Linux version
+ *   Canon SELPHY series print assister -- Native Linux version
  *
  *   (c) 2007-2012 Solomon Peachy <pizza@shaftnet.org>
  *
