@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		fprintf(stderr, "SELPHY ES Print Assist version %s\n\nUsage:\n\t%s infile outdev\n",
+		fprintf(stderr, "SELPHY Print Assist version %s\n\nUsage:\n\t%s [ infile | - ] [ outdev ]\n",
 			VERSION,
 			argv[0]);
 		fprintf(stderr, "\n");
