@@ -80,8 +80,8 @@ int main(int argc, char **argv)
 	int dev_fd, data_fd;
 
 	uint8_t buffer[BUF_LEN];
-	uint8_t rdbuf[RDBUF_LEN];
-	uint8_t rdbuf2[RDBUF_LEN];
+	uint8_t rdbuf[READBACK_LEN];
+	uint8_t rdbuf2[READBACK_LEN];
 
 	int last_state, state = S_IDLE;
 	int printer_type = P_END;
@@ -121,9 +121,9 @@ int main(int argc, char **argv)
 	}
 
 	/* Figure out the printer type based on the readback */
-	read(dev_fd, rdbuf, RDBUF_LEN);
+	read(dev_fd, rdbuf, READBACK_LEN);
 	for (printer_type2 = 0; printer_type2 < P_END ; printer_type2++) {
-		if (!fancy_memcmp(rdbuf, init_readbacks[printer_type2], RDBUF_LEN, -1, -1))
+		if (!fancy_memcmp(rdbuf, printers[printer_type2].init_readback, READBACK_LEN, -1, -1))
 			break;
 	}
 	if (printer_type2 == P_END) {
@@ -143,26 +143,26 @@ int main(int argc, char **argv)
 	}
 
 	if (printer_type != printer_type2) {
-		fprintf(stderr, "File intended for a %s printer, aborting!\n", models[printer_type]);
+		fprintf(stderr, "File intended for a %s printer, aborting!\n", printers[printer_type].model);
 		return (-1);
 	} else {
-		fprintf(stderr, "Printing a %s file\n", models[printer_type]);
+		fprintf(stderr, "Printing a %s file\n", printers[printer_type].model);
 	}
 
 	plane_len += 12; /* Add in plane header */
-	paper_code_offset = paper_code_offsets[printer_type];
+	paper_code_offset = printers[printer_type].paper_code_offset;
 	if (paper_code_offset != -1)
-		paper_code = paper_codes[printer_type][paper_code_offset];
+		paper_code = printers[printer_type].paper_codes[paper_code_offset];
 
 top:
 
-	read(dev_fd, rdbuf, RDBUF_LEN);  /* Read the status from printer */
-	if (memcmp(rdbuf, rdbuf2, RDBUF_LEN)) {
+	read(dev_fd, rdbuf, READBACK_LEN);  /* Read the status from printer */
+	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		fprintf(stderr, "readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
 			rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
 			rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7],
 			rdbuf[8], rdbuf[9], rdbuf[10], rdbuf[11]);
-		memcpy(rdbuf2, rdbuf, RDBUF_LEN);
+		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else {
 		sleep(1);
 	}
@@ -174,22 +174,22 @@ top:
 
 	switch(state) {
 	case S_IDLE:
-		if (!fancy_memcmp(rdbuf, init_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, printers[printer_type].init_readback, READBACK_LEN, paper_code_offset, paper_code)) {
 			state = S_PRINTER_READY;
 			break;
 		}
 		break;
 	case S_PRINTER_READY:
-		fprintf(stderr, "Sending init sequence (%d bytes)\n", init_lengths[printer_type]);
-		write(dev_fd, buffer, init_lengths[printer_type]); /* Send printer_init */
+		fprintf(stderr, "Sending init sequence (%d bytes)\n", printers[printer_type].init_length);
+		write(dev_fd, buffer, printers[printer_type].init_length); /* Send printer_init */
 		/* Realign plane data to start of buffer.. */
-		memmove(buffer, buffer+init_lengths[printer_type],
-			MAX_HEADER-init_lengths[printer_type]);
+		memmove(buffer, buffer+printers[printer_type].init_length,
+			MAX_HEADER-printers[printer_type].init_length);
 
 		state = S_PRINTER_INIT_SENT;
 		break;
 	case S_PRINTER_INIT_SENT:
-		if (!fancy_memcmp(rdbuf, ready_y_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, printers[printer_type].ready_y_readback, READBACK_LEN, paper_code_offset, paper_code)) {
 			state = S_PRINTER_READY_Y;
 		}
 		break;
@@ -198,11 +198,11 @@ top:
 			fprintf(stderr, "Sending BLACK plane\n");
 		else
 			fprintf(stderr, "Sending YELLOW plane\n");
-		dump_data(plane_len, MAX_HEADER-init_lengths[printer_type], data_fd, dev_fd, buffer, BUF_LEN);
+		dump_data(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev_fd, buffer, BUF_LEN);
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
-		if (!fancy_memcmp(rdbuf, ready_m_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, printers[printer_type].ready_m_readback, READBACK_LEN, paper_code_offset, paper_code)) {
 			if (bw_mode)
 				state = S_PRINTER_DONE;
 			else
@@ -215,7 +215,7 @@ top:
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
-		if (!fancy_memcmp(rdbuf, ready_c_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, printers[printer_type].ready_c_readback, READBACK_LEN, paper_code_offset, paper_code)) {
 			state = S_PRINTER_READY_C;
 		}
 		break;
@@ -225,14 +225,14 @@ top:
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
-		if (!fancy_memcmp(rdbuf, done_c_readbacks[printer_type], RDBUF_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, printers[printer_type].done_c_readback, READBACK_LEN, paper_code_offset, paper_code)) {
 			state = S_PRINTER_DONE;
 		}
 		break;
 	case S_PRINTER_DONE:
-		if (foot_lengths[printer_type]) {
+		if (printers[printer_type].foot_length) {
 			fprintf(stderr, "Sending cleanup sequence\n");
-			dump_data(foot_lengths[printer_type], 0, data_fd, dev_fd, buffer, BUF_LEN);
+			dump_data(printers[printer_type].foot_length, 0, data_fd, dev_fd, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
 		break;
