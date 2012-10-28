@@ -41,15 +41,36 @@
 #define dump_data dump_data_libusb
 
 /* USB Identifiers */
-#define USB_VID_CANON     0x04a9
-#define USB_PID_CANON_ES1 0x3141
-#define USB_PID_CANON_ES2 0x3185 
-#define USB_PID_CANON_ES20 1 // XXX
-#define USB_PID_CANON_ES3 2  // XXX
-#define USB_PID_CANON_ES30 0x31B0
-#define USB_PID_CANON_ES40 4 // XXX
-#define USB_PID_CANON_CP790 5 // XXX
-#define USB_PID_CANON_CP_XXX 6 // XXX
+#define USB_VID_CANON       0x04a9
+#define USB_PID_CANON_ES1   0x3141
+#define USB_PID_CANON_ES2   0x3185 
+#define USB_PID_CANON_ES20  20  // XXX
+#define USB_PID_CANON_ES3   3   // XXX
+#define USB_PID_CANON_ES30  0x31B0
+#define USB_PID_CANON_ES40  0x31EE
+#define USB_PID_CANON_CP10  0x403A
+#define USB_PID_CANON_CP100 0x3063
+#define USB_PID_CANON_CP200 200 // XXX
+#define USB_PID_CANON_CP220 0x30BD
+#define USB_PID_CANON_CP300 0x307D
+#define USB_PID_CANON_CP330 0x30BE
+#define USB_PID_CANON_CP400 0x30F6
+#define USB_PID_CANON_CP500 500 // XXX
+#define USB_PID_CANON_CP510 510 // XXX
+#define USB_PID_CANON_CP520 520 // XXX
+#define USB_PID_CANON_CP530 530 // XXX
+#define USB_PID_CANON_CP600 0x301B
+#define USB_PID_CANON_CP710 710 // XXX
+#define USB_PID_CANON_CP720 720 // XXX
+#define USB_PID_CANON_CP730 730 // XXX
+#define USB_PID_CANON_CP740 740 // XXX
+#define USB_PID_CANON_CP750 750 // XXX
+#define USB_PID_CANON_CP760 760 // XXX
+#define USB_PID_CANON_CP770 770 // XXX
+#define USB_PID_CANON_CP780 780 // XXX
+#define USB_PID_CANON_CP790 790 // XXX
+#define USB_PID_CANON_CP800 0x3214
+#define USB_PID_CANON_CP900 900 // XXX -- completely unknown type
 
 #define ENDPOINT_UP   0x81
 #define ENDPOINT_DOWN 0x02
@@ -194,7 +215,27 @@ int main (int argc, char **argv)
 			if (printer_type == P_ES40)
 				goto found2;
 			break;
-		case USB_PID_CANON_CP_XXX:
+		case USB_PID_CANON_CP10:
+		case USB_PID_CANON_CP100:
+		case USB_PID_CANON_CP200:
+		case USB_PID_CANON_CP220:
+		case USB_PID_CANON_CP300:
+		case USB_PID_CANON_CP330:
+		case USB_PID_CANON_CP400:
+		case USB_PID_CANON_CP500:
+		case USB_PID_CANON_CP510:
+		case USB_PID_CANON_CP520:
+		case USB_PID_CANON_CP530:
+		case USB_PID_CANON_CP600:
+		case USB_PID_CANON_CP710:
+		case USB_PID_CANON_CP720:
+		case USB_PID_CANON_CP730:
+		case USB_PID_CANON_CP740:
+		case USB_PID_CANON_CP750:
+		case USB_PID_CANON_CP760:
+		case USB_PID_CANON_CP770:
+		case USB_PID_CANON_CP780:
+		case USB_PID_CANON_CP800:
 			if (printer_type == P_CP_XXX)
 				goto found2;
 			break;
