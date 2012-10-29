@@ -13,11 +13,11 @@
    The SELPHY ES-series printers from Canon requires intelligent buffering
    of the raw print data in order to keep the printer from locking up.  
 
-   Known supported & tested printers:
+   Verified supported printers:
   
      SELPHY ES1, ES2, ES30 
 
-   Supported but untested:
+   Unverified/untested, but should work:
 
      SELPHY ES20, ES3
      SELPHY CP10, CP100, CP200, CP220, CP300, CP330, CP400, CP500, CP510,
@@ -26,9 +26,9 @@
  
    NOT currently supported:
 
-     SELPHY ES40, CP-790
+     SELPHY ES40, CP790
         I need the readback codes for these printers in order to proceed.
-     SELPHY CP-810, CP-900
+     SELPHY CP810, CP900
         Currently unknown stream format (and possibly unknown readback codes)
 
  ***************************************************************************
@@ -173,7 +173,6 @@
    End func:    40 20 00 00  00 00 00 00  00 00 00 00
 
    Plane codes are 0x01, 0x02, 0x03 for Y, M, and C, respectively.
-   B&W Jobs have a single plane code of 0x01.
 
    'P' papers pgcode of 0x00 and a plane length of 2227456 bytes.
    'CP_L'     pgcode of 0x01 and a plane length of 1601600 bytes.
@@ -183,7 +182,7 @@
    Readback codes are unknown.
 
  ***************************************************************************
- Selphy CP-series (except for CP-790, CP-810, CP-900):
+ Selphy CP-series (except for CP790, CP810, CP900):
  
    Init func:   40 00 00 [pgcode] 00 00 00 00 00 00 00 00
    Plane func:  40 01 00 [plane] [length, 32-bit LE] 00 00 00 00 
@@ -195,7 +194,7 @@
    'Card' paper  pgcode 0x03   plane length  698880 bytes.
    'Wide' paper  pgcode 0x04   plane length 2976512 bytes.
 
-   Known readback values (From a SELPHY CP-760)
+   Known readback values (From a SELPHY CP760)
 
    01 00 00 00 00 00 [pg] 00 00 00 00 00   [idle, waiting for init]
    02 00 00 00 70 00 [pg] 00 00 00 00 00   [waiting for Y data]
