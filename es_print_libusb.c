@@ -71,7 +71,7 @@
 #define USB_PID_CANON_CP790 790 // XXX
 #define USB_PID_CANON_CP800 0x3214
 #define USB_PID_CANON_CP810 0x3256 // XXX -- as of yet unknown file format
-#define USB_PID_CANON_CP900 900 // XXX -- completely unknown type
+#define USB_PID_CANON_CP900 0x3255 // XXX -- as of yet unknown file format
 
 #define ENDPOINT_UP   0x81
 #define ENDPOINT_DOWN 0x02
