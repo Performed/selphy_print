@@ -50,26 +50,26 @@
 #define USB_PID_CANON_ES40  0x31EE
 #define USB_PID_CANON_CP10  0x304A
 #define USB_PID_CANON_CP100 0x3063
-#define USB_PID_CANON_CP200 200 // XXX
+#define USB_PID_CANON_CP200 200 // XXX - maybe incoming
 #define USB_PID_CANON_CP220 0x30BD
 #define USB_PID_CANON_CP300 0x307D
-#define USB_PID_CANON_CP330 0x30BE
-#define USB_PID_CANON_CP400 0x30F6
+#define USB_PID_CANON_CP330 0x30BE // - maybe incoming
+#define USB_PID_CANON_CP400 0x30F6 // - maybe incoming
 #define USB_PID_CANON_CP500 500 // XXX
-#define USB_PID_CANON_CP510 510 // XXX
+#define USB_PID_CANON_CP510 510 // XXX - maybe incoming
 #define USB_PID_CANON_CP520 520 // XXX
 #define USB_PID_CANON_CP530 530 // XXX
 #define USB_PID_CANON_CP600 0x310B
 #define USB_PID_CANON_CP710 710 // XXX
-#define USB_PID_CANON_CP720 720 // XXX
+#define USB_PID_CANON_CP720 0x3143 // - incoming
 #define USB_PID_CANON_CP730 730 // XXX
 #define USB_PID_CANON_CP740 0x3171
 #define USB_PID_CANON_CP750 750 // XXX
 #define USB_PID_CANON_CP760 0x31AB
 #define USB_PID_CANON_CP770 770 // XXX
-#define USB_PID_CANON_CP780 780 // XXX
+#define USB_PID_CANON_CP780 780 // XXX - maybe incoming
 #define USB_PID_CANON_CP790 790 // XXX
-#define USB_PID_CANON_CP800 0x3214
+#define USB_PID_CANON_CP800 0x3214 // - maybe incoming
 #define USB_PID_CANON_CP810 0x3256 // XXX -- as of yet unknown file format
 #define USB_PID_CANON_CP900 0x3255 // XXX -- as of yet unknown file format
 
