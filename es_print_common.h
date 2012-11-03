@@ -1,5 +1,5 @@
 /*
- *   Canon SELPHY ES series print assister -- Common Code
+ *   Canon SELPHY ES/CP series print assister -- Common Code
  *
  *   (c) 2007-2012 Solomon Peachy <pizza@shaftnet.org>
  *
@@ -25,12 +25,12 @@
  *
  */
 
-#define VERSION "0.21"
+#define VERSION "0.22"
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define cpu_to_le32(__x) __x
+#define le32_to_cpu(__x) __x
 #else
-#define cpu_to_le32(x)							\
+#define le32_to_cpu(x)							\
 	({								\
 		uint32_t __x = (x);					\
 		((uint32_t)(						\
@@ -62,7 +62,8 @@ enum {
 	P_ES1 = 0,
 	P_ES2_20,
 	P_ES3_30,
-	P_ES40,
+	P_ES40_CP790,
+	P_CP900,
 	P_CP_XXX,
 	P_END
 };
@@ -104,7 +105,7 @@ struct printer_data printers[P_END] = {
 	  // .paper_codes
 	  .paper_code_offset = -1,
 	},
-	{ .type = P_ES40,
+	{ .type = P_ES40_CP790,
 	  .model = "SELPHY ES40/CP790",
 	  .init_length = 16,
 	  .foot_length = 12,
@@ -116,8 +117,20 @@ struct printer_data printers[P_END] = {
 	  // .paper_codes
 //	  .paper_code_offset = -1,
 	},
+	{ .type = P_CP900,
+	  .model = "SELPHY CP900",
+	  .init_length = 16,
+	  .foot_length = 4,
+//	  .init_readback = 
+//	  .ready_y_readback = 
+//	  .ready_m_readback = 
+//	  .ready_c_readback = 
+//	  .done_c_readback = 
+	  // .paper_codes
+//	  .paper_code_offset = -1,
+	},
 	{ .type = P_CP_XXX,
-	  .model = "SELPHY CP Series (Except CP790)",
+	  .model = "SELPHY CP Series (Except CP790/CP900)",
 	  .init_length = 12,
 	  .foot_length = 0,
 	  .init_readback = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -145,12 +158,12 @@ static void setup_paper_codes(void)
 	
 	/* SELPHY ES1 paper codes */
 	printers[P_ES1].paper_codes[0x11] = 0x01;
-	printers[P_ES1].paper_codes[0x12] = 0x02; // ?
+	printers[P_ES1].paper_codes[0x12] = 0x02; // ? guess
 	printers[P_ES1].paper_codes[0x13] = 0x03;
 	
 	/* SELPHY ES2/20 paper codes */
 	printers[P_ES2_20].paper_codes[0x01] = 0x01;
-	printers[P_ES2_20].paper_codes[0x02] = 0x02; // ?
+	printers[P_ES2_20].paper_codes[0x02] = 0x02; // ? guess
 	printers[P_ES2_20].paper_codes[0x03] = 0x03;
 	
 	/* SELPHY ES3/30 paper codes */
@@ -159,12 +172,18 @@ static void setup_paper_codes(void)
 	//  printers[P_ES3_30]paper_codes[0x03] = -1;
 	
 	/* SELPHY ES40/CP790 paper codes */
-	//  printers[P_ES40].paper_codes[0x00] = -1;
-	//  printers[P_ES40].paper_codes[0x01] = -1;
-	//  printers[P_ES40].paper_codes[0x02] = -1;
-	//  printers[P_ES40].paper_codes[0x03] = -1;
+	//  printers[P_ES40_CP790].paper_codes[0x00] = -1;
+	//  printers[P_ES40_CP790].paper_codes[0x01] = -1;
+	//  printers[P_ES40_CP790].paper_codes[0x02] = -1;
+	//  printers[P_ES40_CP790].paper_codes[0x03] = -1;
 
-	/* SELPHY CP-760 paper codes */
+	/* SELPHY CP-900 paper codes */
+	printers[P_CP900].paper_codes[0x01] = 0x11; // ? guess
+	printers[P_CP900].paper_codes[0x02] = 0x22; // ? guess
+	//  printers[P_CP900].paper_codes[0x03] = -1;
+	//  printers[P_CP900].paper_codes[0x04] = -1;
+
+	/* SELPHY CP-760 (and most others) paper codes */
 	printers[P_CP_XXX].paper_codes[0x01] = 0x11;
 	printers[P_CP_XXX].paper_codes[0x02] = 0x22;
 	//  printers[P_CP_XXX].paper_codes[0x03] = -1;
@@ -222,16 +241,21 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 	    buffer[13] == 0x01) {
 		if (buffer[2] == 0x00) {
 			printer_type = P_CP_XXX;
+			// XXX the P_CP900 is identical, but has extra
+			// data at the very end of the file.  No way to detect
+			// from a streamed source.
 		} else {
 			printer_type = P_ES1;
 			*bw_mode = (buffer[2] == 0x20);
 		}
 
 		*plane_len = *(uint32_t*)(&buffer[16]);
+		*plane_len = le32_to_cpu(*plane_len);
 		goto done;
 	}
 
 	*plane_len = *(uint32_t*)(&buffer[12]);
+	*plane_len = le32_to_cpu(*plane_len);
 
 	if (buffer[16] == 0x40 &&
 	    buffer[17] == 0x01) {
@@ -243,7 +267,7 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 		}
     
 		if (es40_plane_lengths[buffer[2]] == *plane_len) {
-			printer_type = P_ES40; 
+			printer_type = P_ES40_CP790; 
 			*bw_mode = (buffer[3] == 0x01);
 			goto done;
 		} else {
@@ -257,7 +281,6 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 	return -1;
 
 done:
-	*plane_len = cpu_to_le32(*plane_len);
 
 	return printer_type;
 }

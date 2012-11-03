@@ -1,6 +1,6 @@
  ***************************************************************************
 
-   Canon SELPHY ES series print assister 
+   Canon SELPHY ES/CP series print assister 
 
    (c) 2007-2012 Solomon Peachy <pizza@shaftnet.org>
 
@@ -10,8 +10,9 @@
 
  ***************************************************************************
  
-   The SELPHY ES-series printers from Canon requires intelligent buffering
-   of the raw print data in order to keep the printer from locking up.  
+   The SELPHY ES/CP series of printers from Canon generally require 
+   intelligent buffering of the raw print data in order to keep the printer 
+   from locking up.  This tool accomplishes just that.
 
    Verified supported printers:
   
@@ -22,14 +23,12 @@
      SELPHY ES20, ES3
      SELPHY CP10, CP100, CP200, CP220, CP300, CP330, CP400, CP500, CP510,
             CP520, CP530, CP600, CP710, CP720, CP730, CP740, CP750, CP760,
-	    CP770, CP780
+	    CP770, CP780, CP810
  
    NOT currently supported:
 
-     SELPHY ES40, CP790
-        I need the readback codes for these printers in order to proceed.
-     SELPHY CP810, CP900
-        Currently unknown stream format (and possibly unknown readback codes)
+     SELPHY ES40, CP790, CP900
+        I need the readback codes for these printers.
 
  ***************************************************************************
  Selphy ES1:
@@ -182,7 +181,22 @@
    Readback codes are unknown.
 
  ***************************************************************************
- Selphy CP-series (except for CP790, CP810, CP900):
+ Selphy CP-900
+ 
+   Init func:   40 00 00 [pgcode] 00 00 00 00 00 00 00 00
+   Plane func:  40 01 00 [plane] [length, 32-bit LE] 00 00 00 00 
+   End func:    00 00 00 00
+
+   plane codes are 0x00, 0x01, 0x02 for Y, M, and C, respectively.
+
+   'P' paper     pgcode 0x01   plane length 2227456 bytes.
+   'CP_L'        pgcode 0x02   plane length 1601600 bytes.
+   'Card' paper  pgcode 0x03   plane length  698880 bytes.
+
+   Readback codes are unknown, but likely identical to the other CP-series.
+
+ ***************************************************************************
+ Selphy CP-series (except for CP790/CP900):
  
    Init func:   40 00 00 [pgcode] 00 00 00 00 00 00 00 00
    Plane func:  40 01 00 [plane] [length, 32-bit LE] 00 00 00 00 
@@ -207,3 +221,4 @@
    'CP_L' paper has a code of 0x22
 
    Readback codes for other paper types are unknown.
+

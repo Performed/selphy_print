@@ -1,5 +1,5 @@
 /*
- *   Canon SELPHY series print assister -- libusb-1.0 version
+ *   Canon SELPHY ES/CP series print assister -- libusb-1.0 version
  *
  *   (c) 2007-2012 Solomon Peachy <pizza@shaftnet.org>
  *
@@ -66,12 +66,12 @@
 #define USB_PID_CANON_CP740 0x3171
 #define USB_PID_CANON_CP750 750 // XXX
 #define USB_PID_CANON_CP760 0x31AB
-#define USB_PID_CANON_CP770 770 // XXX
-#define USB_PID_CANON_CP780 780 // XXX - maybe incoming
+#define USB_PID_CANON_CP770 770 // XXX - maybe incoming
+#define USB_PID_CANON_CP780 780 // XXX - incoming
 #define USB_PID_CANON_CP790 790 // XXX
-#define USB_PID_CANON_CP800 0x3214 // - maybe incoming
-#define USB_PID_CANON_CP810 0x3256 // XXX -- as of yet unknown file format
-#define USB_PID_CANON_CP900 0x3255 // XXX -- as of yet unknown file format
+#define USB_PID_CANON_CP800 0x3214
+#define USB_PID_CANON_CP810 0x3256
+#define USB_PID_CANON_CP900 0x3255
 
 #define ENDPOINT_UP   0x81
 #define ENDPOINT_DOWN 0x02
@@ -151,7 +151,7 @@ int main (int argc, char **argv)
 	
 	/* Cmdline help */
 	if (argc < 2) {
-		fprintf(stderr, "SELPHY Print Assist version %s\n\nUsage:\n\t%s [ infile | - ]\n",
+		fprintf(stderr, "SELPHY ES/CP Print Assist version %s\n\nUsage:\n\t%s [ infile | - ]\n",
 			VERSION,
 			argv[0]);
 		fprintf(stderr, "\n");
@@ -213,7 +213,13 @@ int main (int argc, char **argv)
 			break;
 		case USB_PID_CANON_ES40:
 		case USB_PID_CANON_CP790:
-			if (printer_type == P_ES40)
+			if (printer_type == P_ES40_CP790)
+				goto found2;
+			break;
+		case USB_PID_CANON_CP900:
+			/* XXX deliberate.  no way to distinguish P_CP900 based
+			   on a streamed-in print job */
+			if (printer_type == P_CP_XXX)
 				goto found2;
 			break;
 		case USB_PID_CANON_CP10:
@@ -237,6 +243,7 @@ int main (int argc, char **argv)
 		case USB_PID_CANON_CP770:
 		case USB_PID_CANON_CP780:
 		case USB_PID_CANON_CP800:
+		case USB_PID_CANON_CP810:
 			if (printer_type == P_CP_XXX)
 				goto found2;
 			break;

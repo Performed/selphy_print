@@ -1,5 +1,5 @@
 /*
- *   Canon SELPHY series print assister -- Native Linux version
+ *   Canon SELPHY ES/CP series print assister -- Native Linux version
  *
  *   (c) 2007-2012 Solomon Peachy <pizza@shaftnet.org>
  *
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		fprintf(stderr, "SELPHY Print Assist version %s\n\nUsage:\n\t%s [ infile | - ] [ outdev ]\n",
+		fprintf(stderr, "SELPHY ES/CP Print Assist version %s\n\nUsage:\n\t%s [ infile | - ] [ outdev ]\n",
 			VERSION,
 			argv[0]);
 		fprintf(stderr, "\n");
