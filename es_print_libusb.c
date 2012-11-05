@@ -43,7 +43,7 @@
 /* USB Identifiers */
 #define USB_VID_CANON       0x04a9
 #define USB_PID_CANON_ES1   0x3141
-#define USB_PID_CANON_ES2   0x3185 
+#define USB_PID_CANON_ES2   0x3185
 #define USB_PID_CANON_ES20  20  // XXX
 #define USB_PID_CANON_ES3   3   // XXX
 #define USB_PID_CANON_ES30  0x31B0
@@ -53,15 +53,15 @@
 #define USB_PID_CANON_CP200 200 // XXX - maybe incoming
 #define USB_PID_CANON_CP220 0x30BD
 #define USB_PID_CANON_CP300 0x307D
-#define USB_PID_CANON_CP330 0x30BE // - maybe incoming
-#define USB_PID_CANON_CP400 0x30F6 // - maybe incoming
+#define USB_PID_CANON_CP330 0x30BE // - incoming
+#define USB_PID_CANON_CP400 0x30F6 // - incoming
 #define USB_PID_CANON_CP500 500 // XXX
-#define USB_PID_CANON_CP510 510 // XXX - maybe incoming
+#define USB_PID_CANON_CP510 510 // XXX - incoming
 #define USB_PID_CANON_CP520 520 // XXX
 #define USB_PID_CANON_CP530 530 // XXX
 #define USB_PID_CANON_CP600 0x310B
 #define USB_PID_CANON_CP710 710 // XXX
-#define USB_PID_CANON_CP720 0x3143 // - incoming
+#define USB_PID_CANON_CP720 0x3143
 #define USB_PID_CANON_CP730 730 // XXX
 #define USB_PID_CANON_CP740 0x3171
 #define USB_PID_CANON_CP750 750 // XXX
@@ -101,7 +101,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 					 &num,
 					 2000);
 		if (i < 0) {
-			fprintf(stderr, "libusb error(%d)\n", i);
+			fprintf(stderr, "libusb xfer (%d) error: %d\n", cnt, i);
 			return -1;
 		}
 
@@ -274,7 +274,7 @@ found2:
 	ret = libusb_open(list[i], &dev);
 	if (ret) {
 		fprintf(stderr, "Could not open device (Need to be root?) (%d)\r\n", ret);
-		goto done;
+		goto done_close;
 	}
 	
 	claimed = libusb_kernel_driver_active(dev, iface);
@@ -282,14 +282,14 @@ found2:
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
 			fprintf(stderr, "Could not detach printer from kernel (%d)\r\n", ret);
-			goto done;
+			goto done_close;
 		}
 	}
 
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
 		fprintf(stderr, "Could not claim printer interface (%d)\r\n", ret);
-		goto done;
+		goto done_close;
 	}
 
 top:
@@ -300,8 +300,8 @@ top:
 				   &num,
 				   2000);
 	if (ret < 0) {
-		fprintf(stderr, "libusb error (%d)\n", ret);
-		goto done;
+		fprintf(stderr, "libusb error (%d) (%d)\n", READBACK_LEN, num);
+		goto done_claimed;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
@@ -336,7 +336,7 @@ top:
 					   2000);
 		if (ret < 0) {
 			fprintf(stderr, "libusb error (%d) (%d)\n", ret, num);
-			goto done;
+			goto done_claimed;
 		}
 
 		/* Realign plane data to start of buffer.. */
@@ -401,12 +401,14 @@ top:
 		goto top;
 
 	/* Done printing */
-	
+
+done_claimed:
 	libusb_release_interface(dev, iface);
 
 	if (claimed)
 		libusb_attach_kernel_driver(dev, iface);
 
+done_close:
 	libusb_close(dev);
 
 done:
