@@ -123,6 +123,7 @@ int main (int argc, char **argv)
 	struct libusb_device **list;
 	struct libusb_device_handle *dev;
 	struct libusb_config_descriptor *config;
+	struct libusb_device_descriptor desc;
 
 	uint8_t endp_up = 0;
 	uint8_t endp_down = 0;
@@ -191,8 +192,6 @@ int main (int argc, char **argv)
 	num = libusb_get_device_list(ctx, &list);
 
 	for (i = 0 ; i < num ; i++) {
-		struct libusb_device_descriptor desc;
-
 		libusb_get_device_descriptor(list[i], &desc);
 
 		if (desc.idVendor != USB_VID_CANON)
@@ -264,12 +263,29 @@ int main (int argc, char **argv)
 
 found2:
 
-	fprintf(stderr, "Found a %s printer\r\n", printers[printer_type].model);
-
 	ret = libusb_open(list[i], &dev);
 	if (ret) {
 		fprintf(stderr, "Could not open device (Need to be root?) (%d)\r\n", ret);
 		goto done_close;
+	}
+
+	/* Query detailed info */
+	fprintf(stderr, "Found a %s printer\r\n", printers[printer_type].model);
+	fprintf(stderr, "Vid: %04x\nPid: %04x\n", desc.idVendor, desc.idProduct);
+	if (desc.iManufacturer || desc.iProduct || desc.iSerialNumber) {
+		unsigned char buf[128];
+		if (desc.iManufacturer) {
+			ret = libusb_get_string_descriptor_ascii(dev, desc.iManufacturer, buf, 128);
+			fprintf(stderr, "Mfg: %s\n", buf);
+		}
+		if (desc.iProduct) {
+			ret = libusb_get_string_descriptor_ascii(dev, desc.iProduct, buf, 128);
+			fprintf(stderr, "Prod: %s\n", buf);
+		}
+		if (desc.iSerialNumber) {
+			ret = libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, buf, 128);
+			fprintf(stderr, "SerNo: %s\n", buf);
+		}
 	}
 	
 	claimed = libusb_kernel_driver_active(dev, iface);
@@ -280,6 +296,8 @@ found2:
 			goto done_close;
 		}
 	}
+
+	goto done_close;
 
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
@@ -415,10 +433,10 @@ top:
 done_claimed:
 	libusb_release_interface(dev, iface);
 
+done_close:
 	if (claimed)
 		libusb_attach_kernel_driver(dev, iface);
 
-done_close:
 	libusb_close(dev);
 
 done:

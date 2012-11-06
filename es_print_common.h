@@ -25,7 +25,7 @@
  *
  */
 
-#define VERSION "0.23"
+#define VERSION "0.24"
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le32_to_cpu(__x) __x
@@ -130,7 +130,7 @@ struct printer_data printers[P_END] = {
 //	  .paper_code_offset = -1,
 	},
 	{ .type = P_CP_XXX,
-	  .model = "SELPHY CP Series (Except CP790/CP900)",
+	  .model = "SELPHY CP Series (!CP790/CP900)",
 	  .init_length = 12,
 	  .foot_length = 0,
 	  .init_readback = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -242,7 +242,7 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 			printer_type = P_CP_XXX;
 			// XXX the P_CP900 is identical, but has extra
 			// data at the very end of the file.  No way to detect
-			// from a streamed source.
+			// from a streamed source!
 		} else {
 			printer_type = P_ES1;
 			*bw_mode = (buffer[2] == 0x20);
