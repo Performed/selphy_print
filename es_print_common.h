@@ -146,7 +146,7 @@ struct printer_data printers[P_END] = {
 #define MAX_HEADER 28
 #define BUF_LEN 4096
 
-static const int es40_plane_lengths[4] = { 2227456, 1601600, 698880, 2976512 };
+static const int es40_cp790_plane_lengths[4] = { 2227456, 1601600, 698880, 2976512 };
 
 static void setup_paper_codes(void)
 {
@@ -166,7 +166,7 @@ static void setup_paper_codes(void)
 	printers[P_ES2_20].paper_codes[0x02] = 0x02; // ? guess
 	printers[P_ES2_20].paper_codes[0x03] = 0x03;
 	
-	/* SELPHY ES3/30 paper codes */
+	/* SELPHY ES3/30 paper codes -- N/A, printer does not report paper type */
 	//  printers[P_ES3_30]paper_codes[0x01] = -1;
 	//  printers[P_ES3_30]paper_codes[0x02] = -1;
 	//  printers[P_ES3_30]paper_codes[0x03] = -1;
@@ -180,14 +180,13 @@ static void setup_paper_codes(void)
 	/* SELPHY CP-900 paper codes */
 	printers[P_CP900].paper_codes[0x01] = 0x11; // ? guess
 	printers[P_CP900].paper_codes[0x02] = 0x22; // ? guess
-	//  printers[P_CP900].paper_codes[0x03] = -1;
-	//  printers[P_CP900].paper_codes[0x04] = -1;
+	printers[P_CP900].paper_codes[0x03] = 0x33; // ? guess
 
-	/* SELPHY CP-760 (and most others) paper codes */
+	/* SELPHY CP-series (except CP790/CP900) paper codes */
 	printers[P_CP_XXX].paper_codes[0x01] = 0x11;
 	printers[P_CP_XXX].paper_codes[0x02] = 0x22;
-	//  printers[P_CP_XXX].paper_codes[0x03] = -1;
-	//  printers[P_CP_XXX].paper_codes[0x04] = -1;
+	printers[P_CP_XXX].paper_codes[0x03] = 0x33; // ? guess
+	printers[P_CP_XXX].paper_codes[0x04] = 0x44; // ? guess
 }
 
 #define INCORRECT_PAPER -999
@@ -266,7 +265,7 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 			goto done;
 		}
     
-		if (es40_plane_lengths[buffer[2]] == *plane_len) {
+		if (es40_cp790_plane_lengths[buffer[2]] == *plane_len) {
 			printer_type = P_ES40_CP790; 
 			*bw_mode = (buffer[3] == 0x01);
 			goto done;
