@@ -203,7 +203,7 @@ int main (int argc, char **argv)
 				goto found2;
 			break;
 		case USB_PID_CANON_ES2: // "Canon SELPHY ES2"
-		case USB_PID_CANON_ES20:
+		case USB_PID_CANON_ES20: // "Canon SELPHY ES20"
 			if (printer_type == P_ES2_20)
 				goto found2;
 			break;
@@ -212,39 +212,39 @@ int main (int argc, char **argv)
 			if (printer_type == P_ES3_30)
 				goto found2;
 			break;
-		case USB_PID_CANON_ES40:
+		case USB_PID_CANON_ES40: // "Canon SELPHY ES40"
 		case USB_PID_CANON_CP790:
 			if (printer_type == P_ES40_CP790)
 				goto found2;
 			break;
-		case USB_PID_CANON_CP900:
-			/* XXX deliberate.  no way to distinguish P_CP900 based
-			   on a streamed-in print job */
-			if (printer_type == P_CP_XXX)
-				goto found2;
-			break;
-		case USB_PID_CANON_CP10:
-		case USB_PID_CANON_CP100:
-		case USB_PID_CANON_CP200:
+		case USB_PID_CANON_CP10: // "Canon CP-10"
+		case USB_PID_CANON_CP100: // "Canon CP-100"
+		case USB_PID_CANON_CP200: // "Canon CP-200"
 		case USB_PID_CANON_CP220: // "Canon CP-220"
-		case USB_PID_CANON_CP300:
-		case USB_PID_CANON_CP330:
-		case USB_PID_CANON_CP400:
-		case USB_PID_CANON_CP500:
-		case USB_PID_CANON_CP510:
-		case USB_PID_CANON_CP520:
-		case USB_PID_CANON_CP530:
-		case USB_PID_CANON_CP600:
-		case USB_PID_CANON_CP710:
+		case USB_PID_CANON_CP300: // "Canon CP-300"
+		case USB_PID_CANON_CP330: // "Canon CP-330"
+		case USB_PID_CANON_CP400: // "Canon SELPHY CP400"
+		case USB_PID_CANON_CP500: // "Canon SELPHY CP500"
+		case USB_PID_CANON_CP510: // "Canon SELPHY CP510"
+		case USB_PID_CANON_CP520: // "Canon SELPHY CP520"
+		case USB_PID_CANON_CP530: // "Canon SELPHY CP530"
+		case USB_PID_CANON_CP600: // "Canon SELPHY CP600"
+		case USB_PID_CANON_CP710: // "Canon SELPHY CP710"
 		case USB_PID_CANON_CP720: // "Canon SELPHY CP720"
-		case USB_PID_CANON_CP730:
-		case USB_PID_CANON_CP740:
-		case USB_PID_CANON_CP750:
+		case USB_PID_CANON_CP730: // "Canon SELPHY CP730"
+		case USB_PID_CANON_CP740: // "Canon SELPHY CP740"
+		case USB_PID_CANON_CP750: // "Canon SELPHY CP750"
 		case USB_PID_CANON_CP760: // "Canon SELPHY CP760"
 		case USB_PID_CANON_CP770: // "Canon SELPHY CP770"
 		case USB_PID_CANON_CP780: // "Canon SELPHY CP780"
-		case USB_PID_CANON_CP800:
-		case USB_PID_CANON_CP810:
+		case USB_PID_CANON_CP800: // "Canon SELPHY CP800"
+		case USB_PID_CANON_CP810: // "Canon SELPHY CP810"
+			if (printer_type == P_CP_XXX)
+				goto found2;
+			break;
+		case USB_PID_CANON_CP900: // "Canon SELPHY CP900"
+			/* XXX deliberate.  no way to distinguish P_CP900 based
+			   on a streamed-in print job */
 			if (printer_type == P_CP_XXX)
 				goto found2;
 			break;
@@ -257,7 +257,7 @@ int main (int argc, char **argv)
 
 	if (i == num) {
 		ret = 1;
-		fprintf(stderr, "No suitable printers found (looking for %s)\n", printers[printer_type].model);
+		fprintf(stderr, "No suitable printers found (looking for '%s')\n", printers[printer_type].model);
 		goto done;
 	}
 
