@@ -16,13 +16,13 @@
 
    Verified supported printers:
   
-     SELPHY ES1, ES2, ES30 
+     SELPHY ES1, ES2, ES30, CP720
 
    Unverified/untested, but should work:
 
      SELPHY ES20, ES3
      SELPHY CP10, CP100, CP200, CP220, CP300, CP330, CP400, CP500, CP510,
-            CP520, CP530, CP600, CP710, CP720, CP730, CP740, CP750, CP760,
+            CP520, CP530, CP600, CP710, CP730, CP740, CP750, CP760,
 	    CP770, CP780, CP810
  
    NOT currently supported:
