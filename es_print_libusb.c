@@ -264,13 +264,6 @@ int main (int argc, char **argv)
 
 found2:
 
-#if 0
-	// XXX pull interface list, and make sure we have the right one.
-		if (interface.bInterfaceClass != LIBUSB_CLASS_PRINTER)
-			continue;
-#endif
-
-
 	fprintf(stderr, "Found a %s printer\r\n", printers[printer_type].model);
 
 	ret = libusb_open(list[i], &dev);
@@ -308,7 +301,6 @@ found2:
 				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
 		}
 	}
-	goto done_close;
 
 top:
 	/* Read in the printer status */

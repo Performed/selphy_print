@@ -208,17 +208,18 @@
    'Card' paper  pgcode 0x03   plane length  698880 bytes.
    'Wide' paper  pgcode 0x04   plane length 2976512 bytes.
 
-   Known readback values (From a SELPHY CP760)
+   Known readback values (From a SELPHY CP760/CP720)
 
    01 00 00 00 00 00 [pg] 00 00 00 00 00   [idle, waiting for init]
    02 00 00 00 70 00 [pg] 00 00 00 00 00   [waiting for Y data]
    04 00 00 00 00 00 [pg] 00 00 00 00 00   [waiting for M data]
    08 00 00 00 00 00 [pg] 00 00 00 00 00   [waiting for C data]
-   10 00 00 00 00 00 [pg] 00 00 00 00 00   [?]
-   20 00 00 00 00 00 [pg] 00 00 00 00 00   [?]
+   10 00 00 00 00 00 [pg] 00 00 00 00 00   [C done, waiting]
+   20 00 00 00 00 00 [pg] 00 00 00 00 00   [All done]
 
    'P'    paper has a code of 0x11
    'CP_L' paper has a code of 0x22
 
-   Readback codes for other paper types are unknown.
+   When 'P' ribbon is present, but no paper, code is '0x01'
 
+   Readback codes for other paper types are unknown.
