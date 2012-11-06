@@ -73,11 +73,9 @@
 #define USB_PID_CANON_CP810 0x3256
 #define USB_PID_CANON_CP900 0x3255
 
-#define ENDPOINT_UP   0x81
-#define ENDPOINT_DOWN 0x02
-
 static int dump_data_libusb(int remaining, int present, int data_fd, 
 			    struct libusb_device_handle *dev, 
+			    uint8_t endpoint,
 			    uint8_t *buf, uint16_t buflen) {
 	int cnt;
 	int i;
@@ -95,7 +93,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 			present = 0;
 		}
 
-		i = libusb_bulk_transfer(dev, ENDPOINT_DOWN,
+		i = libusb_bulk_transfer(dev, endpoint,
 					 buf,
 					 cnt,
 					 &num,
@@ -124,6 +122,10 @@ int main (int argc, char **argv)
 	struct libusb_context *ctx;
 	struct libusb_device **list;
 	struct libusb_device_handle *dev;
+	struct libusb_config_descriptor *config;
+
+	uint8_t endp_up = 0;
+	uint8_t endp_down = 0;
 
 	int printer_type = P_END;
 
@@ -292,15 +294,31 @@ found2:
 		goto done_close;
 	}
 
+	ret = libusb_get_active_config_descriptor(list[i], &config);
+	if (ret) {
+		fprintf(stderr, "Could not fetch config descriptor (%d)\r\n", ret);
+		goto done_close;
+	}
+
+	for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
+		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
+			if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
+				endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
+			else
+				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
+		}
+	}
+	goto done_close;
+
 top:
 	/* Read in the printer status */
-	ret = libusb_bulk_transfer(dev, ENDPOINT_UP,
+	ret = libusb_bulk_transfer(dev, endp_up,
 				   rdbuf,
 				   READBACK_LEN,
 				   &num,
 				   2000);
 	if (ret < 0) {
-		fprintf(stderr, "libusb error (%d) (%d)\n", READBACK_LEN, num);
+		fprintf(stderr, "libusb error (%d) (%d)\n", ret, READBACK_LEN);
 		goto done_claimed;
 	}
 
@@ -329,7 +347,7 @@ top:
 		fprintf(stderr, "Sending init sequence (%d bytes)\n", printers[printer_type].init_length);
 
 		/* Send printer init */
-		ret = libusb_bulk_transfer(dev, ENDPOINT_DOWN,
+		ret = libusb_bulk_transfer(dev, endp_down,
 					   buffer,
 					   printers[printer_type].init_length,
 					   &num,
@@ -355,7 +373,7 @@ top:
 			fprintf(stderr, "Sending BLACK plane\n");
 		else
 			fprintf(stderr, "Sending YELLOW plane\n");
-		dump_data(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev, buffer, BUF_LEN);
+		dump_data(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
@@ -368,7 +386,7 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		fprintf(stderr, "Sending MAGENTA plane\n");
-		dump_data(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
+		dump_data(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
@@ -378,7 +396,7 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		fprintf(stderr, "Sending CYAN plane\n");
-		dump_data(plane_len, 0, data_fd, dev, buffer, BUF_LEN);
+		dump_data(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
@@ -389,7 +407,7 @@ top:
 	case S_PRINTER_DONE:
 		if (printers[printer_type].foot_length) {
 			fprintf(stderr, "Sending cleanup sequence\n");
-			dump_data(printers[printer_type].foot_length, 0, data_fd, dev, buffer, BUF_LEN);
+			dump_data(printers[printer_type].foot_length, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
 		break;
