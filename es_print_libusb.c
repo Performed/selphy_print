@@ -297,8 +297,6 @@ found2:
 		}
 	}
 
-	goto done_close;
-
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
 		fprintf(stderr, "Could not claim printer interface (%d)\r\n", ret);
