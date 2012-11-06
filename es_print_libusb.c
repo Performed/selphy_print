@@ -50,7 +50,7 @@
 #define USB_PID_CANON_ES40  0x31EE
 #define USB_PID_CANON_CP10  0x304A
 #define USB_PID_CANON_CP100 0x3063
-#define USB_PID_CANON_CP200 200 // XXX - maybe incoming
+#define USB_PID_CANON_CP200 200 // XXX
 #define USB_PID_CANON_CP220 0x30BD
 #define USB_PID_CANON_CP300 0x307D
 #define USB_PID_CANON_CP330 0x30BE // - incoming
@@ -66,7 +66,7 @@
 #define USB_PID_CANON_CP740 0x3171
 #define USB_PID_CANON_CP750 750 // XXX
 #define USB_PID_CANON_CP760 0x31AB
-#define USB_PID_CANON_CP770 770 // XXX - maybe incoming
+#define USB_PID_CANON_CP770 770 // XXX - incoming
 #define USB_PID_CANON_CP780 780 // XXX - incoming
 #define USB_PID_CANON_CP790 790 // XXX
 #define USB_PID_CANON_CP800 0x3214
@@ -198,17 +198,17 @@ int main (int argc, char **argv)
 			continue;
 
 		switch(desc.idProduct) {
-		case USB_PID_CANON_ES1:
+		case USB_PID_CANON_ES1: // "Canon SELPHY ES1"
 			if (printer_type == P_ES1)
 				goto found2;
 			break;
-		case USB_PID_CANON_ES2:
+		case USB_PID_CANON_ES2: // "Canon SELPHY ES2"
 		case USB_PID_CANON_ES20:
 			if (printer_type == P_ES2_20)
 				goto found2;
 			break;
 		case USB_PID_CANON_ES3:
-		case USB_PID_CANON_ES30:
+		case USB_PID_CANON_ES30: // "Canon SELPHY ES30"
 			if (printer_type == P_ES3_30)
 				goto found2;
 			break;
@@ -236,7 +236,7 @@ int main (int argc, char **argv)
 		case USB_PID_CANON_CP530:
 		case USB_PID_CANON_CP600:
 		case USB_PID_CANON_CP710:
-		case USB_PID_CANON_CP720:
+		case USB_PID_CANON_CP720: // "Canon SELPHY CP720"
 		case USB_PID_CANON_CP730:
 		case USB_PID_CANON_CP740:
 		case USB_PID_CANON_CP750:
