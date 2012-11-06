@@ -207,7 +207,7 @@ int main (int argc, char **argv)
 			if (printer_type == P_ES2_20)
 				goto found2;
 			break;
-		case USB_PID_CANON_ES3:
+		case USB_PID_CANON_ES3: // "Canon SELPHY ES3"
 		case USB_PID_CANON_ES30: // "Canon SELPHY ES30"
 			if (printer_type == P_ES3_30)
 				goto found2;
@@ -226,7 +226,7 @@ int main (int argc, char **argv)
 		case USB_PID_CANON_CP10:
 		case USB_PID_CANON_CP100:
 		case USB_PID_CANON_CP200:
-		case USB_PID_CANON_CP220:
+		case USB_PID_CANON_CP220: // "Canon CP-220"
 		case USB_PID_CANON_CP300:
 		case USB_PID_CANON_CP330:
 		case USB_PID_CANON_CP400:
@@ -240,9 +240,9 @@ int main (int argc, char **argv)
 		case USB_PID_CANON_CP730:
 		case USB_PID_CANON_CP740:
 		case USB_PID_CANON_CP750:
-		case USB_PID_CANON_CP760:
-		case USB_PID_CANON_CP770:
-		case USB_PID_CANON_CP780:
+		case USB_PID_CANON_CP760: // "Canon SELPHY CP760"
+		case USB_PID_CANON_CP770: // "Canon SELPHY CP770"
+		case USB_PID_CANON_CP780: // "Canon SELPHY CP780"
 		case USB_PID_CANON_CP800:
 		case USB_PID_CANON_CP810:
 			if (printer_type == P_CP_XXX)
