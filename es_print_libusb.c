@@ -73,7 +73,6 @@
 #define USB_PID_CANON_CP810 0x3256
 #define USB_PID_CANON_CP900 0x3255
 
-// XXX fix this to return sane CUPS error.
 static int dump_data_libusb(int remaining, int present, int data_fd, 
 			    struct libusb_device_handle *dev, 
 			    uint8_t endpoint,
@@ -424,7 +423,11 @@ top:
 			DEBUG("Sending BLACK plane\n");
 		else
 			DEBUG("Sending YELLOW plane\n");
-		dump_data_libusb(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev, endp_down, buffer, BUF_LEN);
+		ret = dump_data_libusb(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev, endp_down, buffer, BUF_LEN);
+		if (ret < 0) {
+			ret = 4;
+			goto done_claimed;
+		}
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
@@ -437,7 +440,11 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		DEBUG("Sending MAGENTA plane\n");
-		dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+		ret = dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+		if (ret < 0) {
+			ret = 4;
+			goto done_claimed;
+		}
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
@@ -447,7 +454,11 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		DEBUG("Sending CYAN plane\n");
-		dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+		ret = dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+		if (ret < 0) {
+			ret = 4;
+			goto done_claimed;
+		}
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
@@ -458,7 +469,11 @@ top:
 	case S_PRINTER_DONE:
 		if (printers[printer_type].foot_length) {
 			DEBUG("Sending cleanup sequence\n");
-			dump_data_libusb(printers[printer_type].foot_length, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+			ret = dump_data_libusb(printers[printer_type].foot_length, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+			if (ret < 0) {
+				ret = 4;
+				goto done_claimed;
+			}
 		}
 		state = S_FINISHED;
 		break;
