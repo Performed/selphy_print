@@ -38,7 +38,6 @@
 
 #include "es_print_common.h"
 
-#define dump_data dump_data_libusb
 #define STR_LEN_MAX 32
 
 /* USB Identifiers */
@@ -74,6 +73,7 @@
 #define USB_PID_CANON_CP810 0x3256
 #define USB_PID_CANON_CP900 0x3255
 
+// XXX fix this to return sane CUPS error.
 static int dump_data_libusb(int remaining, int present, int data_fd, 
 			    struct libusb_device_handle *dev, 
 			    uint8_t endpoint,
@@ -118,86 +118,26 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 	return wrote;
 }
 
-int main (int argc, char **argv)
+static int find_and_enumerate(struct libusb_context *ctx,
+			      struct libusb_device ***list,
+			      int printer_type,
+			      int scan_only)
 {
-	struct libusb_context *ctx;
-	struct libusb_device **list;
-	struct libusb_device_handle *dev;
-	struct libusb_config_descriptor *config;
-
-	uint8_t endp_up = 0;
-	uint8_t endp_down = 0;
-
-	int printer_type = P_END;
-
-	int iface = 0;
-
-	int num, i;
-	int ret = 0;
-	int claimed;
+	int num;
+	int i;
 	int found = -1;
 
-	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
-	int last_state = -1, state = S_IDLE;
-
-	int plane_len = 0;
-
-	int bw_mode = 0;
-	int16_t paper_code_offset = -1;
-	int16_t paper_code = -1;
-
-	uint8_t buffer[BUF_LEN];
-
-	int data_fd = fileno(stdin);
-
-	/* Static initialization */
-	setup_paper_codes();
-	
-	/* Cmdline help */
-	if (argc < 2) {
-		fprintf(stderr, "SELPHY ES/CP Print Assist version %s\n\nUsage:\n\t%s [ infile | - ]\n",
-			VERSION,
-			argv[0]);
-		fprintf(stderr, "\n");
-		exit(1);
-	}
-
-	/* Open Input File */
-	if (strcmp("-", argv[1])) {
-		data_fd = open(argv[1], O_RDONLY);
-		if (data_fd < 0) {
-			perror("Can't open input file");
-			exit(1);
-		}
-	}
-
-	/* Figure out printer this file is intended for */
-	read(data_fd, buffer, MAX_HEADER);
-
-	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
-	if (printer_type < 0) {
-		return(-1);
-	}
-
-	fprintf(stderr, "%s File intended for a '%s' printer\n",  bw_mode? "B/W " : "", printers[printer_type].model);
-
-	plane_len += 12; /* Add in plane header */
-	paper_code_offset = printers[printer_type].paper_code_offset;
-	if (paper_code_offset != -1)
-		paper_code = printers[printer_type].paper_codes[paper_code_offset];
-
-	/* Libusb setup */
-	libusb_init(&ctx);
+	struct libusb_device_handle *dev;
 
 	/* Enumerate and find suitable device */
-	num = libusb_get_device_list(ctx, &list);
+	num = libusb_get_device_list(ctx, list);
 
 	for (i = 0 ; i < num ; i++) {
 		struct libusb_device_descriptor desc;
-		unsigned char product[STR_LEN_MAX];
-		unsigned char serial[STR_LEN_MAX];
+		unsigned char product[STR_LEN_MAX] = "";
+		unsigned char serial[STR_LEN_MAX] = "";
 		int valid = 0;
-		libusb_get_device_descriptor(list[i], &desc);
+		libusb_get_device_descriptor((*list)[i], &desc);
 
 		if (desc.idVendor != USB_VID_CANON)
 			continue;
@@ -263,43 +203,127 @@ int main (int argc, char **argv)
 			break;
 		}
 
-		ret = libusb_open(list[found], &dev);
-		if (ret) {
-			fprintf(stderr, "Could not open device (Need to be root?) (%d)\n", ret);
-			goto done;
+		if (libusb_open(((*list)[i]), &dev)) {
+			fprintf(stderr, "Could not open device %04x:%04x\n", desc.idVendor, desc.idProduct);
+			found = -1;
+			continue;
 		}
 
 		/* Query detailed info */
-		if (!valid)
-			fprintf(stderr, "UNRECOGNIZED: ");
-		if (found == i)
-			fprintf(stderr, "MATCH: ");
-		fprintf(stderr, "PID: %04x ", desc.idProduct);
 		if (desc.iProduct) {
-			ret = libusb_get_string_descriptor_ascii(dev, desc.iProduct, product, STR_LEN_MAX);
-			fprintf(stderr, "Product: '%s' ", product);
+			libusb_get_string_descriptor_ascii(dev, desc.iProduct, product, STR_LEN_MAX);
 		}
 		if (desc.iSerialNumber) {
-			ret = libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, serial, STR_LEN_MAX);
-			fprintf(stderr, "Serial: '%s' ", serial);
+			libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, serial, STR_LEN_MAX);
 		}
-		fprintf(stderr, "\n");
 
-//		fprintf(stdout, "direct scheme \"selphy\" \"%s #%s\"\n",
-//			product, serial);
+		if (valid && scan_only) {
+			fprintf(stdout, "direct scheme \"selphy\" \"%s (%s)\"\n",
+				product, serial);
+		} else {
+			if (!valid)
+				fprintf(stderr, "UNRECOGNIZED: ");
+			else if (found == i)
+				fprintf(stderr, "MATCH: ");
+			fprintf(stderr, "PID: %04x ", desc.idProduct);
+			fprintf(stderr, "Product: '%s' ", product);
+			fprintf(stderr, "Serial: '%s' ", serial);	
+			fprintf(stderr, "\n");
+		}
 
 		libusb_close(dev);
 	}
 
+	return found;
+}
+
+int main (int argc, char **argv)
+{
+	struct libusb_context *ctx;
+	struct libusb_device **list;
+	struct libusb_device_handle *dev;
+	struct libusb_config_descriptor *config;
+
+	uint8_t endp_up = 0;
+	uint8_t endp_down = 0;
+
+	int printer_type = P_END;
+
+	int iface = 0;
+
+	int num, i;
+	int ret = 0;
+	int claimed;
+	int found = -1;
+
+	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
+	int last_state = -1, state = S_IDLE;
+
+	int plane_len = 0;
+
+	int bw_mode = 0;
+	int16_t paper_code_offset = -1;
+	int16_t paper_code = -1;
+
+	uint8_t buffer[BUF_LEN];
+
+	int data_fd = fileno(stdin);
+
+	/* Static initialization */
+	setup_paper_codes();
+
+	/* Cmdline help */
+	if (argc < 2) {
+		fprintf(stderr, "SELPHY ES/CP Print Assist version %s\n\nUsage:\n\t%s [ infile | - ]\n",
+			VERSION,
+			argv[0]);
+		fprintf(stderr, "\n");
+
+		libusb_init(&ctx);
+		find_and_enumerate(ctx, &list, printer_type, 1);
+		libusb_free_device_list(list, 1);
+		libusb_exit(ctx);
+		exit(1);
+	}
+
+	/* Open Input File */
+	if (strcmp("-", argv[1])) {
+		data_fd = open(argv[1], O_RDONLY);
+		if (data_fd < 0) {
+			perror("Can't open input file");
+			exit(1);
+		}
+	}
+
+	/* Figure out printer this file is intended for */
+	read(data_fd, buffer, MAX_HEADER);
+
+	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
+	if (printer_type < 0) {
+		exit(1);
+	}
+
+	fprintf(stderr, "%sFile intended for a '%s' printer\n",  bw_mode? "B/W " : "", printers[printer_type].model);
+
+	plane_len += 12; /* Add in plane header */
+	paper_code_offset = printers[printer_type].paper_code_offset;
+	if (paper_code_offset != -1)
+		paper_code = printers[printer_type].paper_codes[paper_code_offset];
+
+	/* Libusb setup */
+	libusb_init(&ctx);
+	found = find_and_enumerate(ctx, &list, printer_type, 0);
+
 	if (found == -1) {
-		ret = 1;
 		fprintf(stderr, "No suitable printers found (looking for '%s')\n", printers[printer_type].model);
+		ret = 3;
 		goto done;
 	}
 
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
 		fprintf(stderr, "Could not open device (Need to be root?) (%d)\n", ret);
+		ret = 4;
 		goto done;
 	}
 	
@@ -308,6 +332,7 @@ int main (int argc, char **argv)
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
 			fprintf(stderr, "Could not detach printer from kernel (%d)\n", ret);
+			ret = 4;
 			goto done_close;
 		}
 	}
@@ -315,12 +340,14 @@ int main (int argc, char **argv)
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
 		fprintf(stderr, "Could not claim printer interface (%d)\n", ret);
+		ret = 4;
 		goto done_close;
 	}
 
 	ret = libusb_get_active_config_descriptor(list[found], &config);
 	if (ret) {
 		fprintf(stderr, "Could not fetch config descriptor (%d)\n", ret);
+		ret = 4;
 		goto done_close;
 	}
 
@@ -333,6 +360,9 @@ int main (int argc, char **argv)
 		}
 	}
 
+	fprintf(stderr, "found: %d up: %02x down: %02x\n",
+		found, endp_up, endp_down);
+
 top:
 	/* Read in the printer status */
 	ret = libusb_bulk_transfer(dev, endp_up,
@@ -342,6 +372,7 @@ top:
 				   2000);
 	if (ret < 0) {
 		fprintf(stderr, "libusb error (%d) (%d)\n", ret, READBACK_LEN);
+		ret = 4;
 		goto done_claimed;
 	}
 
@@ -377,6 +408,7 @@ top:
 					   2000);
 		if (ret < 0) {
 			fprintf(stderr, "libusb error (%d) (%d)\n", ret, num);
+			ret = 4;
 			goto done_claimed;
 		}
 
@@ -396,7 +428,7 @@ top:
 			fprintf(stderr, "Sending BLACK plane\n");
 		else
 			fprintf(stderr, "Sending YELLOW plane\n");
-		dump_data(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev, endp_down, buffer, BUF_LEN);
+		dump_data_libusb(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
@@ -409,7 +441,7 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		fprintf(stderr, "Sending MAGENTA plane\n");
-		dump_data(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+		dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
@@ -419,7 +451,7 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		fprintf(stderr, "Sending CYAN plane\n");
-		dump_data(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+		dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
@@ -430,7 +462,7 @@ top:
 	case S_PRINTER_DONE:
 		if (printers[printer_type].foot_length) {
 			fprintf(stderr, "Sending cleanup sequence\n");
-			dump_data(printers[printer_type].foot_length, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+			dump_data_libusb(printers[printer_type].foot_length, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
 		break;
