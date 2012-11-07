@@ -221,14 +221,10 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			fprintf(stdout, "direct scheme \"selphy\" \"%04x:%s (%s)\"\n",
 				desc.idProduct, product, serial);
 		} else {
-			if (!valid)
-				DEBUG("UNRECOGNIZED: ");
-			else if (found == i)
-				DEBUG("MATCH: ");
-			DEBUG("PID: %04x ", desc.idProduct);
-			DEBUG("Product: '%s' ", product);
-			DEBUG("Serial: '%s' ", serial);	
-			DEBUG("\n");
+			DEBUG("%s%sPID: %04x Product: '%s' Serial: '%s'\n", 
+			      (!valid) ? "UNRECOGNIZED: " : "",
+			      (found == i) ? "MATCH: " : "",
+			      desc.idProduct, product, serial);
 		}
 
 		libusb_close(dev);
@@ -315,7 +311,7 @@ int main (int argc, char **argv)
 	found = find_and_enumerate(ctx, &list, printer_type, 0);
 
 	if (found == -1) {
-		DEBUG("No suitable printers found (looking for '%s')\n", printers[printer_type].model);
+		DEBUG("No suitable printers found!\n");
 		ret = 3;
 		goto done;
 	}
