@@ -39,6 +39,7 @@
 #include "es_print_common.h"
 
 #define dump_data dump_data_libusb
+#define STR_LEN_MAX 32
 
 /* USB Identifiers */
 #define USB_VID_CANON       0x04a9
@@ -123,7 +124,6 @@ int main (int argc, char **argv)
 	struct libusb_device **list;
 	struct libusb_device_handle *dev;
 	struct libusb_config_descriptor *config;
-	struct libusb_device_descriptor desc;
 
 	uint8_t endp_up = 0;
 	uint8_t endp_down = 0;
@@ -135,6 +135,7 @@ int main (int argc, char **argv)
 	int num, i;
 	int ret = 0;
 	int claimed;
+	int found = -1;
 
 	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
 	int last_state = -1, state = S_IDLE;
@@ -178,7 +179,7 @@ int main (int argc, char **argv)
 		return(-1);
 	}
 
-	fprintf(stderr, "File intended for a '%s' printer %s\r\n",  printers[printer_type].model, bw_mode? "B/W" : "");
+	fprintf(stderr, "%s File intended for a '%s' printer\n",  bw_mode? "B/W " : "", printers[printer_type].model);
 
 	plane_len += 12; /* Add in plane header */
 	paper_code_offset = printers[printer_type].paper_code_offset;
@@ -192,6 +193,10 @@ int main (int argc, char **argv)
 	num = libusb_get_device_list(ctx, &list);
 
 	for (i = 0 ; i < num ; i++) {
+		struct libusb_device_descriptor desc;
+		unsigned char product[STR_LEN_MAX];
+		unsigned char serial[STR_LEN_MAX];
+		int valid = 0;
 		libusb_get_device_descriptor(list[i], &desc);
 
 		if (desc.idVendor != USB_VID_CANON)
@@ -200,22 +205,26 @@ int main (int argc, char **argv)
 		switch(desc.idProduct) {
 		case USB_PID_CANON_ES1: // "Canon SELPHY ES1"
 			if (printer_type == P_ES1)
-				goto found2;
+				found = i;
+			valid = 1;
 			break;
 		case USB_PID_CANON_ES2: // "Canon SELPHY ES2"
 		case USB_PID_CANON_ES20: // "Canon SELPHY ES20"
 			if (printer_type == P_ES2_20)
-				goto found2;
+				found = i;
+			valid = 1;
 			break;
 		case USB_PID_CANON_ES3: // "Canon SELPHY ES3"
 		case USB_PID_CANON_ES30: // "Canon SELPHY ES30"
 			if (printer_type == P_ES3_30)
-				goto found2;
+				found = i;
+			valid = 1;
 			break;
 		case USB_PID_CANON_ES40: // "Canon SELPHY ES40"
 		case USB_PID_CANON_CP790:
 			if (printer_type == P_ES40_CP790)
-				goto found2;
+				found = i;
+			valid = 1;
 			break;
 		case USB_PID_CANON_CP10: // "Canon CP-10"
 		case USB_PID_CANON_CP100: // "Canon CP-100"
@@ -240,81 +249,87 @@ int main (int argc, char **argv)
 		case USB_PID_CANON_CP800: // "Canon SELPHY CP800"
 		case USB_PID_CANON_CP810: // "Canon SELPHY CP810"
 			if (printer_type == P_CP_XXX)
-				goto found2;
+				found = i;
+			valid = 1;
 			break;
 		case USB_PID_CANON_CP900: // "Canon SELPHY CP900"
 			/* XXX deliberate.  no way to distinguish P_CP900 based
 			   on a streamed-in print job */
 			if (printer_type == P_CP_XXX)
-				goto found2;
+				found = i;
+			valid = 1;
 			break;
 		default:
-			fprintf(stderr, "Found Unrecognized Canon Printer: %04x\n", 
-				desc.idProduct);
 			break;
 		}
+
+		ret = libusb_open(list[found], &dev);
+		if (ret) {
+			fprintf(stderr, "Could not open device (Need to be root?) (%d)\n", ret);
+			goto done;
+		}
+
+		/* Query detailed info */
+		if (!valid)
+			fprintf(stderr, "UNRECOGNIZED: ");
+		if (found == i)
+			fprintf(stderr, "MATCH: ");
+		fprintf(stderr, "PID: %04x ", desc.idProduct);
+		if (desc.iProduct) {
+			ret = libusb_get_string_descriptor_ascii(dev, desc.iProduct, product, STR_LEN_MAX);
+			fprintf(stderr, "Product: '%s' ", product);
+		}
+		if (desc.iSerialNumber) {
+			ret = libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, serial, STR_LEN_MAX);
+			fprintf(stderr, "Serial: '%s' ", serial);
+		}
+		fprintf(stderr, "\n");
+
+//		fprintf(stdout, "direct scheme \"selphy\" \"%s #%s\"\n",
+//			product, serial);
+
+		libusb_close(dev);
 	}
 
-	if (i == num) {
+	if (found == -1) {
 		ret = 1;
 		fprintf(stderr, "No suitable printers found (looking for '%s')\n", printers[printer_type].model);
 		goto done;
 	}
 
-found2:
-
-	ret = libusb_open(list[i], &dev);
+	ret = libusb_open(list[found], &dev);
 	if (ret) {
-		fprintf(stderr, "Could not open device (Need to be root?) (%d)\r\n", ret);
-		goto done_close;
-	}
-
-	/* Query detailed info */
-	fprintf(stderr, "Found a %s printer\r\n", printers[printer_type].model);
-	fprintf(stderr, "Vid: %04x\nPid: %04x\n", desc.idVendor, desc.idProduct);
-	if (desc.iManufacturer || desc.iProduct || desc.iSerialNumber) {
-		unsigned char buf[128];
-		if (desc.iManufacturer) {
-			ret = libusb_get_string_descriptor_ascii(dev, desc.iManufacturer, buf, 128);
-			fprintf(stderr, "Mfg: %s\n", buf);
-		}
-		if (desc.iProduct) {
-			ret = libusb_get_string_descriptor_ascii(dev, desc.iProduct, buf, 128);
-			fprintf(stderr, "Prod: %s\n", buf);
-		}
-		if (desc.iSerialNumber) {
-			ret = libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, buf, 128);
-			fprintf(stderr, "SerNo: %s\n", buf);
-		}
+		fprintf(stderr, "Could not open device (Need to be root?) (%d)\n", ret);
+		goto done;
 	}
 	
 	claimed = libusb_kernel_driver_active(dev, iface);
 	if (claimed) {
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
-			fprintf(stderr, "Could not detach printer from kernel (%d)\r\n", ret);
+			fprintf(stderr, "Could not detach printer from kernel (%d)\n", ret);
 			goto done_close;
 		}
 	}
 
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
-		fprintf(stderr, "Could not claim printer interface (%d)\r\n", ret);
+		fprintf(stderr, "Could not claim printer interface (%d)\n", ret);
 		goto done_close;
 	}
 
-	ret = libusb_get_active_config_descriptor(list[i], &config);
+	ret = libusb_get_active_config_descriptor(list[found], &config);
 	if (ret) {
-		fprintf(stderr, "Could not fetch config descriptor (%d)\r\n", ret);
+		fprintf(stderr, "Could not fetch config descriptor (%d)\n", ret);
 		goto done_close;
 	}
 
 	for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
-		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
-			if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
-				endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
+		if ((config->interface[0].altsetting[0].endpoint[found].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
+			if (config->interface[0].altsetting[0].endpoint[found].bEndpointAddress & LIBUSB_ENDPOINT_IN)
+				endp_up = config->interface[0].altsetting[0].endpoint[found].bEndpointAddress;
 			else
-				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
+				endp_down = config->interface[0].altsetting[0].endpoint[found].bEndpointAddress;				
 		}
 	}
 
