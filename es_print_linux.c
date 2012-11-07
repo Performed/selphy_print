@@ -70,7 +70,7 @@ int dump_data_linux(int remaining, int present, int data_fd,
 		remaining -= cnt;
 	}
 
-	fprintf(stderr, "Wrote %d bytes (%d)\n", wrote, buflen);
+	DEBUG("Wrote %d bytes (%d)\n", wrote, buflen);
 
 	return wrote;
 }
@@ -96,10 +96,9 @@ int main(int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		fprintf(stderr, "SELPHY ES/CP Print Assist version %s\n\nUsage:\n\t%s [ infile | - ] [ outdev ]\n",
-			VERSION,
-			argv[0]);
-		fprintf(stderr, "\n");
+		DEBUG("SELPHY ES/CP Print Assist version %s\n\nUsage:\n\t%s [ infile | - ] [ outdev ]\n\n",
+		      VERSION,
+		      argv[0]);
 		exit(1);
 	}
 
@@ -127,8 +126,8 @@ int main(int argc, char **argv)
 			break;
 	}
 	if (printer_type2 == P_END) {
-		fprintf(stderr, "Unrecognized printer!\n");
-		fprintf(stderr, "readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
+		DEBUG("Unrecognized printer!\n");
+		DEBUG("readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
 			rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
 			rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7],
 			rdbuf[8], rdbuf[9], rdbuf[10], rdbuf[11]);
@@ -139,14 +138,15 @@ int main(int argc, char **argv)
 
 	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
 	if (printer_type < 0) {
-		return(-1);
+		DEBUG("Unrecognized file format!\n");
+		exit(-1);
 	}
 
 	if (printer_type != printer_type2) {
-		fprintf(stderr, "File intended for a %s printer, aborting!\n", printers[printer_type].model);
-		return (-1);
+		DEBUG("File intended for a %s printer, aborting!\n", printers[printer_type].model);
+		exit(-1);
 	} else {
-		fprintf(stderr, "Printing a %s file\n", printers[printer_type].model);
+		DEBUG("Printing a %s file\n", printers[printer_type].model);
 	}
 
 	plane_len += 12; /* Add in plane header */
@@ -158,7 +158,7 @@ top:
 
 	read(dev_fd, rdbuf, READBACK_LEN);  /* Read the status from printer */
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		fprintf(stderr, "readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
+		DEBUG("readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
 			rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
 			rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7],
 			rdbuf[8], rdbuf[9], rdbuf[10], rdbuf[11]);
@@ -167,7 +167,7 @@ top:
 		sleep(1);
 	}
 	if (state != last_state) {
-		fprintf(stderr, "last_state %d new %d\n", last_state, state);
+		DEBUG("last_state %d new %d\n", last_state, state);
 		last_state = state;
 	}
 	fflush(stderr);
@@ -180,7 +180,7 @@ top:
 		}
 		break;
 	case S_PRINTER_READY:
-		fprintf(stderr, "Sending init sequence (%d bytes)\n", printers[printer_type].init_length);
+		DEBUG("Sending init sequence (%d bytes)\n", printers[printer_type].init_length);
 		write(dev_fd, buffer, printers[printer_type].init_length); /* Send printer_init */
 		/* Realign plane data to start of buffer.. */
 		memmove(buffer, buffer+printers[printer_type].init_length,
@@ -195,9 +195,9 @@ top:
 		break;
 	case S_PRINTER_READY_Y:
 		if (bw_mode)
-			fprintf(stderr, "Sending BLACK plane\n");
+			DEBUG("Sending BLACK plane\n");
 		else
-			fprintf(stderr, "Sending YELLOW plane\n");
+			DEBUG("Sending YELLOW plane\n");
 		dump_data(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev_fd, buffer, BUF_LEN);
 		state = S_PRINTER_Y_SENT;
 		break;
@@ -210,7 +210,7 @@ top:
 		}
 		break;
 	case S_PRINTER_READY_M:
-		fprintf(stderr, "Sending MAGENTA plane\n");
+		DEBUG("Sending MAGENTA plane\n");
 		dump_data(plane_len, 0, data_fd, dev_fd, buffer, BUF_LEN);
 		state = S_PRINTER_M_SENT;
 		break;
@@ -220,7 +220,7 @@ top:
 		}
 		break;
 	case S_PRINTER_READY_C:
-		fprintf(stderr, "Sending CYAN plane\n");
+		DEBUG("Sending CYAN plane\n");
 		dump_data(plane_len, 0, data_fd, dev_fd, buffer, BUF_LEN);
 		state = S_PRINTER_C_SENT;
 		break;
@@ -231,13 +231,13 @@ top:
 		break;
 	case S_PRINTER_DONE:
 		if (printers[printer_type].foot_length) {
-			fprintf(stderr, "Sending cleanup sequence\n");
+			DEBUG("Sending cleanup sequence\n");
 			dump_data(printers[printer_type].foot_length, 0, data_fd, dev_fd, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
 		break;
 	case S_FINISHED:
-		fprintf(stderr, "All data sent to printer!\n");
+		DEBUG("All data sent to printer!\n");
 		break;
 	}
 	if (state != S_FINISHED)

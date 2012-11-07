@@ -25,7 +25,9 @@
  *
  */
 
-#define VERSION "0.24"
+#define VERSION "0.25"
+
+#define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le32_to_cpu(__x) __x
@@ -232,7 +234,6 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 
 	if (buffer[0] != 0x40 &&
 	    buffer[1] != 0x00) {
-		fprintf(stderr, "Unrecognized file format!\n");
 		goto done;
 	}
 	
@@ -276,7 +277,6 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 		}
 	}
 
-	fprintf(stderr, "Unrecognized file format!\n");
 	return -1;
 
 done:

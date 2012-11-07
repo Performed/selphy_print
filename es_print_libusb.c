@@ -38,7 +38,7 @@
 
 #include "es_print_common.h"
 
-#define STR_LEN_MAX 32
+#define STR_LEN_MAX 64
 
 /* USB Identifiers */
 #define USB_VID_CANON       0x04a9
@@ -100,7 +100,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 					 &num,
 					 2000);
 		if (i < 0) {
-			fprintf(stderr, "libusb xfer (%d) error: %d\n", cnt, i);
+			DEBUG("libusb xfer (%d) error: %d\n", cnt, i);
 			return -1;
 		}
 
@@ -113,7 +113,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 		remaining -= num;
 	}
 	
-	fprintf(stderr, "Wrote %d bytes\n", wrote);
+	DEBUG("Wrote %d bytes\n", wrote);
 	
 	return wrote;
 }
@@ -204,7 +204,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		}
 
 		if (libusb_open(((*list)[i]), &dev)) {
-			fprintf(stderr, "Could not open device %04x:%04x\n", desc.idVendor, desc.idProduct);
+			DEBUG("Could not open device %04x:%04x\n", desc.idVendor, desc.idProduct);
 			found = -1;
 			continue;
 		}
@@ -218,17 +218,17 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		}
 
 		if (valid && scan_only) {
-			fprintf(stdout, "direct scheme \"selphy\" \"%s (%s)\"\n",
-				product, serial);
+			fprintf(stdout, "direct scheme \"selphy\" \"%04x:%s (%s)\"\n",
+				desc.idProduct, product, serial);
 		} else {
 			if (!valid)
-				fprintf(stderr, "UNRECOGNIZED: ");
+				DEBUG("UNRECOGNIZED: ");
 			else if (found == i)
-				fprintf(stderr, "MATCH: ");
-			fprintf(stderr, "PID: %04x ", desc.idProduct);
-			fprintf(stderr, "Product: '%s' ", product);
-			fprintf(stderr, "Serial: '%s' ", serial);	
-			fprintf(stderr, "\n");
+				DEBUG("MATCH: ");
+			DEBUG("PID: %04x ", desc.idProduct);
+			DEBUG("Product: '%s' ", product);
+			DEBUG("Serial: '%s' ", serial);	
+			DEBUG("\n");
 		}
 
 		libusb_close(dev);
@@ -274,10 +274,9 @@ int main (int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		fprintf(stderr, "SELPHY ES/CP Print Assist version %s\n\nUsage:\n\t%s [ infile | - ]\n",
+		DEBUG("SELPHY ES/CP Print Assist version %s\nUsage:\n\t%s [ infile | - ]\n\n",
 			VERSION,
 			argv[0]);
-		fprintf(stderr, "\n");
 
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, printer_type, 1);
@@ -300,10 +299,11 @@ int main (int argc, char **argv)
 
 	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
 	if (printer_type < 0) {
+		DEBUG("Unrecognized printjob file format!\n");
 		exit(1);
 	}
 
-	fprintf(stderr, "%sFile intended for a '%s' printer\n",  bw_mode? "B/W " : "", printers[printer_type].model);
+	DEBUG("%sFile intended for a '%s' printer\n",  bw_mode? "B/W " : "", printers[printer_type].model);
 
 	plane_len += 12; /* Add in plane header */
 	paper_code_offset = printers[printer_type].paper_code_offset;
@@ -315,14 +315,14 @@ int main (int argc, char **argv)
 	found = find_and_enumerate(ctx, &list, printer_type, 0);
 
 	if (found == -1) {
-		fprintf(stderr, "No suitable printers found (looking for '%s')\n", printers[printer_type].model);
+		DEBUG("No suitable printers found (looking for '%s')\n", printers[printer_type].model);
 		ret = 3;
 		goto done;
 	}
 
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
-		fprintf(stderr, "Could not open device (Need to be root?) (%d)\n", ret);
+		DEBUG("Could not open device (Need to be root?) (%d)\n", ret);
 		ret = 4;
 		goto done;
 	}
@@ -331,7 +331,7 @@ int main (int argc, char **argv)
 	if (claimed) {
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
-			fprintf(stderr, "Could not detach printer from kernel (%d)\n", ret);
+			DEBUG("Could not detach printer from kernel (%d)\n", ret);
 			ret = 4;
 			goto done_close;
 		}
@@ -339,14 +339,14 @@ int main (int argc, char **argv)
 
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
-		fprintf(stderr, "Could not claim printer interface (%d)\n", ret);
+		DEBUG("Could not claim printer interface (%d)\n", ret);
 		ret = 4;
 		goto done_close;
 	}
 
 	ret = libusb_get_active_config_descriptor(list[found], &config);
 	if (ret) {
-		fprintf(stderr, "Could not fetch config descriptor (%d)\n", ret);
+		DEBUG("Could not fetch config descriptor (%d)\n", ret);
 		ret = 4;
 		goto done_close;
 	}
@@ -360,7 +360,7 @@ int main (int argc, char **argv)
 		}
 	}
 
-	fprintf(stderr, "found: %d up: %02x down: %02x\n",
+	DEBUG("found: %d up: %02x down: %02x\n",
 		found, endp_up, endp_down);
 
 top:
@@ -371,13 +371,13 @@ top:
 				   &num,
 				   2000);
 	if (ret < 0) {
-		fprintf(stderr, "libusb error (%d) (%d)\n", ret, READBACK_LEN);
+		DEBUG("libusb error (%d) (%d)\n", ret, READBACK_LEN);
 		ret = 4;
 		goto done_claimed;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		fprintf(stderr, "readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
+		DEBUG("readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
 			rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
 			rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7],
 			rdbuf[8], rdbuf[9], rdbuf[10], rdbuf[11]);
@@ -386,7 +386,7 @@ top:
 		sleep(1);
 	}
 	if (state != last_state) {
-		fprintf(stderr, "last_state %d new %d\n", last_state, state);
+		DEBUG("last_state %d new %d\n", last_state, state);
 		last_state = state;
 	}
 	fflush(stderr);       
@@ -398,7 +398,7 @@ top:
 		}
 		break;
 	case S_PRINTER_READY:
-		fprintf(stderr, "Sending init sequence (%d bytes)\n", printers[printer_type].init_length);
+		DEBUG("Sending init sequence (%d bytes)\n", printers[printer_type].init_length);
 
 		/* Send printer init */
 		ret = libusb_bulk_transfer(dev, endp_down,
@@ -407,7 +407,7 @@ top:
 					   &num,
 					   2000);
 		if (ret < 0) {
-			fprintf(stderr, "libusb error (%d) (%d)\n", ret, num);
+			DEBUG("libusb error (%d) (%d)\n", ret, num);
 			ret = 4;
 			goto done_claimed;
 		}
@@ -425,9 +425,9 @@ top:
 		break;
 	case S_PRINTER_READY_Y:
 		if (bw_mode)
-			fprintf(stderr, "Sending BLACK plane\n");
+			DEBUG("Sending BLACK plane\n");
 		else
-			fprintf(stderr, "Sending YELLOW plane\n");
+			DEBUG("Sending YELLOW plane\n");
 		dump_data_libusb(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_Y_SENT;
 		break;
@@ -440,7 +440,7 @@ top:
 		}
 		break;
 	case S_PRINTER_READY_M:
-		fprintf(stderr, "Sending MAGENTA plane\n");
+		DEBUG("Sending MAGENTA plane\n");
 		dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_M_SENT;
 		break;
@@ -450,7 +450,7 @@ top:
 		}
 		break;
 	case S_PRINTER_READY_C:
-		fprintf(stderr, "Sending CYAN plane\n");
+		DEBUG("Sending CYAN plane\n");
 		dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		state = S_PRINTER_C_SENT;
 		break;
@@ -461,13 +461,13 @@ top:
 		break;
 	case S_PRINTER_DONE:
 		if (printers[printer_type].foot_length) {
-			fprintf(stderr, "Sending cleanup sequence\n");
+			DEBUG("Sending cleanup sequence\n");
 			dump_data_libusb(printers[printer_type].foot_length, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
 		break;
 	case S_FINISHED:
-		fprintf(stderr, "All data sent to printer!\n");
+		DEBUG("All data sent to printer!\n");
 		break;
 	}
 	if (state != S_FINISHED)
