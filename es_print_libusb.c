@@ -135,6 +135,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		struct libusb_device_descriptor desc;
 		unsigned char product[STR_LEN_MAX] = "";
 		unsigned char serial[STR_LEN_MAX] = "";
+		unsigned char manuf[STR_LEN_MAX] = "";
 		int valid = 0;
 		libusb_get_device_descriptor((*list)[i], &desc);
 
@@ -209,6 +210,9 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		}
 
 		/* Query detailed info */
+		if (desc.iManufacturer) {
+			libusb_get_string_descriptor_ascii(dev, desc.iManufacturer, manuf, STR_LEN_MAX);
+		}
 		if (desc.iProduct) {
 			libusb_get_string_descriptor_ascii(dev, desc.iProduct, product, STR_LEN_MAX);
 		}
@@ -217,8 +221,9 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		}
 
 		if (valid && scan_only) {
-			fprintf(stdout, "direct scheme \"selphy\" \"%04x:%s (%s)\"\n",
-				desc.idProduct, product, serial);
+			fprintf(stdout, "direct selphy://%04x/%s \"%s\" \"%s\" \"MFG:Canon;CMD:SelphyRaster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n",
+				desc.idProduct, serial, product, product,
+				product + strlen("Canon "), product, serial);
 		} else {
 			DEBUG("%s%sPID: %04x Product: '%s' Serial: '%s'\n", 
 			      (!valid) ? "UNRECOGNIZED: " : "",
