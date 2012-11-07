@@ -220,15 +220,17 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, serial, STR_LEN_MAX);
 		}
 
+		DEBUG("%s%sPID: %04x Product: '%s' Serial: '%s'\n",
+		      (!valid) ? "UNRECOGNIZED: " : "",
+		      (found == i) ? "MATCH: " : "",
+		      desc.idProduct, product, serial);
+		
+		// XXX MATCH based on passed-in serial number?
+
 		if (valid && scan_only) {
 			fprintf(stdout, "direct selphy://%04x/%s \"%s\" \"%s\" \"MFG:Canon;CMD:SelphyRaster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n",
 				desc.idProduct, serial, product, product,
 				product + strlen("Canon "), product, serial);
-		} else {
-			DEBUG("%s%sPID: %04x Product: '%s' Serial: '%s'\n", 
-			      (!valid) ? "UNRECOGNIZED: " : "",
-			      (found == i) ? "MATCH: " : "",
-			      desc.idProduct, product, serial);
 		}
 
 		libusb_close(dev);
