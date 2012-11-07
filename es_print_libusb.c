@@ -67,7 +67,7 @@
 #define USB_PID_CANON_CP750 750 // XXX
 #define USB_PID_CANON_CP760 0x31AB
 #define USB_PID_CANON_CP770 770 // XXX - incoming
-#define USB_PID_CANON_CP780 780 // XXX - incoming
+#define USB_PID_CANON_CP780 0x31DD
 #define USB_PID_CANON_CP790 790 // XXX
 #define USB_PID_CANON_CP800 0x3214
 #define USB_PID_CANON_CP810 0x3256
@@ -354,16 +354,13 @@ int main (int argc, char **argv)
 	}
 
 	for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
-		if ((config->interface[0].altsetting[0].endpoint[found].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
-			if (config->interface[0].altsetting[0].endpoint[found].bEndpointAddress & LIBUSB_ENDPOINT_IN)
-				endp_up = config->interface[0].altsetting[0].endpoint[found].bEndpointAddress;
+		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
+			if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
+				endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
 			else
-				endp_down = config->interface[0].altsetting[0].endpoint[found].bEndpointAddress;				
+				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
 		}
 	}
-
-	DEBUG("found: %d up: %02x down: %02x\n",
-		found, endp_up, endp_down);
 
 top:
 	/* Read in the printer status */
