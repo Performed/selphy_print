@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 	plane_len += 12; /* Add in plane header */
 	paper_code_offset = printers[printer_type].paper_code_offset;
 	if (paper_code_offset != -1)
-		paper_code = printers[printer_type].paper_codes[paper_code_offset];
+		paper_code = printers[printer_type].paper_codes[buffer[printers[printer_type].pgcode_offset]];
 
 top:
 
