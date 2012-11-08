@@ -10,24 +10,24 @@
 
  ***************************************************************************
  
-   The SELPHY ES/CP series of printers from Canon generally require 
+   The SELPHY ES/CP series of dyesub printers from Canon generally require 
    intelligent buffering of the raw print data in order to keep the printer 
    from locking up.  This tool accomplishes just that.
 
    Verified supported printers:
   
-     SELPHY ES1, ES2, ES30, CP720
+     ES1, ES2, ES30, CP720, CP760, CP780
 
    Unverified/untested, but should work:
 
-     SELPHY ES20, ES3
-     SELPHY CP10, CP100, CP200, CP220, CP300, CP330, CP400, CP500, CP510,
-            CP520, CP530, CP600, CP710, CP730, CP740, CP750, CP760,
-	    CP770, CP780, CP810
+     ES20, ES3
+     CP-10, CP-100, CP-200, CP-220, CP-300, CP-330,
+     CP400, CP500, CP510, CP520, CP530, CP600, CP710, CP730,
+     CP740, CP750, CP770, CP810
  
    NOT currently supported:
 
-     SELPHY ES40, CP790, CP900
+     ES40, CP790, CP900
         I need the readback codes for these printers.
 
  ***************************************************************************
