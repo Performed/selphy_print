@@ -16,19 +16,18 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES30, CP720, CP760, CP780
+     ES1, ES2, ES30, CP-330, CP400, CP720, CP760, CP780
 
    Unverified/untested, but should work:
 
      ES20, ES3
-     CP-10, CP-100, CP-200, CP-220, CP-300, CP-330,
-     CP400, CP500, CP510, CP520, CP530, CP600, CP710, CP730,
-     CP740, CP750, CP770, CP810
+     CP-10, CP-100, CP-200, CP-220, CP-300
+     CP500, CP510, CP520, CP530, CP600, CP710, CP730,
+     CP740, CP750, CP770, CP800, CP810, CP900
  
-   NOT currently supported:
+   NOT currently supported:  (Readback codes needed)
 
-     ES40, CP790, CP900
-        I need the readback codes for these printers.
+     ES40, CP790
 
  ***************************************************************************
  Selphy ES1:
@@ -208,7 +207,7 @@
    'Card' paper  pgcode 0x03   plane length  698880 bytes.
    'Wide' paper  pgcode 0x04   plane length 2976512 bytes.
 
-   Known readback values (From a SELPHY CP760/CP720/CP780)
+   Known readback values (From a SELPHY CP-330/CP400/CP760/CP720/CP780)
 
    01 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [idle, waiting for init]
    02 00 00 00 70 00 [pg] 00 00 00 00 [xx]   [waiting for Y data]
@@ -217,11 +216,15 @@
    10 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [C done, waiting]
    20 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [All done]
 
-   'P'    paper has a code of 0x11
-   'CP_L' paper has a code of 0x22
-
    [xx] is 0x01 on the CP780, 0x00 on all others.
 
-   When 'P' ribbon is present, but no paper, code is '0x01'
+   'P'    paper has a code of 0x11
+   'CP_L' paper has a code of 0x22
+   'Card' paper has a code of 0x33
+   'Wide' paper has a code of 0x44
 
-   Readback codes for other paper types are unknown.
+    Paper readback code is as follows -- first four bits are paper, second
+    four bits are the ribbon.  So it's possible to have a readback of, say,
+    0x41 if the 'Wide' paper tray is loaded with a 'P' ribbon. A '0' is used
+    to signify nothing being loaded.
+

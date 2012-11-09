@@ -194,8 +194,8 @@ static void setup_paper_codes(void)
 	/* SELPHY CP-series (except CP790/CP900) paper codes */
 	printers[P_CP_XXX].paper_codes[0x01] = 0x11;
 	printers[P_CP_XXX].paper_codes[0x02] = 0x22;
-	printers[P_CP_XXX].paper_codes[0x03] = 0x33; // ? guess
-	printers[P_CP_XXX].paper_codes[0x04] = 0x44; // ? guess
+	printers[P_CP_XXX].paper_codes[0x03] = 0x33;
+	printers[P_CP_XXX].paper_codes[0x04] = 0x44;
 }
 
 #define INCORRECT_PAPER -999
