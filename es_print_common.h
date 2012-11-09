@@ -124,18 +124,18 @@ struct printer_data printers[P_END] = {
 	  .pgcode_offset = 2,
 //	  .paper_code_offset = -1,
 	},
-	{ .type = P_CP900,
+	{ .type = P_CP900,  // XXX readbacks and paper_code_offset is a GUESS
 	  .model = "SELPHY CP900",
-	  .init_length = 16,
+	  .init_length = 12,
 	  .foot_length = 4,
-//	  .init_readback = 
-//	  .ready_y_readback = 
-//	  .ready_m_readback = 
-//	  .ready_c_readback = 
-//	  .done_c_readback = 
+	  .init_readback = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
+	  .ready_y_readback = { 0x02, 0x00, 0x00, 0x00, 0x70, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
+	  .ready_m_readback = { 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
+	  .ready_c_readback = { 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
+	  .done_c_readback = { 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
 	  // .paper_codes
 	  .pgcode_offset = 3,
-//	  .paper_code_offset = -1,
+	  .paper_code_offset = 6,
 	},
 	{ .type = P_CP_XXX,
 	  .model = "SELPHY CP Series (!CP790/CP900)",
