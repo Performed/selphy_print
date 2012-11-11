@@ -99,7 +99,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 					 &num,
 					 2000);
 		if (i < 0) {
-			DEBUG("libusb error %d: (%d/%d from 0x%02x)\n", i, num, cnt, endpoint);
+			DEBUG("libusb error %d: (%d/%d to 0x%02x)\n", i, num, cnt, endpoint);
 			return -1;
 		}
 
@@ -406,7 +406,7 @@ top:
 					   &num,
 					   2000);
 		if (ret < 0) {
-			DEBUG("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, printers[printer_type].init_length, endp_down);
+			DEBUG("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, printers[printer_type].init_length, endp_down);
 			ret = 4;
 			goto done_claimed;
 		}
