@@ -45,7 +45,7 @@
 #define USB_PID_CANON_ES1   0x3141
 #define USB_PID_CANON_ES2   0x3185
 #define USB_PID_CANON_ES20  0x3186
-#define USB_PID_CANON_ES3   3   // XXX 31af?
+#define USB_PID_CANON_ES3   3   // XXX 31af or 31b1??
 #define USB_PID_CANON_ES30  0x31B0
 #define USB_PID_CANON_ES40  0x31EE
 #define USB_PID_CANON_CP10  0x304A
@@ -60,7 +60,7 @@
 #define USB_PID_CANON_CP520 520 // XXX
 #define USB_PID_CANON_CP530 530 // XXX
 #define USB_PID_CANON_CP600 0x310B
-#define USB_PID_CANON_CP710 710 // XXX - maybe incoming G
+#define USB_PID_CANON_CP710 710 // XXX 3127? 3129?- maybe incoming G
 #define USB_PID_CANON_CP720 0x3143
 #define USB_PID_CANON_CP730 730 // XXX - incoming G
 #define USB_PID_CANON_CP740 0x3171
@@ -99,7 +99,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 					 &num,
 					 2000);
 		if (i < 0) {
-			DEBUG("libusb xfer (%d) error: %d\n", cnt, i);
+			DEBUG("libusb error %d: (%d/%d from 0x%02x)\n", i, num, cnt, endpoint);
 			return -1;
 		}
 
@@ -370,7 +370,7 @@ top:
 				   &num,
 				   2000);
 	if (ret < 0) {
-		DEBUG("libusb error (%d) (%d)\n", ret, READBACK_LEN);
+		DEBUG("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
 		ret = 4;
 		goto done_claimed;
 	}
@@ -406,7 +406,7 @@ top:
 					   &num,
 					   2000);
 		if (ret < 0) {
-			DEBUG("libusb error (%d) (%d)\n", ret, num);
+			DEBUG("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, printers[printer_type].init_length, endp_down);
 			ret = 4;
 			goto done_claimed;
 		}
