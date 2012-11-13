@@ -20,10 +20,8 @@
 
    Unverified/untested, but should work:
 
-     ES20, ES3
-     CP-10, CP-100, CP-200, CP-220, CP-300
-     CP500, CP520, CP530, CP600, CP710, CP730,
-     CP770, CP800, CP810, CP900
+     ES20, ES3, CP-10, CP-100, CP-200, CP-220, CP-300, CP500, CP520, CP530,
+     CP600, CP710, CP730, CP770, CP800, CP810, CP900
  
    NOT currently supported:  (Readback codes needed)
 
@@ -86,7 +84,7 @@
 
    pg2 is 0x00 for all media types except for 'Card', which is 0x01.
 
-   Readback values seen:
+   Readback values seen on an ES2:
 
    02 00 00 00 [pg] 00 [pg2] [xx] 00 00 00 00   [idle, waiting for init seq]
    03 00 01 00 [pg] 00 [pg2] [xx] 00 00 00 00   [init complete, ready for Y]
@@ -130,7 +128,7 @@
    'CP_L'     pgcode of 0x02 and a plane length of 1601600 bytes.
    'Card'     pgcode of 0x03 and a plane length of  698880 bytes.
 
-   Readback values seen with standard 'P-Color' and 'C-Label' cartridges:
+   Readback values seen on an ES30:
 
    00 ff 00 00 ff ff ff ff 00 00 00 00   [idle, waiting for init seq]
    01 ff 01 00 ff ff ff ff 00 00 00 00   [init complete, ready for Y]
@@ -142,6 +140,9 @@
    0b ff 03 00 ff ff ff ff 00 00 00 00   [?]
    13 ff 03 00 ff ff ff ff 00 00 00 00   [?]
    00 ff 10 00 ff ff ff ff 00 00 00 00   [done, ready for footer]
+
+   There appears to be no paper code in the readback; codes were identical for
+   the standard 'P-Color' and 'C-Label' cartridges:
 
  ***************************************************************************
  Selphy ES40:
