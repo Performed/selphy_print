@@ -39,6 +39,7 @@
 #include "es_print_common.h"
 
 #define STR_LEN_MAX 64
+#define URI_PREFIX "selphy://"
 
 /* USB Identifiers */
 #define USB_VID_CANON       0x04a9
@@ -49,10 +50,10 @@
 #define USB_PID_CANON_ES30  0x31B0
 #define USB_PID_CANON_ES40  0x31EE
 #define USB_PID_CANON_CP10  0x304A
-#define USB_PID_CANON_CP100 0x3063
+#define USB_PID_CANON_CP100 0x3063 // - incoming G
 #define USB_PID_CANON_CP200 200 // XXX - incoming S
 #define USB_PID_CANON_CP220 0x30BD
-#define USB_PID_CANON_CP300 0x307D
+#define USB_PID_CANON_CP300 0x307D // - incoming G
 #define USB_PID_CANON_CP330 0x30BE
 #define USB_PID_CANON_CP400 0x30F6
 #define USB_PID_CANON_CP500 500 // XXX
@@ -99,7 +100,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 					 &num,
 					 2000);
 		if (i < 0) {
-			DEBUG("libusb error %d: (%d/%d to 0x%02x)\n", i, num, cnt, endpoint);
+			ERROR("libusb error %d: (%d/%d to 0x%02x)\n", i, num, cnt, endpoint);
 			return -1;
 		}
 
@@ -204,7 +205,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		}
 
 		if (libusb_open(((*list)[i]), &dev)) {
-			DEBUG("Could not open device %04x:%04x\n", desc.idVendor, desc.idProduct);
+			ERROR("Could not open device %04x:%04x\n", desc.idVendor, desc.idProduct);
 			found = -1;
 			continue;
 		}
@@ -228,7 +229,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		// XXX MATCH based on passed-in serial number?
 
 		if (valid && scan_only) {
-			fprintf(stdout, "direct selphy://%04X/%s \"%s\" \"%s\" \"MFG:Canon;CMD:SelphyRaster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n",
+			fprintf(stdout, "direct %s%04X/%s \"%s\" \"%s\" \"MFG:Canon;CMD:SelphyRaster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n", URI_PREFIX,
 				desc.idProduct, serial, product, product,
 				product + strlen("Canon "), product, serial);
 		}
@@ -271,15 +272,18 @@ int main (int argc, char **argv)
 
 	int data_fd = fileno(stdin);
 
+	char *uri = getenv("DEVICE_URI");;
+	uint16_t use_pid = 0;
+	char *use_serno = NULL;
+
 	/* Static initialization */
 	setup_paper_codes();
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("SELPHY ES/CP Print Assist version %s\nUsage:\n\t%s [ infile | - ]\n\n",
-			VERSION,
-			argv[0]);
-
+		DEBUG("SELPHY ES/CP Print Assist version %s\nUsage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
+		      VERSION,
+		      argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, printer_type, 1);
 		libusb_free_device_list(list, 1);
@@ -287,12 +291,35 @@ int main (int argc, char **argv)
 		exit(1);
 	}
 
-	/* Open Input File */
-	if (strcmp("-", argv[1])) {
-		data_fd = open(argv[1], O_RDONLY);
-		if (data_fd < 0) {
-			perror("Can't open input file");
+	/* Are we running as a CUPS backend? */
+	if (uri) {
+		if (argv[6]) {  /* IOW, is it specified? */
+			data_fd = open(argv[6], O_RDONLY);
+			if (data_fd < 0) {
+				perror("ERROR:Can't open input file");
+				exit(1);
+			}
+		}
+
+		/* Start parsing URI 'selphy://PID/SERIAL' */
+		if (strcmp(URI_PREFIX, uri)) {
+			ERROR("Invalid URI (%s)\n", uri);
 			exit(1);
+		}
+		use_pid = strtol(uri + strlen(URI_PREFIX), &use_serno, 16);
+		if (!use_pid || !use_serno || *use_serno != '/' || !*(use_serno+1)) {
+			ERROR("Invalid URI (%s)\n", uri);
+			exit(1);
+		}
+		use_serno++;
+	} else {
+		/* Open Input File */
+		if (strcmp("-", argv[1])) {
+			data_fd = open(argv[1], O_RDONLY);
+			if (data_fd < 0) {
+				perror("ERROR:Can't open input file");
+				exit(1);
+			}
 		}
 	}
 
@@ -301,7 +328,7 @@ int main (int argc, char **argv)
 
 	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
 	if (printer_type < 0) {
-		DEBUG("Unrecognized printjob file format!\n");
+		ERROR("Unrecognized printjob file format!\n");
 		exit(1);
 	}
 
@@ -317,14 +344,14 @@ int main (int argc, char **argv)
 	found = find_and_enumerate(ctx, &list, printer_type, 0);
 
 	if (found == -1) {
-		DEBUG("No suitable printers found!\n");
+		ERROR("No suitable printers found!\n");
 		ret = 3;
 		goto done;
 	}
 
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
-		DEBUG("Could not open device (Need to be root?) (%d)\n", ret);
+		ERROR("Could not open device (Need to be root?) (%d)\n", ret);
 		ret = 4;
 		goto done;
 	}
@@ -333,7 +360,7 @@ int main (int argc, char **argv)
 	if (claimed) {
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
-			DEBUG("Could not detach printer from kernel (%d)\n", ret);
+			ERROR("Could not detach printer from kernel (%d)\n", ret);
 			ret = 4;
 			goto done_close;
 		}
@@ -341,14 +368,14 @@ int main (int argc, char **argv)
 
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
-		DEBUG("Could not claim printer interface (%d)\n", ret);
+		ERROR("Could not claim printer interface (%d)\n", ret);
 		ret = 4;
 		goto done_close;
 	}
 
 	ret = libusb_get_active_config_descriptor(list[found], &config);
 	if (ret) {
-		DEBUG("Could not fetch config descriptor (%d)\n", ret);
+		ERROR("Could not fetch config descriptor (%d)\n", ret);
 		ret = 4;
 		goto done_close;
 	}
@@ -370,7 +397,7 @@ top:
 				   &num,
 				   2000);
 	if (ret < 0) {
-		DEBUG("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+		ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
 		ret = 4;
 		goto done_claimed;
 	}
@@ -406,7 +433,7 @@ top:
 					   &num,
 					   2000);
 		if (ret < 0) {
-			DEBUG("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, printers[printer_type].init_length, endp_down);
+			ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, printers[printer_type].init_length, endp_down);
 			ret = 4;
 			goto done_claimed;
 		}
