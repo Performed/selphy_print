@@ -16,12 +16,13 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES30, CP-330, CP400, CP510, CP720, CP740, CP750, CP760, CP780
+     ES1, ES2, ES30, CP-330, CP400, CP510, CP720, CP730, CP740, CP750,
+     CP760, CP780
 
    Unverified/untested, but should work:
 
-     ES20, ES3, CP-10, CP-100, CP-200, CP-220, CP-300, CP500, CP520, CP530,
-     CP600, CP710, CP730, CP770, CP800, CP810, CP900
+     ES20, ES3, CP-10, CP-100, CP-200, CP-220, CP-300, CP500, CP520,
+     CP530, CP600, CP710, CP770, CP800, CP810, CP900
  
    NOT currently supported:  (Readback codes needed)
 
@@ -208,7 +209,7 @@
    'Card' paper  pgcode 0x03   plane length  698880 bytes.
    'Wide' paper  pgcode 0x04   plane length 2976512 bytes.
 
-   Known readback values (From CP-330/CP400/CP510/CP740/CP750/CP760/CP720/CP780)
+   Known readback values (From CP-330/CP400/CP510/CP720/CP730/CP740/CP750/CP760/CP720/CP780)
 
    01 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [idle, waiting for init]
    02 00 00 00 70 00 [pg] 00 00 00 00 [xx]   [waiting for Y data]
