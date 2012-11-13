@@ -285,7 +285,6 @@ int main (int argc, char **argv)
 	int data_fd = fileno(stdin);
 
 	char *uri = getenv("DEVICE_URI");;
-	uint16_t use_pid = 0;
 	char *use_serno = NULL;
 
 	/* Static initialization */
@@ -314,12 +313,12 @@ int main (int argc, char **argv)
 		}
 
 		/* Start parsing URI 'selphy://PID/SERIAL' */
-		if (strcmp(URI_PREFIX, uri)) {
-			ERROR("Invalid URI (%s)\n", uri);
+		if (strncmp(URI_PREFIX, uri, strlen(URI_PREFIX))) {
+			ERROR("Invalid URI prefix (%s)\n", uri);
 			exit(1);
 		}
-		use_pid = strtol(uri + strlen(URI_PREFIX), &use_serno, 16);
-		if (!use_pid || !use_serno || *use_serno != '/' || !*(use_serno+1)) {
+		use_serno = strchr(uri, '=');
+		if (!use_serno || !*(use_serno+1)) {
 			ERROR("Invalid URI (%s)\n", uri);
 			exit(1);
 		}
