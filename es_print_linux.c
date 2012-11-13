@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 			break;
 	}
 	if (printer_type2 == P_END) {
-		DEBUG("Unrecognized printer!\n");
+		ERROR("Unrecognized printer!\n");
 		DEBUG("readback:  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
 			rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
 			rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7],
@@ -138,12 +138,12 @@ int main(int argc, char **argv)
 
 	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
 	if (printer_type < 0) {
-		DEBUG("Unrecognized file format!\n");
+		ERROR("Unrecognized file format!\n");
 		exit(-1);
 	}
 
 	if (printer_type != printer_type2) {
-		DEBUG("File intended for a %s printer, aborting!\n", printers[printer_type].model);
+		ERROR("File intended for a %s printer, aborting!\n", printers[printer_type].model);
 		exit(-1);
 	} else {
 		DEBUG("Printing a %s file\n", printers[printer_type].model);

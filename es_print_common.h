@@ -28,6 +28,7 @@
 #define VERSION "0.25"
 
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
+#define ERROR( ... ) fprintf(stderr, "ERROR: " __VA_ARGS__ )
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le32_to_cpu(__x) __x
@@ -180,7 +181,7 @@ static void setup_paper_codes(void)
 	//  printers[P_ES3_30]paper_codes[0x02] = -1;
 	//  printers[P_ES3_30]paper_codes[0x03] = -1;
 	
-	/* SELPHY ES40/CP790 paper codes */
+	/* SELPHY ES40/CP790 paper codes -- UNKNOWN */
 	//  printers[P_ES40_CP790].paper_codes[0x00] = -1;
 	//  printers[P_ES40_CP790].paper_codes[0x01] = -1;
 	//  printers[P_ES40_CP790].paper_codes[0x02] = -1;
