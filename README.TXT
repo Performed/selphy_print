@@ -29,6 +29,40 @@
      ES40, CP790
 
  ***************************************************************************
+ Compilation:
+
+  You will need libusb-1.0 to build this tool.
+
+   Fedora/RedHat:
+	yum install libusb1-devel
+   Debian/Ubuntu
+	apt-get install libusb-1.0-0-dev
+
+  And all you need to do after that is type 'make'
+
+
+ ***************************************************************************
+ CUPS backend usage:
+
+	cp selphy_print_libusb /usr/lib/cups/backend/selphy
+	chown root:root /usr/lib/cups/backend/selphy
+	chmod 500 /usr/lib/cups/backend/selphy
+
+   You may need to restart CUPS, and you will also need a prerelease 
+   version of gutenprint installed.
+
+   Please note that this will eventually be bundled with gutenprint.
+
+  [[[ TODO: -- finish this ]]]
+
+ ***************************************************************************
+ Standalone usage:
+
+  	selphy_print_libusb filename
+	selphy_print_libusb - < filename
+	somecommand | selphy_print_libusb -
+
+ ***************************************************************************
  Selphy ES1:
 
    Init func:   40 00 [typeA] [pgcode] 00 00 00 00 00 00 00 00
