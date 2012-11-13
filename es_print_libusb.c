@@ -229,8 +229,20 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		// XXX MATCH based on passed-in serial number?
 
 		if (valid && scan_only) {
-			fprintf(stdout, "direct %s%04X/%s \"%s\" \"%s\" \"MFG:Canon;CMD:SelphyRaster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n", URI_PREFIX,
-				desc.idProduct, serial, product, product,
+			/* URL-ify model. */
+			char buf[128]; // XXX ugly..
+			i = 0;
+			while (*(product + i + strlen("Canon"))) {
+			  buf[i] = *(product + i + strlen("Canon "));
+			  if(buf[i] == ' ') {
+			    buf[i++] = '%';
+			    buf[i++] = '2';
+			    buf[i] = '0';
+			  }
+			  i++;
+			}
+			fprintf(stdout, "direct %sCanon/%s?serial=%s \"%s\" \"%s\" \"MFG:Canon;CMD:SelphyRaster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n", URI_PREFIX,
+			        buf, serial, product, product,
 				product + strlen("Canon "), product, serial);
 		}
 
