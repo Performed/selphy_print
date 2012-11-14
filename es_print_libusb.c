@@ -518,9 +518,9 @@ top:
 			}
 		}
 		state = S_FINISHED;
-		break;
+		/* Intentional Fallthrough */
 	case S_FINISHED:
-		DEBUG("All data sent to printer!\n");
+		DEBUG("All data sent to printer!\n");	
 		break;
 	}
 	if (state != S_FINISHED)

@@ -235,7 +235,7 @@ top:
 			dump_data(printers[printer_type].foot_length, 0, data_fd, dev_fd, buffer, BUF_LEN);
 		}
 		state = S_FINISHED;
-		break;
+		/* Intentional Fallthrough */
 	case S_FINISHED:
 		DEBUG("All data sent to printer!\n");
 		break;
