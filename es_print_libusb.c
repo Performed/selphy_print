@@ -46,22 +46,22 @@
 #define USB_PID_CANON_ES1   0x3141
 #define USB_PID_CANON_ES2   0x3185
 #define USB_PID_CANON_ES20  0x3186
-#define USB_PID_CANON_ES3   3   // XXX 31af or 31b1??
+#define USB_PID_CANON_ES3   3   // XXX 31af? 31b1??
 #define USB_PID_CANON_ES30  0x31B0
 #define USB_PID_CANON_ES40  0x31EE
 #define USB_PID_CANON_CP10  0x304A
 #define USB_PID_CANON_CP100 0x3063 // - incoming G
-#define USB_PID_CANON_CP200 200 // XXX - incoming S
+#define USB_PID_CANON_CP200 200 // XXX 307c? 307e? - incoming S (related to cp300)
 #define USB_PID_CANON_CP220 0x30BD
-#define USB_PID_CANON_CP300 0x307D // - incoming G
+#define USB_PID_CANON_CP300 0x307D
 #define USB_PID_CANON_CP330 0x30BE
 #define USB_PID_CANON_CP400 0x30F6
-#define USB_PID_CANON_CP500 500 // XXX
+#define USB_PID_CANON_CP500 500 // XXX 30f5? 30f7? (related to cp400?)
 #define USB_PID_CANON_CP510 0x3128
-#define USB_PID_CANON_CP520 520 // XXX
+#define USB_PID_CANON_CP520 520 // XXX 316f? 3172? (related to cp740/cp750)
 #define USB_PID_CANON_CP530 530 // XXX
 #define USB_PID_CANON_CP600 0x310B
-#define USB_PID_CANON_CP710 710 // XXX 3127? 3129?- maybe incoming G
+#define USB_PID_CANON_CP710 710 // XXX 3127? 3129? - incoming G (related to cp510)
 #define USB_PID_CANON_CP720 0x3143
 #define USB_PID_CANON_CP730 0x3142
 #define USB_PID_CANON_CP740 0x3171
