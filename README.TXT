@@ -16,17 +16,17 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES30, CP-300, CP-330, CP400, CP510, CP720, CP730, CP740,
-     CP750, CP760, CP770, CP780
+     ES1, ES2, ES30, CP-300, CP-330, CP400, CP510, CP710, CP720, CP730,
+     CP740, CP750, CP760, CP770, CP780
 
    Unverified/untested, but should work:
 
      ES20, ES3, CP-10, CP-100, CP-200, CP-220, CP500, CP520, CP530, CP600, 
-     CP710, CP800, CP810, CP900
+     CP800, CP810, CP900
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)
 	
-     ES3, CP-200, CP500, CP520, CP530, CP710, CP790
+     ES3, CP-200, CP500, CP520, CP530, CP790
 
    NOT currently supported:  (Readback codes needed)
 
@@ -232,11 +232,16 @@
    'CP_L'        pgcode 0x02   plane length 1601600 bytes.
    'Card' paper  pgcode 0x03   plane length  698880 bytes.
 
-   Readback codes are unknown, but likely identical to the other CP-series.
+   Readback codes are unknown, but likely identical to the other 
+   CP-series. (see below)
 
  ***************************************************************************
  Selphy CP-series (except for CP790/CP900):
  
+    This is known to apply to:
+	CP-300, CP-330, CP400, CP510, CP710, CP720, CP730, CP740, CP750,
+	CP760, CP770, CP780
+
    Init func:   40 00 00 [pgcode] 00 00 00 00 00 00 00 00
    Plane func:  40 01 00 [plane] [length, 32-bit LE] 00 00 00 00 
 
@@ -267,8 +272,4 @@
     four bits are the ribbon.  So it's possible to have a readback of, say,
     0x41 if the 'Wide' paper tray is loaded with a 'P' ribbon. A '0' is used
     to signify nothing being loaded.
-
-    This is known to apply to:
-	CP-300, CP-330, CP400, CP510, CP720, CP730, CP740, CP750, CP760, 
-	CP770, CP780
  
