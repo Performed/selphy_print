@@ -16,17 +16,17 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES30, CP-300, CP-330, CP400, CP510, CP710, CP720, CP730,
-     CP740, CP750, CP760, CP770, CP780
+     ES1, ES2, ES30, CP-200, CP-300, CP-330, CP400, CP510, CP710, CP720, 
+     CP730, CP740, CP750, CP760, CP770, CP780
 
    Unverified/untested, but should work:
 
-     ES20, ES3, CP-10, CP-100, CP-200, CP-220, CP500, CP520, CP530, CP600, 
+     ES20, ES3, CP-10, CP-100, CP-220, CP500, CP520, CP530, CP600, 
      CP800, CP810, CP900
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)
 	
-     ES3, CP-200, CP500, CP520, CP530, CP790
+     ES3, CP500, CP520, CP530, CP790
 
    NOT currently supported:  (Readback codes needed)
 
@@ -239,8 +239,8 @@
  Selphy CP-series (except for CP790/CP900):
  
     This is known to apply to:
-	CP-300, CP-330, CP400, CP510, CP710, CP720, CP730, CP740, CP750,
-	CP760, CP770, CP780
+	CP-200, CP-300, CP-330, CP400, CP510, CP710, CP720, CP730, 
+	CP740, CP750, CP760, CP770, CP780
 
    Init func:   40 00 00 [pgcode] 00 00 00 00 00 00 00 00
    Plane func:  40 01 00 [plane] [length, 32-bit LE] 00 00 00 00 
@@ -255,13 +255,14 @@
    Known readback values:
 
    01 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [idle, waiting for init]
-   02 00 00 00 70 00 [pg] 00 00 00 00 [xx]   [waiting for Y data]
+   02 00 [aa] 00 70 00 [pg] 00 00 00 00 [xx]   [waiting for Y data]
    04 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [waiting for M data]
    08 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [waiting for C data]
    10 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [C done, waiting]
    20 00 00 00 00 00 [pg] 00 00 00 00 [xx]   [All done]
 
    [xx] is 0x01 on the CP780, 0x00 on all others.
+   [aa] is 0x00 normally, and 0x08 when ribbon is depleted.
 
    'P'    paper has a code of 0x11
    'CP_L' paper has a code of 0x22
