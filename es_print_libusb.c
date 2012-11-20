@@ -428,6 +428,12 @@ top:
 	}
 	fflush(stderr);       
 
+	if (!memcmp(rdbuf, printers[printer_type].error_readback, READBACK_LEN)) {
+		DEBUG("error condition; aborting.  (Out of ribbon/paper?)\n");
+		ret = 4;
+		goto done_claimed;
+	}
+
 	switch(state) {
 	case S_IDLE:
 		if (!fancy_memcmp(rdbuf, printers[printer_type].init_readback, READBACK_LEN, paper_code_offset, paper_code)) {

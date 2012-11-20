@@ -50,7 +50,7 @@
 
 	cp selphy_print_libusb /usr/lib/cups/backend/selphy
 	chown root:root /usr/lib/cups/backend/selphy
-	chmod 500 /usr/lib/cups/backend/selphy
+	chmod 700 /usr/lib/cups/backend/selphy
 
    You may need to restart CUPS, and you will also need a prerelease 
    version of gutenprint installed.
