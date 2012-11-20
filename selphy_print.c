@@ -189,18 +189,23 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		case USB_PID_CANON_CP780: // "Canon SELPHY CP780"
 		case USB_PID_CANON_CP800: // "Canon SELPHY CP800"
 		case USB_PID_CANON_CP810: // "Canon SELPHY CP810"
-			if (printer_type == P_CP_XXX)
-				found = i;
-			valid = 1;
-			break;
 		case USB_PID_CANON_CP900: // "Canon SELPHY CP900"
-			/* XXX deliberate.  no way to distinguish P_CP900 based
-			   on a streamed-in print job */
 			if (printer_type == P_CP_XXX)
 				found = i;
 			valid = 1;
 			break;
 		default:
+			/* Hook for testing unknown PIDs */
+			if (getenv("SELPHY_PID") && getenv("SELPHY_TYPE")) {
+				int pid = strtol(getenv("SELPHY_PID"), NULL, 16);
+				int type = atoi(getenv("SELPHY_TYPE"));
+				if (pid == desc.idProduct) {
+					valid = 1;
+					if (printer_type == type) {
+						found = i;
+					}
+				}
+			}
 			break;
 		}
 
@@ -225,7 +230,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		      (!valid) ? "UNRECOGNIZED: " : "",
 		      (found == i) ? "MATCH: " : "",
 		      desc.idProduct, product, serial);
-		
+
 		// XXX MATCH based on passed-in serial number?
 
 		if (valid && scan_only) {

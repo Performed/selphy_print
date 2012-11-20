@@ -25,7 +25,7 @@
  *
  */
 
-#define VERSION "0.32"
+#define VERSION "0.34"
 
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
 #define ERROR( ... ) fprintf(stderr, "ERROR: " __VA_ARGS__ )
@@ -68,7 +68,6 @@ enum {
 	P_ES2_20,
 	P_ES3_30,
 	P_ES40_CP790,
-	P_CP900,
 	P_CP_XXX,
 	P_END
 };
@@ -130,31 +129,16 @@ struct printer_data printers[P_END] = {
 	  .pgcode_offset = 2,
 //	  .paper_code_offset = -1,
 	},
-	{ .type = P_CP900,  // XXX readbacks and paper_code_offset is a GUESS
-	  .model = "SELPHY CP900",
-	  .init_length = 12,
-	  .foot_length = 4,
-	  .init_readback = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
-	  .ready_y_readback = { 0x02, 0x00, 0x00, 0x00, 0x70, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
-	  .ready_m_readback = { 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
-	  .ready_c_readback = { 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
-	  .done_c_readback = { 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
-	  .error_readback = { 0x02, 0x00, 0x08, 0x00, 0x70, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
-	  // .paper_codes
-	  .pgcode_offset = 3,
-	  .paper_code_offset = 6,
-	},
 	{ .type = P_CP_XXX,
-	  .model = "SELPHY CP Series (!CP790/CP900)",
+	  .model = "SELPHY CP Series (!CP790)",
 	  .init_length = 12,
-	  .foot_length = 0,
+	  .foot_length = 0,  /* CP900 has four-byte NULL footer that can be safely ignored */
 	  .init_readback = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
 	  .ready_y_readback = { 0x02, 0x00, 0x00, 0x00, 0x70, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
 	  .ready_m_readback = { 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
 	  .ready_c_readback = { 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
 	  .done_c_readback = { 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
 	  .error_readback = { 0x02, 0x00, 0x08, 0x00, 0x70, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
-	  // .error_readback
 	  // .paper_codes
 	  .pgcode_offset = 3,
 	  .paper_code_offset = 6,
@@ -195,12 +179,7 @@ static void setup_paper_codes(void)
 	//  printers[P_ES40_CP790].paper_codes[0x02] = -1;
 	//  printers[P_ES40_CP790].paper_codes[0x03] = -1;
 
-	/* SELPHY CP-900 paper codes */
-	printers[P_CP900].paper_codes[0x01] = 0x11; // ? guess
-	printers[P_CP900].paper_codes[0x02] = 0x22; // ? guess
-	printers[P_CP900].paper_codes[0x03] = 0x33; // ? guess
-
-	/* SELPHY CP-series (except CP790/CP900) paper codes */
+	/* SELPHY CP-series (except CP790) paper codes */
 	printers[P_CP_XXX].paper_codes[0x01] = 0x11;
 	printers[P_CP_XXX].paper_codes[0x02] = 0x22;
 	printers[P_CP_XXX].paper_codes[0x03] = 0x33;
@@ -257,9 +236,6 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 	    buffer[13] == 0x01) {
 		if (buffer[2] == 0x00) {
 			printer_type = P_CP_XXX;
-			// XXX the P_CP900 is identical, but has extra
-			// data at the very end of the file.  No way to detect
-			// from a streamed source!
 		} else {
 			printer_type = P_ES1;
 			*bw_mode = (buffer[2] == 0x20);
