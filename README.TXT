@@ -17,12 +17,11 @@
    Verified supported printers:
   
      ES1, ES2, ES30, CP-200, CP-300, CP-330, CP400, CP510, CP710, CP720, 
-     CP730, CP740, CP750, CP760, CP770, CP780
+     CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
 
    Unverified/untested, but should work:
 
-     ES20, ES3, CP-10, CP-100, CP-220, CP500, CP520, CP530, CP600, 
-     CP800, CP810, CP900
+     ES20, ES3, CP-10, CP-100, CP-220, CP500, CP520, CP530, CP600, CP810
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)
 	
@@ -215,30 +214,15 @@
    Readback codes are completely unknown.
 
  ***************************************************************************
- Selphy CP-900
- 
-   Init func:   40 00 00 [pgcode]  00 00 00 00  00 00 00 00
-   Plane func:  40 01 00 [plane]  [length, 32-bit LE]  00 00 00 00 
-   End func:    00 00 00 00
-
-   plane codes are 0x00, 0x01, 0x02 for Y, M, and C, respectively.
-
-   'P' papers pgcode 0x01   plane length 2227456 bytes.
-   'L' 	      pgcode 0x02   plane length 1601600 bytes.
-   'C' 	      pgcode 0x03   plane length  698880 bytes.
-
-   Readback codes are unknown, but likely identical to the other 
-   CP-series. (see below)
-
- ***************************************************************************
- Selphy CP-series (except for CP790/CP900):
+ Selphy CP-series (except for CP790):
  
     This is known to apply to:
 	CP-200, CP-300, CP-330, CP400, CP510, CP710, CP720, CP730, 
-	CP740, CP750, CP760, CP770, CP780
+	CP740, CP750, CP760, CP770, CP780, CP800, CP900
 
    Init func:   40 00 00 [pgcode]  00 00 00 00  00 00 00 00
    Plane func:  40 01 00 [plane]  [length, 32-bit LE]  00 00 00 00 
+   End func:    00 00 00 00      # NOTE:  CP900 only, and not necessary!
 
    plane codes are 0x00, 0x01, 0x02 for Y, M, and C, respectively.
 
@@ -256,7 +240,7 @@
    10 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [C done, waiting]
    20 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [All done]
 
-   [xx] is 0x01 on the CP780, 0x00 on all others.
+   [xx] is 0x01 on the CP780/CP800/CP900, 0x00 on all others.
 
    [rr] is 0x00 normally, and 0x08 when ribbon is depleted.
 
