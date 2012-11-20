@@ -36,7 +36,7 @@
 #include <unistd.h>
 #include <stdint.h>
 
-#include "es_print_common.h"
+#include "selphy_print_common.h"
 
 #define dump_data dump_data_linux
 

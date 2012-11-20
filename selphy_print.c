@@ -36,7 +36,7 @@
 
 #include <libusb-1.0/libusb.h>
 
-#include "es_print_common.h"
+#include "selphy_print_common.h"
 
 #define STR_LEN_MAX 64
 #define URI_PREFIX "selphy://"
