@@ -134,7 +134,8 @@
    14 00 00 00  [pg] 00 [pg2] 00  00 00 00 00   [out of paper/ink]
    14 00 01 00  [pg] 00 [pg2] 00  01 00 00 00   [out of paper/ink]
 
-   [xx] can be 0x00 or 0xff, depending on if a print job has completed or not.
+   [xx] can be 0x00 or 0xff, depending on if a previous print job has 
+	completed or not.
 
    [pg] is:  0x01 for P-paper  (only 'P' tested)
    	     0x02 for L-paper  (guessed)
@@ -233,7 +234,7 @@
 
    Known readback values:
 
-   01 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [idle, waiting for init]
+   01 00 00 00  [ss] 00 [pg] 00  00 00 00 [xx]   [idle, waiting for init]
    02 00 [rr] 00  70 00 [pg] 00  00 00 00 [xx]   [waiting for Y data]
    04 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [waiting for M data]
    08 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [waiting for C data]
@@ -243,6 +244,9 @@
    [xx] is 0x01 on the CP780/CP800/CP900, 0x00 on all others.
 
    [rr] is 0x00 normally, and 0x08 when ribbon is depleted.
+
+   [ss] is either 0x00 or 0x70.  Unsure as to its significance; perhaps it
+	means paper or ribbon is already set to go?
 
    [pg] is as follows:
 
