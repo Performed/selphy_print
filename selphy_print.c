@@ -56,7 +56,7 @@
 #define USB_PID_CANON_CP300 0x307D
 #define USB_PID_CANON_CP330 0x30BE
 #define USB_PID_CANON_CP400 0x30F6
-#define USB_PID_CANON_CP500 500 // XXX 30f5? 30f7? (related to cp400?) - incoming G
+#define USB_PID_CANON_CP500 0x30F5
 #define USB_PID_CANON_CP510 0x3128
 #define USB_PID_CANON_CP520 520 // XXX 316f? 3172? (related to cp740/cp750)
 #define USB_PID_CANON_CP530 530 // XXX

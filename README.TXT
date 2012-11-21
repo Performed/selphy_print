@@ -16,16 +16,16 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES30, CP-200, CP-300, CP-330, CP400, CP510, CP710, CP720, 
-     CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
+     ES1, ES2, ES30, CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710,
+     CP720, CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
 
    Unverified/untested, but should work:
 
-     ES20, ES3, CP-10, CP-100, CP-220, CP500, CP520, CP530, CP600, CP810
+     ES20, ES3, CP-10, CP-100, CP-220, CP520, CP530, CP600, CP810
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)
 	
-     ES3, CP500, CP520, CP530, CP790
+     ES3, CP520, CP530, CP790
 
    NOT currently supported:  (Readback codes needed)
 
@@ -218,7 +218,7 @@
  Selphy CP-series (except for CP790):
  
     This is known to apply to:
-	CP-200, CP-300, CP-330, CP400, CP510, CP710, CP720, CP730, 
+	CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710, CP720, CP730, 
 	CP740, CP750, CP760, CP770, CP780, CP800, CP900
 
    Init func:   40 00 00 [pgcode]  00 00 00 00  00 00 00 00
