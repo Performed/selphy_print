@@ -16,20 +16,16 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES30, CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710,
-     CP720, CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
+     ES1, ES2, ES30, ES40, CP-200, CP-300, CP-330, CP400, CP500, CP510,
+     CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
 
    Unverified/untested, but should work:
 
-     ES20, ES3, CP-10, CP-100, CP-220, CP520, CP530, CP600, CP810
+     ES20, ES3, CP-10, CP-100, CP-220, CP520, CP530, CP600, CP790, CP810
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)
 	
      ES3, CP520, CP530, CP790
-
-   NOT currently supported:  (Readback codes needed)
-
-     ES40, CP790
 
  ***************************************************************************
  Compilation:
@@ -50,12 +46,11 @@
 	chown root:root /usr/lib/cups/backend/selphy
 	chmod 700 /usr/lib/cups/backend/selphy
 
-   You may need to restart CUPS, and you will also need a prerelease 
-   version of gutenprint installed.
+   You may need to restart CUPS, and you will also need gutenprint 5.2.10
+   or newer installed.  (This backend is bundled with gutenprint starting with
+   v5.2.10)
 
-   Please note that selphy_print is now bundled with gutenprint.
-
-  [[[ TODO: -- finish this ]]]
+   Without the restof gutenprint installed, this is useless as a CUPS backend.
 
  ***************************************************************************
  Standalone usage:
@@ -195,7 +190,7 @@
    'L' 	      pgcode of 0x01 and a plane length of 1601600 bytes.
    'C'	      pgcode of 0x02 and a plane length of  698880 bytes.
 
-   Readback codes are completely unknown.
+   Readback values seen on an ES40 with 'P' paper:
 
    00 00 ff 00  00 00 00 00  00 00 00 11
    00 00 00 00  00 00 00 00  00 00 00 11   [idle, ready for header]
@@ -205,9 +200,11 @@
    00 05 02 00  00 00 00 00  00 00 00 11   [transitions to this]
    00 05 03 00  00 00 00 00  00 00 00 11   [ready for C data]
    00 07 03 00  00 00 00 00  00 00 00 11   [transitions to this]
-   00 0b ff 00  00 00 00 00  00 00 00 11   [transitions to this -- send footer?]
+   00 0b ff 00  00 00 00 00  00 00 00 11   [transitions to this]
    00 0e ff 00  00 00 00 00  00 00 00 11   [transitions to this]
-   00 00 10 00  00 00 00 00  00 00 00 11   [done, idle, ready for header]
+   00 00 10 00  00 00 00 00  00 00 00 11   [ready for footer]
+
+   Readback codes for other paper types are unknown.
 
  ***************************************************************************
  Selphy CP790:
