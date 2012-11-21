@@ -80,7 +80,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 			    uint8_t *buf, uint16_t buflen) {
 	int cnt;
 	int i;
-	int wrote;
+	int wrote = 0;
 	int num;
 
 	while (remaining > 0) {
