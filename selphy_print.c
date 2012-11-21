@@ -120,6 +120,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 
 static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
+			      char *match_serno,
 			      int printer_type,
 			      int scan_only)
 {
@@ -231,8 +232,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		      (found == i) ? "MATCH: " : "",
 		      desc.idProduct, product, serial);
 
-		// XXX MATCH based on passed-in serial number?
-
 		if (valid && scan_only) {
 			/* URL-ify model. */
 			char buf[128]; // XXX ugly..
@@ -249,6 +248,12 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			fprintf(stdout, "direct %sCanon/%s?serial=%s \"%s\" \"%s\" \"MFG:Canon;CMD:SelphyRaster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n", URI_PREFIX,
 			        buf, serial, product, product,
 				product + strlen("Canon "), product, serial);
+		}
+
+		/* If a serial number was passed down, use it. */
+		if (found && match_serno &&
+		    strcmp(match_serno, (char*)serial)) {
+			found = -1;
 		}
 
 		libusb_close(dev);
@@ -301,7 +306,7 @@ int main (int argc, char **argv)
 		      VERSION,
 		      argv[0], argv[0]);
 		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, printer_type, 1);
+		find_and_enumerate(ctx, &list, NULL, printer_type, 1);
 		libusb_free_device_list(list, 1);
 		libusb_exit(ctx);
 		exit(1);
@@ -357,7 +362,7 @@ int main (int argc, char **argv)
 
 	/* Libusb setup */
 	libusb_init(&ctx);
-	found = find_and_enumerate(ctx, &list, printer_type, 0);
+	found = find_and_enumerate(ctx, &list, use_serno, printer_type, 0);
 
 	if (found == -1) {
 		ERROR("No suitable printers found!\n");
