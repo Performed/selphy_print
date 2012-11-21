@@ -197,6 +197,18 @@
 
    Readback codes are completely unknown.
 
+   00 00 ff 00  00 00 00 00  00 00 00 11
+   00 00 00 00  00 00 00 00  00 00 00 11   [idle, ready for header]
+   00 01 01 00  00 00 00 00  00 00 00 11   [ready for Y data]
+   00 03 01 00  00 00 00 00  00 00 00 11   [transitions to this]
+   00 03 02 00  00 00 00 00  00 00 00 11   [ready for M data]
+   00 05 02 00  00 00 00 00  00 00 00 11   [transitions to this]
+   00 05 03 00  00 00 00 00  00 00 00 11   [ready for C data]
+   00 07 03 00  00 00 00 00  00 00 00 11   [transitions to this]
+   00 0b ff 00  00 00 00 00  00 00 00 11   [transitions to this -- send footer?]
+   00 0e ff 00  00 00 00 00  00 00 00 11   [transitions to this]
+   00 00 10 00  00 00 00 00  00 00 00 11   [done, idle, ready for header]
+
  ***************************************************************************
  Selphy CP790:
 
@@ -212,7 +224,8 @@
    'C'	      pgcode of 0x02 and a plane length of  698880 bytes.
    'W' 	      pgcode of 0x03 and a plane length of 2976512 bytes.
 
-   Readback codes are completely unknown.
+   Readback codes are completely unknown, but are likely to be the same
+   as the ES40.
 
  ***************************************************************************
  Selphy CP-series (except for CP790):
