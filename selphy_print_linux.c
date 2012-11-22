@@ -172,9 +172,10 @@ top:
 	}
 	fflush(stderr);
 
+	/* Error detection */
 	if (printers[printer_type].error_offset != -1 &&
 	    rdbuf[printers[printer_type].error_offset]) {
-		ERROR("error condition; aborting.  (Out of ribbon/paper?)\n");
+		ERROR("error condition %02x; aborting.  (Out of ribbon/paper?)\n", rdbuf[printers[printer_type].error_offset]);
 		return 4;
 	}
 

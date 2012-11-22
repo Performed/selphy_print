@@ -50,7 +50,7 @@
    or newer installed.  (This backend is bundled with gutenprint starting with
    v5.2.10)
 
-   Without the restof gutenprint installed, this is useless as a CUPS backend.
+   Without the rest of gutenprint installed, this is useless as a CUPS backend.
 
  ***************************************************************************
  Standalone usage:

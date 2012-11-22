@@ -50,7 +50,7 @@
 #define USB_PID_CANON_ES30  0x31B0
 #define USB_PID_CANON_ES40  0x31EE
 #define USB_PID_CANON_CP10  0x304A
-#define USB_PID_CANON_CP100 0x3063 // - incoming G
+#define USB_PID_CANON_CP100 0x3063
 #define USB_PID_CANON_CP200 0x307C
 #define USB_PID_CANON_CP220 0x30BD
 #define USB_PID_CANON_CP300 0x307D
@@ -438,9 +438,10 @@ top:
 	}
 	fflush(stderr);       
 
+	/* Error detection */
 	if (printers[printer_type].error_offset != -1 &&
 	    rdbuf[printers[printer_type].error_offset]) {
-		ERROR("error condition; aborting.  (Out of ribbon/paper?)\n");
+		ERROR("error condition %02x; aborting.  (Out of ribbon/paper?)\n", rdbuf[printers[printer_type].error_offset]);
 		ret = 4;
 		goto done_claimed;
 	}
