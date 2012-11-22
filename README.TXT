@@ -278,7 +278,10 @@
 
    [xx] is 0x01 on the CP780/CP800/CP900, 0x00 on all others.
 
-   [rr] is 0x00 normally, and 0x08 when ribbon is depleted.
+   [rr] is error code:
+   	0x00 no error
+	0x01 paper out
+	0x08 when ribbon is depleted
 
    [ss] is either 0x00 or 0x70.  Unsure as to its significance; perhaps it
 	means paper or ribbon is already set to go?

@@ -154,6 +154,7 @@ int main(int argc, char **argv)
 	if (paper_code_offset != -1)
 		paper_code = printers[printer_type].paper_codes[buffer[printers[printer_type].pgcode_offset]];
 
+	read(dev_fd, rdbuf, READBACK_LEN);  /* Read the status from printer */
 top:
 
 	read(dev_fd, rdbuf, READBACK_LEN);  /* Read the status from printer */

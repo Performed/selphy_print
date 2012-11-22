@@ -410,13 +410,21 @@ int main (int argc, char **argv)
 		}
 	}
 
-top:
 	/* Read in the printer status */
 	ret = libusb_bulk_transfer(dev, endp_up,
 				   rdbuf,
 				   READBACK_LEN,
 				   &num,
 				   2000);
+top:
+
+	/* Do it twice to clear initial state */
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   rdbuf,
+				   READBACK_LEN,
+				   &num,
+				   2000);
+
 	if (ret < 0) {
 		ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
 		ret = 4;
