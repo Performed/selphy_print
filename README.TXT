@@ -217,7 +217,7 @@
    00 0e ff 00  00 00 00 00  00 00 00 [pg]   [transitions to this]
    00 00 10 00  00 00 00 00  00 00 00 [pg]   [ready for footer]
 
-   00 00 00 [xx]  00 00 00 00  00 00 00 [pg] [error]
+   00 ** ** [xx]  00 00 00 00  00 00 00 [pg] [error]
 
    [xx]:
 	01:  Generic communication error

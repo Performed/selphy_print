@@ -438,8 +438,9 @@ top:
 	}
 	fflush(stderr);       
 
-	if (!memcmp(rdbuf, printers[printer_type].error_readback, READBACK_LEN)) {
-		DEBUG("error condition; aborting.  (Out of ribbon/paper?)\n");
+	if (printers[printer_type].error_offset != -1 &&
+	    rdbuf[printers[printer_type].error_offset]) {
+		ERROR("error condition; aborting.  (Out of ribbon/paper?)\n");
 		ret = 4;
 		goto done_claimed;
 	}
