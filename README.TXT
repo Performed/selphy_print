@@ -86,6 +86,8 @@
    05 00 00 00  02 01 [pg] 01  00 00 00 00   [?? transitions to this]
    06 00 00 00  02 01 [pg] 01  00 00 00 00   [?? transitions to this]
    02 00 00 00  02 01 [pg] 01  00 00 00 00   [..transitions back to idle]
+
+   02 01 00 00  01 ff ff ff  00 80 00 00     [error, no media]
    02 01 00 00  01 ff ff ff  00 00 00 00     [error, cover open]
 
    Known paper types for all ES printers:  P, Pbw, L, C, Cl
@@ -126,12 +128,12 @@
    0c 00 00 00  [pg] 00 [pg2] 00  00 00 00 00   [? transitions to this]
    0f 00 00 00  [pg] 00 [pg2] 00  00 00 00 00   [? transitions to this]
    13 00 00 00  [pg] 00 [pg2] 00  00 00 00 00   [? transitions to this]
-   02 00 00 00  [pg] 00 [pg2] 00  00 00 00 00   [back to idle, waiting for init seq]
 
    14 00 00 00  [pg] 00 [pg2] 00  00 00 00 00   [out of paper/ink]
    14 00 01 00  [pg] 00 [pg2] 00  01 00 00 00   [out of paper/ink]
 
-   16 01 00 00  01 00 00 00   00 00 00 00  [error, cover open, P media]
+   16 01 00 00  [pg] 00 [pg2] 00  00 00 00 00   [error, cover open]
+   02 00 00 00  05 05 02 00  00 00 00 00        [error, no media]
 
    [xx] can be 0x00 or 0xff, depending on if a previous print job has 
 	completed or not.
@@ -143,6 +145,8 @@
    [pg2] is: 0x00 for P-paper  (only 'P' tested)
    	     ???? for L-paper  (unknown)
              0x01 for C-paper  (only 'Cl' tested)
+
+   [pg2] may refer to Label (0x01) vs non-Label (0x00) media.
 
  ***************************************************************************
  Selphy ES3/30:
@@ -172,9 +176,12 @@
    07 ff 03 00  ff ff ff ff  00 00 00 00   [?]
    0b ff 03 00  ff ff ff ff  00 00 00 00   [?]
    13 ff 03 00  ff ff ff ff  00 00 00 00   [?]
-   00 ff 10 00  ff ff ff ff  00 00 00 00   [done, ready for footer]
+   00 ff 10 00  ff ff ff ff  00 00 00 00   [ready for footer]
 
-   00 ff 00 00  ff ff ff ff  00 00 00 00   [cover open -- no change!]
+   00 ff 00 00  ff ff ff ff  00 00 00 00   [cover open, no media]
+
+   00 ff 01 00  ff ff ff ff  03 00 02 00   [attempt to print with no media]
+   00 ff 01 00  ff ff ff ff  08 00 04 00   [attempt to print with cover open]
 
    There appears to be no paper code in the readback; codes were identical for
    the standard 'P-Color' and 'Cl' cartridges:
@@ -196,27 +203,33 @@
    'L' 	      pgcode of 0x01 and a plane length of 1601600 bytes.
    'C'	      pgcode of 0x02 and a plane length of  698880 bytes.
 
-   Readback values seen on an ES40 with 'P' paper:
+   Readback values seen on an ES40:
 
-   00 00 ff 00  00 00 00 00  00 00 00 11
-   00 00 00 00  00 00 00 00  00 00 00 11   [idle, ready for header]
-   00 01 01 00  00 00 00 00  00 00 00 11   [ready for Y data]
-   00 03 01 00  00 00 00 00  00 00 00 11   [transitions to this]
-   00 03 02 00  00 00 00 00  00 00 00 11   [ready for M data]
-   00 05 02 00  00 00 00 00  00 00 00 11   [transitions to this]
-   00 05 03 00  00 00 00 00  00 00 00 11   [ready for C data]
-   00 07 03 00  00 00 00 00  00 00 00 11   [transitions to this]
-   00 0b ff 00  00 00 00 00  00 00 00 11   [transitions to this]
-   00 0e ff 00  00 00 00 00  00 00 00 11   [transitions to this]
-   00 00 10 00  00 00 00 00  00 00 00 11   [ready for footer]
+   00 00 ff 00  00 00 00 00  00 00 00 [pg]
+   00 00 00 00  00 00 00 00  00 00 00 [pg]   [idle, ready for header]
+   00 01 01 00  00 00 00 00  00 00 00 [pg]   [ready for Y data]
+   00 03 01 00  00 00 00 00  00 00 00 [pg]   [transitions to this]
+   00 03 02 00  00 00 00 00  00 00 00 [pg]   [ready for M data]
+   00 05 02 00  00 00 00 00  00 00 00 [pg]   [transitions to this]
+   00 05 03 00  00 00 00 00  00 00 00 [pg]   [ready for C data]
+   00 07 03 00  00 00 00 00  00 00 00 [pg]   [transitions to this]
+   00 0b ff 00  00 00 00 00  00 00 00 [pg]   [transitions to this]
+   00 0e ff 00  00 00 00 00  00 00 00 [pg]   [transitions to this]
+   00 00 10 00  00 00 00 00  00 00 00 [pg]   [ready for footer]
 
-   00 00 00 [xx]  00 00 00 00  00 00 00 11 [error]
+   00 00 00 [xx]  00 00 00 00  00 00 00 [pg] [error]
 
    [xx]:
 	01:  Generic communication error
 	32:  Cover open / media empty
 
-   Readback codes for other paper types are unknown.
+   [pg] is as follows:
+
+      'P' paper 0x11
+      'L' paper 0x22
+      'C' paper 0x33
+      'W' paper 0x44
+
 
  ***************************************************************************
  Selphy CP790:
