@@ -10,9 +10,9 @@
 
  ***************************************************************************
  
-   The SELPHY ES/CP series of dyesub printers from Canon generally require 
-   intelligent buffering of the raw print data in order to keep the printer 
-   from locking up.  This tool accomplishes just that.
+   The SELPHY ES/CP series of dye-sublimation photo printers from Canon 
+   generally require intelligent buffering of the raw print data in order 
+   to keep the printer from locking up.  This tool accomplishes just that.
 
    Verified supported printers:
   
@@ -23,9 +23,11 @@
 
      ES20, ES3, CP-10, CP-100, CP-220, CP520, CP530, CP600, CP790, CP810
 
-   NOT currently supported by libusb backend:  (USB PIDs unknown)
+   NOT currently supported by libusb backend:  (USB PIDs unknown)  **
 	
      ES3, CP520, CP530, CP790
+
+    ** Note that a PID can be supplied on the command line, see below
 
  ***************************************************************************
  Compilation:
@@ -59,7 +61,25 @@
 	selphy_print - < filename
 	somecommand | selphy_print -
 
+   To test out an unknown USB model, specify the PID and its type as 
+   environment variables.  For example:
+
+	SELPHY_PID=3ab1 SELPHY_TYPE=3 selphy_print filename
+
+	SELPHY_PID is the USB PID, in hex
+	SELPHY_TYPE is: 2 for ES3
+			3 for CP790
+			4 for CP520/CP530 (or other CP-series model)
+
+   If you have a model the spooler doesn't recognize but it works with
+   a PID/TYPE specification, please let me know via e-mail.
+
  ***************************************************************************
+
+	Stream formats and readback codes for supported printers
+
+ ***************************************************************************
+
  Selphy ES1:
 
    Init func:   40 00 [typeA] [pgcode]  00 00 00 00  00 00 00 00
