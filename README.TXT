@@ -16,12 +16,13 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES30, ES40, CP-200, CP-300, CP-330, CP400, CP500, CP510,
-     CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
+     ES1, ES2, ES30, ES40, C-100, CP-200, CP-300, CP-330, CP400, CP500, 
+     CP510, CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, 
+     CP800, CP900
 
    Unverified/untested, but should work:
 
-     ES20, ES3, CP-10, CP-100, CP-220, CP520, CP530, CP600, CP790, CP810
+     ES20, ES3, CP-10, CP-220, CP520, CP530, CP600, CP790, CP810
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)  **
 	
@@ -273,8 +274,8 @@
  Selphy CP-series (except for CP790):
  
     This is known to apply to:
-	CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710, CP720, CP730, 
-	CP740, CP750, CP760, CP770, CP780, CP800, CP900
+	CP-100, CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710, CP720, 
+	CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
 
    Init func:   40 00 00 [pgcode]  00 00 00 00  00 00 00 00
    Plane func:  40 01 00 [plane]  [length, 32-bit LE]  00 00 00 00 
@@ -290,6 +291,8 @@
    Known readback values:
 
    01 00 00 00  [ss] 00 [pg] 00  00 00 00 [xx]   [idle, waiting for init]
+   02 00 [rr] 00  00 00 [pg] 00  00 00 00 [xx]   [init sent, paper feeding]
+   02 00 [rr] 00  10 00 [pg] 00  00 00 00 [xx]   [init sent, paper feeding] 
    02 00 [rr] 00  70 00 [pg] 00  00 00 00 [xx]   [waiting for Y data]
    04 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [waiting for M data]
    08 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [waiting for C data]
