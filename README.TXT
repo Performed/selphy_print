@@ -22,13 +22,14 @@
 
    Unverified/untested, but should work:
 
-     ES20, ES3, CP-10, CP-220, CP520, CP530, CP600, CP790, CP810
+     ES20, CP-10, CP-220, CP600, CP810
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)  **
 	
      ES3, CP520, CP530, CP790
 
-    ** Note that a PID can be supplied on the command line, see below
+    ** Note that a PID can be supplied on the command line, see below.
+       Once the PIDs are known, these printers are expected to work.
 
  ***************************************************************************
  Compilation:
