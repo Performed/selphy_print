@@ -16,8 +16,8 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES30, ES40, C-100, CP-200, CP-300, CP-330, CP400, CP500, 
-     CP510, CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, 
+     ES1, ES2, ES3, ES30, ES40, C-100, CP-200, CP-300, CP-330, CP400, 
+     CP500, CP510, CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, 
      CP800, CP900
 
    Unverified/untested, but should work:
@@ -26,7 +26,7 @@
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)  **
 	
-     ES3, CP520, CP530, CP790
+     CP520, CP530, CP790
 
     ** Note that a PID can be supplied on the command line, see below.
        Once the PIDs are known, these printers are expected to work.
@@ -69,8 +69,7 @@
 	SELPHY_PID=3ab1 SELPHY_TYPE=3 selphy_print filename
 
 	SELPHY_PID is the USB PID, in hex
-	SELPHY_TYPE is: 2 for ES3
-			3 for CP790
+	SELPHY_TYPE is: 3 for CP790
 			4 for CP520/CP530 (or other CP-series model)
 
    If you have a model the spooler doesn't recognize but it works with
@@ -187,7 +186,7 @@
    'L' 	      pgcode of 0x02 and a plane length of 1601600 bytes.
    'C' 	      pgcode of 0x03 and a plane length of  698880 bytes.
 
-   Readback values seen on an ES30:
+   Readback values seen on an ES3 & ES30:
 
    00 ff 00 00  ff ff ff ff  00 00 00 00   [idle, waiting for init seq]
    01 ff 01 00  ff ff ff ff  00 00 00 00   [init complete, ready for Y]
