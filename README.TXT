@@ -274,8 +274,8 @@
  Selphy CP-series (except for CP790):
  
     This is known to apply to:
-	CP-100, CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710, CP720, 
-	CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
+	CP-10, CP-100, CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710,
+	CP720, CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
 
    Init func:   40 00 00 [pgcode]  00 00 00 00  00 00 00 00
    Plane func:  40 01 00 [plane]  [length, 32-bit LE]  00 00 00 00 
@@ -313,7 +313,7 @@
 
       'P' paper 0x11
       'L' paper 0x22
-      'C' paper 0x33
+      'C' paper 0x33  (0x00 on the CP-10)
       'W' paper 0x44
 
       First four bits are paper, second four bits are the ribbon.  They aren't

@@ -10,4 +10,4 @@ install:
 	install -o root -m 700 selphy_print $(CUPS_BACKENDS)/selphy
 
 clean:
-	rm -f selphy_print selphy_print_linux
+	rm -f selphy_print
