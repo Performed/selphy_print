@@ -293,13 +293,14 @@
    01 00 00 00  [ss] 00 [pg] 00  00 00 00 [xx]   [idle, waiting for init]
    02 00 [rr] 00  00 00 [pg] 00  00 00 00 [xx]   [init sent, paper feeding]
    02 00 [rr] 00  10 00 [pg] 00  00 00 00 [xx]   [init sent, paper feeding] 
-   02 00 [rr] 00  70 00 [pg] 00  00 00 00 [xx]   [waiting for Y data]
+   02 00 [rr] 00 [qq] 00 [pg] 00  00 00 00 [xx]   [waiting for Y data]
    04 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [waiting for M data]
    08 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [waiting for C data]
    10 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [C done, waiting]
    20 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [All done]
 
    [xx] is 0x01 on the CP780/CP800/CP900, 0x00 on all others.
+   [qq] is 0x00 on CP-10, 0x70 on all others.
 
    [rr] is error code:
    	0x00 no error

@@ -69,6 +69,7 @@ enum {
 	P_ES3_30,
 	P_ES40_CP790,
 	P_CP_XXX,
+	P_CP10,
 	P_END
 };
 
@@ -143,6 +144,20 @@ struct printer_data printers[P_END] = {
 	  .paper_code_offset = 6,
 	  .error_offset = 2,
 	},
+	{ .type = P_CP10,
+	  .model = "SELPHY CP-10",
+	  .init_length = 12,
+	  .foot_length = 0,
+	  .init_readback = { 0x01, 0x00, 0x00, 0x00, -1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, -1 },
+	  .ready_y_readback = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, -1 },
+	  .ready_m_readback = { 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, -1 },
+	  .ready_c_readback = { 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, -1 },
+	  .done_c_readback = { 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, -1 },
+	  // .paper_codes
+	  .pgcode_offset = 3,
+	  .paper_code_offset = 6,
+	  .error_offset = 2,
+	},
 };
 
 #define MAX_HEADER 28
@@ -184,6 +199,12 @@ static void setup_paper_codes(void)
 	printers[P_CP_XXX].paper_codes[0x02] = 0x22;
 	printers[P_CP_XXX].paper_codes[0x03] = 0x33;
 	printers[P_CP_XXX].paper_codes[0x04] = 0x44;
+
+	/* SELPHY CP-10 paper codes */
+	printers[P_CP10].paper_codes[0x01] = -1;
+	printers[P_CP10].paper_codes[0x02] = -1;
+	printers[P_CP10].paper_codes[0x03] = 0x00;
+	printers[P_CP10].paper_codes[0x04] = -1;
 }
 
 #define INCORRECT_PAPER -999
