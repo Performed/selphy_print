@@ -1,10 +1,7 @@
 CFLAGS = -Wall
 CUPS_BACKENDS = /usr/lib/cups/backend
 
-all: selphy_print_linux selphy_print
-
-selphy_print_linux:  selphy_print_linux.c selphy_print_common.h
-	gcc -o selphy_print_linux selphy_print_linux.c $(CFLAGS)
+all: selphy_print
 
 selphy_print:  selphy_print.c selphy_print_common.h
 	gcc -o selphy_print selphy_print.c -lusb-1.0 $(CFLAGS)
