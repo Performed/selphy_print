@@ -197,7 +197,7 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
 			      char *match_serno,
-			      int *printer_type,
+			      int printer_type,
 			      int scan_only)
 {
 	int num;
@@ -222,30 +222,30 @@ static int find_and_enumerate(struct libusb_context *ctx,
 
 		switch(desc.idProduct) {
 		case USB_PID_CANON_ES1: // "Canon SELPHY ES1"
-			if (*printer_type == P_ES1)
+			if (printer_type == P_ES1)
 				found = i;
 			valid = 1;
 			break;
 		case USB_PID_CANON_ES2: // "Canon SELPHY ES2"
 		case USB_PID_CANON_ES20: // "Canon SELPHY ES20"
-			if (*printer_type == P_ES2_20)
+			if (printer_type == P_ES2_20)
 				found = i;
 			valid = 1;
 			break;
 		case USB_PID_CANON_ES3: // "Canon SELPHY ES3"
 		case USB_PID_CANON_ES30: // "Canon SELPHY ES30"
-			if (*printer_type == P_ES3_30)
+			if (printer_type == P_ES3_30)
 				found = i;
 			valid = 1;
 			break;
 		case USB_PID_CANON_ES40: // "Canon SELPHY ES40"
 		case USB_PID_CANON_CP790:
-			if (*printer_type == P_ES40_CP790)
+			if (printer_type == P_ES40_CP790)
 				found = i;
 			valid = 1;
 			break;
 		case USB_PID_CANON_CP10: // "Canon CP-10"
-			if (*printer_type == P_CP10)
+			if (printer_type == P_CP10)
 				found = i;
 			valid = 1;
 			break;
@@ -271,7 +271,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		case USB_PID_CANON_CP800: // "Canon SELPHY CP800"
 		case USB_PID_CANON_CP810: // "Canon SELPHY CP810"
 		case USB_PID_CANON_CP900: // "Canon SELPHY CP900"
-			if (*printer_type == P_CP_XXX)
+			if (printer_type == P_CP_XXX)
 				found = i;
 			valid = 1;
 			break;
@@ -282,7 +282,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 				int type = atoi(getenv("SELPHY_TYPE"));
 				if (pid == desc.idProduct) {
 					valid = 1;
-					if (*printer_type == type) {
+					if (printer_type == type) {
 						found = i;
 					}
 				}
@@ -386,7 +386,7 @@ int main (int argc, char **argv)
 		      VERSION,
 		      argv[0], argv[0]);
 		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, &printer_type, 1);
+		find_and_enumerate(ctx, &list, NULL, printer_type, 1);
 		libusb_free_device_list(list, 1);
 		libusb_exit(ctx);
 		exit(1);
@@ -437,7 +437,7 @@ int main (int argc, char **argv)
 
 	/* Libusb setup */
 	libusb_init(&ctx);
-	found = find_and_enumerate(ctx, &list, use_serno, &printer_type, 0);
+	found = find_and_enumerate(ctx, &list, use_serno, printer_type, 0);
 
 	/* Compute offsets and other such things */
 	plane_len += 12; /* Plane header length */
