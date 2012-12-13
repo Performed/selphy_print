@@ -80,7 +80,6 @@
 	Stream formats and readback codes for supported printers
 
  ***************************************************************************
-
  Selphy ES1:
 
    Init func:   40 00 [typeA] [pgcode]  00 00 00 00  00 00 00 00
@@ -275,7 +274,6 @@
 
    Init func:   40 00 00 00  00 00 00 00  00 00 00 00
    Plane func:  40 01 00 [plane]  [length, 32-bit LE]  00 00 00 00 
-   End func:    00 00 00 00      # NOTE:  CP900 only, and not necessary!
 
    plane codes are 0x00, 0x01, 0x02 for Y, M, and C, respectively.
 
@@ -291,6 +289,8 @@
    08 00 00 00  00 00 00 00  00 00 00 00   [waiting for C data]
    10 00 00 00  00 00 00 00  00 00 00 00   [C done, waiting]
    20 00 00 00  00 00 00 00  00 00 00 00   [All done]
+
+  There are no media type codes; the printer only supports one type.
 
   Error codes are as of yet unknown.
 
