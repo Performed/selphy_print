@@ -156,7 +156,7 @@ struct printer_data printers[P_END] = {
 	  // .paper_codes
 	  .pgcode_offset = -1,
 	  .paper_code_offset = -1,
-	  .error_offset = -1,
+	  .error_offset = 2,
 	},
 };
 

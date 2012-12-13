@@ -16,13 +16,17 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES3, ES30, ES40, CP-10, CP-100, CP-200, CP-300, CP-330, CP400, 
+     ES1, ES2, ES3, ES30, ES40, CP-100, CP-200, CP-300, CP-330, CP400, 
      CP500, CP510, CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, 
      CP800, CP900
 
    Unverified/untested, but should work:
 
      ES20, CP-220, CP600, CP810
+
+   Semi-supported (has problems)
+
+     CP-10
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)  **
 	
@@ -289,10 +293,10 @@
    08 00 00 00  00 00 00 00  00 00 00 00   [waiting for C data]
    10 00 00 00  00 00 00 00  00 00 00 00   [C done, waiting]
    20 00 00 00  00 00 00 00  00 00 00 00   [All done]
+   02 00 80 00  00 00 00 00  00 00 00 00   [No ink]
+   02 00 01 00  00 00 00 00  00 00 00 00   [No media]
 
   There are no media type codes; the printer only supports one type.
-
-  Error codes are as of yet unknown.
 
  ***************************************************************************
  Selphy CP-series (except for CP790 & CP-10):
