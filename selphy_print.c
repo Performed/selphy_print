@@ -106,7 +106,10 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 	if (buffer[12] == 0x40 &&
 	    buffer[13] == 0x01) {
 		if (buffer[2] == 0x00) {
-			printer_type = P_CP_XXX;
+			if (buffer[6] == 0x00)
+				printer_type = P_CP10;
+			else
+				printer_type = P_CP_XXX;
 		} else {
 			printer_type = P_ES1;
 			*bw_mode = (buffer[2] == 0x20);
@@ -242,10 +245,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			valid = 1;
 			break;
 		case USB_PID_CANON_CP10: // "Canon CP-10"
-			if (*printer_type == P_CP_XXX) {
+			if (*printer_type == P_CP10)
 				found = i;
-				*printer_type = P_CP10;
-			}
 			valid = 1;
 			break;
 		case USB_PID_CANON_CP100: // "Canon CP-100"

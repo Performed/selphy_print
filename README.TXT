@@ -16,13 +16,13 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES3, ES30, ES40, C-100, CP-200, CP-300, CP-330, CP400, 
+     ES1, ES2, ES3, ES30, ES40, CP-10, CP-100, CP-200, CP-300, CP-330, CP400, 
      CP500, CP510, CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, 
      CP800, CP900
 
    Unverified/untested, but should work:
 
-     ES20, CP-10, CP-220, CP600, CP810
+     ES20, CP-220, CP600, CP810
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)  **
 	
@@ -271,10 +271,34 @@
    as the ES40.
 
  ***************************************************************************
- Selphy CP-series (except for CP790):
+ Selphy CP-10:
+
+   Init func:   40 00 00 00  00 00 00 00  00 00 00 00
+   Plane func:  40 01 00 [plane]  [length, 32-bit LE]  00 00 00 00 
+   End func:    00 00 00 00      # NOTE:  CP900 only, and not necessary!
+
+   plane codes are 0x00, 0x01, 0x02 for Y, M, and C, respectively.
+
+   length is always '00 60 81 0a' which is 688480 bytes.
+
+   Known readback values:
+
+   01 00 00 00  00 00 00 00  00 00 00 00   [idle, waiting for init]
+   02 00 00 00  00 00 00 00  00 00 00 00   [init sent, paper feeding]
+   02 00 00 00  00 00 00 00  00 00 00 00   [init sent, paper feeding] 
+   02 00 00 00  00 00 00 00  00 00 00 00   [waiting for Y data]
+   04 00 00 00  00 00 00 00  00 00 00 00   [waiting for M data]
+   08 00 00 00  00 00 00 00  00 00 00 00   [waiting for C data]
+   10 00 00 00  00 00 00 00  00 00 00 00   [C done, waiting]
+   20 00 00 00  00 00 00 00  00 00 00 00   [All done]
+
+  Error codes are as of yet unknown.
+
+ ***************************************************************************
+ Selphy CP-series (except for CP790 & CP-10):
  
     This is known to apply to:
-	CP-10, CP-100, CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710,
+	CP-100, CP-200, CP-300, CP-330, CP400, CP500, CP510, CP710,
 	CP720, CP730, CP740, CP750, CP760, CP770, CP780, CP800, CP900
 
    Init func:   40 00 00 [pgcode]  00 00 00 00  00 00 00 00
@@ -293,14 +317,13 @@
    01 00 00 00  [ss] 00 [pg] 00  00 00 00 [xx]   [idle, waiting for init]
    02 00 [rr] 00  00 00 [pg] 00  00 00 00 [xx]   [init sent, paper feeding]
    02 00 [rr] 00  10 00 [pg] 00  00 00 00 [xx]   [init sent, paper feeding] 
-   02 00 [rr] 00 [qq] 00 [pg] 00  00 00 00 [xx]   [waiting for Y data]
+   02 00 [rr] 00  70 00 [pg] 00  00 00 00 [xx]   [waiting for Y data]
    04 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [waiting for M data]
    08 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [waiting for C data]
    10 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [C done, waiting]
    20 00 00 00  00 00 [pg] 00  00 00 00 [xx]   [All done]
 
    [xx] is 0x01 on the CP780/CP800/CP900, 0x00 on all others.
-   [qq] is 0x00 on CP-10, 0x70 on all others.
 
    [rr] is error code:
    	0x00 no error
@@ -314,7 +337,7 @@
 
       'P' paper 0x11
       'L' paper 0x22
-      'C' paper 0x33  (0x00 on the CP-10)
+      'C' paper 0x33
       'W' paper 0x44
 
       First four bits are paper, second four bits are the ribbon.  They aren't

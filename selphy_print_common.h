@@ -131,7 +131,7 @@ struct printer_data printers[P_END] = {
 	  .error_offset = 3,
 	},
 	{ .type = P_CP_XXX,
-	  .model = "SELPHY CP Series (!CP790)",
+	  .model = "SELPHY CP Series (!CP-10/CP790)",
 	  .init_length = 12,
 	  .foot_length = 0,  /* CP900 has four-byte NULL footer that can be safely ignored */
 	  .init_readback = { 0x01, 0x00, 0x00, 0x00, -1, 0x00, -1, 0x00, 0x00, 0x00, 0x00, -1 },
@@ -154,9 +154,9 @@ struct printer_data printers[P_END] = {
 	  .ready_c_readback = { 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, -1 },
 	  .done_c_readback = { 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, -1 },
 	  // .paper_codes
-	  .pgcode_offset = 3,
-	  .paper_code_offset = 6,
-	  .error_offset = 2,
+	  .pgcode_offset = -1,
+	  .paper_code_offset = -1,
+	  .error_offset = -1,
 	},
 };
 
@@ -183,11 +183,7 @@ static void setup_paper_codes(void)
 	printers[P_ES2_20].paper_codes[0x02] = 0x02; // ? guess
 	printers[P_ES2_20].paper_codes[0x03] = 0x03;
 	
-	/* SELPHY ES3/30 paper codes -- N/A, printer does not report paper type */
-	//  printers[P_ES3_30]paper_codes[0x01] = -1;
-	//  printers[P_ES3_30]paper_codes[0x02] = -1;
-	//  printers[P_ES3_30]paper_codes[0x03] = -1;
-	
+	/* SELPHY ES3/30 paper codes -- N/A, printer does not report paper type */	
 	/* SELPHY ES40/CP790 paper codes -- ? guess */
 	printers[P_ES40_CP790].paper_codes[0x00] = 0x11;
 	printers[P_ES40_CP790].paper_codes[0x01] = 0x22;
@@ -200,11 +196,7 @@ static void setup_paper_codes(void)
 	printers[P_CP_XXX].paper_codes[0x03] = 0x33;
 	printers[P_CP_XXX].paper_codes[0x04] = 0x44;
 
-	/* SELPHY CP-10 paper codes */
-	printers[P_CP10].paper_codes[0x01] = -1;
-	printers[P_CP10].paper_codes[0x02] = -1;
-	printers[P_CP10].paper_codes[0x03] = 0x00;
-	printers[P_CP10].paper_codes[0x04] = -1;
+	/* SELPHY CP-10 paper codes -- N/A, only one type */
 }
 
 #define INCORRECT_PAPER -999
