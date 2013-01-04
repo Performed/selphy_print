@@ -117,9 +117,9 @@
    Known paper types for all ES printers:  P, Pbw, L, C, Cl
    Additional types for ES3/30/40:         Pg, Ps
 
-   [pg] is:  0x01 for P-papers (only 'P' tested)
-   	     0x02 for L-paper  (guessed)
-             0x03 for C-papers (only 'Cl' tested)
+   [pg] is:  0x01 for P-papers
+   	     0x02 for L-papers
+             0x03 for C-papers
 
  ***************************************************************************
  Selphy ES2/20:
@@ -162,15 +162,14 @@
    [xx] can be 0x00 or 0xff, depending on if a previous print job has 
 	completed or not.
 
-   [pg] is:  0x01 for P-paper  (only 'P' tested)
-   	     0x02 for L-paper  (guessed)
-             0x03 for C-paper  (only 'Cl' tested)
+   [pg] is:  0x01 for P-papers
+   	     0x02 for L-papers
+             0x03 for C-papers
 
-   [pg2] is: 0x00 for P-paper  (only 'P' tested)
-   	     ???? for L-paper  (unknown)
-             0x01 for C-paper  (only 'Cl' tested)
+   [pg2] is: 0x00 for P & L papers
+             0x01 for Cl-paper
 
-   [pg2] may refer to Label (0x01) vs non-Label (0x00) media.
+       *** note: may refer to Label (0x01) vs non-Label (0x00) media.
 
  ***************************************************************************
  Selphy ES3/30:
