@@ -1,0 +1,387 @@
+/*
+ *   Kodak Professional 1400 print assister
+ *
+ *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
+ *
+ *   The latest version of this program can be found at:
+ *  
+ *     http://git.shaftnet.org/git/gitweb.cgi?p=selphy_print.git
+ *  
+ *   This program is free software; you can redistribute it and/or modify it
+ *   under the terms of the GNU General Public License as published by the Free
+ *   Software Foundation; either version 3 of the License, or (at your option)
+ *   any later version.
+ *
+ *   This program is distributed in the hope that it will be useful, but
+ *   WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ *   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ *   for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ *          [http://www.gnu.org/licenses/gpl-3.0.html]
+ *
+ */
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <unistd.h>
+
+#include <libusb-1.0/libusb.h>
+
+#define VERSION "0.01"
+#define STR_LEN_MAX 64
+#define URI_PREFIX "kodak1400://"
+#define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
+#define ERROR( ... ) fprintf(stderr, "ERROR: " __VA_ARGS__ )
+
+#if (__BYTE_ORDER == __LITTLE_ENDIAN)
+#define le32_to_cpu(__x) __x
+#define le16_to_cpu(__x) __x
+#else
+#define le32_to_cpu(x)							\
+	({								\
+		uint32_t __x = (x);					\
+		((uint32_t)(						\
+			(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
+			(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
+			(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
+			(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
+	})
+#define le16_to_cpu(x)							\
+	({								\
+		uint16_t __x = (x);					\
+		((uint16_t)(						\
+			(((uint16_t)(__x) & (uint16_t)0x00ff) <<  8) | \
+			(((uint16_t)(__x) & (uint16_t)0xff00) >>  8) | \
+	})
+#endif
+
+/* USB Identifiers */
+#define USB_VID_KODAK      0x040A
+#define USB_PID_KODAK_1400 0x4022
+
+struct kodak1400_hdr {
+uint8_t  hdr[4];
+uint8_t  unk1[2]; /* Always 0x00 0a */
+uint16_t null1;
+uint16_t rows;
+uint16_t null2;
+uint32_t planesize;
+uint32_t null3;
+uint8_t  matte;
+uint8_t  laminate;
+uint8_t  unk2;  /* Always 0x01 */
+uint8_t  lam_strength;
+uint8_t  null4[12];
+};
+
+static int find_and_enumerate(struct libusb_context *ctx,
+			      struct libusb_device ***list,
+			      char *match_serno,
+			      int scan_only)
+{
+	int num;
+	int i;
+	int found = -1;
+
+	struct libusb_device_handle *dev;
+
+	/* Enumerate and find suitable device */
+	num = libusb_get_device_list(ctx, list);
+
+	for (i = 0 ; i < num ; i++) {
+		struct libusb_device_descriptor desc;
+		unsigned char product[STR_LEN_MAX] = "";
+		unsigned char serial[STR_LEN_MAX] = "";
+		unsigned char manuf[STR_LEN_MAX] = "";
+
+		libusb_get_device_descriptor((*list)[i], &desc);
+
+		if (desc.idVendor != USB_VID_KODAK)
+			continue;
+
+		switch(desc.idProduct) {
+		case USB_PID_KODAK_1400: // "Kodak 1400"
+			found = i;
+			break;
+		default:
+			continue;
+		}
+
+		if (libusb_open(((*list)[i]), &dev)) {
+			ERROR("Could not open device %04x:%04x\n", desc.idVendor, desc.idProduct);
+			found = -1;
+			continue;
+		}
+
+		/* Query detailed info */
+		if (desc.iManufacturer) {
+			libusb_get_string_descriptor_ascii(dev, desc.iManufacturer, manuf, STR_LEN_MAX);
+		}
+		if (desc.iProduct) {
+			libusb_get_string_descriptor_ascii(dev, desc.iProduct, product, STR_LEN_MAX);
+		}
+		if (desc.iSerialNumber) {
+			libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, serial, STR_LEN_MAX);
+		}
+
+		DEBUG("PID: %04X Product: '%s' Serial: '%s'\n",
+		      desc.idProduct, product, serial);
+
+		if (scan_only) {
+			/* URL-ify model. */
+			char buf[128]; // XXX ugly..
+			i = 0;
+			while (*(product + i + strlen("Kodak"))) {
+				buf[i] = *(product + i + strlen("Kodak "));
+				if(buf[i] == ' ') {
+					buf[i++] = '%';
+					buf[i++] = '2';
+					buf[i] = '0';
+				}
+				i++;
+			}
+			fprintf(stdout, "direct %sKodak/%s?serial=%s \"%s\" \"%s\" \"MFG:Kodak;CMD:Kodak1400Raster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n", URI_PREFIX,
+			        buf, serial, product, product,
+				product + strlen("Kodak "), product, serial);
+		}
+
+		/* If a serial number was passed down, use it. */
+		if (found && match_serno &&
+		    strcmp(match_serno, (char*)serial)) {
+			found = -1;
+		}
+
+		libusb_close(dev);
+	}
+
+	return found;
+}
+
+int main (int argc, char **argv) 
+{
+	struct libusb_context *ctx;
+	struct libusb_device **list;
+	struct libusb_device_handle *dev;
+	struct libusb_config_descriptor *config;
+
+	uint8_t endp_up = 0;
+	uint8_t endp_down = 0;
+
+	int data_fd = fileno(stdin);
+
+	int i;
+	int claimed;
+
+	int ret = 0;
+	int iface = 0;
+	int found = -1;
+	char *uri = getenv("DEVICE_URI");;
+	char *use_serno = NULL;
+
+	struct kodak1400_hdr hdr;
+	uint8_t *plane_r, *plane_g, *plane_b;
+
+	/* Cmdline help */
+	if (argc < 2) {
+		DEBUG("Kodak 1400 Print Assist version %s\nUsage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
+		      VERSION,
+		      argv[0], argv[0]);
+		libusb_init(&ctx);
+		find_and_enumerate(ctx, &list, NULL, 1);
+		libusb_free_device_list(list, 1);
+		libusb_exit(ctx);
+		exit(1);
+	}
+
+	/* Are we running as a CUPS backend? */
+	if (uri) {
+		if (argv[6]) {  /* IOW, is it specified? */
+			data_fd = open(argv[6], O_RDONLY);
+			if (data_fd < 0) {
+				perror("ERROR:Can't open input file");
+				exit(1);
+			}
+		}
+
+		/* Start parsing URI 'selphy://PID/SERIAL' */
+		if (strncmp(URI_PREFIX, uri, strlen(URI_PREFIX))) {
+			ERROR("Invalid URI prefix (%s)\n", uri);
+			exit(1);
+		}
+		use_serno = strchr(uri, '=');
+		if (!use_serno || !*(use_serno+1)) {
+			ERROR("Invalid URI (%s)\n", uri);
+			exit(1);
+		}
+		use_serno++;
+	} else {
+		/* Open Input File */
+		if (strcmp("-", argv[1])) {
+			data_fd = open(argv[1], O_RDONLY);
+			if (data_fd < 0) {
+				perror("ERROR:Can't open input file");
+				exit(1);
+			}
+		}
+	}
+
+	/* Read in then validate header */
+	read(data_fd, &hdr, sizeof(hdr));
+	if (hdr.hdr[0] != 'P' ||
+	    hdr.hdr[1] != 'G' ||
+	    hdr.hdr[2] != 'H' ||
+	    hdr.hdr[3] != 'D') {
+		ERROR("Unrecognized data format!\n");
+		exit(1);
+	}
+	hdr.planesize = le32_to_cpu(hdr.planesize);
+	hdr.rows = le16_to_cpu(hdr.rows);
+
+	/* Set up plane data */
+	plane_r = malloc(hdr.planesize);
+	plane_g = malloc(hdr.planesize);
+	plane_b = malloc(hdr.planesize);
+	if (!plane_r || !plane_g || !plane_b) {
+		ERROR("Memory allocation failure!\n");
+		exit(1);
+	}
+	for (i = 0 ; i < hdr.rows ; i++) {
+		int j;
+		uint8_t *ptr;
+		for (j = 0 ; j < 3 ; j++) {
+			if (j == 0)
+				ptr = plane_b + i * (hdr.planesize/hdr.rows);
+			if (j == 1)
+				ptr = plane_g + i * (hdr.planesize/hdr.rows);
+			if (j == 2)
+				ptr = plane_r + i * (hdr.planesize/hdr.rows);
+		}
+		ret = read(data_fd, ptr, hdr.planesize/hdr.rows);
+		if (ret != hdr.planesize/hdr.rows) {
+			ERROR("Short read!\n");
+			exit(2);
+		}
+	}
+
+	/* Libusb setup */
+	libusb_init(&ctx);
+	found = find_and_enumerate(ctx, &list, use_serno, 0);
+
+	if (found == -1) {
+		ERROR("No suitable printers found!\n");
+		ret = 3;
+		goto done;
+	}
+
+	ret = libusb_open(list[found], &dev);
+	if (ret) {
+		ERROR("Could not open device (Need to be root?) (%d)\n", ret);
+		ret = 4;
+		goto done;
+	}
+	
+	claimed = libusb_kernel_driver_active(dev, iface);
+	if (claimed) {
+		ret = libusb_detach_kernel_driver(dev, iface);
+		if (ret) {
+			ERROR("Could not detach printer from kernel (%d)\n", ret);
+			ret = 4;
+			goto done_close;
+		}
+	}
+
+	ret = libusb_claim_interface(dev, iface);
+	if (ret) {
+		ERROR("Could not claim printer interface (%d)\n", ret);
+		ret = 4;
+		goto done_close;
+	}
+
+	ret = libusb_get_active_config_descriptor(list[found], &config);
+	if (ret) {
+		ERROR("Could not fetch config descriptor (%d)\n", ret);
+		ret = 4;
+		goto done_close;
+	}
+
+	for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
+		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
+			if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
+				endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
+			else
+				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
+		}
+	}
+
+	// XXXXX do actual work here! 
+	
+	/* Clean up */
+done_claimed:
+	libusb_release_interface(dev, iface);
+
+done_close:
+	if (claimed)
+		libusb_attach_kernel_driver(dev, iface);
+
+	libusb_close(dev);
+done:
+	if (plane_r)
+		free(plane_r);
+	if (plane_b)
+		free(plane_b);
+	if (plane_g)
+		free(plane_g);
+
+	libusb_free_device_list(list, 1);
+	libusb_exit(ctx);
+
+	close(data_fd);
+
+	return ret;
+}
+
+/* Kodak 1400 data format
+
+  Spool file consists of 36-byte header followed by row-interleaved BGR data.
+  Native printer resolution is 2560 pixels per row, and 3010 or 3612 rows.
+
+  Header:
+
+  50 47 48 44     "PGHD"
+  00 0a           Unknown, always set thusly.
+  00 00           NULL
+  XX XX           Number of rows, Little Engian
+  00 00           NULL
+  XX XX XX XX     Number of bytes per plane, Little Endian
+  00 00 00 00     NULL
+  XX              00 Glossy, 01 Matte              
+  01              01 to laminate, 00 to not.
+  01              Unkown, always set thusly
+  XX              Lamination Strength:
+ 
+                  3c  Glossy
+                  28  Matte +5
+                  2e  Matte +4
+                  34  Matte +3
+                  3a  Matte +2
+                  40  Matte +1
+                  46  Matte 
+                  52  Matte -1
+                  5e  Matte -2
+                  6a  Matte -3
+                  76  Matte -4
+                  82  Matte -5
+
+  00 00 00 00 00 00 00 00 00 00 00 00       NULL
+
+*/
