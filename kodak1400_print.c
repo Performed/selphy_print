@@ -231,22 +231,25 @@ static int send_plane(struct libusb_device_handle *dev, uint8_t endp,
 	cmdbuf[1] = 0x5a;
 	cmdbuf[2] = 0x54;
 	cmdbuf[3] = planeno;
-	temp16 = ntohs(hdr->columns);
-	memcpy(cmdbuf+7, &temp16, 2);
-	temp16 = ntohs(hdr->rows);
-	memcpy(cmdbuf+9, &temp16, 2);
-	
-	if ((ret = send_data(dev, endp,
-			     cmdbuf, CMDBUF_LEN)))
-		return ret;
-	
-	for (i = 0 ; i < hdr->rows ; i++) {
+
+	if (planedata) {
+		temp16 = ntohs(hdr->columns);
+		memcpy(cmdbuf+7, &temp16, 2);
+		temp16 = ntohs(hdr->rows);
+		memcpy(cmdbuf+9, &temp16, 2);
+		
 		if ((ret = send_data(dev, endp,
-				     planedata + i * hdr->columns, 
-				     hdr->columns)))
+				     cmdbuf, CMDBUF_LEN)))
 			return ret;
+		
+		for (i = 0 ; i < hdr->rows ; i++) {
+			if ((ret = send_data(dev, endp,
+					     planedata + i * hdr->columns, 
+					     hdr->columns)))
+				return ret;
+		}
 	}
-	
+
 	memset(cmdbuf, 0, CMDBUF_LEN);
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x74;
@@ -559,41 +562,9 @@ top:
 			state = S_PRINTER_READY_L;
 		break;
 	case S_PRINTER_READY_L:
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x74;
-		cmdbuf[2] = 0x00;
-		cmdbuf[3] = 0x50;
-	
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
+		if ((ret = send_plane(dev, endp_down,
+				      4, NULL, &hdr, cmdbuf)))
 			goto done_claimed;
-
-		/* Plane setup */
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x5a;
-		cmdbuf[2] = 0x54;
-		cmdbuf[3] = 0x04;
-		temp16 = ntohs(hdr.columns);
-		memcpy(cmdbuf+7, &temp16, 2);
-		temp16 = ntohs(hdr.rows);
-		memcpy(cmdbuf+9, &temp16, 2);
-
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x74;
-		cmdbuf[2] = 0x01;
-		cmdbuf[3] = 0x50;
-	
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
 		state = S_PRINTER_SENT_L;
 		break;
 	case S_PRINTER_SENT_L:
