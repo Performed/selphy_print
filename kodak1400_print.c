@@ -456,10 +456,31 @@ top:
 		}
 
 		// send unkn1
+
 		state = S_PRINTER_READY_Y;
 		break;
 	case S_PRINTER_READY_Y:
-		// send plane init
+		/* Plane setup */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x5a;
+		cmdbuf[2] = 0x54;
+		cmdbuf[3] = 0x01;
+		temp16 = ntohs(hdr.columns);
+		memcpy(cmdbuf+7, &temp16, 2);
+		temp16 = ntohs(hdr.rows);
+		memcpy(cmdbuf+9, &temp16, 2);
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
+
 		for (i = 0 ; i < hdr.rows ; i++) {
 			ret = libusb_bulk_transfer(dev, endp_down,
 						   plane_b + i * hdr.columns, hdr.columns,
@@ -511,7 +532,26 @@ top:
 			goto done_claimed;
 		}
 
-		// send plane init
+		/* Plane setup */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x5a;
+		cmdbuf[2] = 0x54;
+		cmdbuf[3] = 0x02;
+		temp16 = ntohs(hdr.columns);
+		memcpy(cmdbuf+7, &temp16, 2);
+		temp16 = ntohs(hdr.rows);
+		memcpy(cmdbuf+9, &temp16, 2);
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
 
 		for (i = 0 ; i < hdr.rows ; i++) {
 			ret = libusb_bulk_transfer(dev, endp_down,
@@ -564,7 +604,26 @@ top:
 			goto done_claimed;
 		}
 
-		// send plane init
+		/* Plane setup */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x5a;
+		cmdbuf[2] = 0x54;
+		cmdbuf[3] = 0x03;
+		temp16 = ntohs(hdr.columns);
+		memcpy(cmdbuf+7, &temp16, 2);
+		temp16 = ntohs(hdr.rows);
+		memcpy(cmdbuf+9, &temp16, 2);
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
 
 		for (i = 0 ; i < hdr.rows ; i++) {
 			ret = libusb_bulk_transfer(dev, endp_down,
@@ -617,7 +676,26 @@ top:
 			goto done_claimed;
 		}
 
-		// send laminate init
+		/* Plane setup */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x5a;
+		cmdbuf[2] = 0x54;
+		cmdbuf[3] = 0x04;
+		temp16 = ntohs(hdr.columns);
+		memcpy(cmdbuf+7, &temp16, 2);
+		temp16 = ntohs(hdr.rows);
+		memcpy(cmdbuf+9, &temp16, 2);
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		cmdbuf[0] = 0x1b;
@@ -750,7 +828,7 @@ done:
  <-- 1b 62 46                        # hdr.lam_strength
  <-- 1b 61 01                        # ?? hdr.unk1
 
- <-- 1b 5a 54 01  00 00 00 00  0a 00  0b c2  # start of plane 1 data
+ <-- 1b 5a 54 01  00 00 00  0a 00  0b c2  # start of plane 1 data
  <-- row 1
  <-- row 2
  <-- row last
@@ -764,7 +842,7 @@ done:
  --> e4 72 00 00  00 00 00 00        # Idle response
 
  <-- 1b 74 00 50                     # ??
- <-- 1b 5a 54 02  00 00 00 00  0a 00  0b c2  # start of plane 2 data
+ <-- 1b 5a 54 02  00 00 00  0a 00  0b c2  # start of plane 2 data
  <-- row 1
  <-- row 2
  <-- row last
@@ -777,7 +855,7 @@ done:
  --> e4 72 00 00  00 00 00 00        # Idle response
 
  <-- 1b 74 00 50                     # ??
- <-- 1b 5a 54 03  00 00 00 00  0a 00  0b c2  # start of plane 3 data
+ <-- 1b 5a 54 03  00 00 00  0a 00  0b c2  # start of plane 3 data
  <-- row 1
  <-- row 2
  <-- row last
