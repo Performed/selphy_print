@@ -365,16 +365,17 @@ int main (int argc, char **argv)
 		uint8_t *ptr;
 		for (j = 0 ; j < 3 ; j++) {
 			if (j == 0)
-				ptr = plane_b + i * hdr.columns;
+				ptr = plane_r + i * hdr.columns;
 			if (j == 1)
 				ptr = plane_g + i * hdr.columns;
 			if (j == 2)
-				ptr = plane_r + i * hdr.columns;
-		}
-		ret = read(data_fd, ptr, hdr.columns);
-		if (ret != hdr.columns) {
-			ERROR("Short read!\n");
-			exit(2);
+				ptr = plane_b + i * hdr.columns;
+
+			ret = read(data_fd, ptr, hdr.columns);
+			if (ret != hdr.columns) {
+				ERROR("Short read!\n");
+				exit(2);
+			}
 		}
 	}
 
