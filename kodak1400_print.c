@@ -233,9 +233,9 @@ static int send_plane(struct libusb_device_handle *dev, uint8_t endp,
 	cmdbuf[3] = planeno;
 
 	if (planedata) {
-		temp16 = ntohs(hdr->columns);
+		temp16 = htons(hdr->columns);
 		memcpy(cmdbuf+7, &temp16, 2);
-		temp16 = ntohs(hdr->rows);
+		temp16 = htons(hdr->rows);
 		memcpy(cmdbuf+9, &temp16, 2);
 	}
 
