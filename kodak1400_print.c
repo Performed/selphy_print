@@ -191,13 +191,13 @@ static int find_and_enumerate(struct libusb_context *ctx,
 }
 
 static int send_data(struct libusb_device_handle *dev, uint8_t endp, 
-		    uint8_t *buf, uint8_t len)
+		    uint8_t *buf, uint16_t len)
 {
 	int num;
 
 	int ret = libusb_bulk_transfer(dev, endp,
 				       buf, len,
-				       &num, 2000);
+				       &num, 5000);
 
 	if (ret < 0) {
 		ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, len, endp);
@@ -237,11 +237,13 @@ static int send_plane(struct libusb_device_handle *dev, uint8_t endp,
 		memcpy(cmdbuf+7, &temp16, 2);
 		temp16 = ntohs(hdr->rows);
 		memcpy(cmdbuf+9, &temp16, 2);
-		
-		if ((ret = send_data(dev, endp,
-				     cmdbuf, CMDBUF_LEN)))
-			return ret;
-		
+	}
+
+	if ((ret = send_data(dev, endp,
+			     cmdbuf, CMDBUF_LEN)))
+		return ret;
+
+	if (planedata) {
 		for (i = 0 ; i < hdr->rows ; i++) {
 			if ((ret = send_data(dev, endp,
 					     planedata + i * hdr->columns, 
