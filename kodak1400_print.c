@@ -206,6 +206,60 @@ static int send_data(struct libusb_device_handle *dev, uint8_t endp,
 	return 0;
 }
 
+static int send_plane(struct libusb_device_handle *dev, uint8_t endp,
+		      uint8_t planeno, uint8_t *planedata,
+		      struct kodak1400_hdr *hdr, uint8_t *cmdbuf)
+{
+	int i;
+	uint16_t temp16;
+	int ret;
+
+	if (planeno != 1) {
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x74;
+		cmdbuf[2] = 0x00;
+		cmdbuf[3] = 0x50;
+	
+		if ((ret = send_data(dev, endp,
+				     cmdbuf, CMDBUF_LEN)))
+			return ret;
+	}
+
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x5a;
+	cmdbuf[2] = 0x54;
+	cmdbuf[3] = planeno;
+	temp16 = ntohs(hdr->columns);
+	memcpy(cmdbuf+7, &temp16, 2);
+	temp16 = ntohs(hdr->rows);
+	memcpy(cmdbuf+9, &temp16, 2);
+	
+	if ((ret = send_data(dev, endp,
+			     cmdbuf, CMDBUF_LEN)))
+		return ret;
+	
+	for (i = 0 ; i < hdr->rows ; i++) {
+		if ((ret = send_data(dev, endp,
+				     planedata + i * hdr->columns, 
+				     hdr->columns)))
+			return ret;
+	}
+	
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x74;
+	cmdbuf[2] = 0x01;
+	cmdbuf[3] = 0x50;
+	
+	if ((ret = send_data(dev, endp,
+			     cmdbuf, CMDBUF_LEN)))
+		return ret;
+
+	return 0;
+}
+
 int main (int argc, char **argv) 
 {
 	struct libusb_context *ctx;
@@ -475,37 +529,9 @@ top:
 		state = S_PRINTER_READY_Y;
 		break;
 	case S_PRINTER_READY_Y:
-		/* Plane setup */
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x5a;
-		cmdbuf[2] = 0x54;
-		cmdbuf[3] = 0x01;
-		temp16 = ntohs(hdr.columns);
-		memcpy(cmdbuf+7, &temp16, 2);
-		temp16 = ntohs(hdr.rows);
-		memcpy(cmdbuf+9, &temp16, 2);
-
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
+		if ((ret = send_plane(dev, endp_down,
+				      1, plane_b, &hdr, cmdbuf)))
 			goto done_claimed;
-
-		for (i = 0 ; i < hdr.rows ; i++) {
-			if ((ret = send_data(dev, endp_down,
-					    plane_b + i * hdr.columns, hdr.columns)))
-				goto done_claimed;
-		}
-
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x74;
-		cmdbuf[2] = 0x01;
-		cmdbuf[3] = 0x50;
-
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
 		state = S_PRINTER_SENT_Y;
 		break;
 	case S_PRINTER_SENT_Y:
@@ -513,47 +539,9 @@ top:
 			state = S_PRINTER_READY_M;
 		break;
 	case S_PRINTER_READY_M:
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x74;
-		cmdbuf[2] = 0x00;
-		cmdbuf[3] = 0x50;
-
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
-		/* Plane setup */
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x5a;
-		cmdbuf[2] = 0x54;
-		cmdbuf[3] = 0x02;
-		temp16 = ntohs(hdr.columns);
-		memcpy(cmdbuf+7, &temp16, 2);
-		temp16 = ntohs(hdr.rows);
-		memcpy(cmdbuf+9, &temp16, 2);
-
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
-		for (i = 0 ; i < hdr.rows ; i++) {
-			if ((ret = send_data(dev, endp_down,
-					    plane_g + i * hdr.columns, hdr.columns)))
-				goto done_claimed;
-		}
-
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x74;
-		cmdbuf[2] = 0x01;
-		cmdbuf[3] = 0x50;
-
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
+		if ((ret = send_plane(dev, endp_down,
+				      2, plane_g, &hdr, cmdbuf)))
+			goto done_claimed;		    
 		state = S_PRINTER_SENT_M;
 		break;
 	case S_PRINTER_SENT_M:
@@ -561,47 +549,9 @@ top:
 			state = S_PRINTER_READY_C;
 		break;
 	case S_PRINTER_READY_C:
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x74;
-		cmdbuf[2] = 0x00;
-		cmdbuf[3] = 0x50;
-	
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
+		if ((ret = send_plane(dev, endp_down,
+				      3, plane_r, &hdr, cmdbuf)))
 			goto done_claimed;
-
-		/* Plane setup */
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x5a;
-		cmdbuf[2] = 0x54;
-		cmdbuf[3] = 0x03;
-		temp16 = ntohs(hdr.columns);
-		memcpy(cmdbuf+7, &temp16, 2);
-		temp16 = ntohs(hdr.rows);
-		memcpy(cmdbuf+9, &temp16, 2);
-
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
-		for (i = 0 ; i < hdr.rows ; i++) {
-			if ((ret = send_data(dev, endp_down,
-					    plane_r + i * hdr.columns, hdr.columns)))
-				goto done_claimed;
-		}
-
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x74;
-		cmdbuf[2] = 0x01;
-		cmdbuf[3] = 0x50;
-
-		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
 		state = S_PRINTER_SENT_C;
 		break;
 	case S_PRINTER_SENT_C:
