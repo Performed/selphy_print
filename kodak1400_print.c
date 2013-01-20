@@ -25,6 +25,8 @@
  *
  */
 
+#include <arpa/inet.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -37,7 +39,7 @@
 
 #include <libusb-1.0/libusb.h>
 
-#define VERSION "0.02"
+#define VERSION "0.03"
 #define STR_LEN_MAX 64
 #define CMDBUF_LEN 96
 #define READBACK_LEN 8
@@ -77,11 +79,13 @@ enum {
 	S_PRINTER_READY,
 	S_PRINTER_INIT_SENT,
 	S_PRINTER_READY_Y,
-	S_PRINTER_Y_SENT,
+	S_PRINTER_SENT_Y,
 	S_PRINTER_READY_M,
-	S_PRINTER_M_SENT,
+	S_PRINTER_SENT_M,
 	S_PRINTER_READY_C,
-	S_PRINTER_C_SENT,
+	S_PRINTER_SENT_C,
+	S_PRINTER_READY_L,
+	S_PRINTER_SENT_L,
 	S_PRINTER_DONE,
 	S_FINISHED,
 };
@@ -100,6 +104,10 @@ struct kodak1400_hdr {
 	uint8_t  lam_strength;
 	uint8_t  null4[12];
 };
+
+static uint8_t idle_data[READBACK_LEN] = { 0xe4, 0x72, 0x00, 0x00,
+					   0x00, 0x00, 0x00, 0x00 };
+
 
 static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
@@ -193,6 +201,8 @@ int main (int argc, char **argv)
 
 	uint8_t endp_up = 0;
 	uint8_t endp_down = 0;
+
+	uint16_t temp16;
 
 	int data_fd = fileno(stdin);
 
@@ -391,16 +401,139 @@ top:
 	}
 	fflush(stderr);       
 
-#if 0
 	switch (state) {
-		
+	case S_IDLE:
+		/* Send reset/attention */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+	
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
 
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
 
+		/* Send page setup */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x5a;
+		cmdbuf[2] = 0x53;
+		temp16 = ntohs(hdr.columns);
+		memcpy(cmdbuf+3, &temp16, 2);
+		temp16 = ntohs(hdr.rows);
+		memcpy(cmdbuf+5, &temp16, 2);
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
+
+		// send lamination
+		// send matte
+
+		/* Send lamination strength */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x62;
+		cmdbuf[2] = hdr.lam_strength;
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
+
+		// send unkn1
+		state = S_PRINTER_READY_Y;
+		break;
+	case S_PRINTER_READY_Y:
+		// send plane init
+		for (i = 0 ; i < hdr.rows ; i++) {
+			ret = libusb_bulk_transfer(dev, endp_down,
+						   plane_b + i * hdr.columns, hdr.columns,
+						   &num, 2000);
+			
+			if (ret < 0) {
+				ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+				ret = 4;
+				goto done_claimed;
+			}
+		}
+		state = S_PRINTER_SENT_Y;
+		break;
+	case S_PRINTER_SENT_Y:
+		if (!memcmp(rdbuf, idle_data, READBACK_LEN))
+			state = S_PRINTER_READY_M;
+		break;
+	case S_PRINTER_READY_M:
+		// send plane init
+		for (i = 0 ; i < hdr.rows ; i++) {
+			ret = libusb_bulk_transfer(dev, endp_down,
+						   plane_g + i * hdr.columns, hdr.columns,
+						   &num, 2000);
+			
+			if (ret < 0) {
+				ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+				ret = 4;
+				goto done_claimed;
+			}
+		}
+		state = S_PRINTER_SENT_M;
+		break;
+	case S_PRINTER_SENT_M:
+		if (!memcmp(rdbuf, idle_data, READBACK_LEN))
+			state = S_PRINTER_READY_C;
+		break;
+	case S_PRINTER_READY_C:
+		// send plane init
+		for (i = 0 ; i < hdr.rows ; i++) {
+			ret = libusb_bulk_transfer(dev, endp_down,
+						   plane_r + i * hdr.columns, hdr.columns,
+						   &num, 2000);
+			
+			if (ret < 0) {
+				ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+				ret = 4;
+				goto done_claimed;
+			}
+		}
+		state = S_PRINTER_SENT_C;
+		break;
+	case S_PRINTER_SENT_C:
+		if (!memcmp(rdbuf, idle_data, READBACK_LEN))
+			state = S_PRINTER_READY_L;
+		break;
+	case S_PRINTER_READY_L:
+		// send laminate init
+		state = S_PRINTER_SENT_L;
+		break;
+	case S_PRINTER_SENT_L:
+		if (!memcmp(rdbuf, idle_data, READBACK_LEN))
+			state = S_PRINTER_DONE;
+		break;
+	case S_PRINTER_DONE:
+		// send cleanup.
+		state = S_FINISHED;
+		break;
+	default:
+		break;
 	};
 
 	if (state != S_FINISHED)
 		goto top;
-#endif
 	
 	/* All done, clean up */
 done_claimed:
