@@ -39,7 +39,7 @@
 
 #include <libusb-1.0/libusb.h>
 
-#define VERSION "0.03"
+#define VERSION "0.04"
 #define STR_LEN_MAX 64
 #define CMDBUF_LEN 96
 #define READBACK_LEN 8
@@ -188,6 +188,22 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	}
 
 	return found;
+}
+
+static int send_data(struct libusb_device_handle *dev, uint8_t endp, 
+		    uint8_t *buf, uint8_t len)
+{
+	int num;
+
+	int ret = libusb_bulk_transfer(dev, endp,
+				       buf, len,
+				       &num, 2000);
+
+	if (ret < 0) {
+		ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, len, endp);
+		return ret;
+	}
+	return 0;
 }
 
 int main (int argc, char **argv) 
@@ -360,16 +376,10 @@ top:
 	memset(cmdbuf, 0, CMDBUF_LEN);
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x72;
-	
-	ret = libusb_bulk_transfer(dev, endp_down,
-				   cmdbuf, CMDBUF_LEN,
-				   &num, 2000);
 
-	if (ret < 0) {
-		ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-		ret = 4;
+	if ((ret = send_data(dev, endp_down,
+			    cmdbuf, CMDBUF_LEN)))
 		goto done_claimed;
-	}
 
 	/* Read in the printer status */
 	ret = libusb_bulk_transfer(dev, endp_up,
@@ -403,16 +413,10 @@ top:
 		/* Send reset/attention */
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		cmdbuf[0] = 0x1b;
-	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
 
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		/* Send page setup */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -424,15 +428,9 @@ top:
 		temp16 = ntohs(hdr.rows);
 		memcpy(cmdbuf+5, &temp16, 2);
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		/* Send lamination toggle? */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -440,15 +438,9 @@ top:
 		cmdbuf[1] = 0x59;
 		cmdbuf[2] = hdr.laminate; // ???
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		/* Send matte toggle? */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -456,15 +448,9 @@ top:
 		cmdbuf[1] = 0x60;
 		cmdbuf[2] = hdr.matte; // ???
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if (send_data(dev, endp_down,
+			     cmdbuf, CMDBUF_LEN))
 			goto done_claimed;
-		}
 
 		/* Send lamination strength */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -472,15 +458,9 @@ top:
 		cmdbuf[1] = 0x62;
 		cmdbuf[2] = hdr.lam_strength;
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		/* Send unknown? */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -488,15 +468,9 @@ top:
 		cmdbuf[1] = 0x61;
 		cmdbuf[2] = hdr.unk1; // ???
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		state = S_PRINTER_READY_Y;
 		break;
@@ -512,26 +486,14 @@ top:
 		temp16 = ntohs(hdr.rows);
 		memcpy(cmdbuf+9, &temp16, 2);
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		for (i = 0 ; i < hdr.rows ; i++) {
-			ret = libusb_bulk_transfer(dev, endp_down,
-						   plane_b + i * hdr.columns, hdr.columns,
-						   &num, 2000);
-			
-			if (ret < 0) {
-				ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-				ret = 4;
+			if ((ret = send_data(dev, endp_down,
+					    plane_b + i * hdr.columns, hdr.columns)))
 				goto done_claimed;
-			}
 		}
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -539,16 +501,10 @@ top:
 		cmdbuf[1] = 0x74;
 		cmdbuf[2] = 0x01;
 		cmdbuf[3] = 0x50;
-	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
 
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		state = S_PRINTER_SENT_Y;
 		break;
@@ -562,16 +518,10 @@ top:
 		cmdbuf[1] = 0x74;
 		cmdbuf[2] = 0x00;
 		cmdbuf[3] = 0x50;
-	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
 
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		/* Plane setup */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -584,26 +534,14 @@ top:
 		temp16 = ntohs(hdr.rows);
 		memcpy(cmdbuf+9, &temp16, 2);
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		for (i = 0 ; i < hdr.rows ; i++) {
-			ret = libusb_bulk_transfer(dev, endp_down,
-						   plane_g + i * hdr.columns, hdr.columns,
-						   &num, 2000);
-			
-			if (ret < 0) {
-				ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-				ret = 4;
+			if ((ret = send_data(dev, endp_down,
+					    plane_g + i * hdr.columns, hdr.columns)))
 				goto done_claimed;
-			}
 		}
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -611,16 +549,10 @@ top:
 		cmdbuf[1] = 0x74;
 		cmdbuf[2] = 0x01;
 		cmdbuf[3] = 0x50;
-	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
 
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		state = S_PRINTER_SENT_M;
 		break;
@@ -635,15 +567,9 @@ top:
 		cmdbuf[2] = 0x00;
 		cmdbuf[3] = 0x50;
 	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		/* Plane setup */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -656,26 +582,14 @@ top:
 		temp16 = ntohs(hdr.rows);
 		memcpy(cmdbuf+9, &temp16, 2);
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		for (i = 0 ; i < hdr.rows ; i++) {
-			ret = libusb_bulk_transfer(dev, endp_down,
-						   plane_r + i * hdr.columns, hdr.columns,
-						   &num, 2000);
-			
-			if (ret < 0) {
-				ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-				ret = 4;
+			if ((ret = send_data(dev, endp_down,
+					    plane_r + i * hdr.columns, hdr.columns)))
 				goto done_claimed;
-			}
 		}
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -683,16 +597,10 @@ top:
 		cmdbuf[1] = 0x74;
 		cmdbuf[2] = 0x01;
 		cmdbuf[3] = 0x50;
-	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
 
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		state = S_PRINTER_SENT_C;
 		break;
@@ -707,15 +615,9 @@ top:
 		cmdbuf[2] = 0x00;
 		cmdbuf[3] = 0x50;
 	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		/* Plane setup */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -728,15 +630,9 @@ top:
 		temp16 = ntohs(hdr.rows);
 		memcpy(cmdbuf+9, &temp16, 2);
 
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		cmdbuf[0] = 0x1b;
@@ -744,15 +640,9 @@ top:
 		cmdbuf[2] = 0x01;
 		cmdbuf[3] = 0x50;
 	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
-
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		state = S_PRINTER_SENT_L;
 		break;
@@ -767,16 +657,10 @@ top:
 		cmdbuf[1] = 0x74;
 		cmdbuf[2] = 0x00;
 		cmdbuf[3] = 0x50;
-	
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   cmdbuf, CMDBUF_LEN,
-					   &num, 2000);
 
-		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down,
+				    cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
-		}
 
 		state = S_FINISHED;
 		break;
