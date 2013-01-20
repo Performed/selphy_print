@@ -76,8 +76,6 @@
 /* Program states */
 enum {
 	S_IDLE = 0,
-	S_PRINTER_READY,
-	S_PRINTER_INIT_SENT,
 	S_PRINTER_READY_Y,
 	S_PRINTER_SENT_Y,
 	S_PRINTER_READY_M,
