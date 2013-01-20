@@ -436,8 +436,37 @@ top:
 			goto done_claimed;
 		}
 
-		// send lamination
-		// send matte
+		/* Send lamination toggle? */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x59;
+		cmdbuf[2] = hdr.laminate; // ???
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
+
+		/* Send matte toggle? */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x60;
+		cmdbuf[2] = hdr.matte; // ???
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
 
 		/* Send lamination strength */
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -455,7 +484,21 @@ top:
 			goto done_claimed;
 		}
 
-		// send unkn1
+		/* Send unknown? */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x61;
+		cmdbuf[2] = hdr.unk1; // ???
+
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   cmdbuf, CMDBUF_LEN,
+					   &num, 2000);
+
+		if (ret < 0) {
+			ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+			ret = 4;
+			goto done_claimed;
+		}
 
 		state = S_PRINTER_READY_Y;
 		break;
