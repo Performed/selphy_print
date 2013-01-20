@@ -37,8 +37,10 @@
 
 #include <libusb-1.0/libusb.h>
 
-#define VERSION "0.01"
+#define VERSION "0.02"
 #define STR_LEN_MAX 64
+#define CMDBUF_LEN 96
+#define READBACK_LEN 8
 #define URI_PREFIX "kodak1400://"
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
 #define ERROR( ... ) fprintf(stderr, "ERROR: " __VA_ARGS__ )
@@ -69,19 +71,34 @@
 #define USB_VID_KODAK      0x040A
 #define USB_PID_KODAK_1400 0x4022
 
+/* Program states */
+enum {
+	S_IDLE = 0,
+	S_PRINTER_READY,
+	S_PRINTER_INIT_SENT,
+	S_PRINTER_READY_Y,
+	S_PRINTER_Y_SENT,
+	S_PRINTER_READY_M,
+	S_PRINTER_M_SENT,
+	S_PRINTER_READY_C,
+	S_PRINTER_C_SENT,
+	S_PRINTER_DONE,
+	S_FINISHED,
+};
+
 struct kodak1400_hdr {
-uint8_t  hdr[4];
-uint8_t  unk1[2]; /* Always 0x00 0a */
-uint16_t null1;
-uint16_t rows;
-uint16_t null2;
-uint32_t planesize;
-uint32_t null3;
-uint8_t  matte;
-uint8_t  laminate;
-uint8_t  unk2;  /* Always 0x01 */
-uint8_t  lam_strength;
-uint8_t  null4[12];
+	uint8_t  hdr[4];
+	uint16_t columns;
+	uint16_t null1;
+	uint16_t rows;
+	uint16_t null2;
+	uint32_t planesize;
+	uint32_t null3;
+	uint8_t  matte;
+	uint8_t  laminate;
+	uint8_t  unk1;  /* Always 0x01 */
+	uint8_t  lam_strength;
+	uint8_t  null4[12];
 };
 
 static int find_and_enumerate(struct libusb_context *ctx,
@@ -179,7 +196,7 @@ int main (int argc, char **argv)
 
 	int data_fd = fileno(stdin);
 
-	int i;
+	int i, num;
 	int claimed;
 
 	int ret = 0;
@@ -189,7 +206,10 @@ int main (int argc, char **argv)
 	char *use_serno = NULL;
 
 	struct kodak1400_hdr hdr;
-	uint8_t *plane_r, *plane_g, *plane_b;
+	uint8_t *plane_r, *plane_g, *plane_b, *cmdbuf;
+
+	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
+	int last_state = -1, state = S_IDLE;
 
 	/* Cmdline help */
 	if (argc < 2) {
@@ -246,12 +266,14 @@ int main (int argc, char **argv)
 	}
 	hdr.planesize = le32_to_cpu(hdr.planesize);
 	hdr.rows = le16_to_cpu(hdr.rows);
+	hdr.columns = le16_to_cpu(hdr.columns);
 
 	/* Set up plane data */
+	cmdbuf = malloc(CMDBUF_LEN);
 	plane_r = malloc(hdr.planesize);
 	plane_g = malloc(hdr.planesize);
 	plane_b = malloc(hdr.planesize);
-	if (!plane_r || !plane_g || !plane_b) {
+	if (!cmdbuf || !plane_r || !plane_g || !plane_b) {
 		ERROR("Memory allocation failure!\n");
 		exit(1);
 	}
@@ -260,14 +282,14 @@ int main (int argc, char **argv)
 		uint8_t *ptr;
 		for (j = 0 ; j < 3 ; j++) {
 			if (j == 0)
-				ptr = plane_b + i * (hdr.planesize/hdr.rows);
+				ptr = plane_b + i * hdr.columns;
 			if (j == 1)
-				ptr = plane_g + i * (hdr.planesize/hdr.rows);
+				ptr = plane_g + i * hdr.columns;
 			if (j == 2)
-				ptr = plane_r + i * (hdr.planesize/hdr.rows);
+				ptr = plane_r + i * hdr.columns;
 		}
-		ret = read(data_fd, ptr, hdr.planesize/hdr.rows);
-		if (ret != hdr.planesize/hdr.rows) {
+		ret = read(data_fd, ptr, hdr.columns);
+		if (ret != hdr.columns) {
 			ERROR("Short read!\n");
 			exit(2);
 		}
@@ -323,9 +345,64 @@ int main (int argc, char **argv)
 		}
 	}
 
-	// XXXXX do actual work here! 
+
+	/* Time for the main processing loop */
+
+top:
+	/* Send State Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x72;
 	
-	/* Clean up */
+	ret = libusb_bulk_transfer(dev, endp_down,
+				   cmdbuf, CMDBUF_LEN,
+				   &num, 2000);
+
+	if (ret < 0) {
+		ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+		ret = 4;
+		goto done_claimed;
+	}
+
+	/* Read in the printer status */
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   rdbuf,
+				   READBACK_LEN,
+				   &num,
+				   2000);
+
+	if (ret < 0) {
+		ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+		ret = 4;
+		goto done_claimed;
+	}
+
+	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
+		DEBUG("readback:  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
+		      rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
+		      rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7]);
+		memcpy(rdbuf2, rdbuf, READBACK_LEN);
+	} else {
+		sleep(1);
+	}
+	if (state != last_state) {
+		DEBUG("last_state %d new %d\n", last_state, state);
+		last_state = state;
+	}
+	fflush(stderr);       
+
+#if 0
+	switch (state) {
+		
+
+
+	};
+
+	if (state != S_FINISHED)
+		goto top;
+#endif
+	
+	/* All done, clean up */
 done_claimed:
 	libusb_release_interface(dev, iface);
 
@@ -341,6 +418,8 @@ done:
 		free(plane_b);
 	if (plane_g)
 		free(plane_g);
+	if (cmdbuf)
+		free(cmdbuf);
 
 	libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
@@ -358,15 +437,15 @@ done:
   Header:
 
   50 47 48 44     "PGHD"
-  00 0a           Unknown, always set thusly.
+  00 0a           Number of columns, Little endian.  Fixed at 2560.
   00 00           NULL
-  XX XX           Number of rows, Little Engian
+  XX XX           Number of rows, Little Endian
   00 00           NULL
   XX XX XX XX     Number of bytes per plane, Little Endian
   00 00 00 00     NULL
   XX              00 Glossy, 01 Matte              
-  01              01 to laminate, 00 to not.
-  01              Unkown, always set thusly
+  XX              01 to laminate, 00 to not.
+  01              Unkown, always set to 01
   XX              Lamination Strength:
  
                   3c  Glossy
@@ -383,5 +462,89 @@ done:
                   82  Matte -5
 
   00 00 00 00 00 00 00 00 00 00 00 00       NULL
+
+  ************************************************************************
+
+  The data format actually sent to the printer is rather different.
+
+    All commands are null-padded to 96 bytes.
+    All readback values are 8 bytes long.
+
+    Multi-byte numbers are sent BIG ENDIAN.
+  
+    Image data is sent via planes, one scanline per URB.
+
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 00 00        # Idle response
+
+ <-- 1b 00                           # Reset/attention?
+ <-- 1b 5a 53  0a 00  0b c2          # Setup (ie hdr.columns and hdr.rows)
+ <-- 1b 59 01                        # ?? Lamination?
+ <-- 1b 60 01                        # ?? Matte?
+ <-- 1b 62 46                        # hdr.lam_strength
+ <-- 1b 61 01                        # ?? hdr.unk1
+
+ <-- 1b 5a 54 01  00 00 00 00  0a 00  0b c2  # start of plane 1 data
+ <-- row 1
+ <-- row 2
+ <-- row last
+
+ <-- 1b 74 01 50                     # ??
+ 
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 50 59        # Printing plane 1
+  [ repeats until...]
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 00 00        # Idle response
+
+ <-- 1b 74 00 50                     # ??
+ <-- 1b 5a 54 02  00 00 00 00  0a 00  0b c2  # start of plane 2 data
+ <-- row 1
+ <-- row 2
+ <-- row last
+ <-- 1b 74 01 50                     # ??
+
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 50 4d        # Printing plane 2
+  [ repeats until...]
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 00 00        # Idle response
+
+ <-- 1b 74 00 50                     # ??
+ <-- 1b 5a 54 03  00 00 00 00  0a 00  0b c2  # start of plane 3 data
+ <-- row 1
+ <-- row 2
+ <-- row last
+ <-- 1b 74 01 50                     # ??
+
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 50 43        # Printing plane 3
+  [ repeats until...]
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 00 00        # Idle response
+
+ <-- 1b 74 00 50                     # ??
+ <-- 1b 5a 54 04                     # start of lamination
+ <-- 1b 74 01 50                     # ??
+
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 50 50        # Laminating
+  [ repeats until...]
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 00 00        # Idle response
+
+ <-- 1b 74 00 50                     # ??
+
+ [[ DONE ]]
+
+ *********************************************
+  Calibration data:
+
+ <-- 1b a2                           # ?? Reset cal tables?
+ --> 00 01 00 00  00 00 00 00        
+
+ <-- 1b a0 02 03 06 10               # ???
+ <-- cal data, (256*2)*3 + 16 NULLs  # No idea what order.
+ --> 00 00 00 00  00 00 00 00        
 
 */
