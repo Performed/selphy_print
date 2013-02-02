@@ -307,8 +307,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, serial, STR_LEN_MAX);
 		}
 
-		if (!strlen(serial))
-			strcpy(serial, "NONE");
+		if (!strlen((char*)serial))
+		  strcpy((char*)serial, "NONE");
 
 		DEBUG("%s%sPID: %04X Product: '%s' Serial: '%s'\n",
 		      (!valid) ? "UNRECOGNIZED: " : "",
@@ -403,6 +403,19 @@ int main (int argc, char **argv)
 				perror("ERROR:Can't open input file");
 				exit(1);
 			}
+		}
+
+		/* Ensure we're using BLOCKING I/O */
+		i = fcntl(data_fd, F_GETFL, 0);
+		if (i < 0) {
+			perror("ERROR:Can't open input");
+			exit(1);
+		}
+		i &= ~O_NONBLOCK;
+		i = fcntl(data_fd, F_SETFL, 0);
+		if (i < 0) {
+			perror("ERROR:Can't open input");
+			exit(1);
 		}
 
 		/* Start parsing URI 'selphy://PID/SERIAL' */
