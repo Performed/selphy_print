@@ -39,7 +39,7 @@
 
 #include <libusb-1.0/libusb.h>
 
-#define VERSION "0.05"
+#define VERSION "0.06"
 #define STR_LEN_MAX 64
 #define CMDBUF_LEN 96
 #define READBACK_LEN 8
@@ -316,6 +316,18 @@ int main (int argc, char **argv)
 			}
 		}
 
+		/* Ensure we're using BLOCKING I/O */
+		i = fcntl(data_fd, F_GETFL, 0);
+		if (i < 0) {
+			perror("ERROR:Can't open input");
+			exit(1);
+		}
+		i &= ~O_NONBLOCK;
+		i = fcntl(data_fd, F_SETFL, 0);
+		if (i < 0) {
+			perror("ERROR:Can't open input");
+			exit(1);
+		}
 		/* Start parsing URI 'selphy://PID/SERIAL' */
 		if (strncmp(URI_PREFIX, uri, strlen(URI_PREFIX))) {
 			ERROR("Invalid URI prefix (%s)\n", uri);
@@ -362,20 +374,29 @@ int main (int argc, char **argv)
 	}
 	for (i = 0 ; i < hdr.rows ; i++) {
 		int j;
+		int remain;
 		uint8_t *ptr;
 		for (j = 0 ; j < 3 ; j++) {
 			if (j == 0)
 				ptr = plane_r + i * hdr.columns;
-			if (j == 1)
+			else if (j == 1)
 				ptr = plane_g + i * hdr.columns;
-			if (j == 2)
+			else if (j == 2)
 				ptr = plane_b + i * hdr.columns;
 
-			ret = read(data_fd, ptr, hdr.columns);
-			if (ret != hdr.columns) {
-				ERROR("Short read!\n");
-				exit(2);
-			}
+			remain = hdr.columns;
+			do {
+				ret = read(data_fd, ptr, remain);
+				if (ret < 0) {
+					ERROR("Read failed (%d/%d/%d) (%d/%d @ %d)\n", 
+					      ret, remain, hdr.columns,
+					      i, hdr.rows, j);
+					perror("ERROR: Read failed");
+					exit(1);
+				}
+				ptr += ret;
+				remain -= ret;
+			} while (remain);
 		}
 	}
 
@@ -594,7 +615,7 @@ top:
 
 	if (state != S_FINISHED)
 		goto top;
-	
+
 	/* All done, clean up */
 done_claimed:
 	libusb_release_interface(dev, iface);
