@@ -622,7 +622,7 @@ done:
 	return ret;
 }
 
-/* Kodak 1400 data format
+/* Kodak 1400/805 data format
 
   Spool file consists of 36-byte header followed by row-interleaved BGR data.
   Native printer resolution is 2560 pixels per row, and 3010 or 3612 rows.
@@ -636,7 +636,7 @@ done:
   00 00           NULL
   XX XX XX XX     Number of bytes per plane, Little Endian
   00 00 00 00     NULL
-  XX              00 Glossy, 01 Matte              
+  XX              00 Glossy, 01 Matte   (Note: Kodak805 only supports Glossy)
   XX              01 to laminate, 00 to not.
   01              Unkown, always set to 01
   XX              Lamination Strength:
@@ -658,7 +658,7 @@ done:
 
   ************************************************************************
 
-  The data format actually sent to the printer is rather different.
+  The data format actually sent to the Kodak 1400 is rather different.
 
     All commands are null-padded to 96 bytes.
     All readback values are 8 bytes long.
