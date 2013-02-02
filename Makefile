@@ -11,6 +11,7 @@ kodak1400_print:  kodak1400_print.c
 
 install:
 	install -o root -m 700 selphy_print $(CUPS_BACKENDS)/selphy
+	install -o root -m 700 kodak1400_print $(CUPS_BACKENDS)/kodak1400
 
 clean:
 	rm -f selphy_print
