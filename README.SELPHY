@@ -22,7 +22,7 @@
 
    Unverified/untested, but should work:
 
-     ES20, CP-220, CP600, CP810
+     ES20, CP-220, CP530, CP600, CP810
 
    Semi-supported (has problems)
 
@@ -30,7 +30,7 @@
 
    NOT currently supported by libusb backend:  (USB PIDs unknown)  **
 	
-     CP520, CP530, CP790
+     CP520, CP790
 
     ** Note that a PID can be supplied on the command line, see below.
        Once the PIDs are known, these printers are expected to work.
@@ -74,7 +74,7 @@
 
 	SELPHY_PID is the USB PID, in hex
 	SELPHY_TYPE is: 3 for CP790
-			4 for CP520/CP530 (or other CP-series model)
+			4 for CP520 (or other CP-series model)
 
    If you have a model the spooler doesn't recognize but it works with
    a PID/TYPE specification, please let me know via e-mail.
