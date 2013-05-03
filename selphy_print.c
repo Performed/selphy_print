@@ -524,6 +524,13 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	return found;
 }
 
+static int terminate = 0;
+
+void sigterm_handler(int signum) {
+	terminate = 1;
+	INFO("Job Cancelled");
+}
+
 int main (int argc, char **argv)
 {
 	struct libusb_context *ctx;
@@ -650,6 +657,7 @@ int main (int argc, char **argv)
 
 	/* Ignore SIGPIPE */
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGTERM, sigterm_handler);
 
 	/* Read in entire print job */
 	memcpy(header, buffer, header_len);
@@ -875,6 +883,10 @@ top:
 	}
 	if (state != S_FINISHED)
 		goto top;
+
+	/* Clean up */
+	if (terminate)
+		copies = 1;
 
 	INFO("Print complete (%d remaining)\n", copies - 1);
 

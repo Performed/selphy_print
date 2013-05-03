@@ -266,6 +266,13 @@ static int send_plane(struct libusb_device_handle *dev, uint8_t endp,
 	return 0;
 }
 
+static int terminate = 0;
+
+void sigterm_handler(int signum) {
+	terminate = 1;
+	INFO("Job Cancelled");
+}
+
 int main (int argc, char **argv) 
 {
 	struct libusb_context *ctx;
@@ -356,6 +363,7 @@ int main (int argc, char **argv)
 
 	/* Ignore SIGPIPE */
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGTERM, sigterm_handler);
 
 	/* Read in then validate header */
 	read(data_fd, &hdr, sizeof(hdr));
@@ -629,6 +637,10 @@ top:
 
 	if (state != S_FINISHED)
 		goto top;
+
+	/* Clean up */
+	if (terminate)
+		copies = 1;
 
 	INFO("Print complete (%d remaining)\n", copies - 1);
 
