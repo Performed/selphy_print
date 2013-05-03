@@ -3,7 +3,7 @@ CUPS_BACKENDS = /usr/lib/cups/backend
 
 all: selphy_print kodak1400_print
 
-selphy_print:  selphy_print.c selphy_print_common.h
+selphy_print:  selphy_print.c
 	gcc -o selphy_print selphy_print.c -lusb-1.0 $(CFLAGS)
 
 kodak1400_print:  kodak1400_print.c
