@@ -309,6 +309,8 @@
    Plane func:  40 01 00 [plane]  [length, 32-bit LE]  00 00 00 00 
    End func:    00 00 00 00      # NOTE:  CP900 only, and not necessary!
 
+   Error clear: 40 10 00 00  00 00 00 00  00 00 00 00  # CP800.  Others?
+
    plane codes are 0x00, 0x01, 0x02 for Y, M, and C, respectively.
 
    'P' papers pgcode 0x01   plane length 2227456 bytes.
@@ -332,7 +334,8 @@
    [rr] is error code:
    	0x00 no error
 	0x01 paper out
-	0x08 when ribbon is depleted
+	0x04 ribbon problem
+	0x08 ribbon depleted
 
    [ss] is either 0x00 or 0x70.  Unsure as to its significance; perhaps it
 	means paper or ribbon is already set to go?
