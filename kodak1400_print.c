@@ -27,24 +27,25 @@
 
 #include <arpa/inet.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
 
 #include <libusb-1.0/libusb.h>
 
-#define VERSION "0.07"
+#define VERSION "0.08"
 #define STR_LEN_MAX 64
 #define CMDBUF_LEN 96
 #define READBACK_LEN 8
 #define URI_PREFIX "kodak1400://"
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
+#define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
 #define ERROR( ... ) fprintf(stderr, "ERROR: " __VA_ARGS__ )
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
@@ -285,6 +286,7 @@ int main (int argc, char **argv)
 	int ret = 0;
 	int iface = 0;
 	int found = -1;
+	int copies = 1;
 	char *uri = getenv("DEVICE_URI");;
 	char *use_serno = NULL;
 
@@ -308,6 +310,8 @@ int main (int argc, char **argv)
 
 	/* Are we running as a CUPS backend? */
 	if (uri) {
+		if (argv[4])
+			copies = atoi(argv[4]);
 		if (argv[6]) {  /* IOW, is it specified? */
 			data_fd = open(argv[6], O_RDONLY);
 			if (data_fd < 0) {
@@ -349,6 +353,9 @@ int main (int argc, char **argv)
 			}
 		}
 	}
+
+	/* Ignore SIGPIPE */
+	signal(SIGPIPE, SIG_IGN);
 
 	/* Read in then validate header */
 	read(data_fd, &hdr, sizeof(hdr));
@@ -399,6 +406,7 @@ int main (int argc, char **argv)
 			} while (remain);
 		}
 	}
+	close(data_fd); /* We're done reading! */
 
 	/* Libusb setup */
 	libusb_init(&ctx);
@@ -491,12 +499,14 @@ top:
 
 	switch (state) {
 	case S_IDLE:
+		INFO("Printing started\n");
+
 		/* Send reset/attention */
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		cmdbuf[0] = 0x1b;
 
 		if ((ret = send_data(dev, endp_down,
-				    cmdbuf, CMDBUF_LEN)))
+				     cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
 
 		/* Send page setup */
@@ -620,7 +630,15 @@ top:
 	if (state != S_FINISHED)
 		goto top;
 
-	/* All done, clean up */
+	INFO("Print complete (%d remaining)\n", copies - 1);
+
+	if (copies && --copies) {
+		state = S_IDLE;
+		goto top;
+	}
+
+	/* Done printing */
+	INFO("All printing done\n");
 	ret = 0;
 
 done_claimed:
@@ -643,8 +661,6 @@ done:
 
 	libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
-
-	close(data_fd);
 
 	return ret;
 }
