@@ -25,9 +25,10 @@
  *
  */
 
-#define VERSION "0.44"
+#define VERSION "0.45"
 
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
+#define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
 #define ERROR( ... ) fprintf(stderr, "ERROR: " __VA_ARGS__ )
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)

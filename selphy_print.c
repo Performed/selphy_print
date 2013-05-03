@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include <libusb-1.0/libusb.h>
 
@@ -150,14 +151,10 @@ done:
 	return printer_type;
 }
 
-static int dump_data_libusb(int remaining, int present, int data_fd, 
-			    struct libusb_device_handle *dev, 
-			    uint8_t endpoint,
-			    uint8_t *buf, uint16_t buflen) {
+static int read_data(int remaining, int present, int data_fd, uint8_t *target,
+		     uint8_t *buf, uint16_t buflen) {
 	int cnt;
-	int i;
 	int wrote = 0;
-	int num;
 
 	while (remaining > 0) {
 		cnt = read(data_fd, buf + present, (remaining < (buflen-present)) ? remaining : (buflen-present));
@@ -170,26 +167,11 @@ static int dump_data_libusb(int remaining, int present, int data_fd,
 			present = 0;
 		}
 
-		i = libusb_bulk_transfer(dev, endpoint,
-					 buf,
-					 cnt,
-					 &num,
-					 2000);
-		if (i < 0) {
-			ERROR("libusb error %d: (%d/%d to 0x%02x)\n", i, num, cnt, endpoint);
-			return -1;
-		}
+		memcpy(target + wrote, buf, cnt);
 
-		if (num != cnt) {
-			/* Realign buffer.. */
-			present = cnt - num;
-			memmove(buf, buf + num, present);
-		}
-		wrote += num;
-		remaining -= num;
+		wrote += cnt;
+		remaining -= cnt;
 	}
-	
-	DEBUG("Wrote %d bytes\n", wrote);
 	
 	return wrote;
 }
@@ -367,7 +349,7 @@ int main (int argc, char **argv)
 	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
 	int last_state = -1, state = S_IDLE;
 
-	int plane_len = 0;
+	int plane_len = 0, header_len = 0, footer_len = 0;
 
 	int bw_mode = 0;
 	int16_t paper_code_offset = -1;
@@ -377,8 +359,11 @@ int main (int argc, char **argv)
 
 	int data_fd = fileno(stdin);
 
+	int copies = 1;
 	char *uri = getenv("DEVICE_URI");;
 	char *use_serno = NULL;
+
+	uint8_t *plane_y, *plane_m, *plane_c, *footer, *header;
 
 	/* Static initialization */
 	setup_paper_codes();
@@ -397,6 +382,8 @@ int main (int argc, char **argv)
 
 	/* Are we running as a CUPS backend? */
 	if (uri) {
+		if (argv[4])
+			copies = atoi(argv[4]);
 		if (argv[6]) {  /* IOW, is it specified? */
 			data_fd = open(argv[6], O_RDONLY);
 			if (data_fd < 0) {
@@ -448,8 +435,34 @@ int main (int argc, char **argv)
 		ERROR("Unrecognized printjob file format!\n");
 		exit(1);
 	}
-
+	footer_len = printers[printer_type].foot_length;
+	header_len = printers[printer_type].init_length;
 	DEBUG("%sFile intended for a '%s' printer\n",  bw_mode? "B/W " : "", printers[printer_type].model);
+
+	/* Set up buffers */
+	plane_y = malloc(plane_len);
+	plane_m = malloc(plane_len);
+	plane_c = malloc(plane_len);
+	header = malloc(header_len);
+	footer = malloc(footer_len);
+	if (!plane_y || !plane_m || !plane_c || !header ||
+	    (footer_len && !footer)) {
+		ERROR("Memory allocation failure!\n");
+		exit(1);
+	}
+
+	/* Ignore SIGPIPE */
+	signal(SIGPIPE, SIG_IGN);
+
+	/* Read in entire print job */
+	memcpy(header, buffer, header_len);
+	memmove(buffer, buffer+header_len,
+		MAX_HEADER-header_len);
+	read_data(plane_len, MAX_HEADER-header_len, data_fd, plane_y, buffer, BUF_LEN);
+	read_data(plane_len, 0, data_fd, plane_m, buffer, BUF_LEN);
+	read_data(plane_len, 0, data_fd, plane_c, buffer, BUF_LEN);
+	read_data(footer_len, 0, data_fd, footer, buffer, BUF_LEN);
+	close(data_fd);  /* We're done */
 
 	/* Libusb setup */
 	libusb_init(&ctx);
@@ -558,23 +571,21 @@ top:
 		}
 		break;
 	case S_PRINTER_READY:
-		DEBUG("Sending init sequence (%d bytes)\n", printers[printer_type].init_length);
+		DEBUG("Sending init sequence (%d bytes)\n", header_len);
+
+		INFO("Printing started\n");
 
 		/* Send printer init */
 		ret = libusb_bulk_transfer(dev, endp_down,
-					   buffer,
-					   printers[printer_type].init_length,
+					   header,
+					   header_len,
 					   &num,
 					   2000);
 		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, printers[printer_type].init_length, endp_down);
+			ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, header_len, endp_down);
 			ret = 4;
 			goto done_claimed;
 		}
-
-		/* Realign plane data to start of buffer.. */
-		memmove(buffer, buffer+printers[printer_type].init_length,
-			MAX_HEADER-printers[printer_type].init_length);
 
 		state = S_PRINTER_INIT_SENT;
 		break;
@@ -588,7 +599,11 @@ top:
 			DEBUG("Sending BLACK plane\n");
 		else
 			DEBUG("Sending YELLOW plane\n");
-		ret = dump_data_libusb(plane_len, MAX_HEADER-printers[printer_type].init_length, data_fd, dev, endp_down, buffer, BUF_LEN);
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   plane_y,
+					   plane_len,
+					   &num,
+					   10000);
 		if (ret < 0) {
 			ret = 4;
 			goto done_claimed;
@@ -605,7 +620,11 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		DEBUG("Sending MAGENTA plane\n");
-		ret = dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   plane_m,
+					   plane_len,
+					   &num,
+					   10000);
 		if (ret < 0) {
 			ret = 4;
 			goto done_claimed;
@@ -619,7 +638,11 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		DEBUG("Sending CYAN plane\n");
-		ret = dump_data_libusb(plane_len, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+		ret = libusb_bulk_transfer(dev, endp_down,
+					   plane_c,
+					   plane_len,
+					   &num,
+					   10000);
 		if (ret < 0) {
 			ret = 4;
 			goto done_claimed;
@@ -632,10 +655,17 @@ top:
 		}
 		break;
 	case S_PRINTER_DONE:
-		if (printers[printer_type].foot_length) {
+		if (footer_len) {
 			DEBUG("Sending cleanup sequence\n");
-			ret = dump_data_libusb(printers[printer_type].foot_length, 0, data_fd, dev, endp_down, buffer, BUF_LEN);
+
+			ret = libusb_bulk_transfer(dev, endp_down,
+						   footer,
+						   footer_len,
+						   &num,
+						   2000);
 			if (ret < 0) {
+				ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, footer_len, endp_down);
+
 				ret = 4;
 				goto done_claimed;
 			}
@@ -649,7 +679,15 @@ top:
 	if (state != S_FINISHED)
 		goto top;
 
+	INFO("Print complete (%d remaining)\n", copies - 1);
+
+	if (copies && --copies) {
+		state = S_IDLE;
+		goto top;
+	}
+
 	/* Done printing */
+	INFO("All printing done\n");
 	ret = 0;
 
 done_claimed:
@@ -665,7 +703,17 @@ done:
 	libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
 
-	close(data_fd);
+	if (plane_y)
+		free(plane_y);
+	if (plane_m)
+		free(plane_m);
+	if (plane_c)
+		free(plane_c);
+	if (header)
+		free(header);
+	if (footer)
+		free(footer);
+
 
 	return ret;
 }
