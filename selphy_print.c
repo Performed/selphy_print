@@ -77,7 +77,7 @@
 
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
 #define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
-#define ERROR( ... ) fprintf(stderr, "ERROR: " __VA_ARGS__ )
+#define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le32_to_cpu(__x) __x
@@ -687,7 +687,7 @@ int main (int argc, char **argv)
 
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
-		ERROR("Could not open device (Need to be root?) (%d)\n", ret);
+		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
 		ret = 4;
 		goto done;
 	}
@@ -696,7 +696,7 @@ int main (int argc, char **argv)
 	if (claimed) {
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
-			ERROR("Could not detach printer from kernel (%d)\n", ret);
+			ERROR("Printer open failure (Could not detach printer)\n");
 			ret = 4;
 			goto done_close;
 		}
@@ -704,14 +704,14 @@ int main (int argc, char **argv)
 
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
-		ERROR("Could not claim printer interface (%d)\n", ret);
+		ERROR("Printer open failure (Could not claim printer interface)\n");
 		ret = 4;
 		goto done_close;
 	}
 
 	ret = libusb_get_active_config_descriptor(list[found], &config);
 	if (ret) {
-		ERROR("Could not fetch config descriptor (%d)\n", ret);
+		ERROR("Printer open failire (Could not fetch config descriptor)\n");
 		ret = 4;
 		goto done_close;
 	}
@@ -741,7 +741,7 @@ top:
 				   2000);
 
 	if (ret < 0) {
-		ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, endp_up);
 		ret = 4;
 		goto done_claimed;
 	}
@@ -764,7 +764,7 @@ top:
 	/* Error detection */
 	if (printers[printer_type].error_offset != -1 &&
 	    rdbuf[printers[printer_type].error_offset]) {
-		ERROR("error condition %02x; aborting.  (Out of ribbon/paper?)\n", rdbuf[printers[printer_type].error_offset]);
+		ERROR("Printer reported error condition %02x; aborting.  (Out of ribbon/paper?)\n", rdbuf[printers[printer_type].error_offset]);
 		ret = 4;
 		goto done_claimed;
 	}
@@ -787,7 +787,7 @@ top:
 					   &num,
 					   2000);
 		if (ret < 0) {
-			ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, header_len, endp_down);
+			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, header_len, endp_down);
 			ret = 4;
 			goto done_claimed;
 		}
@@ -831,6 +831,7 @@ top:
 					   &num,
 					   10000);
 		if (ret < 0) {
+			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, footer_len, endp_down);
 			ret = 4;
 			goto done_claimed;
 		}
@@ -849,6 +850,7 @@ top:
 					   &num,
 					   10000);
 		if (ret < 0) {
+			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, footer_len, endp_down);
 			ret = 4;
 			goto done_claimed;
 		}
@@ -869,8 +871,7 @@ top:
 						   &num,
 						   2000);
 			if (ret < 0) {
-				ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, footer_len, endp_down);
-
+				ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, footer_len, endp_down);
 				ret = 4;
 				goto done_claimed;
 			}

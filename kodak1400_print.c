@@ -46,7 +46,7 @@
 #define URI_PREFIX "kodak1400://"
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
 #define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
-#define ERROR( ... ) fprintf(stderr, "ERROR: " __VA_ARGS__ )
+#define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le32_to_cpu(__x) __x
@@ -201,7 +201,7 @@ static int send_data(struct libusb_device_handle *dev, uint8_t endp,
 				       &num, 5000);
 
 	if (ret < 0) {
-		ERROR("libusb error %d: (%d/%d to 0x%02x)\n", ret, num, len, endp);
+		ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, len, endp);
 		return ret;
 	}
 	return 0;
@@ -421,14 +421,14 @@ int main (int argc, char **argv)
 	found = find_and_enumerate(ctx, &list, use_serno, 0);
 
 	if (found == -1) {
-		ERROR("No suitable printers found!\n");
+		ERROR("Printer open failure (No suitable printers found!)\n");
 		ret = 3;
 		goto done;
 	}
 
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
-		ERROR("Could not open device (Need to be root?) (%d)\n", ret);
+		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
 		ret = 4;
 		goto done;
 	}
@@ -437,7 +437,7 @@ int main (int argc, char **argv)
 	if (claimed) {
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
-			ERROR("Could not detach printer from kernel (%d)\n", ret);
+			ERROR("Printer open failure (Could not detach printer from kernel)\n");
 			ret = 4;
 			goto done_close;
 		}
@@ -445,14 +445,14 @@ int main (int argc, char **argv)
 
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
-		ERROR("Could not claim printer interface (%d)\n", ret);
+		ERROR("Printer open failure (Could not claim printer interface)\n");
 		ret = 4;
 		goto done_close;
 	}
 
 	ret = libusb_get_active_config_descriptor(list[found], &config);
 	if (ret) {
-		ERROR("Could not fetch config descriptor (%d)\n", ret);
+		ERROR("Printer open failure (Could not fetch config descriptor)\n");
 		ret = 4;
 		goto done_close;
 	}
@@ -486,7 +486,7 @@ top:
 				   2000);
 
 	if (ret < 0) {
-		ERROR("libusb error %d: (%d/%d from 0x%02x)\n", ret, num, READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, endp_up);
 		ret = 4;
 		goto done_claimed;
 	}
