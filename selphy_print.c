@@ -73,7 +73,7 @@
 #define USB_PID_CANON_CP810 0x3256
 #define USB_PID_CANON_CP900 0x3255
 
-#define VERSION "0.45"
+#define VERSION "0.46"
 
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
 #define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
@@ -497,15 +497,15 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		if (valid && scan_only) {
 			/* URL-ify model. */
 			char buf[128]; // XXX ugly..
-			i = 0;
-			while (*(product + i + strlen("Canon"))) {
-				buf[i] = *(product + i + strlen("Canon "));
-				if(buf[i] == ' ') {
-					buf[i++] = '%';
-					buf[i++] = '2';
-					buf[i] = '0';
+			int j = 0;
+			while (*(product + j + strlen("Canon"))) {
+				buf[j] = *(product + j + strlen("Canon "));
+				if(buf[j] == ' ') {
+					buf[j++] = '%';
+					buf[j++] = '2';
+					buf[j] = '0';
 				}
-				i++;
+				j++;
 			}
 			fprintf(stdout, "direct %sCanon/%s?serial=%s \"%s\" \"%s\" \"MFG:Canon;CMD:SelphyRaster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n", URI_PREFIX,
 			        buf, serial, product, product,

@@ -39,7 +39,7 @@
 
 #include <libusb-1.0/libusb.h>
 
-#define VERSION "0.08"
+#define VERSION "0.09"
 #define STR_LEN_MAX 64
 #define CMDBUF_LEN 96
 #define READBACK_LEN 8
@@ -164,15 +164,15 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		if (scan_only) {
 			/* URL-ify model. */
 			char buf[128]; // XXX ugly..
-			i = 0;
-			while (*(product + i + strlen("Kodak"))) {
-				buf[i] = *(product + i + strlen("Kodak "));
-				if(buf[i] == ' ') {
-					buf[i++] = '%';
-					buf[i++] = '2';
-					buf[i] = '0';
+			int j = 0;
+			while (*(product + j + strlen("Kodak"))) {
+				buf[j] = *(product + i + strlen("Kodak "));
+				if(buf[j] == ' ') {
+					buf[j++] = '%';
+					buf[j++] = '2';
+					buf[j] = '0';
 				}
-				i++;
+				j++;
 			}
 			fprintf(stdout, "direct %sKodak/%s?serial=%s \"%s\" \"%s\" \"MFG:Kodak;CMD:Kodak1400Raster;CLS:PRINTER;MDL:%s;DES:%s;SN:%s\" \"\"\n", URI_PREFIX,
 			        buf, serial, product, product,
