@@ -2,16 +2,17 @@ CFLAGS = -Wall
 LDFLAGS = -lusb-1.0
 
 CUPS_BACKEND_DIR = /usr/lib/cups/backend
+DEPS = backend_common.c
 
 all: selphy_print kodak1400_print kodak6800_print
 
-selphy_print: selphy_print.c
+selphy_print: selphy_print.c $(DEPS)
 	gcc -o $@ $< $(LDFLAGS) $(CFLAGS)
 
-kodak6800_print: $< kodak6800_print.c
+kodak6800_print: kodak6800_print.c $(DEPS)
 	gcc -o $@ $< $(LDFLAGS) $(CFLAGS)
 
-kodak1400_print:  kodak1400_print.c
+kodak1400_print: kodak1400_print.c $(DEPS)
 	gcc -o $@ $< $(LDFLAGS) $(CFLAGS)
 
 install:

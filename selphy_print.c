@@ -35,10 +35,10 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#include <libusb-1.0/libusb.h>
-
-#define STR_LEN_MAX 64
+#define VERSION "0.47"
 #define URI_PREFIX "selphy://"
+
+#include "backend_common.c"
 
 /* USB Identifiers */
 #define USB_VID_CANON       0x04a9
@@ -72,26 +72,6 @@
 #define USB_PID_CANON_CP800 0x3214
 #define USB_PID_CANON_CP810 0x3256
 #define USB_PID_CANON_CP900 0x3255
-
-#define VERSION "0.46"
-
-#define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
-#define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
-#define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
-
-#if (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define le32_to_cpu(__x) __x
-#else
-#define le32_to_cpu(x)							\
-	({								\
-		uint32_t __x = (x);					\
-		((uint32_t)(						\
-			(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-			(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-			(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-			(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
-	})
-#endif
 
 #define READBACK_LEN 12
 
@@ -373,60 +353,6 @@ static int read_data(int remaining, int present, int data_fd, uint8_t *target,
 	return wrote;
 }
 
-#define ID_BUF_SIZE 2048
-static char *get_device_id(struct libusb_device_handle *dev)
-{
-	int   length;
-	int claimed = 0;
-	int iface = 0;
-	char *buf = malloc(ID_BUF_SIZE + 1);
-
-	claimed = libusb_kernel_driver_active(dev, iface);
-	if (claimed)
-		libusb_detach_kernel_driver(dev, iface);
-
-	libusb_claim_interface(dev, iface);
-
-	if (libusb_control_transfer(dev,
-				    LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_ENDPOINT_IN |
-				    LIBUSB_RECIPIENT_INTERFACE,
-				    0, 0,
-				    (iface << 8),
-				    (unsigned char *)buf, ID_BUF_SIZE, 5000) < 0)
-	{
-		*buf = '\0';
-		goto done;
-	}
-
-	/* length is the first two bytes, MSB first */
-	length = (((unsigned)buf[0] & 255) << 8) |
-		((unsigned)buf[1] & 255);
-
-	/* Sanity checks */
-	if (length > ID_BUF_SIZE || length < 14)
-		length = (((unsigned)buf[1] & 255) << 8) |
-			((unsigned)buf[0] & 255);
-	
-	if (length > ID_BUF_SIZE)
-		length = ID_BUF_SIZE;
-	
-	if (length < 14) {
-		*buf = '\0';
-		goto done;
-	}
-
-	/* Move, and terminate */
-	memmove(buf, buf + 2, length);
-	buf[length] = '\0';
-
-done:
-	libusb_release_interface(dev, iface);
-	if (claimed)
-		libusb_attach_kernel_driver(dev, iface);
-
-	return buf;
-}
-
 static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
 			      char *match_serno,
@@ -583,13 +509,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	}
 
 	return found;
-}
-
-static int terminate = 0;
-
-void sigterm_handler(int signum) {
-	terminate = 1;
-	INFO("Job Cancelled");
 }
 
 int main (int argc, char **argv)
@@ -842,16 +761,8 @@ top:
 		INFO("Printing started\n");
 
 		/* Send printer init */
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   header,
-					   header_len,
-					   &num,
-					   2000);
-		if (ret < 0) {
-			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, header_len, endp_down);
-			ret = 4;
+		if ((ret = send_data(dev, endp_down, header, header_len)))
 			goto done_claimed;
-		}
 
 		state = S_PRINTER_INIT_SENT;
 		break;
@@ -865,15 +776,10 @@ top:
 			DEBUG("Sending BLACK plane\n");
 		else
 			DEBUG("Sending YELLOW plane\n");
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   plane_y,
-					   plane_len,
-					   &num,
-					   10000);
-		if (ret < 0) {
-			ret = 4;
+
+		if ((ret = send_data(dev, endp_down, plane_y, plane_len)))
 			goto done_claimed;
-		}
+
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
@@ -886,16 +792,10 @@ top:
 		break;
 	case S_PRINTER_READY_M:
 		DEBUG("Sending MAGENTA plane\n");
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   plane_m,
-					   plane_len,
-					   &num,
-					   10000);
-		if (ret < 0) {
-			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, footer_len, endp_down);
-			ret = 4;
+
+		if ((ret = send_data(dev, endp_down, plane_m, plane_len)))
 			goto done_claimed;
-		}
+
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
@@ -905,16 +805,10 @@ top:
 		break;
 	case S_PRINTER_READY_C:
 		DEBUG("Sending CYAN plane\n");
-		ret = libusb_bulk_transfer(dev, endp_down,
-					   plane_c,
-					   plane_len,
-					   &num,
-					   10000);
-		if (ret < 0) {
-			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, footer_len, endp_down);
-			ret = 4;
+
+		if ((ret = send_data(dev, endp_down, plane_c, plane_len)))
 			goto done_claimed;
-		}
+
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
@@ -926,16 +820,8 @@ top:
 		if (footer_len) {
 			DEBUG("Sending cleanup sequence\n");
 
-			ret = libusb_bulk_transfer(dev, endp_down,
-						   footer,
-						   footer_len,
-						   &num,
-						   2000);
-			if (ret < 0) {
-				ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, footer_len, endp_down);
-				ret = 4;
+			if ((ret = send_data(dev, endp_down, footer, footer_len)))
 				goto done_claimed;
-			}
 		}
 		state = S_FINISHED;
 		/* Intentional Fallthrough */

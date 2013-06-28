@@ -37,38 +37,10 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#include <libusb-1.0/libusb.h>
-
-#define VERSION "0.09"
-#define STR_LEN_MAX 64
-#define CMDBUF_LEN 96
-#define READBACK_LEN 8
+#define VERSION "0.10"
 #define URI_PREFIX "kodak1400://"
-#define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
-#define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
-#define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
 
-#if (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define le32_to_cpu(__x) __x
-#define le16_to_cpu(__x) __x
-#else
-#define le32_to_cpu(x)							\
-	({								\
-		uint32_t __x = (x);					\
-		((uint32_t)(						\
-			(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-			(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-			(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-			(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
-	})
-#define le16_to_cpu(x)							\
-	({								\
-		uint16_t __x = (x);					\
-		((uint16_t)(						\
-			(((uint16_t)(__x) & (uint16_t)0x00ff) <<  8) | \
-			(((uint16_t)(__x) & (uint16_t)0xff00) >>  8) | \
-	})
-#endif
+#include "backend_common.c"
 
 /* USB Identifiers */
 #define USB_VID_KODAK      0x040A
@@ -105,62 +77,11 @@ struct kodak1400_hdr {
 	uint8_t  null4[12];
 };
 
+#define CMDBUF_LEN 96
+#define READBACK_LEN 8
+
 static uint8_t idle_data[READBACK_LEN] = { 0xe4, 0x72, 0x00, 0x00,
 					   0x00, 0x00, 0x00, 0x00 };
-
-#define ID_BUF_SIZE 2048
-static char *get_device_id(struct libusb_device_handle *dev)
-{
-	int   length;
-	int claimed = 0;
-	int iface = 0;
-	char *buf = malloc(ID_BUF_SIZE + 1);
-
-	claimed = libusb_kernel_driver_active(dev, iface);
-	if (claimed)
-		libusb_detach_kernel_driver(dev, iface);
-
-	libusb_claim_interface(dev, iface);
-
-	if (libusb_control_transfer(dev,
-				    LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_ENDPOINT_IN |
-				    LIBUSB_RECIPIENT_INTERFACE,
-				    0, 0,
-				    (iface << 8),
-				    (unsigned char *)buf, ID_BUF_SIZE, 5000) < 0)
-	{
-		*buf = '\0';
-		goto done;
-	}
-
-	/* length is the first two bytes, MSB first */
-	length = (((unsigned)buf[0] & 255) << 8) |
-		((unsigned)buf[1] & 255);
-
-	/* Sanity checks */
-	if (length > ID_BUF_SIZE || length < 14)
-		length = (((unsigned)buf[1] & 255) << 8) |
-			((unsigned)buf[0] & 255);
-	
-	if (length > ID_BUF_SIZE)
-		length = ID_BUF_SIZE;
-	
-	if (length < 14) {
-		*buf = '\0';
-		goto done;
-	}
-
-	/* Move, and terminate */
-	memmove(buf, buf + 2, length);
-	buf[length] = '\0';
-
-done:
-	libusb_release_interface(dev, iface);
-	if (claimed)
-		libusb_attach_kernel_driver(dev, iface);
-
-	return buf;
-}
 
 static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
@@ -257,22 +178,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	return found;
 }
 
-static int send_data(struct libusb_device_handle *dev, uint8_t endp, 
-		    uint8_t *buf, uint16_t len)
-{
-	int num;
-
-	int ret = libusb_bulk_transfer(dev, endp,
-				       buf, len,
-				       &num, 5000);
-
-	if (ret < 0) {
-		ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, len, endp);
-		return ret;
-	}
-	return 0;
-}
-
 static int send_plane(struct libusb_device_handle *dev, uint8_t endp,
 		      uint8_t planeno, uint8_t *planedata,
 		      struct kodak1400_hdr *hdr, uint8_t *cmdbuf)
@@ -330,13 +235,6 @@ static int send_plane(struct libusb_device_handle *dev, uint8_t endp,
 		return ret;
 
 	return 0;
-}
-
-static int terminate = 0;
-
-void sigterm_handler(int signum) {
-	terminate = 1;
-	INFO("Job Cancelled");
 }
 
 int main (int argc, char **argv) 
@@ -588,9 +486,9 @@ top:
 		cmdbuf[0] = 0x1b;
 		cmdbuf[1] = 0x5a;
 		cmdbuf[2] = 0x53;
-		temp16 = ntohs(hdr.columns);
+		temp16 = be16_to_cpu(hdr.columns);
 		memcpy(cmdbuf+3, &temp16, 2);
-		temp16 = ntohs(hdr.rows);
+		temp16 = be16_to_cpu(hdr.rows);
 		memcpy(cmdbuf+5, &temp16, 2);
 
 		if ((ret = send_data(dev, endp_down,
