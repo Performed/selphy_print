@@ -65,7 +65,7 @@ struct kodak6800_hdr {
 	uint8_t  unk1;  /* 0x06 for 6x8, 0x00 for 6x4 */ 
 	uint8_t  laminate; /* 0x01 to laminate, 0x00 for not */
 	uint8_t  null;
-};
+} __attribute__((packed));
 
 #define CMDBUF_LEN 17
 #define READBACK_LEN 58
@@ -257,7 +257,8 @@ int main (int argc, char **argv)
 	if (hdr.hdr[0] != 0x03 ||
 	    hdr.hdr[1] != 0x1b ||
 	    hdr.hdr[2] != 0x43 ||
-	    hdr.hdr[3] != 0x48) {
+	    hdr.hdr[3] != 0x48 ||
+	    hdr.hdr[4] != 0x43) {
 		ERROR("Unrecognized data format!\n");
 		exit(1);
 	}
@@ -273,7 +274,7 @@ int main (int argc, char **argv)
 
 	{
 		int remain;
-		uint8_t *ptr;
+		uint8_t *ptr = planedata;
 		remain = datasize;
 		do {
 			ret = read(data_fd, ptr, remain);
