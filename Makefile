@@ -1,17 +1,23 @@
 CFLAGS = -Wall
-CUPS_BACKENDS = /usr/lib/cups/backend
+LDFLAGS = -lusb-1.0
 
-all: selphy_print kodak1400_print
+CUPS_BACKEND_DIR = /usr/lib/cups/backend
 
-selphy_print:  selphy_print.c
-	gcc -o selphy_print selphy_print.c -lusb-1.0 $(CFLAGS)
+all: selphy_print kodak1400_print kodak6800_print
+
+selphy_print: selphy_print.c
+	gcc -o $@ $< $(LDFLAGS) $(CFLAGS)
+
+kodak6800_print: $< kodak6800_print.c
+	gcc -o $@ $< $(LDFLAGS) $(CFLAGS)
 
 kodak1400_print:  kodak1400_print.c
-	gcc -o kodak1400_print kodak1400_print.c -lusb-1.0 $(CFLAGS)
+	gcc -o $@ $< $(LDFLAGS) $(CFLAGS)
 
 install:
-	install -o root -m 700 selphy_print $(CUPS_BACKENDS)/selphy
-	install -o root -m 700 kodak1400_print $(CUPS_BACKENDS)/kodak1400
+	install -o root -m 700 selphy_print $(CUPS_BACKEND_DIR)/selphy
+	install -o root -m 700 kodak1400_print $(CUPS_BACKEND_DIR)/kodak1400
+	install -o root -m 700 kodak6800_print $(CUPS_BACKEND_DIR)/kodak6800
 
 clean:
 	rm -f selphy_print
