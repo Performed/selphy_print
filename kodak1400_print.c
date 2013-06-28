@@ -75,7 +75,7 @@ struct kodak1400_hdr {
 	uint8_t  unk1;  /* Always 0x01 */
 	uint8_t  lam_strength;
 	uint8_t  null4[12];
-};
+} __attribute__((packed));
 
 #define CMDBUF_LEN 96
 #define READBACK_LEN 8
