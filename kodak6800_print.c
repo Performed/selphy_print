@@ -375,10 +375,11 @@ top:
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		DEBUG("readback:  %02x %02x %02x %02x  %02x %02x %02x %02x ...\n",
-		      rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
-		      rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7]);
-		memcpy(rdbuf2, rdbuf, READBACK_LEN);
+		DEBUG("readback: ");
+		for (i = 0 ; i < num ; i++) {
+			DEBUG2("%02x ", rdbuf[i]);
+		}
+		DEBUG2("\n");
 	} else {
 		sleep(1);
 	}
@@ -497,10 +498,12 @@ done:
 	return ret;
 }
 
-/* Kodak 6800 data format (6850 is similar, but not documented here yet)
+/* Kodak 6800/6850 data format
 
   Spool file consists of 17-byte header followed by plane-interleaved BGR data.
   Native printer resolution is 1844 pixels per row, and 1240 or 2434 rows.
+
+  6850 Adds support for 5x7, with 1548 pixels per row and 2140 columns.
 
   Header:
 
@@ -508,7 +511,7 @@ done:
   01                             Number of copies
   XX XX                          Number of columns, big endian. Fixed at 1844
   XX XX                          Number of rows, big endian.
-  XX                             Unknown, 0x00 or 0x06
+  XX                             0x00 (4x6) 0x06 (8x6) 0x07 (5x7 on 6850)
   XX                             Laminate, 0x00 (off) or 0x01 (on)
   00
 
@@ -516,33 +519,33 @@ done:
 
   The data format actually sent to the Kodak 6800 is subtly different.
 
-SP  03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH DD LL 00
+[file header] 03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH DD LL 00
 
-->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00
+->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
 <-  [51 octets]
 
-    01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b
-    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8
-    00 01 00 83 00 00 00 00  00 00 00 00 00 00 00 00
+    01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b  [ a2 7b might be a print counter, increments after each print ]
+    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8  [ e6 b1 might be a print counter, increments by 2 after each print ]
+    00 01 00 83 00 00 00 00  00 00 00 00 00 00 00 00  [ "00" after "83" seems to be a per-powerup print counter, increments by 1 after each "get ready" command ]
     00 00 00
 
-->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00
+->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
 <-  [51 octets -- same as above]
 
-->  03 1b 43 48 43 1a 00 00  00 00 00 00 00 00 00 00
+->  03 1b 43 48 43 1a 00 00  00 00 00 00 00 00 00 00  [get ready]
 <-  [58 octets]
 
     01 03 00 00 00 00 00 04  06 WW WW 09 82 01 00 00  [09 82 == 2434 == 6x8!]
-    00 00 06 WW WW 09 ba 01  02 00 00 00 06 WW WW 04
-    d8 01 01 00 00 00 06 WW  WW 09 82 01 03 00 00 00
+    00 00 06 WW WW 09 ba 01  02 00 00 00 06 WW WW 04  [04 d8 == 1240 == 6x4!]
+    d8 01 01 00 00 00 06 WW  WW 09 82 01 03 00 00 00  [09 ba == 2940 == ??]
     00 00 00 00 00 00 00 00  00 00
 
-->  03 1b 43 48 43 0a 00 01  00 01 07 34 04 d8 06 01 01
+->  03 1b 43 48 43 0a 00 01  00 01 07 34 04 d8 06 01 01 [ image header, modified -- last octet is always 0x01.  '06' may be the expected media size in the printer? ]
 <-  [51 octets]
 
     01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b
     00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8
-    00 01 00 83 01 00 00 01  00 00 00 01 00 00 00 00
+    00 01 00 83 01 00 00 01  00 00 00 01 00 00 00 00 [ note the "01" after "83", and the extra two "01"s ]
     00 00 00
 
 ->  [4K of plane data]
@@ -550,7 +553,7 @@ SP  03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH DD LL 00
 ->  [4K of plane data]
 ->  [remainder of plane data + 17 bytes of 0xff]
 
-->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00
+->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00 [status query]
 <-  [51 octets]
 
     01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b
