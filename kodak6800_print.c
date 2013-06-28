@@ -496,7 +496,7 @@ done:
 	return ret;
 }
 
-/* Kodak 6800/6850 data format
+/* Kodak 6800 data format (6850 is similar, but not documented here yet)
 
   Spool file consists of 17-byte header followed by plane-interleaved BGR data.
   Native printer resolution is 1844 pixels per row, and 1240 or 2434 rows.
