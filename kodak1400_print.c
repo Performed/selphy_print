@@ -73,6 +73,7 @@
 /* USB Identifiers */
 #define USB_VID_KODAK      0x040A
 #define USB_PID_KODAK_1400 0x4022
+#define USB_PID_KODAK_805  0x4034
 
 /* Program states */
 enum {
@@ -187,9 +188,14 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			continue;
 
 		switch(desc.idProduct) {
-		case USB_PID_KODAK_1400: // "Kodak 1400"
+		case USB_PID_KODAK_1400:
 			found = i;
 			break;
+#if 0
+		case USB_PID_KODAK_805:
+			found = i;
+			break;
+#endif
 		default:
 			continue;
 		}
