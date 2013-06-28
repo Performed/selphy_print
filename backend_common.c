@@ -29,10 +29,7 @@
 
 #define STR_LEN_MAX 64
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
-#define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
-#define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
-
-#define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
+#define DEBUG2( ... ) fprintf(stderr, __VA_ARGS__ )
 #define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
 #define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
 
