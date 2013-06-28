@@ -37,7 +37,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.02"
+#define VERSION "0.03"
 #define URI_PREFIX "kodak6800://"
 #define STR_LEN_MAX 64
 
