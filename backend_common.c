@@ -26,6 +26,7 @@
  */
 
 #include <libusb-1.0/libusb.h>
+#include <arpa/inet.h>
 
 #define STR_LEN_MAX 64
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
