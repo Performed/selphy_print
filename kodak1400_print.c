@@ -649,7 +649,7 @@ done:
   Header:
 
   50 47 48 44     "PGHD"
-  00 0a           Number of columns, Little endian.  Fixed at 2560.
+  XX XX           Number of columns, Little endian.  Fixed at 2560.
   00 00           NULL
   XX XX           Number of rows, Little Endian
   00 00           NULL
@@ -707,6 +707,12 @@ done:
  --> e4 72 00 00  00 00 50 59        # Printing plane 1
   [ repeats until...]
  <-- 1b 72                           # Status query
+ --> e4 72 00 00  40 00 50 59        # Paper loaded?
+  [ repeats until...]
+ <-- 1b 72                           # Status query
+ --> e4 72 00 00  00 00 50 59        # Printing plane 1
+  [ repeats until...]
+ <-- 1b 72                           # Status query
  --> e4 72 00 00  00 00 00 00        # Idle response
 
  <-- 1b 74 00 50                     # ??
@@ -752,6 +758,15 @@ done:
  <-- 1b 74 00 50                     # ??
 
  [[ DONE ]]
+
+ Other readback codes seen:
+
+ e4 72 00 00  10 00 50 59  -- ???
+ e4 72 00 00  10 01 50 59  -- ???
+ e4 72 00 00  00 04 50 59  -- media red blink, error red  [media too small for image ?]
+ e4 72 00 00  02 00 50 59  -- media off, error red. [out of paper]
+ e4 72 00 00  02 01 00 00  -- media off, error red. [out of paper]
+ e4 72 00 00  02 00 00 00  -- media off, error red. [out of paper]
 
  *********************************************
   Calibration data:
