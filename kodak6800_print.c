@@ -507,11 +507,11 @@ done:
   Header:
 
   03 1b 43 48 43 0a 00 01 00     Fixed header
-  01                             Number of copies
-  XX XX                          Number of columns, big endian. (Fixed at 1844 on 6800)
-  XX XX                          Number of rows, big endian.
-  XX                             0x00 (4x6) 0x06 (8x6) 0x07 (5x7 on 6850)
-  XX                             Laminate, 0x00 (off) or 0x01 (on)
+  CC                             Number of copies
+  WW WW                          Number of columns, big endian. (Fixed at 1844 on 6800)
+  HH HH                          Number of rows, big endian.
+  DD                             0x00 (4x6) 0x06 (8x6) 0x07 (5x7 on 6850)
+  LL                             Laminate, 0x00 (off) or 0x01 (on)
   00
 
   ************************************************************************
