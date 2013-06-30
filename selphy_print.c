@@ -558,6 +558,7 @@ int main (int argc, char **argv)
 	read(data_fd, buffer, MAX_HEADER);
 
 	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
+	plane_len += 12; /* Add in plane header length! */
 	if (printer_type < 0) {
 		ERROR("Unrecognized printjob file format!\n");
 		exit(1);
@@ -592,14 +593,11 @@ int main (int argc, char **argv)
 	read_data(footer_len, 0, data_fd, footer, buffer, BUF_LEN);
 	close(data_fd);  /* We're done */
 
-	DEBUG("Plane len %d\n", plane_len);
-
 	/* Libusb setup */
 	libusb_init(&ctx);
 	found = find_and_enumerate(ctx, &list, use_serno, printer_type, 0);
 
 	/* Compute offsets and other such things */
-	plane_len += 12; /* Plane header length */
 	paper_code_offset = printers[printer_type].paper_code_offset;
 	if (printers[printer_type].pgcode_offset != -1)
 		paper_code = printers[printer_type].paper_codes[buffer[printers[printer_type].pgcode_offset]];
