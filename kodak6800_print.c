@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.03"
+#define VERSION "0.04"
 #define URI_PREFIX "kodak6800://"
 #define STR_LEN_MAX 64
 
@@ -364,7 +364,7 @@ top:
 				   rdbuf,
 				   READBACK_LEN,
 				   &num,
-				   2000);
+				   5000);
 
 	if (ret < 0 || ((num != 51) && (num != 58))) {
 		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, endp_up);
@@ -443,6 +443,7 @@ top:
 		if ((ret = send_data(dev, endp_down, planedata, datasize)))
 			goto done_claimed;
 		state = S_PRINTER_SENT_DATA;
+		DEBUG("Sent %d+17 bytes of image data\n", datasize-17);
 		break;
 	case S_PRINTER_SENT_DATA:
 		INFO("Waiting for printer to acknowledge completion\n");
@@ -507,7 +508,7 @@ done:
 
   03 1b 43 48 43 0a 00 01 00     Fixed header
   01                             Number of copies
-  XX XX                          Number of columns, big endian. Fixed at 1844
+  XX XX                          Number of columns, big endian. (Fixed at 1844 on 6800)
   XX XX                          Number of rows, big endian.
   XX                             0x00 (4x6) 0x06 (8x6) 0x07 (5x7 on 6850)
   XX                             Laminate, 0x00 (off) or 0x01 (on)
@@ -522,8 +523,8 @@ done:
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
 <-  [51 octets]
 
-    01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b  [ a2 7b might be a print counter, increments after each print ]
-    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8  [ e6 b1 might be a print counter, increments by 2 after each print ]
+    01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b  [ a2 7b may be print counters, increments after each print ]
+    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8  [ e6 b1, 02 f4 may be a print counter, increments by 2 after each print ]
     00 01 00 83 00 00 00 00  00 00 00 00 00 00 00 00  [ "00" after "83" seems to be a per-powerup print counter, increments by 1 after each "get ready" command ]
     00 00 00
 
