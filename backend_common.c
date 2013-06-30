@@ -141,32 +141,74 @@ static void sigterm_handler(int signum) {
 	INFO("Job Cancelled");
 }
 
-static void print_scan_output(struct libusb_device_handle *dev,
-			      unsigned char *product, unsigned char *serial,
-			      char *manuf, char *prefix)
+static int print_scan_output(struct libusb_device *device,
+			     struct libusb_device_descriptor *desc,
+			     char *prefix, char *manuf2,
+			     int found, int valid, 
+			     int scan_only, char *match_serno)
 {
-	/* URL-ify model. */
-	char buf[128]; // XXX ugly..
-	int j = 0, k = 0;
-	char *ieee_id;
-	while (*(product + j + strlen(manuf))) {
-		buf[k] = *(product + j + strlen(manuf) + 1);
-		if(buf[k] == ' ') {
-			buf[k++] = '%';
-			buf[k++] = '2';
-			buf[k] = '0';
-		}
-		k++;
-		j++;
+	struct libusb_device_handle *dev;
+
+	unsigned char product[STR_LEN_MAX] = "";
+	unsigned char serial[STR_LEN_MAX] = "";
+	unsigned char manuf[STR_LEN_MAX] = "";
+	
+	if (libusb_open(device, &dev)) {
+		ERROR("Could not open device %04x:%04x\n", desc->idVendor, desc->idProduct);
+		return -1;
 	}
-	ieee_id = get_device_id(dev);
 	
-	fprintf(stdout, "direct %s%s/%s?serial=%s \"%s\" \"%s\" \"%s\" \"\"\n",
-		prefix, manuf,
-		buf, serial, product, product,
-		ieee_id);
+	/* Query detailed info */
+	if (desc->iManufacturer) {
+		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, manuf, STR_LEN_MAX);
+	}
+	if (desc->iProduct) {
+		libusb_get_string_descriptor_ascii(dev, desc->iProduct, product, STR_LEN_MAX);
+	}
+	if (desc->iSerialNumber) {
+		libusb_get_string_descriptor_ascii(dev, desc->iSerialNumber, serial, STR_LEN_MAX);
+	}
 	
-	if (ieee_id)
-		free(ieee_id);
+	if (!strlen((char*)serial))
+		strcpy((char*)serial, "NONE");
 	
+	DEBUG("%s%sPID: %04X Product: '%s' Serial: '%s'\n",
+	      (!valid) ? "UNRECOGNIZED: " : "",
+	      found ? "MATCH: " : "",
+	      desc->idProduct, product, serial);
+	
+	if (valid && scan_only) {
+		/* URL-ify model. */
+		char buf[128]; // XXX ugly..
+		int j = 0, k = 0;
+		char *ieee_id;
+		while (*(product + j + strlen(manuf2))) {
+			buf[k] = *(product + j + strlen(manuf2) + 1);
+			if(buf[k] == ' ') {
+				buf[k++] = '%';
+				buf[k++] = '2';
+				buf[k] = '0';
+			}
+			k++;
+			j++;
+		}
+		ieee_id = get_device_id(dev);
+		
+		fprintf(stdout, "direct %s%s/%s?serial=%s \"%s\" \"%s\" \"%s\" \"\"\n",
+			prefix, manuf2,
+			buf, serial, product, product,
+			ieee_id);
+		
+		if (ieee_id)
+			free(ieee_id);
+	}
+	
+	/* If a serial number was passed down, use it. */
+	if (found && match_serno &&
+	    strcmp(match_serno, (char*)serial)) {
+		found = -1;
+	}
+	
+	libusb_close(dev);
+	return found;
 }

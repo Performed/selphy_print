@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.48"
+#define VERSION "0.49"
 #define URI_PREFIX "selphy://"
 
 #include "backend_common.c"
@@ -363,16 +363,11 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	int i;
 	int found = -1;
 
-	struct libusb_device_handle *dev;
-
 	/* Enumerate and find suitable device */
 	num = libusb_get_device_list(ctx, list);
 
 	for (i = 0 ; i < num ; i++) {
 		struct libusb_device_descriptor desc;
-		unsigned char product[STR_LEN_MAX] = "";
-		unsigned char serial[STR_LEN_MAX] = "";
-		unsigned char manuf[STR_LEN_MAX] = "";
 		int valid = 0;
 		libusb_get_device_descriptor((*list)[i], &desc);
 
@@ -449,43 +444,10 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			break;
 		}
 
-		if (libusb_open(((*list)[i]), &dev)) {
-			ERROR("Could not open device %04x:%04x\n", desc.idVendor, desc.idProduct);
-			found = -1;
-			continue;
-		}
-
-		/* Query detailed info */
-		if (desc.iManufacturer) {
-			libusb_get_string_descriptor_ascii(dev, desc.iManufacturer, manuf, STR_LEN_MAX);
-		}
-		if (desc.iProduct) {
-			libusb_get_string_descriptor_ascii(dev, desc.iProduct, product, STR_LEN_MAX);
-		}
-		if (desc.iSerialNumber) {
-			libusb_get_string_descriptor_ascii(dev, desc.iSerialNumber, serial, STR_LEN_MAX);
-		}
-
-		if (!strlen((char*)serial))
-			strcpy((char*)serial, "NONE");
-
-		DEBUG("%s%sPID: %04X Product: '%s' Serial: '%s'\n",
-		      (!valid) ? "UNRECOGNIZED: " : "",
-		      (found == i) ? "MATCH: " : "",
-		      desc.idProduct, product, serial);
-
-		if (valid && scan_only) {
-			print_scan_output(dev, product, serial, 
-					  "Canon", URI_PREFIX);
-		}
-
-		/* If a serial number was passed down, use it. */
-		if (found && match_serno &&
-		    strcmp(match_serno, (char*)serial)) {
-			found = -1;
-		}
-
-		libusb_close(dev);
+		found = print_scan_output((*list)[i], &desc,
+					  URI_PREFIX, "Canon", 
+					  (found == i), valid, 
+					  scan_only, match_serno);
 	}
 
 	return found;
