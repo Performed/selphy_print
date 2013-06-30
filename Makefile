@@ -21,4 +21,4 @@ install:
 	install -o root -m 700 kodak6800_print $(CUPS_BACKEND_DIR)/kodak6800
 
 clean:
-	rm -f selphy_print
+	rm -f selphy_print kodak6800_print kodak1400_print
