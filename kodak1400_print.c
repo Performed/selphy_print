@@ -212,7 +212,7 @@ int main (int argc, char **argv)
 	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
 	int last_state = -1, state = S_IDLE;
 
-	DEBUG("Kodak 1400 CUPS backend version " VERSION " \n");
+	DEBUG("Kodak 1400 CUPS backend version " VERSION "/" BACKEND_VERSION " \n");
 
 	/* Cmdline help */
 	if (argc < 2) {

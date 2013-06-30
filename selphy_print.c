@@ -494,7 +494,7 @@ int main (int argc, char **argv)
 	/* Static initialization */
 	setup_paper_codes();
 
-	DEBUG("Canon SELPHY ES/CP CUPS backend version " VERSION " \n");
+	DEBUG("Canon SELPHY ES/CP CUPS backend version " VERSION "/" BACKEND_VERSION " \n");
 
 	/* Cmdline help */
 	if (argc < 2) {
