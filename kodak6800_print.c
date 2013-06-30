@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.05"
+#define VERSION "0.06"
 #define URI_PREFIX "kodak6800://"
 #define STR_LEN_MAX 64
 
@@ -58,11 +58,11 @@ enum {
 struct kodak6800_hdr {
 	uint8_t  hdr[9];
 	uint8_t  copies;
-	uint16_t columns; /* BE */
-	uint16_t rows; /* BE */
-	uint8_t  unk1;  /* 0x06 for 6x8, 0x00 for 6x4 */ 
+	uint16_t columns;  /* BE */
+	uint16_t rows;     /* BE */
+	uint8_t  media;    /* 0x06 for 6x8, 0x00 for 6x4, 0x07 for 5x7 */ 
 	uint8_t  laminate; /* 0x01 to laminate, 0x00 for not */
-	uint8_t  null;
+	uint8_t  unk1; /* 0x00, 0x01 [may be print mode] */
 } __attribute__((packed));
 
 #define CMDBUF_LEN 17
@@ -265,7 +265,7 @@ int main (int argc, char **argv)
 	/* Read in image data */
 	cmdbuf = malloc(CMDBUF_LEN);
 	datasize = be16_to_cpu(hdr.rows) * be16_to_cpu(hdr.columns) * 3;
-	planedata = malloc(datasize + CMDBUF_LEN);
+	planedata = malloc(datasize);
 	if (!cmdbuf || !planedata) {
 		ERROR("Memory allocation failure!\n");
 		exit(1);
@@ -289,10 +289,6 @@ int main (int argc, char **argv)
 	}
 	close(data_fd); /* We're done reading! */
 	
-	/* We need to pad the data with 17 * 0xff */
-	memset (planedata + datasize, 0xff, CMDBUF_LEN);
-	datasize += CMDBUF_LEN;
-
 	/* Libusb setup */
 	libusb_init(&ctx);
 	found = find_and_enumerate(ctx, &list, use_serno, 0);
@@ -423,10 +419,16 @@ top:
 		}
 
 		INFO("Sending image header\n");
-		/* Send actual image header, altered slightly */
+
 		memcpy(cmdbuf, &hdr, CMDBUF_LEN);
-		cmdbuf[14] = 0x06;
-		cmdbuf[16] = 0x01;
+
+		/* If we're printing a 4x6 on 8x6 media... */
+		if (hdr.media == 0x00 &&
+		    rdbuf[11] == 0x09 &&
+		    rdbuf[12] == 0x82) {
+			cmdbuf[14] = 0x06;
+			cmdbuf[16] = 0x01;
+		}
 		if ((ret = send_data(dev, endp_down,
 				     cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
@@ -445,7 +447,7 @@ top:
 		if ((ret = send_data(dev, endp_down, planedata, datasize)))
 			goto done_claimed;
 		state = S_PRINTER_SENT_DATA;
-		DEBUG("Sent %d+17 bytes of image data\n", datasize-17);
+		DEBUG("Sent %d bytes of image data\n", datasize);
 		break;
 	case S_PRINTER_SENT_DATA:
 		INFO("Waiting for printer to acknowledge completion\n");
@@ -520,13 +522,13 @@ done:
 
   The data format actually sent to the Kodak 6800 is subtly different.
 
-[file header] 03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH DD LL 00
+[file header] 03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH MT LL 00
 
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
 <-  [51 octets]
 
     01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b  [ a2 7b may be print counters, increments after each print ]
-    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8  [ e6 b1, 02 f4 may be a print counter, increments by 2 after each print ]
+    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8  [ e6 b1 may be a print counter, increments by 2 after each print ]
     00 01 00 83 00 00 00 00  00 00 00 00 00 00 00 00  [ "00" after "83" seems to be a per-powerup print counter, increments by 1 after each "get ready" command ]
     00 00 00
 
@@ -536,9 +538,9 @@ done:
 ->  03 1b 43 48 43 1a 00 00  00 00 00 00 00 00 00 00  [get ready]
 <-  [58 octets]
 
-    01 03 00 00 00 00 00 04  06 WW WW 09 82 01 00 00  [09 82 == 2434 == 6x8!]
-    00 00 06 WW WW 09 ba 01  02 00 00 00 06 WW WW 04  [04 d8 == 1240 == 6x4!]
-    d8 01 01 00 00 00 06 WW  WW 09 82 01 03 00 00 00  [09 ba == 2940 == ??]
+    01 03 00 00 00 00 00 04  06 WW WW MM MM 01 00 00  [MM MM == max printable size of media, 09 82 == 2434 for 6x8!]
+    00 00 06 WW WW 09 ba 01  02 00 00 00 06 WW WW HH  [09 ba == 2940 == cut area?]
+    HH 01 01 00 00 00 06 WW  WW MM MM 01 03 00 00 00
     00 00 00 00 00 00 00 00  00 00
 
 ->  03 1b 43 48 43 0a 00 01  00 01 07 34 04 d8 06 01 01 [ image header, modified -- last octet is always 0x01.  '06' may be the expected media size in the printer? ]
