@@ -431,6 +431,7 @@ top:
 			goto done_claimed;
 
 		state = S_PRINTER_SENT_HDR2;
+		break;
 	case S_PRINTER_SENT_HDR2:
 		INFO("Waiting for printer to accept data\n");
 		if (rdbuf[0] != 0x01 ||
