@@ -446,7 +446,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 
 		found = print_scan_output((*list)[i], &desc,
 					  URI_PREFIX, "Canon", 
-					  (found == i), valid, 
+					  found, (found == i), valid, 
 					  scan_only, match_serno);
 	}
 
@@ -591,6 +591,8 @@ int main (int argc, char **argv)
 	read_data(plane_len, 0, data_fd, plane_c, buffer, BUF_LEN);
 	read_data(footer_len, 0, data_fd, footer, buffer, BUF_LEN);
 	close(data_fd);  /* We're done */
+
+	DEBUG("Plane len %d\n", plane_len);
 
 	/* Libusb setup */
 	libusb_init(&ctx);

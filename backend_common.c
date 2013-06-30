@@ -115,7 +115,7 @@ done:
 }
 
 static int send_data(struct libusb_device_handle *dev, uint8_t endp, 
-		    uint8_t *buf, uint16_t len)
+		    uint8_t *buf, int len)
 {
 	int num;
 
@@ -129,6 +129,7 @@ static int send_data(struct libusb_device_handle *dev, uint8_t endp,
 		}
 		len -= num;
 		buf += num;
+//		DEBUG("Sent %d (%d remaining) to 0x%x\n", num, len, endp);
 	}
 
 	return 0;
@@ -144,7 +145,7 @@ static void sigterm_handler(int signum) {
 static int print_scan_output(struct libusb_device *device,
 			     struct libusb_device_descriptor *desc,
 			     char *prefix, char *manuf2,
-			     int found, int valid, 
+			     int found, int match, int valid, 
 			     int scan_only, char *match_serno)
 {
 	struct libusb_device_handle *dev;
@@ -155,7 +156,8 @@ static int print_scan_output(struct libusb_device *device,
 	
 	if (libusb_open(device, &dev)) {
 		ERROR("Could not open device %04x:%04x\n", desc->idVendor, desc->idProduct);
-		return -1;
+		found = -1;
+		goto abort;
 	}
 	
 	/* Query detailed info */
@@ -174,7 +176,7 @@ static int print_scan_output(struct libusb_device *device,
 	
 	DEBUG("%s%sPID: %04X Product: '%s' Serial: '%s'\n",
 	      (!valid) ? "UNRECOGNIZED: " : "",
-	      found ? "MATCH: " : "",
+	      match ? "MATCH: " : "",
 	      desc->idProduct, product, serial);
 	
 	if (valid && scan_only) {
@@ -210,5 +212,6 @@ static int print_scan_output(struct libusb_device *device,
 	}
 	
 	libusb_close(dev);
+abort:
 	return found;
 }
