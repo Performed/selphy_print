@@ -122,28 +122,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		      desc.idProduct, product, serial);
 
 		if (scan_only) {
-			/* URL-ify model. */
-			char buf[128]; // XXX ugly..
-			int j = 0, k = 0;
-			char *ieee_id;
-			while (*(product + j + strlen("Kodak"))) {
-				buf[k] = *(product + j + strlen("Kodak "));
-				if(buf[k] == ' ') {
-					buf[k++] = '%';
-					buf[k++] = '2';
-					buf[k] = '0';
-				}
-				k++;
-				j++;
-			}
-			ieee_id = get_device_id(dev);
-
-			fprintf(stdout, "direct %sKodak/%s?serial=%s \"%s\" \"%s\" \"%s\" \"\"\n", URI_PREFIX,
-			        buf, serial, product, product,
-				ieee_id);
-
-			if (ieee_id)
-				free(ieee_id);
+			print_scan_output(dev, product, serial, 
+					  "Kodak", URI_PREFIX);
 		}
 
 		/* If a serial number was passed down, use it. */

@@ -119,20 +119,54 @@ static int send_data(struct libusb_device_handle *dev, uint8_t endp,
 {
 	int num;
 
-	int ret = libusb_bulk_transfer(dev, endp,
-				       buf, len,
-				       &num, 10000);
-
-	if (ret < 0 || len != num) {
-		ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, len, endp);
-		return ret;
+	while (len) {
+		int ret = libusb_bulk_transfer(dev, endp,
+					       buf, len,
+					       &num, 10000);
+		if (ret < 0) {
+			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, len, endp);
+			return ret;
+		}
+		len -= num;
+		buf += num;
 	}
+
 	return 0;
 }
 
 static int terminate = 0;
 
-void sigterm_handler(int signum) {
+static void sigterm_handler(int signum) {
 	terminate = 1;
 	INFO("Job Cancelled");
+}
+
+static void print_scan_output(struct libusb_device_handle *dev,
+			      unsigned char *product, unsigned char *serial,
+			      char *manuf, char *prefix)
+{
+	/* URL-ify model. */
+	char buf[128]; // XXX ugly..
+	int j = 0, k = 0;
+	char *ieee_id;
+	while (*(product + j + strlen(manuf))) {
+		buf[k] = *(product + j + strlen(manuf) + 1);
+		if(buf[k] == ' ') {
+			buf[k++] = '%';
+			buf[k++] = '2';
+			buf[k] = '0';
+		}
+		k++;
+		j++;
+	}
+	ieee_id = get_device_id(dev);
+	
+	fprintf(stdout, "direct %s%s/%s?serial=%s \"%s\" \"%s\" \"%s\" \"\"\n",
+		prefix, manuf,
+		buf, serial, product, product,
+		ieee_id);
+	
+	if (ieee_id)
+		free(ieee_id);
+	
 }
