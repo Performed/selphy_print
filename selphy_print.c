@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.47"
+#define VERSION "0.48"
 #define URI_PREFIX "selphy://"
 
 #include "backend_common.c"
@@ -552,10 +552,11 @@ int main (int argc, char **argv)
 	/* Static initialization */
 	setup_paper_codes();
 
+	DEBUG("Canon SELPHY ES/CP CUPS backend version " VERSION " \n");
+
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("SELPHY ES/CP Print Assist version %s\nUsage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
-		      VERSION,
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
 		      argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, printer_type, 1);

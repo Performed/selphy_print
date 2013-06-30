@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.04"
+#define VERSION "0.05"
 #define URI_PREFIX "kodak6800://"
 #define STR_LEN_MAX 64
 
@@ -188,10 +188,11 @@ int main (int argc, char **argv)
 	uint8_t rdbuf2[READBACK_LEN];
 	int last_state = -1, state = S_IDLE;
 
+	DEBUG("Kodak 6800 CUPS backend version " VERSION " \n");
+
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Kodak 6800 Print Assist version %s\nUsage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
-		      VERSION,
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
 		      argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, 1);
