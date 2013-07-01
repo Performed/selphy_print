@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.07"
+#define VERSION "0.08"
 #define URI_PREFIX "kodak6800://"
 #define STR_LEN_MAX 64
 
@@ -333,17 +333,17 @@ top:
 
 	switch (state) {
 	case S_IDLE:
-		INFO("Printing started\n");
-		state = S_PRINTER_READY_HDR;
-		break;
-	case S_PRINTER_READY_HDR:
-		INFO("Waiting for printer to become ready\n");
+		INFO("Waiting for printer idle\n");
 		if (rdbuf[0] != 0x01 ||
 		    rdbuf[1] != 0x02 ||
 		    rdbuf[2] != 0x01) {
 			break;
 		}
 
+		state = S_PRINTER_READY_HDR;
+		break;
+	case S_PRINTER_READY_HDR:
+		INFO("Printing started; Sending init sequence\n");
 		/* Send reset/attention */
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		cmdbuf[0] = 0x03;
@@ -358,14 +358,12 @@ top:
 		state = S_PRINTER_SENT_HDR;
 		break;
 	case S_PRINTER_SENT_HDR:
-		INFO("Waiting for printer to acknowledge start\n");		
+		INFO("Waiting for printer to acknowledge start\n");
 		if (rdbuf[0] != 0x01 ||
 		    rdbuf[1] != 0x03 ||
 		    rdbuf[2] != 0x00) {
 			break;
 		}
-
-		INFO("Sending image header\n");
 
 		memcpy(cmdbuf, &hdr, CMDBUF_LEN);
 
@@ -376,6 +374,8 @@ top:
 			cmdbuf[14] = 0x06;
 			cmdbuf[16] = 0x01;
 		}
+
+		INFO("Sending image header\n");
 		if ((ret = send_data(dev, endp_down,
 				     cmdbuf, CMDBUF_LEN)))
 			goto done_claimed;
@@ -393,8 +393,9 @@ top:
 		INFO("Sending image data\n");
 		if ((ret = send_data(dev, endp_down, planedata, datasize)))
 			goto done_claimed;
+
+		INFO("Image data sent\n");
 		state = S_PRINTER_SENT_DATA;
-		DEBUG("Sent %d bytes of image data\n", datasize);
 		break;
 	case S_PRINTER_SENT_DATA:
 		INFO("Waiting for printer to acknowledge completion\n");
