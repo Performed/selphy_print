@@ -694,14 +694,13 @@ top:
 
 	switch(state) {
 	case S_IDLE:
-		INFO("Printing started, waiting for printer idle\n");
+		INFO("Waiting for printer idle\n");
 		if (!fancy_memcmp(rdbuf, printers[printer_type].init_readback, READBACK_LEN, paper_code_offset, paper_code)) {
 			state = S_PRINTER_READY;
 		}
 		break;
 	case S_PRINTER_READY:
-		INFO("Sending init sequence\n");
-
+		INFO("Printing started; Sending init sequence\n");
 		/* Send printer init */
 		if ((ret = send_data(dev, endp_down, header, header_len)))
 			goto done_claimed;
