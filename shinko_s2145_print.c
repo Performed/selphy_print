@@ -279,7 +279,7 @@ struct s2145_fwinfo_resp {
 	uint8_t  type[16];
 	uint8_t  date[10];
 	uint8_t  major;
-	uint8_t  mainor;
+	uint8_t  minor;
 	uint16_t checksum;
 } __attribute__((packed));
 
@@ -322,6 +322,73 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	}
 
 	return found;
+}
+
+static void dump_status (struct s2145_status_resp *resp) 
+{
+	INFO("Printer Status:  %02x\n", resp->hdr.status);
+
+	INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+	     resp->hdr.result, resp->hdr.error, resp->hdr.printer_major,
+	     resp->hdr.printer_minor);
+
+	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct s2145_status_hdr)))
+		return;
+
+	INFO(" Prints:\n");
+        INFO("\tLifetime:\t\t\t%08d\n", le32_to_cpu(resp->count_lifetime));
+	INFO("\tMaintainence:\t\t%08d\n", le32_to_cpu(resp->count_maint));
+	INFO("\tSince Paper Changed:\t%08d\n", le32_to_cpu(resp->count_paper));
+	INFO("\tCutter:\t\t\t%08d\n", le32_to_cpu(resp->count_cutter));
+	INFO("\tPrint Head:\t\t\t%08d\n", le32_to_cpu(resp->count_head));
+        INFO("\tRibbon Remaining:\t%08d\n", le32_to_cpu(resp->count_ribbon_left));
+	INFO("Bank 1: Job %03d %03d/%03d Complete (%03d remaining)\n",
+	     resp->bank1_printid,
+	     le16_to_cpu(resp->bank1_remaining),
+	     le16_to_cpu(resp->bank1_finished),
+	     le16_to_cpu(resp->bank1_specified));
+
+	INFO("Bank 2: Job %03d %03d/%03d Complete (%03d remaining)\n",
+	     resp->bank2_printid,
+	     le16_to_cpu(resp->bank2_remaining),
+	     le16_to_cpu(resp->bank2_finished),
+	     le16_to_cpu(resp->bank2_specified));
+
+	INFO("Tonecurve Status: 0x%02x\n", resp->tonecurve_status);
+}
+
+static void dump_fwinfo (struct s2145_fwinfo_resp *resp) 
+{
+	INFO("FW Information Response:\n");
+	INFO("  name:    '%s'\n", resp->name);
+	INFO("  type:    '%s'\n", resp->type);
+	INFO("  date:    '%s'\n", resp->date);
+	INFO("  version: %d.%d (CRC %04x)\n", resp->major, resp->minor,
+	     le16_to_cpu(resp->checksum));
+}
+
+static void dump_errorlist (struct s2145_errorlist_resp *resp) 
+{
+	int i;
+	INFO("Stored Error Events: %d entries:\n", resp->count);
+	for (i = 0 ; i < resp->count ; i++) {
+		INFO(" %02d: 0x%02x/0x%02x @ %08 prints\n", i,
+		     resp->items[i].major, resp->items[i].minor, 
+		     le32_to_cpu(resp->items[i].print_counter));
+	}
+}
+
+static void dump_mediainfo (struct s2145_mediainfo_resp *resp) 
+{
+	int i;
+	INFO("Supported Media Information: %d entries:\n", resp->count);
+	for (i = 0 ; i < resp->count ; i++) {
+		INFO(" %02d: C 0x%02x, %04dx%04d, M 0x%02x, P 0x%02x\n", i,
+		     resp->items[i].code, le16_to_cpu(resp->items[i].columns),
+		     le16_to_cpu(resp->items[i].rows), 
+		     resp->items[i].media_type,
+		     resp->items[i].print_type);
+	}	
 }
 
 int main (int argc, char **argv) 
