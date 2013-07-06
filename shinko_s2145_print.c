@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.01"
+#define VERSION "0.02"
 #define URI_PREFIX "s2145://"
 
 #include "backend_common.c"
@@ -267,7 +267,7 @@ struct s2145_error_item {
 	uint32_t print_counter;
 } __attribute__((packed));
 
-struct s2145_errorlist_resp {
+struct s2145_errorlog_resp {
 	struct s2145_status_hdr hdr;
 	uint8_t  count;
 	struct s2145_error_item items[10];  /* Not all necessarily used */
@@ -324,71 +324,238 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	return found;
 }
 
-static void dump_status (struct s2145_status_resp *resp) 
+static int get_status(libusb_device_handle *dev, 
+		      uint8_t endp_down, uint8_t endp_up) 
 {
-	INFO("Printer Status:  %02x\n", resp->hdr.status);
+	struct s2145_cmd_hdr cmd;
+	struct s2145_status_resp resp;
+	int ret, num = 0;
+
+	cmd.cmd = cpu_to_le16(S2145_CMD_STATUS);
+	cmd.len = cpu_to_le16(0);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	INFO("Printer Status:  %02x\n", resp.hdr.status);
 
 	INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
-	     resp->hdr.result, resp->hdr.error, resp->hdr.printer_major,
-	     resp->hdr.printer_minor);
+	     resp.hdr.result, resp.hdr.error, resp.hdr.printer_major,
+	     resp.hdr.printer_minor);
 
-	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct s2145_status_hdr)))
-		return;
+	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct s2145_status_hdr)))
+		return 0;
 
 	INFO(" Prints:\n");
-        INFO("\tLifetime:\t\t\t%08d\n", le32_to_cpu(resp->count_lifetime));
-	INFO("\tMaintainence:\t\t%08d\n", le32_to_cpu(resp->count_maint));
-	INFO("\tSince Paper Changed:\t%08d\n", le32_to_cpu(resp->count_paper));
-	INFO("\tCutter:\t\t\t%08d\n", le32_to_cpu(resp->count_cutter));
-	INFO("\tPrint Head:\t\t\t%08d\n", le32_to_cpu(resp->count_head));
-        INFO("\tRibbon Remaining:\t%08d\n", le32_to_cpu(resp->count_ribbon_left));
-	INFO("Bank 1: Job %03d %03d/%03d Complete (%03d remaining)\n",
-	     resp->bank1_printid,
-	     le16_to_cpu(resp->bank1_remaining),
-	     le16_to_cpu(resp->bank1_finished),
-	     le16_to_cpu(resp->bank1_specified));
+        INFO("\tLifetime:\t\t\t%08d\n", le32_to_cpu(resp.count_lifetime));
+	INFO("\tMaintainence:\t\t%08d\n", le32_to_cpu(resp.count_maint));
+	INFO("\tSince Paper Changed:\t%08d\n", le32_to_cpu(resp.count_paper));
+	INFO("\tCutter:\t\t\t%08d\n", le32_to_cpu(resp.count_cutter));
+	INFO("\tPrint Head:\t\t%08d\n", le32_to_cpu(resp.count_head));
+        INFO("\tRibbon Remaining:\t%08d\n", le32_to_cpu(resp.count_ribbon_left));
+	INFO("Bank 1: Job %03d @ %03d/%03d (%03d remaining)\n",
+	     resp.bank1_printid,
+	     le16_to_cpu(resp.bank1_remaining),
+	     le16_to_cpu(resp.bank1_finished),
+	     le16_to_cpu(resp.bank1_specified));
 
-	INFO("Bank 2: Job %03d %03d/%03d Complete (%03d remaining)\n",
-	     resp->bank2_printid,
-	     le16_to_cpu(resp->bank2_remaining),
-	     le16_to_cpu(resp->bank2_finished),
-	     le16_to_cpu(resp->bank2_specified));
+	INFO("Bank 2: Job %03d @ %03d/%03d (%03d remaining)\n",
+	     resp.bank2_printid,
+	     le16_to_cpu(resp.bank2_remaining),
+	     le16_to_cpu(resp.bank2_finished),
+	     le16_to_cpu(resp.bank2_specified));
 
-	INFO("Tonecurve Status: 0x%02x\n", resp->tonecurve_status);
+	INFO("Tonecurve Status: 0x%02x\n", resp.tonecurve_status);
+
+	return 0;
 }
 
-static void dump_fwinfo (struct s2145_fwinfo_resp *resp) 
+static int get_fwinfo(libusb_device_handle *dev, 
+		      uint8_t endp_down, uint8_t endp_up) 
 {
-	INFO("FW Information Response:\n");
-	INFO("  name:    '%s'\n", resp->name);
-	INFO("  type:    '%s'\n", resp->type);
-	INFO("  date:    '%s'\n", resp->date);
-	INFO("  version: %d.%d (CRC %04x)\n", resp->major, resp->minor,
-	     le16_to_cpu(resp->checksum));
-}
-
-static void dump_errorlist (struct s2145_errorlist_resp *resp) 
-{
+	struct s2145_fwinfo_cmd  cmd;
+	struct s2145_fwinfo_resp resp;
+	int ret, num = 0;
 	int i;
-	INFO("Stored Error Events: %d entries:\n", resp->count);
-	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: 0x%02x/0x%02x @ %08 prints\n", i,
-		     resp->items[i].major, resp->items[i].minor, 
-		     le32_to_cpu(resp->items[i].print_counter));
+
+	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_FWINFO);
+	cmd.hdr.len = cpu_to_le16(1);
+
+	INFO("FW Information:\n");
+
+	for (i = 1 ; i <= 7 ; i++) {
+		cmd.target = i;
+		if ((ret = send_data(dev, endp_down,
+				     (uint8_t *) &cmd, sizeof(cmd))))
+			return -1;
+		
+		ret = libusb_bulk_transfer(dev, endp_up,
+					   (uint8_t *)&resp,
+					   sizeof(resp),
+					   &num,
+					   5000);
+		
+		if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+			return ret;
+		}
+		
+		if (resp.hdr.result != RESULT_SUCCESS) {
+			INFO("Printer Status:  %02x\n", resp.hdr.status);
+			
+			INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+			     resp.hdr.result, resp.hdr.error, resp.hdr.printer_major,
+			     resp.hdr.printer_minor);
+			continue;
+		}
+
+		if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s2145_fwinfo_resp) - sizeof(struct s2145_status_hdr)))
+			continue;
+		
+		char *s;
+		switch (i) {
+		case 1:
+			s = "Main Boot";
+			break;
+		case 2:
+			s = "Main App";
+			break;
+		case 3:
+			s = "DSP Boot";
+			break;
+		case 4:
+			s = "DSP App";
+			break;
+		case 5:
+			s = "USB Boot";
+			break;
+		case 6:
+			s = "USB App";
+			break;
+		case 7:
+			s = "Parameter Table";
+			break;
+		}
+		
+		INFO(" '%s' version %02x.%02x\n", s,
+		     resp.major, resp.minor);
+#if 0
+		INFO("  name:    '%s'\n", resp.name);
+		INFO("  type:    '%s'\n", resp.type);
+		INFO("  date:    '%s'\n", resp.date);
+		INFO("  version: %02x.%02x (CRC %04x)\n", resp.major, resp.minor,
+		     le16_to_cpu(resp.checksum));
+#endif
 	}
+	return 0;
 }
 
-static void dump_mediainfo (struct s2145_mediainfo_resp *resp) 
+static int get_errorlog(libusb_device_handle *dev, 
+			uint8_t endp_down, uint8_t endp_up) 
 {
+	struct s2145_cmd_hdr cmd;
+	struct s2145_errorlog_resp resp;
+	int ret, num = 0;
 	int i;
-	INFO("Supported Media Information: %d entries:\n", resp->count);
-	for (i = 0 ; i < resp->count ; i++) {
+
+	cmd.cmd = cpu_to_le16(S2145_CMD_ERRORLOG);
+	cmd.len = cpu_to_le16(0);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	if (resp.hdr.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.hdr.status);
+		
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.hdr.result, resp.hdr.error, resp.hdr.printer_major,
+		     resp.hdr.printer_minor);
+		return -1;
+	}
+	
+	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s2145_errorlog_resp) - sizeof(struct s2145_status_hdr)))
+		return -2;
+
+	INFO("Stored Error Events: %d entries:\n", resp.count);
+	for (i = 0 ; i < resp.count ; i++) {
+		INFO(" %02d: 0x%02x/0x%02x @ %08d prints\n", i,
+		     resp.items[i].major, resp.items[i].minor, 
+		     le32_to_cpu(resp.items[i].print_counter));
+	}
+	return 0;
+}
+
+static int get_mediainfo(libusb_device_handle *dev, 
+			 uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_cmd_hdr cmd;
+	struct s2145_mediainfo_resp resp;
+	int ret, num = 0;
+	int i;
+
+	cmd.cmd = cpu_to_le16(S2145_CMD_MEDIAINFO);
+	cmd.len = cpu_to_le16(0);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	if (resp.hdr.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.hdr.status);
+		
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.hdr.result, resp.hdr.error, resp.hdr.printer_major,
+		     resp.hdr.printer_minor);
+		return -1;
+	}
+	
+	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
+		return -2;
+
+	INFO("Supported Media Information: %d entries:\n", resp.count);
+	for (i = 0 ; i < resp.count ; i++) {
 		INFO(" %02d: C 0x%02x, %04dx%04d, M 0x%02x, P 0x%02x\n", i,
-		     resp->items[i].code, le16_to_cpu(resp->items[i].columns),
-		     le16_to_cpu(resp->items[i].rows), 
-		     resp->items[i].media_type,
-		     resp->items[i].print_type);
-	}	
+		     resp.items[i].code, le16_to_cpu(resp.items[i].columns),
+		     le16_to_cpu(resp.items[i].rows), 
+		     resp.items[i].media_type,
+		     resp.items[i].print_type);
+	}
+	return 0;
 }
 
 int main (int argc, char **argv) 
@@ -406,6 +573,7 @@ int main (int argc, char **argv)
 	int i, num;
 	int claimed;
 
+	int query_only = 0;
 	int ret = 0;
 	int iface = 0;
 	int found = -1;
@@ -419,7 +587,7 @@ int main (int argc, char **argv)
 	struct s2145_print_cmd *print;
 	struct s2145_status_resp *sts; 
 
-	uint8_t *planedata, *cmdbuf;
+	uint8_t *planedata = NULL, *cmdbuf = NULL;
 	uint32_t datasize;
 
 	uint8_t rdbuf[READBACK_LEN];
@@ -430,8 +598,8 @@ int main (int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
-		      argv[0], argv[0]);
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe ]\n\n",
+		      argv[0], argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, 1);
 		libusb_free_device_list(list, 1);
@@ -477,6 +645,14 @@ int main (int argc, char **argv)
 		}
 		use_serno++;
 	} else {
+		if (!strcmp("-qs", argv[1]) ||
+		    !strcmp("-qf", argv[1]) ||
+		    !strcmp("-qe", argv[1]) ||
+		    !strcmp("-qm", argv[1])) {
+			query_only = 1;
+			goto skip_read;
+		}
+
 		srand(getpid());
 		jobid = rand();
 
@@ -555,7 +731,8 @@ int main (int argc, char **argv)
 	}
 
 	close(data_fd); /* We're done reading! */
-	
+
+skip_read:	
 	/* Libusb setup */
 	libusb_init(&ctx);
 	found = find_and_enumerate(ctx, &list, use_serno, 0);
@@ -606,11 +783,23 @@ int main (int argc, char **argv)
 		}
 	}
 
-	/* Time for the main processing loop */
+	if (query_only) {
+		if (!strcmp("-qs", argv[1]))
+			get_status(dev, endp_down, endp_up);
+		else if (!strcmp("-qf", argv[1]))
+			get_fwinfo(dev, endp_down, endp_up);
+		else if (!strcmp("-qe", argv[1]))
+			get_errorlog(dev, endp_down, endp_up);
+		else if (!strcmp("-qm", argv[1]))
+			get_mediainfo(dev, endp_down, endp_up);
 
+		goto done_claimed;
+	}
+
+	/* Time for the main processing loop */
 top:
 
-	/* Send State Query */
+	/* Send Status Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
 	cmd->cmd = cpu_to_le16(S2145_CMD_STATUS);
 	cmd->len = cpu_to_le16(0);
