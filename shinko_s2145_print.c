@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.04"
+#define VERSION "0.05"
 #define URI_PREFIX "shinko_s2145://"
 
 #include "backend_common.c"
@@ -124,6 +124,55 @@ struct s2145_print_cmd {
 	uint8_t  method;
 } __attribute__((packed));
 
+#define PRINT_MEDIA_4x6    0x00
+#define PRINT_MEDIA_5x3_5  0x01
+#define PRINT_MEDIA_5x7    0x03
+#define PRINT_MEDIA_6x9    0x05
+#define PRINT_MEDIA_6x8    0x06
+#define PRINT_MEDIA_2x6    0x07
+
+static char *print_medias[] = {
+	"4x6",
+	"5x3.5",
+	"Unused",
+	"5x7",
+	"Unused",
+	"6x9",
+	"6x8",
+	"2x6"
+};
+
+#define PRINT_MODE_DEFAULT      0x01
+#define PRINT_MODE_STD_GLOSSY   0x02
+#define PRINT_MODE_FINE_GLOSSY  0x03
+#define PRINT_MODE_STD_MATTE    0x04
+#define PRINT_MODE_FINE_MATTE   0x05
+#define PRINT_MODE_STD_EGLOSSY  0x06
+#define PRINT_MODE_FINE_EGLOSSY 0x07
+
+static char *print_modes[] = {
+	"Unused",
+	"Default",
+	"Std Glossy",
+	"Fine Glossy",
+	"Std Matte",
+	"Fine Matte",
+	"Std ExGlossy",
+	"Fine ExGlossy"
+};
+
+#define PRINT_METHOD_STD     0x00
+#define PRINT_METHOD_4x6_2UP 0x02
+#define PRINT_METHOD_2x6_2UP 0x04
+
+static char *print_methods[] = { 
+	"Standard",
+	"Unused",
+	"4x6 2up",
+	"Unused",
+	"2x6 2up",
+};
+
 struct s2145_cancel_cmd {
 	struct s2145_cmd_hdr hdr;
 	uint8_t  id;
@@ -163,6 +212,17 @@ struct s2145_fwinfo_cmd {
 #define FWINFO_TARGET_USB_APP   0x06
 #define FWINFO_TARGET_TABLES    0x07
 
+static char *fwinfo_targets[] = {
+	"Unused",
+	"Main Boot",
+	"Main App",
+	"DSP Boot",
+	"DSP App",
+	"USB Boot",
+	"USB App",
+	"Tables"
+};
+
 struct s2145_update_cmd {
 	struct s2145_cmd_hdr hdr;
 	uint8_t  target;
@@ -197,6 +257,22 @@ struct s2145_status_hdr {
 #define ERROR_BAD_COMMAND       0x05
 #define ERROR_PRINTER           0x11
 #define ERROR_BUFFER_FULL       0x21
+
+/* XXX observed major/minor error codes:
+
+   0x01/0x16 @ 77845  [maybe paper out?]
+   0x06/0x0b @ 77822, 70053
+   0x05/0x64 @ 76034
+   0x05/0x61 @ 76034, 75420
+   0x05/0x62 @ 76034
+   0x05/0x4e @ 69824, 69820, 69781
+
+   Unfortunately I have no idea what these refer to.
+
+   major (0x01/5/6) may refer to above error codes or media/print modes.
+   minor (0x61/62/64) may refer to equivalent status codes (see below)
+
+ */
 
 #define STATUS_READY            0x00
 #define STATUS_INIT_CPU         0x31
@@ -246,6 +322,22 @@ struct s2145_status_resp {
 #define BANK_STATUS_XFER  0x01
 #define BANK_STATUS_FULL  0x02
 
+static char *bank_statuses[] = {
+	"Free",
+	"Xfer",
+	"Full",
+};
+
+#define TONECURVE_STATUS_INIT    0x00
+#define TONECURVE_STATUS_USER    0x01
+#define TONECURVE_STATUS_CURRENT 0x02
+
+static char *tonecurve_statuses[] = {
+	"Initial",
+	"UserSet",
+	"Current",
+};
+
 struct s2145_readtone_resp {
 	struct s2145_status_hdr hdr;
 	uint8_t  blocks_remain;
@@ -261,6 +353,14 @@ struct s2145_mediainfo_item {
 	uint8_t  print_type;
 	uint8_t  reserved[3];
 } __attribute__((packed));
+
+#define MEDIA_TYPE_UNKNOWN 0x00
+#define MEDIA_TYPE_PAPER   0x01
+
+static char *media_types[] = {
+	"Unknown",
+	"Paper"
+};
 
 struct s2145_mediainfo_resp {
 	struct s2145_status_hdr hdr;
@@ -383,19 +483,21 @@ static int get_status(libusb_device_handle *dev,
 	INFO("\tCutter:\t\t\t%08d\n", le32_to_cpu(resp.count_cutter));
 	INFO("\tPrint Head:\t\t%08d\n", le32_to_cpu(resp.count_head));
         INFO("\tRibbon Remaining:\t%08d\n", le32_to_cpu(resp.count_ribbon_left));
-	INFO("Bank 1: Job %03d @ %03d/%03d (%03d remaining)\n",
+	INFO("Bank 1: 0x%02x (%s) Job %03d @ %03d/%03d (%03d remaining)\n",
+	     resp.bank1_status, bank_statuses[resp.bank1_status],
 	     resp.bank1_printid,
 	     le16_to_cpu(resp.bank1_remaining),
 	     le16_to_cpu(resp.bank1_finished),
 	     le16_to_cpu(resp.bank1_specified));
 
-	INFO("Bank 2: Job %03d @ %03d/%03d (%03d remaining)\n",
+	INFO("Bank 2: 0x%02x (%s) Job %03d @ %03d/%03d (%03d remaining)\n",
+	     resp.bank2_status, bank_statuses[resp.bank1_status],
 	     resp.bank2_printid,
 	     le16_to_cpu(resp.bank2_remaining),
 	     le16_to_cpu(resp.bank2_finished),
 	     le16_to_cpu(resp.bank2_specified));
 
-	INFO("Tonecurve Status: 0x%02x\n", resp.tonecurve_status);
+	INFO("Tonecurve Status: 0x%02x (%s)\n", resp.tonecurve_status, tonecurve_statuses[resp.tonecurve_status]);
 
 	return 0;
 }
@@ -442,32 +544,7 @@ static int get_fwinfo(libusb_device_handle *dev,
 		if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s2145_fwinfo_resp) - sizeof(struct s2145_status_hdr)))
 			continue;
 		
-		char *s;
-		switch (i) {
-		case 1:
-			s = "Main Boot";
-			break;
-		case 2:
-			s = "Main App";
-			break;
-		case 3:
-			s = "DSP Boot";
-			break;
-		case 4:
-			s = "DSP App";
-			break;
-		case 5:
-			s = "USB Boot";
-			break;
-		case 6:
-			s = "USB App";
-			break;
-		case 7:
-			s = "Parameter Table";
-			break;
-		}
-		
-		INFO(" '%s' version %02x.%02x\n", s,
+		INFO(" '%s'\t ver %02x.%02x\n", fwinfo_targets[i],
 		     resp.major, resp.minor);
 #if 0
 		INFO("  name:    '%s'\n", resp.name);
@@ -567,11 +644,12 @@ static int get_mediainfo(libusb_device_handle *dev,
 
 	INFO("Supported Media Information: %d entries:\n", resp.count);
 	for (i = 0 ; i < resp.count ; i++) {
-		INFO(" %02d: C 0x%02x, %04dx%04d, M 0x%02x, P 0x%02x\n", i,
-		     resp.items[i].code, le16_to_cpu(resp.items[i].columns),
+		INFO(" %02d: C 0x%02x (%s), %04dx%04d, M 0x%02x (%s), P 0x%02x (%s)\n", i,
+		     resp.items[i].code, print_medias[resp.items[i].code],
+		     le16_to_cpu(resp.items[i].columns),
 		     le16_to_cpu(resp.items[i].rows), 
-		     resp.items[i].media_type,
-		     resp.items[i].print_type);
+		     resp.items[i].media_type, media_types[resp.items[i].media_type],
+		     resp.items[i].print_type, print_methods[resp.items[i].print_type]);
 	}
 	return 0;
 }
@@ -1156,12 +1234,6 @@ top:
 		print->mode = le32_to_cpu(hdr.mode);
 		print->method = le32_to_cpu(hdr.method);
 
-		DEBUG("printcmd: ");
-		for (i = 0 ; i < sizeof(*print) ; i++) {
-			DEBUG2("%02x ", cmdbuf[i]);
-		}
-		DEBUG2("\n");
-
 		if ((ret = send_data(dev, endp_down,
 				     (uint8_t *) print, sizeof(*print))))
 			goto done_claimed;
@@ -1186,7 +1258,11 @@ top:
 		break;
 	case S_PRINTER_SENT_DATA:
 		INFO("Waiting for printer to acknowledge completion\n");
-		state = S_FINISHED;
+		if (sts->hdr.result != RESULT_SUCCESS)
+			goto printer_error;
+		if (sts->hdr.status == STATUS_READY ||
+		    sts->hdr.status == STATUS_FINISHED)
+			state = S_FINISHED;
 		break;
 	default:
 		break;
