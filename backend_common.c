@@ -62,6 +62,11 @@
 #define be16_to_cpu(__x) __x
 #endif
 
+#define cpu_to_le16 le16_to_cpu
+#define cpu_to_le32 le32_to_cpu
+#define cpu_to_be16 be16_to_cpu
+#define cpu_to_be32 be32_to_cpu
+
 #define ID_BUF_SIZE 2048
 static char *get_device_id(struct libusb_device_handle *dev)
 {
