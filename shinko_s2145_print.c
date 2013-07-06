@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.02"
+#define VERSION "0.03"
 #define URI_PREFIX "s2145://"
 
 #include "backend_common.c"
@@ -283,6 +283,10 @@ struct s2145_fwinfo_resp {
 	uint16_t checksum;
 } __attribute__((packed));
 
+struct s2145_getunique_resp {
+	struct s2145_status_hdr hdr;
+	uint8_t  data[24];  /* Not necessarily all used. */
+} __attribute__((packed));
 
 #define READBACK_LEN sizeof(struct s2145_status_resp)
 #define CMDBUF_LEN sizeof(struct s2145_print_cmd)
@@ -558,6 +562,97 @@ static int get_mediainfo(libusb_device_handle *dev,
 	return 0;
 }
 
+static int get_user_string(libusb_device_handle *dev, 
+			   uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_cmd_hdr cmd;
+	struct s2145_getunique_resp resp;
+	int ret, num = 0;
+
+	cmd.cmd = cpu_to_le16(S2145_CMD_GETUNIQUE);
+	cmd.len = cpu_to_le16(0);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	if (resp.hdr.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.hdr.status);
+
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.hdr.result, resp.hdr.error, resp.hdr.printer_major,
+		     resp.hdr.printer_minor);
+		return -1;
+	}
+
+	/* Null-terminate */
+	resp.hdr.payload_len = le16_to_cpu(resp.hdr.payload_len);
+	if (resp.hdr.payload_len > 23)
+		resp.hdr.payload_len = 23;
+	resp.data[resp.hdr.payload_len] = 0;
+	INFO("Unique String: '%s'\n", resp.data);
+	return 0;
+}
+
+static int set_user_string(char *str, libusb_device_handle *dev, 
+			   uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_setunique_cmd cmd;
+	struct s2145_status_hdr resp;
+	int ret, num = 0;
+
+	if (str) {
+		cmd.len = strlen(str);
+		if (cmd.len > 23)
+			cmd.len = 23;
+		memset(cmd.data, 0, sizeof(cmd.data));
+		strncpy((char*)cmd.data, str, cmd.len);
+	} else {
+		cmd.len = 0;
+	}
+
+	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_SETUNIQUE);
+	cmd.hdr.len = cpu_to_le16(cmd.len + 1);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, cmd.len + 1 + sizeof(cmd.hdr))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	if (resp.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.status);
+
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.result, resp.error, resp.printer_major,
+		     resp.printer_minor);
+		return -1;
+	}
+
+	return 0;
+}
+
+
 int main (int argc, char **argv) 
 {
 	struct libusb_context *ctx;
@@ -598,7 +693,7 @@ int main (int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe ]\n\n",
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu | -su somestring ]\n\n",
 		      argv[0], argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, 1);
@@ -648,7 +743,9 @@ int main (int argc, char **argv)
 		if (!strcmp("-qs", argv[1]) ||
 		    !strcmp("-qf", argv[1]) ||
 		    !strcmp("-qe", argv[1]) ||
-		    !strcmp("-qm", argv[1])) {
+		    !strcmp("-qm", argv[1]) ||
+		    !strcmp("-qu", argv[1]) ||
+		    !strcmp("-su", argv[1])) {
 			query_only = 1;
 			goto skip_read;
 		}
@@ -792,6 +889,10 @@ skip_read:
 			get_errorlog(dev, endp_down, endp_up);
 		else if (!strcmp("-qm", argv[1]))
 			get_mediainfo(dev, endp_down, endp_up);
+		else if (!strcmp("-qu", argv[1]))
+			get_user_string(dev, endp_down, endp_up);
+		else if (!strcmp("-su", argv[1]))
+			set_user_string(argv[2], dev, endp_down, endp_up);
 
 		goto done_claimed;
 	}
