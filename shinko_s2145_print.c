@@ -35,8 +35,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.03"
-#define URI_PREFIX "s2145://"
+#define VERSION "0.04"
+#define URI_PREFIX "shinko_s2145://"
 
 #include "backend_common.c"
 
@@ -134,6 +134,9 @@ struct s2145_reset_cmd {
 	uint8_t  target;
 } __attribute__((packed));
 
+#define RESET_PRINTER       0x03
+#define RESET_USER_CURVE    0x04
+
 struct s2145_readtone_cmd {
 	struct s2145_cmd_hdr hdr;
 	uint8_t  curveid;
@@ -144,10 +147,21 @@ struct s2145_button_cmd {
 	uint8_t  enabled;
 } __attribute__((packed));
 
+#define BUTTON_ENABLED  0x01
+#define BUTTON_DISABLED 0x00
+
 struct s2145_fwinfo_cmd {
 	struct s2145_cmd_hdr hdr;
 	uint8_t  target;
 } __attribute__((packed));
+
+#define FWINFO_TARGET_MAIN_BOOT 0x01
+#define FWINFO_TARGET_MAIN_APP  0x02
+#define FWINFO_TARGET_DSP_BOOT  0x03
+#define FWINFO_TARGET_DSP_APP   0x04
+#define FWINFO_TARGET_USB_BOOT  0x05
+#define FWINFO_TARGET_USB_APP   0x06
+#define FWINFO_TARGET_TABLES    0x07
 
 struct s2145_update_cmd {
 	struct s2145_cmd_hdr hdr;
@@ -652,6 +666,163 @@ static int set_user_string(char *str, libusb_device_handle *dev,
 	return 0;
 }
 
+static int cancel_job(char *str, libusb_device_handle *dev, 
+		      uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_cancel_cmd cmd;
+	struct s2145_status_hdr resp;
+	int ret, num = 0;
+
+	if (!str)
+		return -1;
+
+	cmd.id = atoi(str);
+
+	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_CANCELJOB);
+	cmd.hdr.len = cpu_to_le16(1);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	if (resp.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.status);
+
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.result, resp.error, resp.printer_major,
+		     resp.printer_minor);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int flash_led(libusb_device_handle *dev, 
+		     uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_cmd_hdr cmd;
+	struct s2145_status_hdr resp;
+	int ret, num = 0;
+
+	cmd.cmd = cpu_to_le16(S2145_CMD_FLASHLED);
+	cmd.len = cpu_to_le16(0);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	if (resp.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.status);
+
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.result, resp.error, resp.printer_major,
+		     resp.printer_minor);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int reset_curve(int target, libusb_device_handle *dev, 
+		       uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_reset_cmd cmd;
+	struct s2145_status_hdr resp;
+	int ret, num = 0;
+
+	cmd.target = target;
+
+	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_RESET);
+	cmd.hdr.len = cpu_to_le16(1);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	if (resp.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.status);
+
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.result, resp.error, resp.printer_major,
+		     resp.printer_minor);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int button_set(int enable, libusb_device_handle *dev, 
+		      uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_button_cmd cmd;
+	struct s2145_status_hdr resp;
+	int ret, num = 0;
+
+	cmd.enabled = enable;
+
+	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_BUTTON);
+	cmd.hdr.len = cpu_to_le16(1);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		return ret;
+	}
+
+	if (resp.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.status);
+
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.result, resp.error, resp.printer_major,
+		     resp.printer_minor);
+		return -1;
+	}
+
+	return 0;
+}
+
 
 int main (int argc, char **argv) 
 {
@@ -693,8 +864,8 @@ int main (int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu | -su somestring ]\n\n",
-		      argv[0], argv[0], argv[0]);
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu ]\n\t%s [ -su somestring | -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n\n",
+		      argv[0], argv[0], argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, 1);
 		libusb_free_device_list(list, 1);
@@ -745,6 +916,12 @@ int main (int argc, char **argv)
 		    !strcmp("-qe", argv[1]) ||
 		    !strcmp("-qm", argv[1]) ||
 		    !strcmp("-qu", argv[1]) ||
+		    !strcmp("-pc", argv[1]) ||
+		    !strcmp("-fl", argv[1]) ||
+		    !strcmp("-ru", argv[1]) ||
+		    !strcmp("-rp", argv[1]) ||
+		    !strcmp("-b1", argv[1]) ||
+		    !strcmp("-b0", argv[1]) ||
 		    !strcmp("-su", argv[1])) {
 			query_only = 1;
 			goto skip_read;
@@ -893,6 +1070,18 @@ skip_read:
 			get_user_string(dev, endp_down, endp_up);
 		else if (!strcmp("-su", argv[1]))
 			set_user_string(argv[2], dev, endp_down, endp_up);
+		else if (!strcmp("-pc", argv[1]))
+			cancel_job(argv[2], dev, endp_down, endp_up);
+		else if (!strcmp("-fl", argv[1]))
+			flash_led(dev, endp_down, endp_up);
+		else if (!strcmp("-ru", argv[1]))
+			reset_curve(RESET_USER_CURVE, dev, endp_down, endp_up);
+		else if (!strcmp("-rp", argv[1]))
+			reset_curve(RESET_PRINTER, dev, endp_down, endp_up);
+		else if (!strcmp("-b1", argv[1]))
+			button_set(BUTTON_ENABLED, dev, endp_down, endp_up);
+		else if (!strcmp("-b0", argv[1]))
+			button_set(BUTTON_DISABLED, dev, endp_down, endp_up);
 
 		goto done_claimed;
 	}
