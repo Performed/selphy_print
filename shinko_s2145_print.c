@@ -39,7 +39,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.06"
+#define VERSION "0.07"
 #define URI_PREFIX "shinko_s2145://"
 
 #include "backend_common.c"
@@ -233,6 +233,15 @@ struct s2145_update_cmd {
 	uint32_t reserved;
 	uint32_t size;
 } __attribute__((packed));
+
+#define UPDATE_TARGET_USER    0x03
+#define UPDATE_TARGET_CURRENT 0x04
+
+#define UPDATE_SIZE 0x600
+/* Update is three channels, Y, M, C;
+   each is 256 entries of 11-bit data padded to 16-bits.
+   Printer expects LE data.  We use BE data on disk.
+*/
 
 struct s2145_setunique_cmd {
 	struct s2145_cmd_hdr hdr;
@@ -989,6 +998,80 @@ static int get_tonecurve(int type, libusb_device_handle *dev,
 	return 0;
 }
 
+static int set_tonecurve(int target, char *fname, libusb_device_handle *dev, 
+			 uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_update_cmd cmd;
+	struct s2145_status_hdr resp;
+	int ret, num = 0;
+
+	uint16_t *data = malloc(UPDATE_SIZE);
+
+	/* Read in file */
+	int tc_fd = open(fname, O_RDONLY);
+	if (tc_fd < 0)
+		return -1;
+	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE)
+		return -2;
+	close(tc_fd);
+	/* Byteswap data to local CPU.. */
+	for (ret = 0; ret < UPDATE_SIZE ; ret+=2) {
+		data[ret] = be16_to_cpu(data[ret]);
+	}
+
+	/* Set up command */
+	cmd.target = target;
+	cmd.reserved = 0;
+	cmd.size = cpu_to_le32(UPDATE_SIZE);
+
+	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_UPDATE);
+	cmd.hdr.len = cpu_to_le16(sizeof(struct s2145_update_cmd)-sizeof(cmd.hdr));
+
+	/* Byteswap data to format printer is expecting.. */
+	for (ret = 0; ret < UPDATE_SIZE ; ret+=2) {
+		data[ret] = cpu_to_le16(data[ret]);
+	}
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
+		return ret;
+	}
+
+	if (resp.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.status);
+
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.result, resp.error, resp.printer_major,
+		     resp.printer_minor);
+		return -1;
+	}
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t*)data,
+				   UPDATE_SIZE,
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num < UPDATE_SIZE)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
+		return ret;
+	}
+
+	free(data);
+
+	return 0;
+}
+
 
 int main (int argc, char **argv) 
 {
@@ -1030,8 +1113,8 @@ int main (int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu | -qtu | -qtc ]\n\t%s [ -su somestring | -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n\n",
-		      argv[0], argv[0], argv[0], argv[0]);
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu | -qtu | -qtc ]\n\t%s [ -su somestring | -stu filename | -stc filename ]\n\t%s [ -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n\n",
+		      argv[0], argv[0], argv[0], argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, 1);
 		libusb_free_device_list(list, 1);
@@ -1090,6 +1173,8 @@ int main (int argc, char **argv)
 		    !strcmp("-rp", argv[1]) ||
 		    !strcmp("-b1", argv[1]) ||
 		    !strcmp("-b0", argv[1]) ||
+		    !strcmp("-stc", argv[1]) ||
+		    !strcmp("-stu", argv[1]) ||
 		    !strcmp("-su", argv[1])) {
 			query_only = 1;
 			goto skip_read;
@@ -1242,6 +1327,10 @@ skip_read:
 			get_tonecurve(TONECURVE_CURRENT, dev, endp_down, endp_up);
 		else if (!strcmp("-su", argv[1]))
 			set_user_string(argv[2], dev, endp_down, endp_up);
+		else if (!strcmp("-stu", argv[1]))
+			set_tonecurve(UPDATE_TARGET_USER, argv[2], dev, endp_down, endp_up);
+		else if (!strcmp("-stc", argv[1]))
+			set_tonecurve(UPDATE_TARGET_CURRENT, argv[2], dev, endp_down, endp_up);
 		else if (!strcmp("-pc", argv[1]))
 			cancel_job(argv[2], dev, endp_down, endp_up);
 		else if (!strcmp("-fl", argv[1]))
