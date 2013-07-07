@@ -194,10 +194,10 @@ static int print_scan_output(struct libusb_device *device,
 	if (!strlen((char*)serial))
 		strcpy((char*)serial, "NONE");
 	
-	DEBUG("%s%sPID: %04X Product: '%s' Serial: '%s'\n",
+	DEBUG("%s%sPID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
 	      (!valid) ? "UNRECOGNIZED: " : "",
 	      match ? "MATCH: " : "",
-	      desc->idProduct, product, serial);
+	      desc->idProduct, manuf, product, serial);
 	
 	if (valid && scan_only) {
 		/* URL-ify model. */
