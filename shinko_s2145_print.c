@@ -39,7 +39,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.05"
+#define VERSION "0.06"
 #define URI_PREFIX "shinko_s2145://"
 
 #include "backend_common.c"
@@ -332,9 +332,9 @@ static char *bank_statuses[] = {
 	"Full",
 };
 
-#define TONECURVE_STATUS_INIT    0x00
-#define TONECURVE_STATUS_USER    0x01
-#define TONECURVE_STATUS_CURRENT 0x02
+#define TONECURVE_INIT    0x00
+#define TONECURVE_USER    0x01
+#define TONECURVE_CURRENT 0x02
 
 static char *tonecurve_statuses[] = {
 	"Initial",
@@ -344,9 +344,7 @@ static char *tonecurve_statuses[] = {
 
 struct s2145_readtone_resp {
 	struct s2145_status_hdr hdr;
-	uint8_t  blocks_remain;
-	uint8_t  block_len;
-	uint8_t  payload[256]; /* Not all necessarily used */
+	uint16_t total_size;
 } __attribute__((packed));
 
 struct s2145_mediainfo_item {
@@ -467,7 +465,7 @@ static int get_status(libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -532,7 +530,7 @@ static int get_fwinfo(libusb_device_handle *dev,
 					   5000);
 		
 		if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 			return ret;
 		}
 		
@@ -583,7 +581,7 @@ static int get_errorlog(libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -630,7 +628,7 @@ static int get_mediainfo(libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -679,7 +677,7 @@ static int get_user_string(libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -732,7 +730,7 @@ static int set_user_string(char *str, libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -774,7 +772,7 @@ static int cancel_job(char *str, libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -811,7 +809,7 @@ static int flash_led(libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -850,7 +848,7 @@ static int reset_curve(int target, libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -889,7 +887,7 @@ static int button_set(int enable, libusb_device_handle *dev,
 				   5000);
 
 	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)READBACK_LEN, endp_up);
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
 		return ret;
 	}
 
@@ -902,6 +900,92 @@ static int button_set(int enable, libusb_device_handle *dev,
 		return -1;
 	}
 
+	return 0;
+}
+
+static int get_tonecurve(int type, libusb_device_handle *dev, 
+			 uint8_t endp_down, uint8_t endp_up) 
+{
+	struct s2145_readtone_cmd  cmd;
+	struct s2145_readtone_resp resp;
+	int ret, num = 0;
+
+	uint8_t *data;
+	uint16_t curves[768];
+
+	int i,j;
+
+	cmd.curveid = type;
+
+	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_READTONE);
+	cmd.hdr.len = cpu_to_le16(1);
+
+	INFO("Read %s Tone Curve:\n", tonecurve_statuses[type]);
+
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) &cmd, sizeof(cmd))))
+		return -1;
+	
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t *)&resp,
+				   sizeof(resp),
+				   &num,
+				   5000);
+	
+	if (ret < 0 || (num < sizeof(struct s2145_status_hdr))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
+		return ret;
+	}
+		
+	if (resp.hdr.result != RESULT_SUCCESS) {
+		INFO("Printer Status:  %02x\n", resp.hdr.status);
+		
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		     resp.hdr.result, resp.hdr.error, resp.hdr.printer_major,
+		     resp.hdr.printer_minor);
+		return -2;
+	}
+
+	resp.total_size = le16_to_cpu(resp.total_size);
+
+	data = malloc(resp.total_size * 2);
+
+	i = 0;
+	while (i < resp.total_size) {
+		ret = libusb_bulk_transfer(dev, endp_up,
+					   data + i,
+					   resp.total_size * 2 - i,
+					   &num,
+					   5000);
+
+		if (ret < 0) {
+			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num + i, (int)resp.total_size, endp_up);
+			return ret;
+		}
+		i += num;
+	}
+
+	i = j = 0;
+	while (i < resp.total_size) {
+		memcpy(curves + j, data + i+2, data[i+1]);
+		j += data[i+1] / 2;
+		i += data[i+1] + 2;
+	}
+
+	INFO(" YELLOW:\n");
+	for (i = 0 ; i < 256; i++) {
+		INFO("  0x%02x -> 0x%03x\n", i, le16_to_cpu(curves[i]));
+	}
+	INFO(" MAGENTA:\n");
+	for (i = 256 ; i < 512; i++) {
+		INFO("  0x%02x -> 0x%03x\n", i-256, le16_to_cpu(curves[i]));
+	}
+	INFO(" CYAN:\n");
+	for (i = 512 ; i < 768; i++) {
+		INFO("  0x%02x -> 0x%03x\n", i-512, le16_to_cpu(curves[i]));
+	}
+
+	free(data);
 	return 0;
 }
 
@@ -946,7 +1030,7 @@ int main (int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu ]\n\t%s [ -su somestring | -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n\n",
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu | -qtu | -qtc ]\n\t%s [ -su somestring | -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n\n",
 		      argv[0], argv[0], argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, 1);
@@ -998,6 +1082,8 @@ int main (int argc, char **argv)
 		    !strcmp("-qe", argv[1]) ||
 		    !strcmp("-qm", argv[1]) ||
 		    !strcmp("-qu", argv[1]) ||
+		    !strcmp("-qtc", argv[1]) ||
+		    !strcmp("-qtu", argv[1]) ||
 		    !strcmp("-pc", argv[1]) ||
 		    !strcmp("-fl", argv[1]) ||
 		    !strcmp("-ru", argv[1]) ||
@@ -1150,6 +1236,10 @@ skip_read:
 			get_mediainfo(dev, endp_down, endp_up);
 		else if (!strcmp("-qu", argv[1]))
 			get_user_string(dev, endp_down, endp_up);
+		else if (!strcmp("-qtu", argv[1]))
+			get_tonecurve(TONECURVE_USER, dev, endp_down, endp_up);
+		else if (!strcmp("-qtc", argv[1]))
+			get_tonecurve(TONECURVE_CURRENT, dev, endp_down, endp_up);
 		else if (!strcmp("-su", argv[1]))
 			set_user_string(argv[2], dev, endp_down, endp_up);
 		else if (!strcmp("-pc", argv[1]))
