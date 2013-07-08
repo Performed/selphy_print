@@ -6,7 +6,11 @@
 
   The latest version of these programs can be found at
   
-  http://git.shaftnet.org/git/gitweb.cgi?p=selphy_print.git
+    http://git.shaftnet.org/git/gitweb.cgi?p=selphy_print.git
+
+  For a list of known bugs and development plans, see:
+
+    http://bugs.shaftnet.org/index.php?project=4
 
  ***************************************************************************
   Supported Printers for each backend:
