@@ -39,7 +39,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.08"
+#define VERSION "0.09"
 #define URI_PREFIX "shinko_s2145://"
 
 #include "backend_common.c"
@@ -1067,14 +1067,9 @@ static int set_tonecurve(int target, char *fname, libusb_device_handle *dev,
 		return -1;
 	}
 
-	ret = libusb_bulk_transfer(dev, endp_up,
-				   (uint8_t*)data,
-				   UPDATE_SIZE,
-				   &num,
-				   5000);
-
-	if (ret < 0 || (num < UPDATE_SIZE)) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(resp), endp_up);
+	/* Sent transfer */
+	if ((ret = send_data(dev, endp_down,
+			     (uint8_t *) data, UPDATE_SIZE))) {
 		return ret;
 	}
 
