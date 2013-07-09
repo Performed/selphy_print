@@ -132,6 +132,22 @@
 
    The Kodak 6850 is likely supported, but needs testing.
 
+   This backend supports additional commands:
+
+      kodak6800_print [command [arg] ]
+
+   Valid commands:
+
+     -qtc filename      Query tone curve [1]
+
+  Notes:
+
+    [1]  Format of curvedata file:
+
+    	 256 entries each of Yellow, Magenta, Cyan mappings:
+	 Values are unsigned 16-bit big endian, between 0 and 2047
+	 (ie 11-bit)
+
  *************************************************************************** 
   shinko_s2145 backend:
 
@@ -156,14 +172,14 @@
      -qf		Query firmware version
      -qe		Query Error log
      -qu		Query User String
-     -qtu filename	Query User tone curve (ie from flash)  [2]
-     -qtc filename	Query Current tone curve               [2]
+     -qtu filename	Query User tone curve (stored in flash)  [2]
+     -qtc filename	Query Current tone curve (stored in RAM) [2]
      -su  somestring    Set User String to 'somestring'
-     -stu filename      Set User tone curve (stored in flash)  [2]
-     -stc filename      Set Current tone curve (stored in RAM) [2]
-     -pc  id            Cancel print job 'id'  [1]
+     -stu filename      Set User tone curve (stored in flash)    [2]
+     -stc filename      Set Current tone curve (stored in RAM)   [2]
+     -pc  id            Cancel print job 'id'                    [1]
      -fl  		Flash printer LEDs for five seconds.
-     -ru		Reset User tone curve to default [3]
+     -ru		Reset User tone curve to default         [3]
      -rp		Reset printer to factory defaults
      -b1		Enable printer control panel buttons
      -b0		Disable printer control panel buttons

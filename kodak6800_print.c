@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.08"
+#define VERSION "0.09"
 #define URI_PREFIX "kodak6800://"
 #define STR_LEN_MAX 64
 
@@ -105,6 +105,104 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	return found;
 }
 
+#define UPDATE_SIZE 1536
+static int get_tonecurve(char *fname, libusb_device_handle *dev, 
+			 uint8_t endp_down, uint8_t endp_up) 
+{
+	uint8_t cmdbuf[16];
+	uint8_t respbuf[64];
+	int ret, num = 0;
+	int i;
+
+	uint16_t *data = malloc(UPDATE_SIZE);
+
+	INFO("Dump Tone Curve to '%s'\n", fname);
+
+	/* Initial Request */
+	cmdbuf[0] = 0x03;
+	cmdbuf[1] = 0x1b;
+	cmdbuf[2] = 0x43;
+	cmdbuf[3] = 0x48;
+	cmdbuf[4] = 0x43;
+	cmdbuf[5] = 0x0c;
+	cmdbuf[6] = 0x54;
+	cmdbuf[7] = 0x4f;
+	cmdbuf[8] = 0x4e;
+	cmdbuf[9] = 0x45;
+	cmdbuf[10] = 0x72;
+	cmdbuf[11] = 0x01;
+	cmdbuf[12] = 0x00;
+	cmdbuf[13] = 0x00;
+	cmdbuf[14] = 0x00;
+	cmdbuf[15] = 0x00;
+
+	if ((ret = send_data(dev, endp_down,
+			     cmdbuf, 16)))
+		return -1;
+	
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   respbuf,
+				   sizeof(respbuf),
+				   &num,
+				   5000);
+	if (ret < 0 || (num != 51)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
+		return ret;
+	}
+
+	/* Then we can poll the data */
+	cmdbuf[0] = 0x03;
+	cmdbuf[1] = 0x1b;
+	cmdbuf[2] = 0x43;
+	cmdbuf[3] = 0x48;
+	cmdbuf[4] = 0x43;
+	cmdbuf[5] = 0x0c;
+	cmdbuf[6] = 0x54;
+	cmdbuf[7] = 0x4f;
+	cmdbuf[8] = 0x4e;
+	cmdbuf[9] = 0x45;
+	cmdbuf[10] = 0x20;
+	for (i = 0 ; i < 24 ; i++) {
+		if ((ret = send_data(dev, endp_down,
+				     cmdbuf, 11)))
+			return -1;
+
+
+		ret = libusb_bulk_transfer(dev, endp_up,
+					   respbuf,
+					   sizeof(respbuf),
+					   &num,
+					   5000);
+		if (ret < 0 || (num != 64)) {
+			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
+			return ret;
+		}
+
+		/* Copy into buffer */
+		memcpy(((uint8_t*)data)+i*64, respbuf, 64);
+	}
+
+	/* Open file and write it out */
+	{
+		int tc_fd = open(fname, O_WRONLY|O_CREAT);
+		if (tc_fd < 0)
+			return -1;
+		
+		for (i = 0 ; i < 768; i++) {
+			/* Byteswap appropriately */
+			data[i] = cpu_to_be16(le16_to_cpu(data[i]));
+			write(tc_fd, &data[i], sizeof(uint16_t));
+		}
+		close(tc_fd);
+	}
+
+
+	/* We're done */
+	free(data);
+
+	return 0;
+}
+
 int main (int argc, char **argv) 
 {
 	struct libusb_context *ctx;
@@ -120,6 +218,7 @@ int main (int argc, char **argv)
 	int i, num;
 	int claimed;
 
+	int query_only = 0;
 	int ret = 0;
 	int iface = 0;
 	int found = -1;
@@ -139,8 +238,8 @@ int main (int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
-		      argv[0], argv[0]);
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qtc filename ] \n\n",
+		      argv[0], argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, 1);
 		libusb_free_device_list(list, 1);
@@ -184,6 +283,11 @@ int main (int argc, char **argv)
 		}
 		use_serno++;
 	} else {
+		if (!strcmp("-stc", argv[1])) {
+			query_only = 1;
+			goto skip_read;
+		}
+
 		/* Open Input File */
 		if (strcmp("-", argv[1])) {
 			data_fd = open(argv[1], O_RDONLY);
@@ -235,7 +339,8 @@ int main (int argc, char **argv)
 		} while (remain);
 	}
 	close(data_fd); /* We're done reading! */
-	
+
+ skip_read:	
 	/* Libusb setup */
 	libusb_init(&ctx);
 	found = find_and_enumerate(ctx, &list, use_serno, 0);
@@ -284,6 +389,12 @@ int main (int argc, char **argv)
 			else
 				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
 		}
+	}
+
+	if (query_only) {
+		if (!strcmp("-qtc", argv[1]))
+			get_tonecurve(argv[2], dev, endp_down, endp_up);
+		goto done_claimed;
 	}
 
 	/* Time for the main processing loop */
