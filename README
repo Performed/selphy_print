@@ -139,6 +139,7 @@
    Valid commands:
 
      -qtc filename      Query tone curve [1]
+     -stc filename      Set tone curve   [1]
 
   Notes:
 
