@@ -634,6 +634,14 @@ done:
     00 20 20 20 20 20 20 20  20 20 20 20 20 20 20 20  [[ Pascal string? ]]
     20 20 20 20 20 20 20 20  36 30 34 33 4d 32 38 31  [[ ..."  6043M281" ]]
 
+->  03 1b 43 48 43 0c 54 4f  4e 45 65 00 00 00 00 00
+<-  [51 octets]
+
+    [[ typical status response ]]
+    [[ Followed by reset. ]]s
+
+  Read tone curve data:  
+
 ->  03 1b 43 48 43 0c 54 4f  4e 45 72 01 00 00 00 00
 <-  [51 octets]
 
@@ -642,7 +650,7 @@ done:
 ->  03 1b 43 48 43 0c 54 4f  4e 45 20
 <-  [64 octets]
 
-    81 07 07 07 27 07 72 07  c8 07 f8 07 22 07 08 48
+    81 01 07 07 27 07 72 07  c8 07 f8 07 22 07 48 08
     68 08 88 08 b3 08 db 08  f7 08 09 09 2e 09 49 09
     65 09 80 09 aa 09 ca 09  e2 09 fa 09 12 0a 32 0a
     42 0a 66 0a 81 0a 9a 0a  c3 0a d9 0a ee 0a 04 0b
@@ -651,6 +659,8 @@ done:
 <-  [64 octets]
 
   [[ repeats for total of 24 packets.  total of 1.5KiB. ]]
+
+  Write tone curve data:
 
 ->  03 1b 43 48 43 0c 54 4f  4e 45 77 01 00 00 00 00
 <-  [51 octets]
@@ -673,17 +683,8 @@ done:
 
     [[ typical status response ]]
 
-  [[ total of 48 packets * 64, and then one final packet of 25: 3097 total. ]]
-  [[ theory is there are two tables loaded, each 1.5KiB.  the extra 25 bytes
-     are for the leading '03' on each of the 25 URBs. ]]
-
-
- Also seen:
-
-->  03 1b 43 48 43 0c 54 4f  4e 45 65 00 00 00 00 00
-<-  [51 octets]
-
-    [[ typical status response ]]
-    [[ Followed by reset. ]]s
+  [[ total of 24 packets * 64, and then one final packet of 25: 1562 total. ]]
+  [[ It apepars the extra 25 bytes are to compensate for the leading '03' on 
+     each of the 25 URBs. ]]
 
 */

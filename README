@@ -145,8 +145,8 @@
     [1]  Format of curvedata file:
 
     	 256 entries each of Yellow, Magenta, Cyan mappings:
-	 Values are unsigned 16-bit big endian, between 0 and 2047
-	 (ie 11-bit)
+	 Values are unsigned 16-bit big endian, between 0 and 16383
+	 (ie 14-bit)
 
  *************************************************************************** 
   shinko_s2145 backend:
