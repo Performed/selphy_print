@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.14"
+#define VERSION "0.15"
 #define URI_PREFIX "kodak1400://"
 
 #include "backend_common.c"
@@ -204,7 +204,7 @@ static int set_tonecurve(char *fname, libusb_device_handle *dev,
 	close(tc_fd);
 
 	/* Byteswap data to printer's format */
-	for (ret = 0; ret < UPDATE_SIZE-16 ; ret+=2) {
+	for (ret = 0; ret < (UPDATE_SIZE-16)/2 ; ret++) {
 		data[ret] = cpu_to_le16(be16_to_cpu(data[ret]));
 	}
 	/* Null-terminate */
@@ -272,7 +272,6 @@ static int set_tonecurve(char *fname, libusb_device_handle *dev,
 
 	return 0;
 }
-
 
 int main (int argc, char **argv) 
 {
