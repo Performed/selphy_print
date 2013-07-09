@@ -109,6 +109,22 @@
 
    The Kodak 805 is likely supported, but needs testing.
 
+   This backend supports additional commands:
+
+      kodak1400_print [command [arg] ]
+
+   Valid commands:
+
+     -stc filename      Set tone curve [1]
+
+  Notes:
+
+    [1]  Format of curvedata file:
+
+    	 256 entries each of Yellow, Magenta, Cyan mappings:
+	 Values are unsigned 16-bit big endian, between 0 and ???
+	 (unsure as to the bit usage)
+
  *************************************************************************** 
   kodak6800 backend:
 
