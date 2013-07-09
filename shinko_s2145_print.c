@@ -39,7 +39,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.07"
+#define VERSION "0.08"
 #define URI_PREFIX "shinko_s2145://"
 
 #include "backend_common.c"
@@ -236,6 +236,14 @@ struct s2145_update_cmd {
 
 #define UPDATE_TARGET_USER    0x03
 #define UPDATE_TARGET_CURRENT 0x04
+
+static char *update_targets[] = {
+	"Unused",
+	"Unused",
+	"Unused",
+	"User",
+	"Current",
+};
 
 #define UPDATE_SIZE 0x600
 /* Update is three channels, Y, M, C;
@@ -912,7 +920,7 @@ static int button_set(int enable, libusb_device_handle *dev,
 	return 0;
 }
 
-static int get_tonecurve(int type, libusb_device_handle *dev, 
+static int get_tonecurve(int type, char *fname, libusb_device_handle *dev, 
 			 uint8_t endp_down, uint8_t endp_up) 
 {
 	struct s2145_readtone_cmd  cmd;
@@ -929,7 +937,7 @@ static int get_tonecurve(int type, libusb_device_handle *dev,
 	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_READTONE);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	INFO("Read %s Tone Curve:\n", tonecurve_statuses[type]);
+	INFO("Dump %s Tone Curve to '%s'\n", tonecurve_statuses[type], fname);
 
 	if ((ret = send_data(dev, endp_down,
 			     (uint8_t *) &cmd, sizeof(cmd))))
@@ -981,17 +989,18 @@ static int get_tonecurve(int type, libusb_device_handle *dev,
 		i += data[i+1] + 2;
 	}
 
-	INFO(" YELLOW:\n");
-	for (i = 0 ; i < 256; i++) {
-		INFO("  0x%02x -> 0x%03x\n", i, le16_to_cpu(curves[i]));
-	}
-	INFO(" MAGENTA:\n");
-	for (i = 256 ; i < 512; i++) {
-		INFO("  0x%02x -> 0x%03x\n", i-256, le16_to_cpu(curves[i]));
-	}
-	INFO(" CYAN:\n");
-	for (i = 512 ; i < 768; i++) {
-		INFO("  0x%02x -> 0x%03x\n", i-512, le16_to_cpu(curves[i]));
+	/* Open file and write it out */
+	{
+		int tc_fd = open(fname, O_WRONLY|O_CREAT);
+		if (tc_fd < 0)
+			return -1;
+		
+		for (i = 0 ; i < 768; i++) {
+			/* Byteswap appropriately */
+			curves[i] = cpu_to_be16(le16_to_cpu(curves[i]));
+			write(tc_fd, &curves[i], sizeof(uint16_t));
+		}
+		close(tc_fd);
 	}
 
 	free(data);
@@ -1004,6 +1013,8 @@ static int set_tonecurve(int target, char *fname, libusb_device_handle *dev,
 	struct s2145_update_cmd cmd;
 	struct s2145_status_hdr resp;
 	int ret, num = 0;
+
+	INFO("Set %s Tone Curve from '%s'\n", update_targets[target], fname);
 
 	uint16_t *data = malloc(UPDATE_SIZE);
 
@@ -1113,7 +1124,7 @@ int main (int argc, char **argv)
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu | -qtu | -qtc ]\n\t%s [ -su somestring | -stu filename | -stc filename ]\n\t%s [ -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n\n",
+		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu | -qtu filename | -qtc filename ]\n\t%s [ -su somestring | -stu filename | -stc filename ]\n\t%s [ -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n\n",
 		      argv[0], argv[0], argv[0], argv[0], argv[0]);
 		libusb_init(&ctx);
 		find_and_enumerate(ctx, &list, NULL, 1);
@@ -1322,9 +1333,9 @@ skip_read:
 		else if (!strcmp("-qu", argv[1]))
 			get_user_string(dev, endp_down, endp_up);
 		else if (!strcmp("-qtu", argv[1]))
-			get_tonecurve(TONECURVE_USER, dev, endp_down, endp_up);
+			get_tonecurve(TONECURVE_USER, argv[2], dev, endp_down, endp_up);
 		else if (!strcmp("-qtc", argv[1]))
-			get_tonecurve(TONECURVE_CURRENT, dev, endp_down, endp_up);
+			get_tonecurve(TONECURVE_CURRENT, argv[2], dev, endp_down, endp_up);
 		else if (!strcmp("-su", argv[1]))
 			set_user_string(argv[2], dev, endp_down, endp_up);
 		else if (!strcmp("-stu", argv[1]))

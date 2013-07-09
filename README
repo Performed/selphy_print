@@ -114,7 +114,7 @@
 
    This backend fully supports the Kodak 6800 kiosk printer.
 
-   The Kodak 6850 and Kodak 605 models are likely supported, but need testing.
+   The Kodak 6850 is likely supported, but needs testing.
 
  *************************************************************************** 
   shinko_s2145 backend:
@@ -140,10 +140,10 @@
      -qf		Query firmware version
      -qe		Query Error log
      -qu		Query User String
-     -qtu		Query User tone curve (ie from flash)
-     -qtc		Query Current tone curve
+     -qtu filename	Query User tone curve (ie from flash)  [2]
+     -qtc filename	Query Current tone curve               [2]
      -su  somestring    Set User String to 'somestring'
-     -stu filename      Set User tone curve (stored in flash) [2]
+     -stu filename      Set User tone curve (stored in flash)  [2]
      -stc filename      Set Current tone curve (stored in RAM) [2]
      -pc  id            Cancel print job 'id'  [1]
      -fl  		Flash printer LEDs for five seconds.
@@ -162,7 +162,8 @@
     [2]  Format of curvedata file:
 
     	 256 entries each of Yellow, Magenta, Cyan mappings:
-	 Values are 16-bit big endian, between 0 and 2047 (ie only 11 bits used)
+	 Values are unsigned 16-bit big endian, between 0 and 2047 
+	 (ie only 11 bits used)
 
     [3]  Default printer tone curve is a linear 'val << 3'
 
