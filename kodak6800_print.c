@@ -515,6 +515,64 @@ done:
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00
 <-  [51 octets, repeats]
 
+  Other stuff seen:
 
+->  03 1b 43 48 43 12 00 00  00 00 00 00 00 00 00 00
+<-  [32 octets]
+
+    00 20 20 20 20 20 20 20  20 20 20 20 20 20 20 20  [[ Pascal string? ]]
+    20 20 20 20 20 20 20 20  36 30 34 33 4d 32 38 31  [[ ..."  6043M281" ]]
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 72 01 00 00 00 00
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 20
+<-  [64 octets]
+
+    81 07 07 07 27 07 72 07  c8 07 f8 07 22 07 08 48
+    68 08 88 08 b3 08 db 08  f7 08 09 09 2e 09 49 09
+    65 09 80 09 aa 09 ca 09  e2 09 fa 09 12 0a 32 0a
+    42 0a 66 0a 81 0a 9a 0a  c3 0a d9 0a ee 0a 04 0b
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 20
+<-  [64 octets]
+
+  [[ repeats for total of 24 packets.  total of 1.5KiB. ]]
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 77 01 00 00 00 00
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+->  03 00 00 46 06 53 06 c0  06 07 07 37 07 5d 07 87 
+    07 a1 07 c8 07 08 08 08  08 08 08 48 08 68 08 88
+    08 a9 08 b9 08 d9 08 f9  08 12 09 2e 09 49 09 70
+    09 89 08 99 09 ba 09 ca  08 da 09 0a 0a 24 0a 38
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+->  03 0a 53 0a 66 0a 81 0a ...
+   ....
+->  03 cf 38 0a 39 3d 39 79  39 96 39 b6 39 fb 39 01
+    34 0a 34 08 3a 0c 1a 10  3a
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+  [[ total of 48 packets * 64, and then one final packet of 25: 3097 total. ]]
+  [[ theory is there are two tables loaded, each 1.5KiB.  the extra 25 bytes
+     are for the leading '03' on each of the 25 URBs. ]]
+
+
+ Also seen:
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 65 00 00 00 00 00
+<-  [51 octets]
+
+    [[ typical status response ]]
+    [[ Followed by reset. ]]s
 
 */
