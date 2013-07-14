@@ -21,6 +21,7 @@
                  Kodak 805 Photo Printer
    kodak6800:    Kodak 6800 Photo Printer
    skinko_s2145: Shinko/Sinfonia CHC-S2145 
+   sony_updr150: Sony UP-DR150
 
  ***************************************************************************
   Compilation:
@@ -200,3 +201,7 @@
 
     [3]  Default printer tone curve is a linear 'val << 3'
 
+ *************************************************************************** 
+  sony_updr150 backend:
+
+   This backend fully supports the Sony UP-DR150 Digital Photo Printer.
