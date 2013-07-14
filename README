@@ -160,7 +160,7 @@
 
    In order to use this backend, you will need to ensure the printer is
    configured to use the 'DRV' (as opposed to 'DLL') operating mode.  See 
-   the printer documention for details on how to set this.
+   the printer documentation for details on how to set this.
 
    This backend supports additional commands:
 
