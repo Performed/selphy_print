@@ -15,13 +15,13 @@
  ***************************************************************************
   Supported Printers for each backend:
 
-   selphy:       All Canon SELPHY ES and SELPHY CP printer models 
+   canon-selphy: All Canon SELPHY ES and SELPHY CP printer models 
    	           (see below)
-   kodak1400:    Kodak Professional 1400
+   kodak-1400:   Kodak Professional 1400
                  Kodak 805 Photo Printer
-   kodak6800:    Kodak 6800 Photo Printer
-   skinko_s2145: Shinko/Sinfonia CHC-S2145 
-   sony_updr150: Sony UP-DR150
+   kodak-6800:   Kodak 6800 Photo Printer
+   skinko-s2145: Shinko/Sinfonia CHC-S2145 
+   sony-updr150: Sony UP-DR150
 
  ***************************************************************************
   Compilation:
@@ -56,7 +56,7 @@
 	backend - < filename
 	somecommand | backend -
 
-     [[ where 'backend' is the program name, eg 'selphy_print' ]]
+     [[ where 'backend' is the program name, eg 'canon-selphy_print' ]]
 
    Some backends may support additional arguments; see below:
 
@@ -65,7 +65,7 @@
 	 output.
 
  *************************************************************************** 
-  selphy backend:
+  canon-selphy backend:
 
    Verified supported printers:
   
@@ -104,7 +104,7 @@
      a PID/TYPE specification, please let me know via e-mail.
 
  *************************************************************************** 
-  kodak1400 backend:
+  kodak-1400 backend:
 
    This backend fully supports the Kodak 1400 medium-format printer.
 
@@ -112,7 +112,7 @@
 
    This backend supports additional commands:
 
-      kodak1400_print [command [arg] ]
+      kodak-1400_print [command [arg] ]
 
    Valid commands:
 
@@ -127,7 +127,7 @@
 	 (unsure as to the bit usage)
 
  *************************************************************************** 
-  kodak6800 backend:
+  kodak-6800 backend:
 
    This backend fully supports the Kodak 6800 kiosk printer.
 
@@ -135,7 +135,7 @@
 
    This backend supports additional commands:
 
-      kodak6800_print [command [arg] ]
+      kodak-6800_print [command [arg] ]
 
    Valid commands:
 
@@ -151,7 +151,7 @@
 	 (ie 14-bit)
 
  *************************************************************************** 
-  shinko_s2145 backend:
+  shinko-s2145 backend:
 
    This backend fully supports the Shinko/Sinfonia CHC-S2145 kiosk printer.
 
@@ -165,7 +165,7 @@
 
    This backend supports additional commands:
 
-      shinko_s2145_print [command [arg] ]
+      shinko-s2145_print [command [arg] ]
 
    Valid commands:
 
@@ -202,6 +202,6 @@
     [3]  Default printer tone curve is a linear 'val << 3'
 
  *************************************************************************** 
-  sony_updr150 backend:
+  sony-updr150 backend:
 
    This backend fully supports the Sony UP-DR150 Digital Photo Printer.
