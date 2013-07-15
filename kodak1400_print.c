@@ -36,7 +36,7 @@
 #include <signal.h>
 
 #define VERSION "0.16"
-#define URI_PREFIX "kodak-1400://"
+#define URI_PREFIX "kodak1400://"
 
 #include "backend_common.c"
 

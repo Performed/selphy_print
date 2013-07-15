@@ -40,7 +40,7 @@
 #include <signal.h>
 
 #define VERSION "0.11"
-#define URI_PREFIX "shinko-s2145://"
+#define URI_PREFIX "shinkos2145://"
 
 #include "backend_common.c"
 

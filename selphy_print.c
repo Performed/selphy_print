@@ -36,7 +36,7 @@
 #include <signal.h>
 
 #define VERSION "0.52"
-#define URI_PREFIX "canon-selphy://"
+#define URI_PREFIX "canonselphy://"
 
 #include "backend_common.c"
 
