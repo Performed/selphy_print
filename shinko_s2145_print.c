@@ -501,11 +501,11 @@ static int get_status(libusb_device_handle *dev,
 
 	INFO(" Print Counts:\n");
 	INFO("\tSince Paper Changed:\t%08d\n", le32_to_cpu(resp->count_paper));
-        INFO("\tLifetime:\t\t%08d\n", le32_to_cpu(resp->count_lifetime));
+	INFO("\tLifetime:\t\t%08d\n", le32_to_cpu(resp->count_lifetime));
 	INFO("\tMaintainence:\t\t%08d\n", le32_to_cpu(resp->count_maint));
 	INFO("\tPrint Head:\t\t%08d\n", le32_to_cpu(resp->count_head));
 	INFO(" Cutter Actuations:\t%08d\n", le32_to_cpu(resp->count_cutter));
-        INFO(" Ribbon Remaining:\t%08d\n", le32_to_cpu(resp->count_ribbon_left));
+	INFO(" Ribbon Remaining:\t%08d\n", le32_to_cpu(resp->count_ribbon_left));
 	INFO("Bank 1: 0x%02x (%s) Job %03d @ %03d/%03d (%03d remaining)\n",
 	     resp->bank1_status, bank_statuses[resp->bank1_status],
 	     resp->bank1_printid,
