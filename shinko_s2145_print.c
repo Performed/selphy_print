@@ -39,7 +39,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.14"
+#define VERSION "0.15"
 #define URI_PREFIX "shinkos2145://"
 
 #include "backend_common.c"
