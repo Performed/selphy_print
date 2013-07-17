@@ -39,7 +39,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.13"
+#define VERSION "0.14"
 #define URI_PREFIX "shinkos2145://"
 
 #include "backend_common.c"
@@ -1334,12 +1334,15 @@ skip_read:
 
 	/* Time for the main processing loop */
 top:
+	if (state != last_state) {
+		DEBUG("last_state %d new %d\n", last_state, state);
+	}
 
+	/* Send Status Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
 	cmd->cmd = cpu_to_le16(S2145_CMD_STATUS);
 	cmd->len = cpu_to_le16(0);
 
-	/* Send Status Query */
 	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
 				cmdbuf, sizeof(*cmd),
 				sizeof(struct s2145_status_hdr),
@@ -1362,13 +1365,10 @@ top:
 			      sts->hdr.printer_major, sts->hdr.printer_minor);
 		}
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
-	} else {
+	} else if (state == last_state) {
 		sleep(1);
 	}
-	if (state != last_state) {
-		DEBUG("last_state %d new %d\n", last_state, state);
-		last_state = state;
-	}
+	last_state = state;
 
 	fflush(stderr);       
 
@@ -1421,11 +1421,10 @@ top:
 		if ((ret = send_data(dev, endp_down, planedata, datasize)))
 			goto done_claimed;
 
+		INFO("Waiting for printer to acknowledge completion\n");
 		state = S_PRINTER_SENT_DATA;
 		break;
 	case S_PRINTER_SENT_DATA:
-		INFO("Waiting for printer to acknowledge completion\n");
-
 		if (sts->hdr.result != RESULT_SUCCESS)
 			goto printer_error;
 		if (sts->hdr.status == STATUS_READY ||
