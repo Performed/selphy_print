@@ -116,6 +116,41 @@ struct s2145_cmd_hdr {
 #define S2145_CMD_UPDATE    0xC004
 #define S2145_CMD_SETUNIQUE 0xC007
 
+static char *cmd_names(uint16_t v) {
+	switch (le16_to_cpu(v)) {
+	case S2145_CMD_STATUS:
+		return "Get Status";
+	case S2145_CMD_MEDIAINFO:
+		return "Get Media Info";
+	case S2145_CMD_MODELNAME:
+		return "Get Model Name";
+	case S2145_CMD_ERRORLOG:
+		return "Get Error Log";
+	case S2145_CMD_PRINTJOB:
+		return "Print";
+	case S2145_CMD_CANCELJOB:
+		return "Cancel Print";
+	case S2145_CMD_FLASHLED:
+		return "Flash LEDs";
+	case S2145_CMD_RESET:
+		return "Reset";
+	case S2145_CMD_READTONE:
+		return "Read Tone Curve";
+	case S2145_CMD_BUTTON:
+		return "Button Enable";
+	case S2145_CMD_GETUNIQUE:
+		return "Get Unique String";
+	case S2145_CMD_FWINFO:
+		return "Get Firmware Info";
+	case S2145_CMD_UPDATE:
+		return "Update";
+	case S2145_CMD_SETUNIQUE:
+		return "Set Unique String";
+	default:
+		return "Unknown Command";
+	}
+};
+
 struct s2145_print_cmd {
 	struct s2145_cmd_hdr hdr;
 	uint8_t  id;
@@ -640,7 +675,7 @@ static int get_status(libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return -1;
 	}
 
@@ -696,7 +731,7 @@ static int get_fwinfo(libusb_device_handle *dev,
 					(uint8_t*)&cmd, sizeof(cmd),
 					sizeof(*resp),
 					&num)) < 0) {
-			ERROR("Failed to successfully execute command\n");
+			ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 			continue;
 		}
 
@@ -731,7 +766,7 @@ static int get_errorlog(libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return -1;
 	}
 	
@@ -762,7 +797,7 @@ static int get_mediainfo(libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return -1;
 	}
 	
@@ -795,7 +830,7 @@ static int get_user_string(libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp) - 1,
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return -1;
 	}
 
@@ -832,7 +867,7 @@ static int set_user_string(char *str, libusb_device_handle *dev,
 				(uint8_t*)&cmd, cmd.len + 1 + sizeof(cmd.hdr),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return -1;
 	}
 
@@ -858,7 +893,7 @@ static int cancel_job(char *str, libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return -1;
 	}
 
@@ -879,7 +914,7 @@ static int flash_led(libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return -1;
 	}
 
@@ -902,7 +937,7 @@ static int reset_curve(int target, libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return -1;
 	}
 
@@ -925,7 +960,7 @@ static int button_set(int enable, libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return -1;
 	}
 
@@ -955,7 +990,7 @@ static int get_tonecurve(int type, char *fname, libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return -1;
 	}
 
@@ -1043,7 +1078,7 @@ static int set_tonecurve(int target, char *fname, libusb_device_handle *dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return -1;
 	}
 
@@ -1347,7 +1382,7 @@ top:
 				cmdbuf, sizeof(*cmd),
 				sizeof(struct s2145_status_hdr),
 				&num)) < 0) {
-		ERROR("Failed to successfully execute command\n");
+		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
 		goto done_claimed;
 	}
 
@@ -1405,7 +1440,7 @@ top:
 					cmdbuf, sizeof(*print),
 					sizeof(struct s2145_status_hdr),
 					&num)) < 0) {
-			ERROR("Failed to successfully execute command\n");
+			ERROR("Failed to execute %s command\n", cmd_names(print->hdr.cmd));
 			goto done_claimed;
 		}
 
@@ -1422,6 +1457,7 @@ top:
 			goto done_claimed;
 
 		INFO("Waiting for printer to acknowledge completion\n");
+		sleep(1);
 		state = S_PRINTER_SENT_DATA;
 		break;
 	case S_PRINTER_SENT_DATA:

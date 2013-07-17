@@ -188,7 +188,7 @@
 
   Notes:
 
-    [1]  Job ID is the CUPS Job ID.  
+    [1]  Job ID is the Internal Job ID (reported via status)
     	   This cancels a multi-copy print job.
 	   To see which jobs are active/pending, see the output of the
 	   '-qs' command, specifically the 'Bank' output.
