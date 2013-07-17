@@ -116,9 +116,8 @@
  *************************************************************************** 
   kodak-1400 backend:
 
-   This backend fully supports the Kodak 1400 medium-format printer.
-
-   The Kodak 805 is likely supported, but needs testing.
+   This backend fully supports the Kodak 1400 and Kodak 805 medium-format
+   printers.
 
    This backend supports additional commands:
 
