@@ -436,15 +436,15 @@ static char *status_str(uint8_t v) {
 	case STATUS_PRINT_Y:
 		return "Printing Yellow";
 	case STATUS_BACK_FEED_Y:
-		return "Back-Feeding Yellow";
+		return "Back-Feeding - Yellow Complete";
 	case STATUS_PRINT_M:
 		return "Printing Magenta";
 	case STATUS_BACK_FEED_M:
-		return "Back-Feeding Magenta";
+		return "Back-Feeding - Magenta Complete";
 	case STATUS_PRINT_C:
 		return "Printing Cyan";
 	case STATUS_BACK_FEED_C:
-		return "Back-Feeding Cyan";
+		return "Back-Feeding - Cyan Complete";
 	case STATUS_PRINT_OP:
 		return "Laminating";
 	case STATUS_PAPER_CUT:
@@ -452,9 +452,9 @@ static char *status_str(uint8_t v) {
 	case STATUS_PAPER_EJECT:
 		return "Ejecting Paper";
 	case STATUS_BACK_FEED_E:
-		return "Back Feeding (Complete)";
+		return "Back-Feeding - Ejected";
 	case STATUS_FINISHED:
-		return "Print Complete";
+		return "Print Finished";
 	default:
 		return "Unknown";
 	}
