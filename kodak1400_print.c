@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.18"
+#define VERSION "0.19"
 #define URI_PREFIX "kodak1400://"
 
 #include "backend_common.c"
@@ -353,10 +353,13 @@ int main (int argc, char **argv)
 		}
 		use_serno++;
 	} else {
+		use_serno = getenv("DEVICE");
+
 		if (!strcmp("-stc", argv[1])) {
 			query_only = 1;
 			goto skip_read;
 		}
+
 		/* Open Input File */
 		if (strcmp("-", argv[1])) {
 			data_fd = open(argv[1], O_RDONLY);
