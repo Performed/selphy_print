@@ -35,224 +35,9 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.14"
-#define URI_PREFIX "kodak6800://"
-#define STR_LEN_MAX 64
+#include "backend_common.h"
 
-#include "backend_common.c"
-
-/* Program states */
-enum {
-	S_IDLE = 0,
-	S_PRINTER_READY_HDR,
-	S_PRINTER_SENT_HDR,
-	S_PRINTER_SENT_HDR2,
-	S_PRINTER_SENT_DATA,
-	S_FINISHED,
-};
-
-struct kodak6800_hdr {
-	uint8_t  hdr[9];
-	uint8_t  copies;
-	uint16_t columns;  /* BE */
-	uint16_t rows;     /* BE */
-	uint8_t  media;    /* 0x06 for 6x8, 0x00 for 6x4, 0x07 for 5x7 */ 
-	uint8_t  laminate; /* 0x01 to laminate, 0x00 for not */
-	uint8_t  unk1; /* 0x00, 0x01 [may be print mode] */
-} __attribute__((packed));
-
-#define CMDBUF_LEN 17
-#define READBACK_LEN 58
-
-#define UPDATE_SIZE 1536
-static int get_tonecurve(char *fname, libusb_device_handle *dev, 
-			 uint8_t endp_down, uint8_t endp_up) 
-{
-	uint8_t cmdbuf[16];
-	uint8_t respbuf[64];
-	int ret, num = 0;
-	int i;
-
-	uint16_t *data = malloc(UPDATE_SIZE);
-
-	INFO("Dump Tone Curve to '%s'\n", fname);
-
-	/* Initial Request */
-	cmdbuf[0] = 0x03;
-	cmdbuf[1] = 0x1b;
-	cmdbuf[2] = 0x43;
-	cmdbuf[3] = 0x48;
-	cmdbuf[4] = 0x43;
-	cmdbuf[5] = 0x0c;
-	cmdbuf[6] = 0x54;
-	cmdbuf[7] = 0x4f;
-	cmdbuf[8] = 0x4e;
-	cmdbuf[9] = 0x45;
-	cmdbuf[10] = 0x72;
-	cmdbuf[11] = 0x01;
-	cmdbuf[12] = 0x00;
-	cmdbuf[13] = 0x00;
-	cmdbuf[14] = 0x00;
-	cmdbuf[15] = 0x00;
-
-	if ((ret = send_data(dev, endp_down,
-			     cmdbuf, 16)))
-		return -1;
-	
-	ret = libusb_bulk_transfer(dev, endp_up,
-				   respbuf,
-				   sizeof(respbuf),
-				   &num,
-				   5000);
-	if (ret < 0 || (num != 51)) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
-		return ret;
-	}
-
-	/* Then we can poll the data */
-	cmdbuf[0] = 0x03;
-	cmdbuf[1] = 0x1b;
-	cmdbuf[2] = 0x43;
-	cmdbuf[3] = 0x48;
-	cmdbuf[4] = 0x43;
-	cmdbuf[5] = 0x0c;
-	cmdbuf[6] = 0x54;
-	cmdbuf[7] = 0x4f;
-	cmdbuf[8] = 0x4e;
-	cmdbuf[9] = 0x45;
-	cmdbuf[10] = 0x20;
-	for (i = 0 ; i < 24 ; i++) {
-		if ((ret = send_data(dev, endp_down,
-				     cmdbuf, 11)))
-			return -1;
-
-
-		ret = libusb_bulk_transfer(dev, endp_up,
-					   respbuf,
-					   sizeof(respbuf),
-					   &num,
-					   5000);
-		if (ret < 0 || (num != 64)) {
-			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
-			return ret;
-		}
-
-		/* Copy into buffer */
-		memcpy(((uint8_t*)data)+i*64, respbuf, 64);
-	}
-
-	/* Open file and write it out */
-	{
-		int tc_fd = open(fname, O_WRONLY|O_CREAT);
-		if (tc_fd < 0)
-			return -1;
-		
-		for (i = 0 ; i < 768; i++) {
-			/* Byteswap appropriately */
-			data[i] = cpu_to_be16(le16_to_cpu(data[i]));
-			write(tc_fd, &data[i], sizeof(uint16_t));
-		}
-		close(tc_fd);
-	}
-
-
-	/* We're done */
-	free(data);
-
-	return 0;
-}
-
-static int set_tonecurve(char *fname, libusb_device_handle *dev, 
-			 uint8_t endp_down, uint8_t endp_up) 
-{
-	uint8_t cmdbuf[64];
-	uint8_t respbuf[64];
-	int ret, num = 0;
-	int remain;
-
-	uint16_t *data = malloc(UPDATE_SIZE);
-	uint8_t *ptr;
-
-	INFO("Set Tone Curve from '%s'\n", fname);
-
-	/* Read in file */
-	int tc_fd = open(fname, O_RDONLY);
-	if (tc_fd < 0)
-		return -1;
-	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE)
-		return -2;
-	close(tc_fd);
-
-	/* Byteswap data to printer's format */
-	for (ret = 0; ret < (UPDATE_SIZE-16)/2 ; ret++) {
-		data[ret] = cpu_to_le16(be16_to_cpu(data[ret]));
-	}
-
-	/* Initial Request */
-	cmdbuf[0] = 0x03;
-	cmdbuf[1] = 0x1b;
-	cmdbuf[2] = 0x43;
-	cmdbuf[3] = 0x48;
-	cmdbuf[4] = 0x43;
-	cmdbuf[5] = 0x0c;
-	cmdbuf[6] = 0x54;
-	cmdbuf[7] = 0x4f;
-	cmdbuf[8] = 0x4e;
-	cmdbuf[9] = 0x45;
-	cmdbuf[10] = 0x77;
-	cmdbuf[11] = 0x01;
-	cmdbuf[12] = 0x00;
-	cmdbuf[13] = 0x00;
-	cmdbuf[14] = 0x00;
-	cmdbuf[15] = 0x00;
-
-	if ((ret = send_data(dev, endp_down,
-			     cmdbuf, 16)))
-		return -1;
-	
-	ret = libusb_bulk_transfer(dev, endp_up,
-				   respbuf,
-				   sizeof(respbuf),
-				   &num,
-				   5000);
-	if (ret < 0 || (num != 51)) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
-		return ret;
-	}
-
-	ptr = (uint8_t*) data;
-	remain = UPDATE_SIZE;
-	while (remain > 0) {
-		int count = remain > 63 ? 63 : remain;
-
-		cmdbuf[0] = 0x03;
-		memcpy(cmdbuf+1, ptr, count);
-
-		remain -= count;
-		ptr += count;
-
-		/* Send next block over */
-		if ((ret = send_data(dev, endp_down,
-				     cmdbuf, count+1)))
-			return -1;
-
-		ret = libusb_bulk_transfer(dev, endp_up,
-					   respbuf,
-					   sizeof(respbuf),
-					   &num,
-					   5000);
-		if (ret < 0 || (num != 51)) {
-			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
-			return ret;
-		}
-
-	};
-        
-	/* We're done */
-	free(data);
-	return 0;
-}
-
+#if 0
 int main (int argc, char **argv) 
 {
 	struct libusb_context *ctx;
@@ -268,7 +53,6 @@ int main (int argc, char **argv)
 	int i, num;
 	int claimed;
 
-	int query_only = 0;
 	int ret = 0;
 	int iface = 0;
 	int found = -1;
@@ -276,181 +60,9 @@ int main (int argc, char **argv)
 	char *uri = getenv("DEVICE_URI");;
 	char *use_serno = NULL;
 
-	struct kodak6800_hdr hdr;
-	uint8_t *planedata, *cmdbuf;
-	uint32_t datasize;
-
 	uint8_t rdbuf[READBACK_LEN];
 	uint8_t rdbuf2[READBACK_LEN];
 	int last_state = -1, state = S_IDLE;
-
-	DEBUG("Kodak 6800 CUPS backend version " VERSION "/" BACKEND_VERSION " \n");
-
-	/* Cmdline help */
-	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qtc filename | -stc filename ] \n\n",
-		      argv[0], argv[0], argv[0]);
-		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, P_KODAK_6800, 1);
-		libusb_free_device_list(list, 1);
-		libusb_exit(ctx);
-		exit(1);
-	}
-
-	/* Are we running as a CUPS backend? */
-	if (uri) {
-		if (argv[4])
-			copies = atoi(argv[4]);
-		if (argv[6]) {  /* IOW, is it specified? */
-			data_fd = open(argv[6], O_RDONLY);
-			if (data_fd < 0) {
-				perror("ERROR:Can't open input file");
-				exit(1);
-			}
-		}
-
-		/* Ensure we're using BLOCKING I/O */
-		i = fcntl(data_fd, F_GETFL, 0);
-		if (i < 0) {
-			perror("ERROR:Can't open input");
-			exit(1);
-		}
-		i &= ~O_NONBLOCK;
-		i = fcntl(data_fd, F_SETFL, 0);
-		if (i < 0) {
-			perror("ERROR:Can't open input");
-			exit(1);
-		}
-		/* Start parsing URI 'selphy://PID/SERIAL' */
-		if (strncmp(URI_PREFIX, uri, strlen(URI_PREFIX))) {
-			ERROR("Invalid URI prefix (%s)\n", uri);
-			exit(1);
-		}
-		use_serno = strchr(uri, '=');
-		if (!use_serno || !*(use_serno+1)) {
-			ERROR("Invalid URI (%s)\n", uri);
-			exit(1);
-		}
-		use_serno++;
-	} else {
-		use_serno = getenv("DEVICE");
-
-		if (!strcmp("-qtc", argv[1]) ||
-		    !strcmp("-stc", argv[1])) {
-			query_only = 1;
-			goto skip_read;
-		}
-
-		/* Open Input File */
-		if (strcmp("-", argv[1])) {
-			data_fd = open(argv[1], O_RDONLY);
-			if (data_fd < 0) {
-				perror("ERROR:Can't open input file");
-				exit(1);
-			}
-		}
-	}
-
-	/* Ignore SIGPIPE */
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGTERM, sigterm_handler);
-
-	/* Read in then validate header */
-	read(data_fd, &hdr, sizeof(hdr));
-	if (hdr.hdr[0] != 0x03 ||
-	    hdr.hdr[1] != 0x1b ||
-	    hdr.hdr[2] != 0x43 ||
-	    hdr.hdr[3] != 0x48 ||
-	    hdr.hdr[4] != 0x43) {
-		ERROR("Unrecognized data format!\n");
-		exit(1);
-	}
-
-	/* Read in image data */
-	cmdbuf = malloc(CMDBUF_LEN);
-	datasize = be16_to_cpu(hdr.rows) * be16_to_cpu(hdr.columns) * 3;
-	planedata = malloc(datasize);
-	if (!cmdbuf || !planedata) {
-		ERROR("Memory allocation failure!\n");
-		exit(1);
-	}
-
-	{
-		int remain;
-		uint8_t *ptr = planedata;
-		remain = datasize;
-		do {
-			ret = read(data_fd, ptr, remain);
-			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%d)\n", 
-				      ret, remain, datasize);
-				perror("ERROR: Read failed");
-				exit(1);
-			}
-			ptr += ret;
-			remain -= ret;
-		} while (remain);
-	}
-	close(data_fd); /* We're done reading! */
-
- skip_read:	
-	/* Libusb setup */
-	libusb_init(&ctx);
-	found = find_and_enumerate(ctx, &list, use_serno, P_KODAK_6800, 0);
-
-	if (found == -1) {
-		ERROR("Printer open failure (No suitable printers found!)\n");
-		ret = 3;
-		goto done;
-	}
-
-	ret = libusb_open(list[found], &dev);
-	if (ret) {
-		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
-		ret = 4;
-		goto done;
-	}
-	
-	claimed = libusb_kernel_driver_active(dev, iface);
-	if (claimed) {
-		ret = libusb_detach_kernel_driver(dev, iface);
-		if (ret) {
-			ERROR("Printer open failure (Could not detach printer from kernel)\n");
-			ret = 4;
-			goto done_close;
-		}
-	}
-
-	ret = libusb_claim_interface(dev, iface);
-	if (ret) {
-		ERROR("Printer open failure (Could not claim printer interface)\n");
-		ret = 4;
-		goto done_close;
-	}
-
-	ret = libusb_get_active_config_descriptor(list[found], &config);
-	if (ret) {
-		ERROR("Printer open failure (Could not fetch config descriptor)\n");
-		ret = 4;
-		goto done_close;
-	}
-
-	for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
-		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
-			if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
-				endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
-			else
-				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
-		}
-	}
-
-	if (query_only) {
-		if (!strcmp("-qtc", argv[1]))
-			get_tonecurve(argv[2], dev, endp_down, endp_up);
-		if (!strcmp("-stc", argv[1]))
-			set_tonecurve(argv[2], dev, endp_down, endp_up);
-		goto done_claimed;
-	}
 
 	/* Time for the main processing loop */
 
@@ -596,27 +208,345 @@ top:
 	/* Done printing */
 	INFO("All printing done\n");
 	ret = 0;
-
-done_claimed:
-	libusb_release_interface(dev, iface);
-
-done_close:
-#if 0
-	if (claimed)
-		libusb_attach_kernel_driver(dev, iface);
-#endif
-	libusb_close(dev);
-done:
-	if (planedata)
-		free(planedata);
-	if (cmdbuf)
-		free(cmdbuf);
-
-	libusb_free_device_list(list, 1);
-	libusb_exit(ctx);
-
-	return ret;
 }
+#endif
+
+#define CMDBUF_LEN 17
+
+/* Private data stucture */
+struct kodak6800_ctx {
+	struct libusb_device_handle *dev;
+	uint8_t endp_up;
+	uint8_t endp_down;
+
+	uint8_t *databuf;
+	uint8_t cmdbuf[CMDBUF_LEN];
+	int datalen;
+};
+
+
+/* Program states */
+enum {
+	S_IDLE = 0,
+	S_PRINTER_READY_HDR,
+	S_PRINTER_SENT_HDR,
+	S_PRINTER_SENT_HDR2,
+	S_PRINTER_SENT_DATA,
+	S_FINISHED,
+};
+
+#define READBACK_LEN 58
+
+struct kodak6800_hdr {
+	uint8_t  hdr[9];
+	uint8_t  copies;
+	uint16_t columns;  /* BE */
+	uint16_t rows;     /* BE */
+	uint8_t  media;    /* 0x06 for 6x8, 0x00 for 6x4, 0x07 for 5x7 */ 
+	uint8_t  laminate; /* 0x01 to laminate, 0x00 for not */
+	uint8_t  unk1; /* 0x00, 0x01 [may be print mode] */
+} __attribute__((packed));
+
+#define UPDATE_SIZE 1536
+static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
+{
+	libusb_device_handle *dev = ctx->dev;
+	uint8_t endp_down = ctx->endp_down;
+	uint8_t endp_up = ctx->endp_up;
+
+	uint8_t cmdbuf[16];
+	uint8_t respbuf[64];
+	int ret, num = 0;
+	int i;
+
+	uint16_t *data = malloc(UPDATE_SIZE);
+
+	INFO("Dump Tone Curve to '%s'\n", fname);
+
+	/* Initial Request */
+	cmdbuf[0] = 0x03;
+	cmdbuf[1] = 0x1b;
+	cmdbuf[2] = 0x43;
+	cmdbuf[3] = 0x48;
+	cmdbuf[4] = 0x43;
+	cmdbuf[5] = 0x0c;
+	cmdbuf[6] = 0x54;
+	cmdbuf[7] = 0x4f;
+	cmdbuf[8] = 0x4e;
+	cmdbuf[9] = 0x45;
+	cmdbuf[10] = 0x72;
+	cmdbuf[11] = 0x01;
+	cmdbuf[12] = 0x00;
+	cmdbuf[13] = 0x00;
+	cmdbuf[14] = 0x00;
+	cmdbuf[15] = 0x00;
+
+	if ((ret = send_data(dev, endp_down,
+			     cmdbuf, 16)))
+		return -1;
+	
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   respbuf,
+				   sizeof(respbuf),
+				   &num,
+				   5000);
+	if (ret < 0 || (num != 51)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
+		return ret;
+	}
+
+	/* Then we can poll the data */
+	cmdbuf[0] = 0x03;
+	cmdbuf[1] = 0x1b;
+	cmdbuf[2] = 0x43;
+	cmdbuf[3] = 0x48;
+	cmdbuf[4] = 0x43;
+	cmdbuf[5] = 0x0c;
+	cmdbuf[6] = 0x54;
+	cmdbuf[7] = 0x4f;
+	cmdbuf[8] = 0x4e;
+	cmdbuf[9] = 0x45;
+	cmdbuf[10] = 0x20;
+	for (i = 0 ; i < 24 ; i++) {
+		if ((ret = send_data(dev, endp_down,
+				     cmdbuf, 11)))
+			return -1;
+
+
+		ret = libusb_bulk_transfer(dev, endp_up,
+					   respbuf,
+					   sizeof(respbuf),
+					   &num,
+					   5000);
+		if (ret < 0 || (num != 64)) {
+			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
+			return ret;
+		}
+
+		/* Copy into buffer */
+		memcpy(((uint8_t*)data)+i*64, respbuf, 64);
+	}
+
+	/* Open file and write it out */
+	{
+		int tc_fd = open(fname, O_WRONLY|O_CREAT);
+		if (tc_fd < 0)
+			return -1;
+		
+		for (i = 0 ; i < 768; i++) {
+			/* Byteswap appropriately */
+			data[i] = cpu_to_be16(le16_to_cpu(data[i]));
+			write(tc_fd, &data[i], sizeof(uint16_t));
+		}
+		close(tc_fd);
+	}
+
+
+	/* We're done */
+	free(data);
+
+	return 0;
+}
+
+static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
+{
+	libusb_device_handle *dev = ctx->dev;
+	uint8_t endp_down = ctx->endp_down;
+	uint8_t endp_up = ctx->endp_up;
+
+	uint8_t cmdbuf[64];
+	uint8_t respbuf[64];
+	int ret, num = 0;
+	int remain;
+
+	uint16_t *data = malloc(UPDATE_SIZE);
+	uint8_t *ptr;
+
+	INFO("Set Tone Curve from '%s'\n", fname);
+
+	/* Read in file */
+	int tc_fd = open(fname, O_RDONLY);
+	if (tc_fd < 0)
+		return -1;
+	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE)
+		return -2;
+	close(tc_fd);
+
+	/* Byteswap data to printer's format */
+	for (ret = 0; ret < (UPDATE_SIZE-16)/2 ; ret++) {
+		data[ret] = cpu_to_le16(be16_to_cpu(data[ret]));
+	}
+
+	/* Initial Request */
+	cmdbuf[0] = 0x03;
+	cmdbuf[1] = 0x1b;
+	cmdbuf[2] = 0x43;
+	cmdbuf[3] = 0x48;
+	cmdbuf[4] = 0x43;
+	cmdbuf[5] = 0x0c;
+	cmdbuf[6] = 0x54;
+	cmdbuf[7] = 0x4f;
+	cmdbuf[8] = 0x4e;
+	cmdbuf[9] = 0x45;
+	cmdbuf[10] = 0x77;
+	cmdbuf[11] = 0x01;
+	cmdbuf[12] = 0x00;
+	cmdbuf[13] = 0x00;
+	cmdbuf[14] = 0x00;
+	cmdbuf[15] = 0x00;
+
+	if ((ret = send_data(dev, endp_down,
+			     cmdbuf, 16)))
+		return -1;
+	
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   respbuf,
+				   sizeof(respbuf),
+				   &num,
+				   5000);
+	if (ret < 0 || (num != 51)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
+		return ret;
+	}
+
+	ptr = (uint8_t*) data;
+	remain = UPDATE_SIZE;
+	while (remain > 0) {
+		int count = remain > 63 ? 63 : remain;
+
+		cmdbuf[0] = 0x03;
+		memcpy(cmdbuf+1, ptr, count);
+
+		remain -= count;
+		ptr += count;
+
+		/* Send next block over */
+		if ((ret = send_data(dev, endp_down,
+				     cmdbuf, count+1)))
+			return -1;
+
+		ret = libusb_bulk_transfer(dev, endp_up,
+					   respbuf,
+					   sizeof(respbuf),
+					   &num,
+					   5000);
+		if (ret < 0 || (num != 51)) {
+			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
+			return ret;
+		}
+
+	};
+        
+	/* We're done */
+	free(data);
+	return 0;
+}
+
+static void kodak6800_cmdline(char *caller)
+{
+	DEBUG("\t\t%s [ -qtc filename | -stc filename ]\n", caller);
+}
+
+int kodak6800_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
+{
+	struct kodak6800_ctx *ctx = vctx;
+
+	if (!run || !ctx)
+		return (!strcmp("-qtc", arg1) ||
+			!strcmp("-stc", arg1));
+	
+	if (!strcmp("-qtc", arg1))
+		return kodak6800_get_tonecurve(ctx, arg2);
+	if (!strcmp("-stc", arg1))
+		return kodak6800_set_tonecurve(ctx, arg2);
+
+	return -1;
+}
+
+
+static void *kodak6800_init(struct libusb_device_handle *dev, 
+			    uint8_t endp_up, uint8_t endp_down)
+{
+	struct kodak6800_ctx *ctx = malloc(sizeof(struct kodak6800_ctx));
+	if (!ctx)
+		return NULL;
+	memset(ctx, 0, sizeof(struct kodak6800_ctx));
+	
+	ctx->endp_up = endp_up;
+	ctx->endp_down = endp_down;
+	return ctx;
+}
+
+static void kodak6800_teardown(void *vctx) {
+	struct kodak6800_ctx *ctx = vctx;
+
+	if (!ctx)
+		return;
+
+	if (ctx->databuf)
+		free(ctx->databuf);
+	free(ctx);
+}
+
+static int kodak6800_read_parse(void *vctx, int data_fd) {
+	struct kodak6800_ctx *ctx = vctx;
+	struct kodak6800_hdr hdr;
+
+	if (!ctx)
+		return 1;
+
+	/* Read in then validate header */
+	read(data_fd, &hdr, sizeof(hdr));
+	if (hdr.hdr[0] != 0x03 ||
+	    hdr.hdr[1] != 0x1b ||
+	    hdr.hdr[2] != 0x43 ||
+	    hdr.hdr[3] != 0x48 ||
+	    hdr.hdr[4] != 0x43) {
+		ERROR("Unrecognized data format!\n");
+		return(1);
+	}
+
+	ctx->datalen = be16_to_cpu(hdr.rows) * be16_to_cpu(hdr.columns) * 3;
+	ctx->databuf = malloc(ctx->datalen);
+	if (!ctx->databuf) {
+		ERROR("Memory allocation failure!\n");
+		return 2;
+	}
+
+	{
+		int remain = ctx->datalen;
+		uint8_t *ptr = ctx->databuf;
+		int ret;
+		do {
+			ret = read(data_fd, ptr, remain);
+			if (ret < 0) {
+				ERROR("Read failed (%d/%d/%d)\n", 
+				      ret, remain, ctx->datalen);
+				perror("ERROR: Read failed");
+				exit(1);
+			}
+			ptr += ret;
+			remain -= ret;
+		} while (remain);
+	}
+
+	return 0;
+}
+
+/* Exported */
+struct dyesub_backend kodak6800_backend = {
+	.name = "Kodak 6800",
+	.version = "0.14",
+	.uri_prefix = "kodak6800",
+	.cmdline_usage = kodak6800_cmdline,
+	.cmdline_arg = kodak6800_cmdline_arg,
+	.init = kodak6800_init,
+	.teardown = kodak6800_teardown,
+	.read_parse = kodak6800_read_parse,
+#if 0
+	.main_loop = kodak6800_main_loop,
+#endif
+};
 
 /* Kodak 6800/6850 data format
 

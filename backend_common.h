@@ -87,13 +87,10 @@ struct dyesub_backend {
 	void *(*init)(struct libusb_device_handle *dev,
 		      uint8_t endp_up, uint8_t endp_down);
 	void (*teardown)(void *ctx);
+	int  (*cmdline_arg)(void *ctx, int run, char *arg1, char *arg2);
 	int  (*read_parse)(void *ctx, int data_fd);
 	int  (*main_loop)(void *ctx, int copies);
 };
-/* XXX
-  - Cmdline Args Present
-  - Cmdline Arg Handling
-*/
 
 /* To enumerate supported devices */
 enum {
@@ -127,5 +124,6 @@ extern int terminate;
 
 /* External data */
 extern struct dyesub_backend updr150_backend;
+extern struct dyesub_backend kodak6800_backend;
 
 #endif /* __BACKEND_COMMON_H */

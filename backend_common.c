@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.7"
+#define BACKEND_VERSION "0.08"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -346,6 +346,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 
 static struct dyesub_backend *backends[] = {
 	&updr150_backend,
+	&kodak6800_backend,
 	NULL,
 };
 
@@ -393,6 +394,7 @@ int main (int argc, char **argv)
 	int copies = 1;
 	char *uri = getenv("DEVICE_URI");
 	char *use_serno = NULL;
+	int query_only = 0;
 
 	DEBUG("Multi-Call Gutenprint DyeSub CUPS Backend version %s\n",
 	      BACKEND_VERSION);
@@ -412,14 +414,14 @@ int main (int argc, char **argv)
 		if (!backend) {
 			DEBUG("CUPS Usage:\n\tDEVICE_URI=someuri %s job user title num-copies options [ filename ]\n\n",
 			      URI_PREFIX);
-			DEBUG("Internal Backends:\n");
+			DEBUG("Internal Backends: (prefix with SERIAL=serno for specific device)\n");
 			for (i = 0; ; i++) {
 				backend = backends[i];
 				if (!backend)
 					break;
 				DEBUG(" %s backend version %s (BACKEND=%s)\n",
 				      backend->name, backend->version, backend->uri_prefix);
-				DEBUG("  Standalone Usage: (prefix with SERIAL=serno for specific device)\n");
+				DEBUG("  Standalone Usage:\n");
 				DEBUG("\t\t%s [ infile | - ]\n",
 				      backend->uri_prefix);
 				
@@ -510,6 +512,10 @@ int main (int argc, char **argv)
 			exit(1);
 		}
 
+		if (backend->cmdline_arg(NULL, 0, argv[1], argv[2])) {
+			query_only = 1;
+		}
+
 		/* Open Input File */
 		if (strcmp("-", argv[1])) {
 			data_fd = open(argv[1], O_RDONLY);
@@ -576,11 +582,16 @@ int main (int argc, char **argv)
 
 	/* Initialize backend */
 	backend_ctx = backend->init(dev, endp_up, endp_down);
+	
+	if (query_only) {
+		backend->cmdline_arg(backend_ctx, 1, argv[1], argv[2]);
+		goto done_claimed;
+	} 
 
 	/* Read in data */
 	if (backend->read_parse(backend_ctx, data_fd))
 		exit(1);
-
+	
 	close(data_fd);
 
 	/* Time for the main processing loop */
