@@ -155,7 +155,7 @@ top:
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150",
 	.version = "0.05",
-	.uri_prefix = "sonyupdr150://",
+	.uri_prefix = "sonyupdr150",
 	// .cmdline_usage = updr150_cmdline,
 	.init = updr150_init,
 	.teardown = updr150_teardown,

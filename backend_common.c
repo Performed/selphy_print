@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.6"
+#define BACKEND_VERSION "0.7"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -349,6 +349,24 @@ static struct dyesub_backend *backends[] = {
 	NULL,
 };
 
+static struct dyesub_backend *find_backend(char *uri_prefix)
+{
+	int i;
+	struct dyesub_backend *backend;
+
+	if (!uri_prefix)
+		return NULL;
+
+	for (i = 0; ; i++) {
+		backend = backends[i];
+		if (!backend)
+			return NULL;
+		if (!strcmp(uri_prefix, backend->uri_prefix))
+			return backend;
+	}
+	return NULL;
+}
+
 /* MAIN */
 
 int main (int argc, char **argv) 
@@ -376,24 +394,48 @@ int main (int argc, char **argv)
 	char *uri = getenv("DEVICE_URI");
 	char *use_serno = NULL;
 
-	DEBUG("Gutenprint DyeSub CUPS Backend version %s\n",
+	DEBUG("Multi-Call Gutenprint DyeSub CUPS Backend version %s\n",
 	      BACKEND_VERSION);
+	DEBUG("Copyright 2007-2013 Solomon Peachy\n");
 
 	/* Cmdline help */
 	if (argc < 2) {
-		DEBUG("Global Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\n",
-		      argv[0], argv[0]);
-		for (i = 0; ; i++) {
-			backend = backends[i];
-			if (!backend)
-				break;
-			DEBUG("%s CUPS backend version %s\n",
-			      backend->name, backend->version);
+		char *ptr = strrchr(argv[0], '/');
+		if (ptr)
+			ptr++;
+		else
+			ptr = argv[0];
+		backend = find_backend(getenv("BACKEND"));
+		if (!backend)
+			backend = find_backend(ptr);
+
+		if (!backend) {
+			DEBUG("CUPS Usage:\n\tDEVICE_URI=someuri %s job user title num-copies options [ filename ]\n\n",
+			      URI_PREFIX);
+			DEBUG("Internal Backends:\n");
+			for (i = 0; ; i++) {
+				backend = backends[i];
+				if (!backend)
+					break;
+				DEBUG(" %s backend version %s (BACKEND=%s)\n",
+				      backend->name, backend->version, backend->uri_prefix);
+				DEBUG("  Standalone Usage: (prefix with SERIAL=serno for specific device)\n");
+				DEBUG("\t\t%s [ infile | - ]\n",
+				      backend->uri_prefix);
+				
+				if (backend->cmdline_usage) {
+					backend->cmdline_usage(backend->uri_prefix);
+				}
+			}
+		} else {
+			DEBUG(" %s backend version %s (BACKEND=%s)\n",
+			      backend->name, backend->version, backend->uri_prefix);
+			DEBUG("  Standalone Usage: (prefix with SERIAL=serno for specific device)\n");
+			DEBUG("\t\t%s [ infile | - ]\n",
+			      backend->uri_prefix);
+
 			if (backend->cmdline_usage) {
-				DEBUG(" Usage:\n");
 				backend->cmdline_usage(backend->uri_prefix);
-			} else {
-				DEBUG(" (Global Usage Only)\n");
 			}
 		}
 		libusb_init(&ctx);
@@ -427,14 +469,22 @@ int main (int argc, char **argv)
 			perror("ERROR:Can't open input");
 			exit(1);
 		}
-		/* Start parsing URI 'prefix://PID/SERIAL' */
-		backend = &updr150_backend;  // XXX detect.
 
-		if (strncmp(backend->uri_prefix, uri, strlen(backend->uri_prefix))) {
-			ERROR("Invalid URI prefix (%s)\n", uri);
-			exit(1);
+		/* Figure out backend */
+		{
+			char *ptr = strchr (uri, ':');
+			if (!ptr) {
+				ERROR("Invalid URI prefix (%s)\n", uri);
+				exit(1);
+			}
+			*ptr = 0;
+			backend = find_backend(uri);
+			if (!backend) {
+				ERROR("Invalid backend (%s)\n", uri);
+				exit(1);
+			}
+			*ptr = ':';
 		}
-		// XXX replace above.  DETECT BACKEND.
 
 		use_serno = strchr(uri, '=');
 		if (!use_serno || !*(use_serno+1)) {
@@ -445,9 +495,20 @@ int main (int argc, char **argv)
 	} else {
 		use_serno = getenv("DEVICE");
 
-		// XXX detect from getenv("BACKEND");
-		// XXX or argv[0]
-		backend = &updr150_backend;  // XXX detect.
+		/* find backend */
+		backend = find_backend(getenv("BACKEND"));
+		if (!backend) {
+			char *ptr = strrchr(argv[0], '/');
+			if (ptr)
+				ptr++;
+			else
+				ptr = argv[0];
+			backend = find_backend(ptr);
+		}
+		if (!backend) {
+			ERROR("Invalid backend (%s)\n", uri);
+			exit(1);
+		}
 
 		/* Open Input File */
 		if (strcmp("-", argv[1])) {
