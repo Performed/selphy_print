@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.55"
+#define VERSION "0.56"
 #define URI_PREFIX "canonselphy://"
 
 #include "backend_common.c"
@@ -368,7 +368,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 
 	for (i = 0 ; i < num ; i++) {
 		struct libusb_device_descriptor desc;
-		int valid = 0;
 		libusb_get_device_descriptor((*list)[i], &desc);
 
 		if (desc.idVendor != USB_VID_CANON)
@@ -378,30 +377,25 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		case USB_PID_CANON_ES1: // "Canon SELPHY ES1"
 			if (printer_type == P_ES1)
 				found = i;
-			valid = 1;
 			break;
 		case USB_PID_CANON_ES2: // "Canon SELPHY ES2"
 		case USB_PID_CANON_ES20: // "Canon SELPHY ES20"
 			if (printer_type == P_ES2_20)
 				found = i;
-			valid = 1;
 			break;
 		case USB_PID_CANON_ES3: // "Canon SELPHY ES3"
 		case USB_PID_CANON_ES30: // "Canon SELPHY ES30"
 			if (printer_type == P_ES3_30)
 				found = i;
-			valid = 1;
 			break;
 		case USB_PID_CANON_ES40: // "Canon SELPHY ES40"
 		case USB_PID_CANON_CP790:
 			if (printer_type == P_ES40_CP790)
 				found = i;
-			valid = 1;
 			break;
 		case USB_PID_CANON_CP10: // "Canon CP-10"
 			if (printer_type == P_CP10)
 				found = i;
-			valid = 1;
 			break;
 		case USB_PID_CANON_CP100: // "Canon CP-100"
 		case USB_PID_CANON_CP200: // "Canon CP-200"
@@ -427,7 +421,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		case USB_PID_CANON_CP900: // "Canon SELPHY CP900"
 			if (printer_type == P_CP_XXX)
 				found = i;
-			valid = 1;
 			break;
 		default:
 			/* Hook for testing unknown PIDs */
@@ -435,18 +428,17 @@ static int find_and_enumerate(struct libusb_context *ctx,
 				int pid = strtol(getenv("SELPHY_PID"), NULL, 16);
 				int type = atoi(getenv("SELPHY_TYPE"));
 				if (pid == desc.idProduct) {
-					valid = 1;
-					if (printer_type == type) {
+					if (printer_type == type)
 						found = i;
-					}
+					break;
 				}
 			}
-			break;
+			continue;
 		}
 
 		found = print_scan_output((*list)[i], &desc,
 					  URI_PREFIX, "Canon", 
-					  found, (found == i), valid, 
+					  found, (found == i),
 					  scan_only, match_serno);
 	}
 

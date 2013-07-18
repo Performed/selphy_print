@@ -77,7 +77,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 
 		found = print_scan_output((*list)[i], &desc,
 					  URI_PREFIX, "", 
-					  found, (found == i), 1, 
+					  found, (found == i),
 					  scan_only, match_serno);
 	}
 

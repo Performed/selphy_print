@@ -28,7 +28,7 @@
 #include <libusb-1.0/libusb.h>
 #include <arpa/inet.h>
 
-#define BACKEND_VERSION "0.4"
+#define BACKEND_VERSION "0.5"
 
 #define STR_LEN_MAX 64
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
@@ -162,7 +162,7 @@ static char *sanitize_string(char *str) {
 static int print_scan_output(struct libusb_device *device,
 			     struct libusb_device_descriptor *desc,
 			     char *prefix, char *manuf2,
-			     int found, int match, int valid, 
+			     int found, int match,
 			     int scan_only, char *match_serno)
 {
 	struct libusb_device_handle *dev;
@@ -200,12 +200,11 @@ static int print_scan_output(struct libusb_device *device,
 		sprintf((char*)serial, "NONE_B%03d_D%03d", bus_num, port_num);
 	}
 	
-	DEBUG("%s%sPID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
-	      (!valid) ? "UNRECOGNIZED: " : "",
+	DEBUG("%sPID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
 	      match ? "MATCH: " : "",
 	      desc->idProduct, manuf, product, serial);
 	
-	if (valid && scan_only) {
+	if (scan_only) {
 		/* URL-ify model. */
 		char buf[128]; // XXX ugly..
 		int j = 0, k = 0;
