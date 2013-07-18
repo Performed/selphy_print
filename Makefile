@@ -2,9 +2,14 @@ CFLAGS = -Wall
 LDFLAGS = -lusb-1.0
 
 CUPS_BACKEND_DIR = /usr/lib/cups/backend
-DEPS = backend_common.c
+DEPS = backend_common.c backend_common.h
 
-all: canon-selphy_print kodak-1400_print kodak-6800_print shinko-s2145_print sony-updr150_print
+#all: canon-selphy_print kodak-1400_print kodak-6800_print shinko-s2145_print sony-updr150_print
+
+all: gutenprint
+
+gutenprint: sony_updr150_print.c $(DEPS)
+	gcc -o $@ $<  backend_common.c $(LDFLAGS) $(CFLAGS)
 
 canon-selphy_print: selphy_print.c $(DEPS)
 	gcc -o $@ $< $(LDFLAGS) $(CFLAGS)
