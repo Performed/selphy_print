@@ -219,9 +219,10 @@ static char *get_device_id(struct libusb_device_handle *dev)
 
 done:
 	libusb_release_interface(dev, iface);
+#if 0
 	if (claimed)
 		libusb_attach_kernel_driver(dev, iface);
-
+#endif
 	return buf;
 }
 
