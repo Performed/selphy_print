@@ -403,10 +403,6 @@ int main (int argc, char **argv)
 		exit(1);
 	}
 
-	// XXX detect from getenv("BACKEND");
-	// XXX otherwise...
-	backend = &updr150_backend;  // XXX detect.
-
 	/* Are we running as a CUPS backend? */
 	if (uri) {
 		if (argv[4])
@@ -432,10 +428,14 @@ int main (int argc, char **argv)
 			exit(1);
 		}
 		/* Start parsing URI 'prefix://PID/SERIAL' */
+		backend = &updr150_backend;  // XXX detect.
+
 		if (strncmp(backend->uri_prefix, uri, strlen(backend->uri_prefix))) {
 			ERROR("Invalid URI prefix (%s)\n", uri);
 			exit(1);
 		}
+		// XXX replace above.  DETECT BACKEND.
+
 		use_serno = strchr(uri, '=');
 		if (!use_serno || !*(use_serno+1)) {
 			ERROR("Invalid URI (%s)\n", uri);
@@ -444,6 +444,10 @@ int main (int argc, char **argv)
 		use_serno++;
 	} else {
 		use_serno = getenv("DEVICE");
+
+		// XXX detect from getenv("BACKEND");
+		// XXX or argv[0]
+		backend = &updr150_backend;  // XXX detect.
 
 		/* Open Input File */
 		if (strcmp("-", argv[1])) {
