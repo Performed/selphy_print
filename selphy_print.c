@@ -40,39 +40,6 @@
 
 #include "backend_common.c"
 
-/* USB Identifiers */
-#define USB_VID_CANON       0x04a9
-#define USB_PID_CANON_ES1   0x3141
-#define USB_PID_CANON_ES2   0x3185
-#define USB_PID_CANON_ES20  0x3186
-#define USB_PID_CANON_ES3   0x31AF
-#define USB_PID_CANON_ES30  0x31B0
-#define USB_PID_CANON_ES40  0x31EE
-#define USB_PID_CANON_CP10  0x304A
-#define USB_PID_CANON_CP100 0x3063
-#define USB_PID_CANON_CP200 0x307C
-#define USB_PID_CANON_CP220 0x30BD
-#define USB_PID_CANON_CP300 0x307D
-#define USB_PID_CANON_CP330 0x30BE
-#define USB_PID_CANON_CP400 0x30F6
-#define USB_PID_CANON_CP500 0x30F5
-#define USB_PID_CANON_CP510 0x3128
-#define USB_PID_CANON_CP520 520 // XXX 316f? 3172? (related to cp740/cp750)
-#define USB_PID_CANON_CP530 0x31b1
-#define USB_PID_CANON_CP600 0x310B
-#define USB_PID_CANON_CP710 0x3127
-#define USB_PID_CANON_CP720 0x3143
-#define USB_PID_CANON_CP730 0x3142
-#define USB_PID_CANON_CP740 0x3171
-#define USB_PID_CANON_CP750 0x3170
-#define USB_PID_CANON_CP760 0x31AB
-#define USB_PID_CANON_CP770 0x31AA
-#define USB_PID_CANON_CP780 0x31DD
-#define USB_PID_CANON_CP790 790 // XXX 31ed? 31ef? (related to es40)
-#define USB_PID_CANON_CP800 0x3214
-#define USB_PID_CANON_CP810 0x3256
-#define USB_PID_CANON_CP900 0x3255
-
 #define READBACK_LEN 12
 
 struct printer_data {
@@ -90,17 +57,6 @@ struct printer_data {
 	int16_t pgcode_offset;  /* Offset into printjob for paper type */
 	int16_t paper_code_offset; /* Offset in readback for paper type */
 	int16_t error_offset;
-};
-
-/* printer types */
-enum {
-	P_ES1 = 0,
-	P_ES2_20,
-	P_ES3_30,
-	P_ES40_CP790,
-	P_CP_XXX,
-	P_CP10,
-	P_END
 };
 
 struct printer_data printers[P_END] = {
@@ -351,98 +307,6 @@ static int read_data(int remaining, int present, int data_fd, uint8_t *target,
 	}
 	
 	return wrote;
-}
-
-static int find_and_enumerate(struct libusb_context *ctx,
-			      struct libusb_device ***list,
-			      char *match_serno,
-			      int printer_type,
-			      int scan_only)
-{
-	int num;
-	int i;
-	int found = -1;
-
-	/* Enumerate and find suitable device */
-	num = libusb_get_device_list(ctx, list);
-
-	for (i = 0 ; i < num ; i++) {
-		struct libusb_device_descriptor desc;
-		libusb_get_device_descriptor((*list)[i], &desc);
-
-		if (desc.idVendor != USB_VID_CANON)
-			continue;
-
-		switch(desc.idProduct) {
-		case USB_PID_CANON_ES1: // "Canon SELPHY ES1"
-			if (printer_type == P_ES1)
-				found = i;
-			break;
-		case USB_PID_CANON_ES2: // "Canon SELPHY ES2"
-		case USB_PID_CANON_ES20: // "Canon SELPHY ES20"
-			if (printer_type == P_ES2_20)
-				found = i;
-			break;
-		case USB_PID_CANON_ES3: // "Canon SELPHY ES3"
-		case USB_PID_CANON_ES30: // "Canon SELPHY ES30"
-			if (printer_type == P_ES3_30)
-				found = i;
-			break;
-		case USB_PID_CANON_ES40: // "Canon SELPHY ES40"
-		case USB_PID_CANON_CP790:
-			if (printer_type == P_ES40_CP790)
-				found = i;
-			break;
-		case USB_PID_CANON_CP10: // "Canon CP-10"
-			if (printer_type == P_CP10)
-				found = i;
-			break;
-		case USB_PID_CANON_CP100: // "Canon CP-100"
-		case USB_PID_CANON_CP200: // "Canon CP-200"
-		case USB_PID_CANON_CP220: // "Canon CP-220"
-		case USB_PID_CANON_CP300: // "Canon CP-300"
-		case USB_PID_CANON_CP330: // "Canon CP-330"
-		case USB_PID_CANON_CP400: // "Canon SELPHY CP400"
-		case USB_PID_CANON_CP500: // "Canon SELPHY CP500"
-		case USB_PID_CANON_CP510: // "Canon SELPHY CP510"
-		case USB_PID_CANON_CP520: // "Canon SELPHY CP520"
-		case USB_PID_CANON_CP530: // "Canon SELPHY CP530"
-		case USB_PID_CANON_CP600: // "Canon SELPHY CP600"
-		case USB_PID_CANON_CP710: // "Canon SELPHY CP710"
-		case USB_PID_CANON_CP720: // "Canon SELPHY CP720"
-		case USB_PID_CANON_CP730: // "Canon SELPHY CP730"
-		case USB_PID_CANON_CP740: // "Canon SELPHY CP740"
-		case USB_PID_CANON_CP750: // "Canon SELPHY CP750"
-		case USB_PID_CANON_CP760: // "Canon SELPHY CP760"
-		case USB_PID_CANON_CP770: // "Canon SELPHY CP770"
-		case USB_PID_CANON_CP780: // "Canon SELPHY CP780"
-		case USB_PID_CANON_CP800: // "Canon SELPHY CP800"
-		case USB_PID_CANON_CP810: // "Canon SELPHY CP810"
-		case USB_PID_CANON_CP900: // "Canon SELPHY CP900"
-			if (printer_type == P_CP_XXX)
-				found = i;
-			break;
-		default:
-			/* Hook for testing unknown PIDs */
-			if (getenv("SELPHY_PID") && getenv("SELPHY_TYPE")) {
-				int pid = strtol(getenv("SELPHY_PID"), NULL, 16);
-				int type = atoi(getenv("SELPHY_TYPE"));
-				if (pid == desc.idProduct) {
-					if (printer_type == type)
-						found = i;
-					break;
-				}
-			}
-			continue;
-		}
-
-		found = print_scan_output((*list)[i], &desc,
-					  URI_PREFIX, "Canon", 
-					  found, (found == i),
-					  scan_only, match_serno);
-	}
-
-	return found;
 }
 
 int main (int argc, char **argv)

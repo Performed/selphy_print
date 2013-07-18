@@ -41,10 +41,6 @@
 
 #include "backend_common.c"
 
-/* USB Identifiers */
-#define USB_VID_KODAK      0x040A
-#define USB_PID_KODAK_6800 0x4021
-
 /* Program states */
 enum {
 	S_IDLE = 0,
@@ -67,43 +63,6 @@ struct kodak6800_hdr {
 
 #define CMDBUF_LEN 17
 #define READBACK_LEN 58
-
-static int find_and_enumerate(struct libusb_context *ctx,
-			      struct libusb_device ***list,
-			      char *match_serno,
-			      int scan_only)
-{
-	int num;
-	int i;
-	int found = -1;
-
-	/* Enumerate and find suitable device */
-	num = libusb_get_device_list(ctx, list);
-
-	for (i = 0 ; i < num ; i++) {
-		struct libusb_device_descriptor desc;
-
-		libusb_get_device_descriptor((*list)[i], &desc);
-
-		if (desc.idVendor != USB_VID_KODAK)
-			continue;
-
-		switch(desc.idProduct) {
-		case USB_PID_KODAK_6800:
-			found = i;
-			break;
-		default:
-			continue;
-		}
-
-		found = print_scan_output((*list)[i], &desc,
-					  URI_PREFIX, "Kodak", 
-					  found, (found == i),
-					  scan_only, match_serno);
-	}
-
-	return found;
-}
 
 #define UPDATE_SIZE 1536
 static int get_tonecurve(char *fname, libusb_device_handle *dev, 
@@ -332,7 +291,7 @@ int main (int argc, char **argv)
 		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qtc filename | -stc filename ] \n\n",
 		      argv[0], argv[0], argv[0]);
 		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, 1);
+		find_and_enumerate(ctx, &list, NULL, P_KODAK_6800, 1);
 		libusb_free_device_list(list, 1);
 		libusb_exit(ctx);
 		exit(1);
@@ -437,7 +396,7 @@ int main (int argc, char **argv)
  skip_read:	
 	/* Libusb setup */
 	libusb_init(&ctx);
-	found = find_and_enumerate(ctx, &list, use_serno, 0);
+	found = find_and_enumerate(ctx, &list, use_serno, P_KODAK_6800, 0);
 
 	if (found == -1) {
 		ERROR("Printer open failure (No suitable printers found!)\n");

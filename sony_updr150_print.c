@@ -41,48 +41,7 @@
 
 #include "backend_common.c"
 
-/* USB Identifiers */
-#define USB_VID_SONY      0x054C
-#define USB_PID_UP_DR150  0x01E8
-
 #define MAX_PRINTJOB_LEN 16736455
-
-static int find_and_enumerate(struct libusb_context *ctx,
-			      struct libusb_device ***list,
-			      char *match_serno,
-			      int scan_only)
-{
-	int num;
-	int i;
-	int found = -1;
-
-	/* Enumerate and find suitable device */
-	num = libusb_get_device_list(ctx, list);
-
-	for (i = 0 ; i < num ; i++) {
-		struct libusb_device_descriptor desc;
-
-		libusb_get_device_descriptor((*list)[i], &desc);
-
-		if (desc.idVendor != USB_VID_SONY)
-			continue;
-
-		switch(desc.idProduct) {
-		case USB_PID_UP_DR150:
-			found = i;
-			break;
-		default:
-			continue;
-		}
-
-		found = print_scan_output((*list)[i], &desc,
-					  URI_PREFIX, "", 
-					  found, (found == i),
-					  scan_only, match_serno);
-	}
-
-	return found;
-}
 
 int main (int argc, char **argv) 
 {
@@ -115,7 +74,7 @@ int main (int argc, char **argv)
 		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\n",
 		      argv[0], argv[0]);
 		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, 1);
+		find_and_enumerate(ctx, &list, NULL, P_SONY_UPDR150, 1);
 		libusb_free_device_list(list, 1);
 		libusb_exit(ctx);
 		exit(1);
@@ -188,7 +147,7 @@ int main (int argc, char **argv)
 
 	/* Libusb setup */
 	libusb_init(&ctx);
-	found = find_and_enumerate(ctx, &list, use_serno, 0);
+	found = find_and_enumerate(ctx, &list, use_serno, P_SONY_UPDR150, 0);
 
 	if (found == -1) {
 		ERROR("Printer open failure (No suitable printers found!)\n");
