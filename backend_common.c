@@ -169,9 +169,9 @@ static int print_scan_output(struct libusb_device *device,
 		sprintf((char*)serial, "NONE_B%03d_D%03d", bus_num, port_num);
 	}
 	
-	DEBUG("%sPID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
+	DEBUG("%sVID: %04X PID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
 	      match ? "MATCH: " : "",
-	      desc->idProduct, manuf, product, serial);
+	      desc->idVendor, desc->idProduct, manuf, product, serial);
 	
 	if (scan_only) {
 		/* URL-ify model. */
@@ -190,7 +190,7 @@ static int print_scan_output(struct libusb_device *device,
 		}
 		buf[k] = 0;
 		
-		fprintf(stdout, "direct %s%s/%s?serial=%s \"%s\" \"%s\" \"%s\" \"\"\n",
+		fprintf(stdout, "direct %s://%s/%s?serial=%s \"%s\" \"%s\" \"%s\" \"\"\n",
 			prefix, strlen(manuf2) ? manuf2 : (char*)manuf,
 			buf, serial, product, product,
 			ieee_id);
@@ -244,13 +244,12 @@ static int find_and_enumerate(struct libusb_context *ctx,
 					match = 1;
 					if (printer_type && printer_type == backends[k]->devices[j].type)
 						found = i;
-					break;
+					goto match;
 				}
 			}
 		}
-		
 
-
+	match:
 		if (!match) {
 			if (getenv("EXTRA_PID") && getenv("EXTRA_TYPE") && getenv("EXTRA_VID")) {
 				int pid = strtol(getenv("EXTRA_PID"), NULL, 16);
@@ -370,7 +369,7 @@ int main (int argc, char **argv)
 			}
 		}
 		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, P_SONY_UPDR150, 1);
+		find_and_enumerate(ctx, &list, NULL, P_ANY, 1);
 		libusb_free_device_list(list, 1);
 		libusb_exit(ctx);
 		exit(1);
