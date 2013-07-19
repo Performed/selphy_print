@@ -469,7 +469,7 @@ int main (int argc, char **argv)
 
 	/* Parse printjob if necessary */
 	if (!query_only && backend->early_parse) {
-		printer_type = backend->early_parse(ctx, data_fd);
+		printer_type = backend->early_parse(backend_ctx, data_fd);
 		if (printer_type < 0) {
 			ret = 4;
 			goto done;
