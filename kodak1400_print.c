@@ -305,7 +305,7 @@ static int kodak1400_read_parse(void *vctx, int data_fd) {
 	    ctx->hdr.hdr[2] != 'H' ||
 	    ctx->hdr.hdr[3] != 'D') {
 		ERROR("Unrecognized data format!\n");
-		exit(1);
+		return 1;
 	}
 	ctx->hdr.planesize = le32_to_cpu(ctx->hdr.planesize);
 	ctx->hdr.rows = le16_to_cpu(ctx->hdr.rows);
@@ -317,7 +317,7 @@ static int kodak1400_read_parse(void *vctx, int data_fd) {
 	ctx->plane_b = malloc(ctx->hdr.planesize);
 	if (!ctx->plane_r || !ctx->plane_g || !ctx->plane_b) {
 		ERROR("Memory allocation failure!\n");
-		exit(1);
+		return 1;
 	}
 	for (i = 0 ; i < ctx->hdr.rows ; i++) {
 		int j;
@@ -339,7 +339,7 @@ static int kodak1400_read_parse(void *vctx, int data_fd) {
 					      ret, remain, ctx->hdr.columns,
 					      i, ctx->hdr.rows, j);
 					perror("ERROR: Read failed");
-					exit(1);
+					return ret;
 				}
 				ptr += ret;
 				remain -= ret;

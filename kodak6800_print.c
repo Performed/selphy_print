@@ -357,7 +357,7 @@ static int kodak6800_read_parse(void *vctx, int data_fd) {
 				ERROR("Read failed (%d/%d/%d)\n", 
 				      ret, remain, ctx->datalen);
 				perror("ERROR: Read failed");
-				exit(1);
+				return ret;
 			}
 			ptr += ret;
 			remain -= ret;

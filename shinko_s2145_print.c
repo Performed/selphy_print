@@ -1171,14 +1171,14 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	    le32_to_cpu(ctx->hdr.len2) != 0x64 ||
 	    le32_to_cpu(ctx->hdr.dpi) != 300) {
 		ERROR("Unrecognized header data format!\n");
-		exit(1);
+		return 1;
 	}
 
 	ctx->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
 	ctx->databuf = malloc(ctx->datalen);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		exit(1);
+		return 1;
 	}
 
 	{
@@ -1190,7 +1190,7 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 				ERROR("Read failed (%d/%d/%d)\n", 
 				      ret, remain, ctx->datalen);
 				perror("ERROR: Read failed");
-				exit(1);
+				return ret;
 			}
 			ptr += ret;
 			remain -= ret;
@@ -1203,14 +1203,14 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      ret, 4, 4);
 		perror("ERROR: Read failed");
-		exit(1);
+		return ret;
 	}
 	if (tmpbuf[0] != 0x04 ||
 	    tmpbuf[1] != 0x03 ||
 	    tmpbuf[2] != 0x02 ||
 	    tmpbuf[3] != 0x01) {
 		ERROR("Unrecognized footer data format!\n");
-		exit(1);
+		return 1;
 	}
 
 	return 0;
