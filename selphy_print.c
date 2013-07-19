@@ -407,7 +407,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 
 	/* Read in entire print job */
 	memcpy(ctx->header, ctx->buffer, ctx->printer->init_length);
-	memcpy(ctx->plane_y, ctx->buffer, MAX_HEADER-ctx->printer->init_length);
+	memcpy(ctx->plane_y, ctx->buffer+ctx->printer->init_length, MAX_HEADER-ctx->printer->init_length);
 
 	read(data_fd, ctx->plane_y + (MAX_HEADER-ctx->printer->init_length),
 	     ctx->plane_len - (MAX_HEADER-ctx->printer->init_length));
@@ -600,7 +600,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.59",
+	.version = "0.60",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
@@ -766,8 +766,9 @@ struct dyesub_backend canonselphy_backend = {
    13 ff 03 00  ff ff ff ff  00 00 00 00   [?]
    00 ff 10 00  ff ff ff ff  00 00 00 00   [ready for footer]
 
+   01 ff 10 00  ff ff ff ff  01 00 0f 00   [communication error]
    00 ff 00 00  ff ff ff ff  00 00 00 00   [cover open, no media]
-
+   00 ff 01 00  ff ff ff ff  01 00 01 00   [error, no media/ink]
    00 ff 01 00  ff ff ff ff  03 00 02 00   [attempt to print with no media]
    00 ff 01 00  ff ff ff ff  08 00 04 00   [attempt to print with cover open]
 
