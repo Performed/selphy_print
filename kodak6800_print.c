@@ -37,179 +37,16 @@
 
 #include "backend_common.h"
 
-#if 0
-int main (int argc, char **argv) 
-{
-	struct libusb_context *ctx;
-	struct libusb_device **list;
-	struct libusb_device_handle *dev;
-	struct libusb_config_descriptor *config;
-
-	uint8_t endp_up = 0;
-	uint8_t endp_down = 0;
-
-	int data_fd = fileno(stdin);
-
-	int i, num;
-	int claimed;
-
-	int ret = 0;
-	int iface = 0;
-	int found = -1;
-	int copies = 1;
-	char *uri = getenv("DEVICE_URI");;
-	char *use_serno = NULL;
-
-	uint8_t rdbuf[READBACK_LEN];
-	uint8_t rdbuf2[READBACK_LEN];
-	int last_state = -1, state = S_IDLE;
-
-	/* Time for the main processing loop */
-
-top:
-	if (state != last_state) {
-		DEBUG("last_state %d new %d\n", last_state, state);
-	}
-
-	/* Send Status Query */
-	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmdbuf[0] = 0x03;
-	cmdbuf[1] = 0x1b;
-	cmdbuf[2] = 0x43;
-	cmdbuf[3] = 0x48;
-	cmdbuf[4] = 0x43;
-	cmdbuf[5] = 0x03;
-
-	if ((ret = send_data(dev, endp_down,
-			    cmdbuf, CMDBUF_LEN - 1)))
-		goto done_claimed;
-
-	/* Read in the printer status */
-	memset(rdbuf, 0, READBACK_LEN);
-	ret = libusb_bulk_transfer(dev, endp_up,
-				   rdbuf,
-				   READBACK_LEN,
-				   &num,
-				   5000);
-
-	if (ret < 0 || ((num != 51) && (num != 58))) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, endp_up);
-		ret = 4;
-		goto done_claimed;
-	}
-
-	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		DEBUG("readback: ");
-		for (i = 0 ; i < num ; i++) {
-			DEBUG2("%02x ", rdbuf[i]);
-		}
-		DEBUG2("\n");
-	} else if (state == last_state) {
-		sleep(1);
-	}
-	last_state = state;
-
-	fflush(stderr);       
-
-	switch (state) {
-	case S_IDLE:
-		INFO("Waiting for printer idle\n");
-		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x02 ||
-		    rdbuf[2] != 0x01) {
-			break;
-		}
-
-		state = S_PRINTER_READY_HDR;
-		break;
-	case S_PRINTER_READY_HDR:
-		INFO("Printing started; Sending init sequence\n");
-		/* Send reset/attention */
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x03;
-		cmdbuf[1] = 0x1b;
-		cmdbuf[2] = 0x43;
-		cmdbuf[3] = 0x48;
-		cmdbuf[4] = 0x43;
-		cmdbuf[5] = 0x1a;
-		if ((ret = send_data(dev, endp_down,
-				     cmdbuf, CMDBUF_LEN -1)))
-			goto done_claimed;
-		state = S_PRINTER_SENT_HDR;
-		break;
-	case S_PRINTER_SENT_HDR:
-		INFO("Waiting for printer to acknowledge start\n");
-		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x03 ||
-		    rdbuf[2] != 0x00) {
-			break;
-		}
-
-		memcpy(cmdbuf, &hdr, CMDBUF_LEN);
-
-		/* If we're printing a 4x6 on 8x6 media... */
-		if (hdr.media == 0x00 &&
-		    rdbuf[11] == 0x09 &&
-		    rdbuf[12] == 0x82) {
-			cmdbuf[14] = 0x06;
-			cmdbuf[16] = 0x01;
-		}
-
-		INFO("Sending image header\n");
-		if ((ret = send_data(dev, endp_down,
-				     cmdbuf, CMDBUF_LEN)))
-			goto done_claimed;
-
-		state = S_PRINTER_SENT_HDR2;
-		break;
-	case S_PRINTER_SENT_HDR2:
-		INFO("Waiting for printer to accept data\n");
-		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x02 ||
-		    rdbuf[2] != 0x01) {
-			break;
-		}
-
-		INFO("Sending image data\n");
-		if ((ret = send_data(dev, endp_down, planedata, datasize)))
-			goto done_claimed;
-
-		INFO("Image data sent\n");
-		state = S_PRINTER_SENT_DATA;
-		break;
-	case S_PRINTER_SENT_DATA:
-		INFO("Waiting for printer to acknowledge completion\n");
-		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x02 ||
-		    rdbuf[2] != 0x01) {
-			break;
-		}
-
-		state = S_FINISHED;
-		break;
-	default:
-		break;
-	};
-
-	if (state != S_FINISHED)
-		goto top;
-
-	/* Clean up */
-	if (terminate)
-		copies = 1;
-
-	INFO("Print complete (%d remaining)\n", copies - 1);
-
-	if (copies && --copies) {
-		state = S_IDLE;
-		goto top;
-	}
-
-	/* Done printing */
-	INFO("All printing done\n");
-	ret = 0;
-}
-#endif
+/* File header */
+struct kodak6800_hdr {
+	uint8_t  hdr[9];
+	uint8_t  copies;
+	uint16_t columns;  /* BE */
+	uint16_t rows;     /* BE */
+	uint8_t  media;    /* 0x06 for 6x8, 0x00 for 6x4, 0x07 for 5x7 */ 
+	uint8_t  laminate; /* 0x01 to laminate, 0x00 for not */
+	uint8_t  unk1; /* 0x00, 0x01 [may be print mode] */
+} __attribute__((packed));
 
 #define CMDBUF_LEN 17
 
@@ -219,11 +56,10 @@ struct kodak6800_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 
+	struct kodak6800_hdr hdr;
 	uint8_t *databuf;
-	uint8_t cmdbuf[CMDBUF_LEN];
 	int datalen;
 };
-
 
 /* Program states */
 enum {
@@ -237,15 +73,6 @@ enum {
 
 #define READBACK_LEN 58
 
-struct kodak6800_hdr {
-	uint8_t  hdr[9];
-	uint8_t  copies;
-	uint16_t columns;  /* BE */
-	uint16_t rows;     /* BE */
-	uint8_t  media;    /* 0x06 for 6x8, 0x00 for 6x4, 0x07 for 5x7 */ 
-	uint8_t  laminate; /* 0x01 to laminate, 0x00 for not */
-	uint8_t  unk1; /* 0x00, 0x01 [may be print mode] */
-} __attribute__((packed));
 
 #define UPDATE_SIZE 1536
 static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
@@ -490,23 +317,22 @@ static void kodak6800_teardown(void *vctx) {
 
 static int kodak6800_read_parse(void *vctx, int data_fd) {
 	struct kodak6800_ctx *ctx = vctx;
-	struct kodak6800_hdr hdr;
 
 	if (!ctx)
 		return 1;
 
 	/* Read in then validate header */
-	read(data_fd, &hdr, sizeof(hdr));
-	if (hdr.hdr[0] != 0x03 ||
-	    hdr.hdr[1] != 0x1b ||
-	    hdr.hdr[2] != 0x43 ||
-	    hdr.hdr[3] != 0x48 ||
-	    hdr.hdr[4] != 0x43) {
+	read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
+	if (ctx->hdr.hdr[0] != 0x03 ||
+	    ctx->hdr.hdr[1] != 0x1b ||
+	    ctx->hdr.hdr[2] != 0x43 ||
+	    ctx->hdr.hdr[3] != 0x48 ||
+	    ctx->hdr.hdr[4] != 0x43) {
 		ERROR("Unrecognized data format!\n");
 		return(1);
 	}
 
-	ctx->datalen = be16_to_cpu(hdr.rows) * be16_to_cpu(hdr.columns) * 3;
+	ctx->datalen = be16_to_cpu(ctx->hdr.rows) * be16_to_cpu(ctx->hdr.columns) * 3;
 	ctx->databuf = malloc(ctx->datalen);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
@@ -533,19 +359,177 @@ static int kodak6800_read_parse(void *vctx, int data_fd) {
 	return 0;
 }
 
+static int kodak6800_main_loop(void *vctx, int copies) {
+	struct kodak6800_ctx *ctx = vctx;
+
+	uint8_t rdbuf[READBACK_LEN];
+	uint8_t rdbuf2[READBACK_LEN];
+	uint8_t cmdbuf[CMDBUF_LEN];
+
+	int last_state = -1, state = S_IDLE;
+	int i, num, ret;
+
+	if (!ctx)
+		return 1;
+
+top:
+	if (state != last_state) {
+		DEBUG("last_state %d new %d\n", last_state, state);
+	}
+
+	/* Send Status Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x03;
+	cmdbuf[1] = 0x1b;
+	cmdbuf[2] = 0x43;
+	cmdbuf[3] = 0x48;
+	cmdbuf[4] = 0x43;
+	cmdbuf[5] = 0x03;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, CMDBUF_LEN - 1)))
+		return ret;
+
+	/* Read in the printer status */
+	memset(rdbuf, 0, READBACK_LEN);
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
+				   rdbuf,
+				   READBACK_LEN,
+				   &num,
+				   5000);
+
+	if (ret < 0 || ((num != 51) && (num != 58))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, ctx->endp_up);
+		ret = 4;
+		return ret;
+	}
+
+	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
+		DEBUG("readback: ");
+		for (i = 0 ; i < num ; i++) {
+			DEBUG2("%02x ", rdbuf[i]);
+		}
+		DEBUG2("\n");
+	} else if (state == last_state) {
+		sleep(1);
+	}
+	last_state = state;
+
+	fflush(stderr);       
+
+	switch (state) {
+	case S_IDLE:
+		INFO("Waiting for printer idle\n");
+		if (rdbuf[0] != 0x01 ||
+		    rdbuf[1] != 0x02 ||
+		    rdbuf[2] != 0x01) {
+			break;
+		}
+
+		state = S_PRINTER_READY_HDR;
+		break;
+	case S_PRINTER_READY_HDR:
+		INFO("Printing started; Sending init sequence\n");
+		/* Send reset/attention */
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x03;
+		cmdbuf[1] = 0x1b;
+		cmdbuf[2] = 0x43;
+		cmdbuf[3] = 0x48;
+		cmdbuf[4] = 0x43;
+		cmdbuf[5] = 0x1a;
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     cmdbuf, CMDBUF_LEN -1)))
+			return ret;
+		state = S_PRINTER_SENT_HDR;
+		break;
+	case S_PRINTER_SENT_HDR:
+		INFO("Waiting for printer to acknowledge start\n");
+		if (rdbuf[0] != 0x01 ||
+		    rdbuf[1] != 0x03 ||
+		    rdbuf[2] != 0x00) {
+			break;
+		}
+
+		memcpy(cmdbuf, &ctx->hdr, CMDBUF_LEN);
+
+		/* If we're printing a 4x6 on 8x6 media... */
+		if (ctx->hdr.media == 0x00 &&
+		    rdbuf[11] == 0x09 &&
+		    rdbuf[12] == 0x82) {
+			cmdbuf[14] = 0x06;
+			cmdbuf[16] = 0x01;
+		}
+
+		INFO("Sending image header\n");
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     cmdbuf, CMDBUF_LEN)))
+			return ret;
+
+		state = S_PRINTER_SENT_HDR2;
+		break;
+	case S_PRINTER_SENT_HDR2:
+		INFO("Waiting for printer to accept data\n");
+		if (rdbuf[0] != 0x01 ||
+		    rdbuf[1] != 0x02 ||
+		    rdbuf[2] != 0x01) {
+			break;
+		}
+
+		INFO("Sending image data\n");
+		if ((ret = send_data(ctx->dev, ctx->endp_down, 
+				     ctx->databuf, ctx->datalen)))
+			return ret;
+
+		INFO("Image data sent\n");
+		state = S_PRINTER_SENT_DATA;
+		break;
+	case S_PRINTER_SENT_DATA:
+		INFO("Waiting for printer to acknowledge completion\n");
+		if (rdbuf[0] != 0x01 ||
+		    rdbuf[1] != 0x02 ||
+		    rdbuf[2] != 0x01) {
+			break;
+		}
+
+		state = S_FINISHED;
+		break;
+	default:
+		break;
+	};
+
+	if (state != S_FINISHED)
+		goto top;
+
+	/* Clean up */
+	if (terminate)
+		copies = 1;
+
+	INFO("Print complete (%d remaining)\n", copies - 1);
+
+	if (copies && --copies) {
+		state = S_IDLE;
+		goto top;
+	}
+
+	/* Done printing */
+	INFO("All printing done\n");
+	ret = 0;
+
+	return ret;
+}
+
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800",
-	.version = "0.14",
+	.version = "0.15",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
 	.init = kodak6800_init,
 	.teardown = kodak6800_teardown,
 	.read_parse = kodak6800_read_parse,
-#if 0
 	.main_loop = kodak6800_main_loop,
-#endif
 };
 
 /* Kodak 6800/6850 data format
