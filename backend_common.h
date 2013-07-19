@@ -112,6 +112,7 @@ struct dyesub_backend {
 		       uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
 	void (*teardown)(void *ctx);
 	int  (*cmdline_arg)(void *ctx, int run, char *arg1, char *arg2);
+	int  (*early_parse)(void *ctx, int data_fd);
 	int  (*read_parse)(void *ctx, int data_fd);
 	int  (*main_loop)(void *ctx, int copies);
 

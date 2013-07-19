@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.12"
+#define BACKEND_VERSION "0.13"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -443,19 +443,19 @@ int main (int argc, char **argv)
 			exit(1);
 		}
 
-		if (backend->cmdline_arg && backend->cmdline_arg(NULL, 0, argv[1], argv[2])) {
-			query_only = 1;
-		}
-
 		srand(getpid());
 		jobid = rand();
 
-		/* Open Input File */
-		if (strcmp("-", argv[1])) {
-			data_fd = open(argv[1], O_RDONLY);
-			if (data_fd < 0) {
-				perror("ERROR:Can't open input file");
-				exit(1);
+		if (backend->cmdline_arg && backend->cmdline_arg(NULL, 0, argv[1], argv[2])) {
+			query_only = 1;
+		} else {
+			/* Open Input File */
+			if (strcmp("-", argv[1])) {
+				data_fd = open(argv[1], O_RDONLY);
+				if (data_fd < 0) {
+					perror("ERROR:Can't open input file");
+					exit(1);
+				}
 			}
 		}
 	}
@@ -466,6 +466,15 @@ int main (int argc, char **argv)
 
 	/* Initialize backend */
 	backend_ctx = backend->init();
+
+	/* Parse printjob if necessary */
+	if (!query_only && backend->early_parse) {
+		printer_type = backend->early_parse(ctx, data_fd);
+		if (printer_type < 0) {
+			ret = 4;
+			goto done;
+		}
+	}
 
 	/* Libusb setup */
 	libusb_init(&ctx);
