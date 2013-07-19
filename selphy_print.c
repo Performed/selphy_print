@@ -157,36 +157,46 @@ static const int es40_cp790_plane_lengths[4] = { 2227456, 1601600, 698880, 29765
 
 static void setup_paper_codes(void)
 {
-	/* Default all to IGNORE */
 	int i, j;
-	for (i = 0; i < P_END ; i++)
+	for (i = 0 ; ; i++) {
+		if (selphy_printers[i].type == -1)
+			break;
+		/* Default all to IGNORE */
 		for (j = 0 ; j < 256 ; j++) 
 			selphy_printers[i].paper_codes[j] = -1;
-	
-	/* SELPHY ES1 paper codes */
-	selphy_printers[P_ES1].paper_codes[0x11] = 0x01;
-	selphy_printers[P_ES1].paper_codes[0x12] = 0x02; // ? guess
-	selphy_printers[P_ES1].paper_codes[0x13] = 0x03;
-	
-	/* SELPHY ES2/20 paper codes */
-	selphy_printers[P_ES2_20].paper_codes[0x01] = 0x01;
-	selphy_printers[P_ES2_20].paper_codes[0x02] = 0x02; // ? guess
-	selphy_printers[P_ES2_20].paper_codes[0x03] = 0x03;
-	
-	/* SELPHY ES3/30 paper codes -- N/A, printer does not report paper type */	
-	/* SELPHY ES40/CP790 paper codes -- ? guess */
-	selphy_printers[P_ES40_CP790].paper_codes[0x00] = 0x11;
-	selphy_printers[P_ES40_CP790].paper_codes[0x01] = 0x22;
-	selphy_printers[P_ES40_CP790].paper_codes[0x02] = 0x33;
-	selphy_printers[P_ES40_CP790].paper_codes[0x03] = 0x44;
 
-	/* SELPHY CP-series (except CP790) paper codes */
-	selphy_printers[P_CP_XXX].paper_codes[0x01] = 0x11;
-	selphy_printers[P_CP_XXX].paper_codes[0x02] = 0x22;
-	selphy_printers[P_CP_XXX].paper_codes[0x03] = 0x33;
-	selphy_printers[P_CP_XXX].paper_codes[0x04] = 0x44;
-
-	/* SELPHY CP-10 paper codes -- N/A, only one type */
+		/* Set up specifics */
+		switch (selphy_printers[i].type) {
+		case P_ES1:
+			selphy_printers[i].paper_codes[0x11] = 0x01;
+			selphy_printers[i].paper_codes[0x12] = 0x02; // ? guess
+			selphy_printers[i].paper_codes[0x13] = 0x03;
+			break;
+		case P_ES2_20:
+			selphy_printers[i].paper_codes[0x01] = 0x01;
+			selphy_printers[i].paper_codes[0x02] = 0x02; // ? guess
+			selphy_printers[i].paper_codes[0x03] = 0x03;
+			break;
+		case P_ES3_30:
+			/* N/A, printer does not report types */
+			break;
+		case P_ES40_CP790: // ? guess
+			selphy_printers[i].paper_codes[0x00] = 0x11;
+			selphy_printers[i].paper_codes[0x01] = 0x22;
+			selphy_printers[i].paper_codes[0x02] = 0x33;
+			selphy_printers[i].paper_codes[0x03] = 0x44;
+			break;
+		case P_CP_XXX:
+			selphy_printers[i].paper_codes[0x01] = 0x11;
+			selphy_printers[i].paper_codes[0x02] = 0x22;
+			selphy_printers[i].paper_codes[0x03] = 0x33;
+			selphy_printers[i].paper_codes[0x04] = 0x44;
+			break;
+		case P_CP10:
+			/* N/A, printer supports one type only */
+			break;
+		}
+	}
 }
 
 #define INCORRECT_PAPER -999
