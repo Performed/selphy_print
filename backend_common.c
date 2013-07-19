@@ -345,10 +345,11 @@ static int find_and_enumerate(struct libusb_context *ctx,
 }
 
 static struct dyesub_backend *backends[] = {
-	&updr150_backend,
+	&canonselphy_backend,
 	&kodak6800_backend,
 	&kodak1400_backend,
 	&shinkos2145_backend,
+	&updr150_backend,
 	NULL,
 };
 
@@ -425,7 +426,6 @@ int main (int argc, char **argv)
 					break;
 				DEBUG(" %s backend version %s (BACKEND=%s)\n",
 				      backend->name, backend->version, backend->uri_prefix);
-				DEBUG("  Standalone Usage:\n");
 				DEBUG("\t\t%s [ infile | - ]\n",
 				      backend->uri_prefix);
 				

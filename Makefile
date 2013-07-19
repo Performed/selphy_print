@@ -3,7 +3,7 @@ LDFLAGS = -lusb-1.0
 
 CUPS_BACKEND_DIR = /usr/lib/cups/backend
 DEPS = backend_common.h
-SOURCES = sony_updr150_print.c kodak6800_print.c backend_common.c kodak1400_print.c shinko_s2145_print.c
+SOURCES = sony_updr150_print.c kodak6800_print.c backend_common.c kodak1400_print.c shinko_s2145_print.c selphy_print.c
 
 all: gutenprint sonyupdr150 kodak6800 kodak1400 shinkos2145 canonselphy
 

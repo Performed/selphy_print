@@ -1,5 +1,5 @@
 /*
- *   Kodak Professional 1400 print assister
+ *   Kodak Professional 1400 CUPS backend -- libusb-1.0 version
  *
  *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
  *

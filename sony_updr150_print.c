@@ -1,5 +1,5 @@
 /*
- *   Sony UP-DR150 Photo Printer print assister
+ *   Sony UP-DR150 Photo Printer CUPS backend -- libusb-1.0 version
  *
  *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
  *

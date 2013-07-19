@@ -1,5 +1,5 @@
 /*
- *   Kodak 6800 Photo Printer print assister
+ *   Kodak 6800 Photo Printer CUPS backend -- libusb-1.0 version
  *
  *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
  *

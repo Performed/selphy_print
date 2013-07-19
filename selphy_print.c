@@ -1,5 +1,5 @@
 /*
- *   Canon SELPHY ES/CP series print assister -- libusb-1.0 version
+ *   Canon SELPHY ES/CP series CUPS backend -- libusb-1.0 version
  *
  *   (c) 2007-2013 Solomon Peachy <pizza@shaftnet.org>
  *
@@ -35,10 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.56"
-#define URI_PREFIX "canonselphy://"
-
-#include "backend_common.c"
+#include "backend_common.h"
 
 #define READBACK_LEN 12
 
@@ -59,7 +56,7 @@ struct printer_data {
 	int16_t error_offset;
 };
 
-struct printer_data printers[P_END] = {
+static struct printer_data selphy_printers[] = {
 	{ .type = P_ES1,
 	  .model = "SELPHY ES1",
 	  .init_length = 12,
@@ -150,6 +147,7 @@ struct printer_data printers[P_END] = {
 	  .paper_code_offset = -1,
 	  .error_offset = 2,
 	},
+	{ .type = -1 },
 };
 
 #define MAX_HEADER 28
@@ -163,30 +161,30 @@ static void setup_paper_codes(void)
 	int i, j;
 	for (i = 0; i < P_END ; i++)
 		for (j = 0 ; j < 256 ; j++) 
-			printers[i].paper_codes[j] = -1;
+			selphy_printers[i].paper_codes[j] = -1;
 	
 	/* SELPHY ES1 paper codes */
-	printers[P_ES1].paper_codes[0x11] = 0x01;
-	printers[P_ES1].paper_codes[0x12] = 0x02; // ? guess
-	printers[P_ES1].paper_codes[0x13] = 0x03;
+	selphy_printers[P_ES1].paper_codes[0x11] = 0x01;
+	selphy_printers[P_ES1].paper_codes[0x12] = 0x02; // ? guess
+	selphy_printers[P_ES1].paper_codes[0x13] = 0x03;
 	
 	/* SELPHY ES2/20 paper codes */
-	printers[P_ES2_20].paper_codes[0x01] = 0x01;
-	printers[P_ES2_20].paper_codes[0x02] = 0x02; // ? guess
-	printers[P_ES2_20].paper_codes[0x03] = 0x03;
+	selphy_printers[P_ES2_20].paper_codes[0x01] = 0x01;
+	selphy_printers[P_ES2_20].paper_codes[0x02] = 0x02; // ? guess
+	selphy_printers[P_ES2_20].paper_codes[0x03] = 0x03;
 	
 	/* SELPHY ES3/30 paper codes -- N/A, printer does not report paper type */	
 	/* SELPHY ES40/CP790 paper codes -- ? guess */
-	printers[P_ES40_CP790].paper_codes[0x00] = 0x11;
-	printers[P_ES40_CP790].paper_codes[0x01] = 0x22;
-	printers[P_ES40_CP790].paper_codes[0x02] = 0x33;
-	printers[P_ES40_CP790].paper_codes[0x03] = 0x44;
+	selphy_printers[P_ES40_CP790].paper_codes[0x00] = 0x11;
+	selphy_printers[P_ES40_CP790].paper_codes[0x01] = 0x22;
+	selphy_printers[P_ES40_CP790].paper_codes[0x02] = 0x33;
+	selphy_printers[P_ES40_CP790].paper_codes[0x03] = 0x44;
 
 	/* SELPHY CP-series (except CP790) paper codes */
-	printers[P_CP_XXX].paper_codes[0x01] = 0x11;
-	printers[P_CP_XXX].paper_codes[0x02] = 0x22;
-	printers[P_CP_XXX].paper_codes[0x03] = 0x33;
-	printers[P_CP_XXX].paper_codes[0x04] = 0x44;
+	selphy_printers[P_CP_XXX].paper_codes[0x01] = 0x11;
+	selphy_printers[P_CP_XXX].paper_codes[0x02] = 0x22;
+	selphy_printers[P_CP_XXX].paper_codes[0x03] = 0x33;
+	selphy_printers[P_CP_XXX].paper_codes[0x04] = 0x44;
 
 	/* SELPHY CP-10 paper codes -- N/A, only one type */
 }
@@ -228,9 +226,10 @@ static int fancy_memcmp(const uint8_t *buf_a, const int16_t *buf_b, uint len, in
 	return 0;
 }
 
-static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len) 
+static struct printer_data *parse_printjob(uint8_t *buffer, uint8_t *bw_mode, uint32_t *plane_len) 
 {
 	int printer_type = -1;
+	int i;
 
 	if (buffer[0] != 0x40 &&
 	    buffer[1] != 0x00) {
@@ -277,11 +276,16 @@ static int parse_printjob(uint8_t *buffer, int *bw_mode, int *plane_len)
 		}
 	}
 
-	return -1;
+	return NULL;
 
 done:
-
-	return printer_type;
+	for (i = 0; ; i++) {
+		if (selphy_printers[i].type == -1)
+			break;
+		if (selphy_printers[i].type == printer_type)
+			return &selphy_printers[i];
+	}
+	return NULL;
 }
 
 static int read_data(int remaining, int present, int data_fd, uint8_t *target,
@@ -309,205 +313,125 @@ static int read_data(int remaining, int present, int data_fd, uint8_t *target,
 	return wrote;
 }
 
-int main (int argc, char **argv)
-{
-	struct libusb_context *ctx;
-	struct libusb_device **list;
+/* Private data stucture */
+struct canonselphy_ctx {
 	struct libusb_device_handle *dev;
-	struct libusb_config_descriptor *config;
+	uint8_t endp_up;
+	uint8_t endp_down;
 
-	uint8_t endp_up = 0;
-	uint8_t endp_down = 0;
+	struct printer_data *printer;
 
-	int printer_type = P_END;
+	uint8_t bw_mode;
 
-	int iface = 0;
+	int16_t paper_code_offset;
+	int16_t paper_code;
 
-	int num, i;
-	int ret = 0;
-	int claimed;
-	int found = -1;
+	uint32_t plane_len;
+	uint32_t header_len;
+	uint32_t footer_len;
 
-	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
-	int last_state = -1, state = S_IDLE;
+	uint8_t *header;
+	uint8_t *plane_y;
+	uint8_t *plane_m;
+	uint8_t *plane_c;
+	uint8_t *footer;
+};
 
-	int plane_len = 0, header_len = 0, footer_len = 0;
-
-	int bw_mode = 0;
-	int16_t paper_code_offset = -1;
-	int16_t paper_code = -1;
-
-	uint8_t buffer[BUF_LEN];
-
-	int data_fd = fileno(stdin);
-
-	int copies = 1;
-	char *uri = getenv("DEVICE_URI");;
-	char *use_serno = NULL;
-
-	uint8_t *plane_y, *plane_m, *plane_c, *footer, *header;
+static void *canonselphy_init(struct libusb_device_handle *dev, 
+			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+{
+	struct canonselphy_ctx *ctx = malloc(sizeof(struct canonselphy_ctx));
+	if (!ctx)
+		return NULL;
+	memset(ctx, 0, sizeof(struct canonselphy_ctx));
+	
+	ctx->endp_up = endp_up;
+	ctx->endp_down = endp_down;
 
 	/* Static initialization */
 	setup_paper_codes();
 
-	DEBUG("Canon SELPHY ES/CP CUPS backend version " VERSION "/" BACKEND_VERSION " \n");
+	return ctx;
+}
 
-	/* Cmdline help */
-	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ] \n\n",
-		      argv[0], argv[0]);
-		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, printer_type, 1);
-		libusb_free_device_list(list, 1);
-		libusb_exit(ctx);
-		exit(1);
-	}
+static void canonselphy_teardown(void *vctx) {
+	struct canonselphy_ctx *ctx = vctx;
 
-	/* Are we running as a CUPS backend? */
-	if (uri) {
-		if (argv[4])
-			copies = atoi(argv[4]);
-		if (argv[6]) {  /* IOW, is it specified? */
-			data_fd = open(argv[6], O_RDONLY);
-			if (data_fd < 0) {
-				perror("ERROR:Can't open input file");
-				exit(1);
-			}
-		}
+	if (!ctx)
+		return;
 
-		/* Ensure we're using BLOCKING I/O */
-		i = fcntl(data_fd, F_GETFL, 0);
-		if (i < 0) {
-			perror("ERROR:Can't open input");
-			exit(1);
-		}
-		i &= ~O_NONBLOCK;
-		i = fcntl(data_fd, F_SETFL, 0);
-		if (i < 0) {
-			perror("ERROR:Can't open input");
-			exit(1);
-		}
+	if (ctx->header)
+		free(ctx->header);
+	if (ctx->plane_y)
+		free(ctx->plane_y);
+	if (ctx->plane_m)
+		free(ctx->plane_m);
+	if (ctx->plane_c)
+		free(ctx->plane_c);
+	if (ctx->footer)
+		free(ctx->footer);
 
-		/* Start parsing URI 'selphy://PID/SERIAL' */
-		if (strncmp(URI_PREFIX, uri, strlen(URI_PREFIX))) {
-			ERROR("Invalid URI prefix (%s)\n", uri);
-			exit(1);
-		}
-		use_serno = strchr(uri, '=');
-		if (!use_serno || !*(use_serno+1)) {
-			ERROR("Invalid URI (%s)\n", uri);
-			exit(1);
-		}
-		use_serno++;
-	} else {
-		use_serno = getenv("DEVICE");
+	free(ctx);
+}
 
-		/* Open Input File */
-		if (strcmp("-", argv[1])) {
-			data_fd = open(argv[1], O_RDONLY);
-			if (data_fd < 0) {
-				perror("ERROR:Can't open input file");
-				exit(1);
-			}
-		}
-	}
+static int canonselphy_read_parse(void *vctx, int data_fd) {
+	struct canonselphy_ctx *ctx = vctx;
+
+	uint8_t buffer[BUF_LEN];
 
 	/* Figure out printer this file is intended for */
 	read(data_fd, buffer, MAX_HEADER);
 
-	printer_type = parse_printjob(buffer, &bw_mode, &plane_len);
-	plane_len += 12; /* Add in plane header length! */
-	if (printer_type < 0) {
+	ctx->printer = parse_printjob(buffer, &ctx->bw_mode, &ctx->plane_len);
+	if (!ctx->printer) {
 		ERROR("Unrecognized printjob file format!\n");
-		exit(1);
+		return 1;
 	}
-	footer_len = printers[printer_type].foot_length;
-	header_len = printers[printer_type].init_length;
-	DEBUG("%sFile intended for a '%s' printer\n",  bw_mode? "B/W " : "", printers[printer_type].model);
+
+	ctx->plane_len += 12; /* Add in plane header length! */
+	ctx->footer_len = ctx->printer->foot_length;
+	ctx->header_len = ctx->printer->init_length;
+	ctx->paper_code_offset = ctx->printer->paper_code_offset;
+	if (ctx->printer->pgcode_offset != -1)
+		ctx->paper_code = ctx->printer->paper_codes[buffer[ctx->printer->pgcode_offset]];
+	else
+		ctx->paper_code = -1;
+
+	DEBUG("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
 
 	/* Set up buffers */
-	plane_y = malloc(plane_len);
-	plane_m = malloc(plane_len);
-	plane_c = malloc(plane_len);
-	header = malloc(header_len);
-	footer = malloc(footer_len);
-	if (!plane_y || !plane_m || !plane_c || !header ||
-	    (footer_len && !footer)) {
+	ctx->plane_y = malloc(ctx->plane_len);
+	ctx->plane_m = malloc(ctx->plane_len);
+	ctx->plane_c = malloc(ctx->plane_len);
+	ctx->header = malloc(ctx->header_len);
+	ctx->footer = malloc(ctx->footer_len);
+	if (!ctx->plane_y || !ctx->plane_m || !ctx->plane_c || !ctx->header ||
+	    (ctx->footer_len && !ctx->footer)) {
 		ERROR("Memory allocation failure!\n");
-		exit(1);
+		return 1;
 	}
-
-	/* Ignore SIGPIPE */
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGTERM, sigterm_handler);
 
 	/* Read in entire print job */
-	memcpy(header, buffer, header_len);
-	memmove(buffer, buffer+header_len,
-		MAX_HEADER-header_len);
-	read_data(plane_len, MAX_HEADER-header_len, data_fd, plane_y, buffer, BUF_LEN);
-	read_data(plane_len, 0, data_fd, plane_m, buffer, BUF_LEN);
-	read_data(plane_len, 0, data_fd, plane_c, buffer, BUF_LEN);
-	read_data(footer_len, 0, data_fd, footer, buffer, BUF_LEN);
-	close(data_fd);  /* We're done */
+	memcpy(ctx->header, buffer, ctx->header_len);
+	memmove(buffer, buffer+ctx->header_len,
+		MAX_HEADER-ctx->header_len);
+	read_data(ctx->plane_len, MAX_HEADER-ctx->header_len, data_fd, ctx->plane_y, buffer, BUF_LEN);
+	read_data(ctx->plane_len, 0, data_fd, ctx->plane_m, buffer, BUF_LEN);
+	read_data(ctx->plane_len, 0, data_fd, ctx->plane_c, buffer, BUF_LEN);
+	read_data(ctx->footer_len, 0, data_fd, ctx->footer, buffer, BUF_LEN);
 
-	/* Libusb setup */
-	libusb_init(&ctx);
-	found = find_and_enumerate(ctx, &list, use_serno, printer_type, 0);
+	return 0;
+}
 
-	/* Compute offsets and other such things */
-	paper_code_offset = printers[printer_type].paper_code_offset;
-	if (printers[printer_type].pgcode_offset != -1)
-		paper_code = printers[printer_type].paper_codes[buffer[printers[printer_type].pgcode_offset]];
+static int canonselphy_main_loop(void *vctx, int copies) {
+	struct canonselphy_ctx *ctx = vctx;
 
-	if (found == -1) {
-		ERROR("No suitable printers found!\n");
-		ret = 3;
-		goto done;
-	}
-
-	ret = libusb_open(list[found], &dev);
-	if (ret) {
-		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
-		ret = 4;
-		goto done;
-	}
-	
-	claimed = libusb_kernel_driver_active(dev, iface);
-	if (claimed) {
-		ret = libusb_detach_kernel_driver(dev, iface);
-		if (ret) {
-			ERROR("Printer open failure (Could not detach printer)\n");
-			ret = 4;
-			goto done_close;
-		}
-	}
-
-	ret = libusb_claim_interface(dev, iface);
-	if (ret) {
-		ERROR("Printer open failure (Could not claim printer interface)\n");
-		ret = 4;
-		goto done_close;
-	}
-
-	ret = libusb_get_active_config_descriptor(list[found], &config);
-	if (ret) {
-		ERROR("Printer open failire (Could not fetch config descriptor)\n");
-		ret = 4;
-		goto done_close;
-	}
-
-	for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
-		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
-			if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
-				endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
-			else
-				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
-		}
-	}
+	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
+	int last_state = -1, state = S_IDLE;
+	int ret, num;
 
 	/* Read in the printer status */
-	ret = libusb_bulk_transfer(dev, endp_up,
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
 				   rdbuf,
 				   READBACK_LEN,
 				   &num,
@@ -519,16 +443,15 @@ top:
 	}
 
 	/* Do it twice to clear initial state */
-	ret = libusb_bulk_transfer(dev, endp_up,
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
 				   rdbuf,
 				   READBACK_LEN,
 				   &num,
 				   2000);
 
 	if (ret < 0) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, endp_up);
-		ret = 4;
-		goto done_claimed;
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, ctx->endp_up);
+		return 4;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
@@ -545,47 +468,46 @@ top:
 	fflush(stderr);       
 
 	/* Error detection */
-	if (printers[printer_type].error_offset != -1 &&
-	    rdbuf[printers[printer_type].error_offset]) {
-		ERROR("Printer reported error condition %02x; aborting.  (Out of ribbon/paper?)\n", rdbuf[printers[printer_type].error_offset]);
-		ret = 4;
-		goto done_claimed;
+	if (ctx->printer->error_offset != -1 &&
+	    rdbuf[ctx->printer->error_offset]) {
+		ERROR("Printer reported error condition %02x; aborting.  (Out of ribbon/paper?)\n", rdbuf[ctx->printer->error_offset]);
+		return 4;
 	}
 
 	switch(state) {
 	case S_IDLE:
 		INFO("Waiting for printer idle\n");
-		if (!fancy_memcmp(rdbuf, printers[printer_type].init_readback, READBACK_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->init_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
 			state = S_PRINTER_READY;
 		}
 		break;
 	case S_PRINTER_READY:
 		INFO("Printing started; Sending init sequence\n");
 		/* Send printer init */
-		if ((ret = send_data(dev, endp_down, header, header_len)))
-			goto done_claimed;
+		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->header, ctx->header_len)))
+			return ret;
 
 		state = S_PRINTER_INIT_SENT;
 		break;
 	case S_PRINTER_INIT_SENT:
-		if (!fancy_memcmp(rdbuf, printers[printer_type].ready_y_readback, READBACK_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->ready_y_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
 			state = S_PRINTER_READY_Y;
 		}
 		break;
 	case S_PRINTER_READY_Y:
-		if (bw_mode)
+		if (ctx->bw_mode)
 			INFO("Sending BLACK plane\n");
 		else
 			INFO("Sending YELLOW plane\n");
 
-		if ((ret = send_data(dev, endp_down, plane_y, plane_len)))
-			goto done_claimed;
+		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->plane_y, ctx->plane_len)))
+			return ret;
 
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
-		if (!fancy_memcmp(rdbuf, printers[printer_type].ready_m_readback, READBACK_LEN, paper_code_offset, paper_code)) {
-			if (bw_mode)
+		if (!fancy_memcmp(rdbuf, ctx->printer->ready_m_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
+			if (ctx->bw_mode)
 				state = S_PRINTER_DONE;
 			else
 				state = S_PRINTER_READY_M;
@@ -594,35 +516,35 @@ top:
 	case S_PRINTER_READY_M:
 		INFO("Sending MAGENTA plane\n");
 
-		if ((ret = send_data(dev, endp_down, plane_m, plane_len)))
-			goto done_claimed;
+		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->plane_m, ctx->plane_len)))
+			return ret;
 
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
-		if (!fancy_memcmp(rdbuf, printers[printer_type].ready_c_readback, READBACK_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->ready_c_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
 			state = S_PRINTER_READY_C;
 		}
 		break;
 	case S_PRINTER_READY_C:
 		INFO("Sending CYAN plane\n");
 
-		if ((ret = send_data(dev, endp_down, plane_c, plane_len)))
-			goto done_claimed;
+		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->plane_c, ctx->plane_len)))
+			return ret;
 
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
-		if (!fancy_memcmp(rdbuf, printers[printer_type].done_c_readback, READBACK_LEN, paper_code_offset, paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->done_c_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
 			state = S_PRINTER_DONE;
 		}
 		break;
 	case S_PRINTER_DONE:
-		if (footer_len) {
+		if (ctx->footer_len) {
 			INFO("Cleaning up\n");
 
-			if ((ret = send_data(dev, endp_down, footer, footer_len)))
-				goto done_claimed;
+			if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->footer, ctx->footer_len)))
+				return ret;
 		}
 		state = S_FINISHED;
 		/* Intentional Fallthrough */
@@ -644,38 +566,19 @@ top:
 		goto top;
 	}
 
-	/* Done printing */
-	INFO("All printing done\n");
-	ret = 0;
-
-done_claimed:
-	libusb_release_interface(dev, iface);
-
-done_close:
-#if 0
-	if (claimed)
-		libusb_attach_kernel_driver(dev, iface);
-#endif
-	libusb_close(dev);
-done:
-	libusb_free_device_list(list, 1);
-	libusb_exit(ctx);
-
-	if (plane_y)
-		free(plane_y);
-	if (plane_m)
-		free(plane_m);
-	if (plane_c)
-		free(plane_c);
-	if (header)
-		free(header);
-	if (footer)
-		free(footer);
-
-
-	return ret;
+	return 0;
 }
 
+/* Exported */
+struct dyesub_backend canonselphy_backend = {
+	.name = "Canon SELPHY CP/ES",
+	.version = "0.57",
+	.uri_prefix = "canonselphy",
+	.init = canonselphy_init,
+	.teardown = canonselphy_teardown,
+	.read_parse = canonselphy_read_parse,
+	.main_loop = canonselphy_main_loop,
+};
 /* 
 
  ***************************************************************************
