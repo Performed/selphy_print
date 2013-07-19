@@ -289,9 +289,7 @@ static struct printer_data *parse_printjob(uint8_t *buffer, uint8_t *bw_mode, ui
 	return NULL;
 
 done:
-	for (i = 0; ; i++) {
-		if (selphy_printers[i].type == -1)
-			break;
+	for (i = 0; selphy_printers[i].type != -1; i++) {
 		if (selphy_printers[i].type == printer_type)
 			return &selphy_printers[i];
 	}
@@ -333,12 +331,9 @@ struct canonselphy_ctx {
 
 	uint8_t bw_mode;
 
-	int16_t paper_code_offset;
 	int16_t paper_code;
 
 	uint32_t plane_len;
-	uint32_t header_len;
-	uint32_t footer_len;
 
 	uint8_t *header;
 	uint8_t *plane_y;
@@ -399,9 +394,6 @@ static int canonselphy_read_parse(void *vctx, int data_fd) {
 	}
 
 	ctx->plane_len += 12; /* Add in plane header length! */
-	ctx->footer_len = ctx->printer->foot_length;
-	ctx->header_len = ctx->printer->init_length;
-	ctx->paper_code_offset = ctx->printer->paper_code_offset;
 	if (ctx->printer->pgcode_offset != -1)
 		ctx->paper_code = ctx->printer->paper_codes[buffer[ctx->printer->pgcode_offset]];
 	else
@@ -413,22 +405,22 @@ static int canonselphy_read_parse(void *vctx, int data_fd) {
 	ctx->plane_y = malloc(ctx->plane_len);
 	ctx->plane_m = malloc(ctx->plane_len);
 	ctx->plane_c = malloc(ctx->plane_len);
-	ctx->header = malloc(ctx->header_len);
-	ctx->footer = malloc(ctx->footer_len);
+	ctx->header = malloc(ctx->printer->init_length);
+	ctx->footer = malloc(ctx->printer->foot_length);
 	if (!ctx->plane_y || !ctx->plane_m || !ctx->plane_c || !ctx->header ||
-	    (ctx->footer_len && !ctx->footer)) {
+	    (ctx->printer->foot_length && !ctx->footer)) {
 		ERROR("Memory allocation failure!\n");
 		return 1;
 	}
 
 	/* Read in entire print job */
-	memcpy(ctx->header, buffer, ctx->header_len);
-	memmove(buffer, buffer+ctx->header_len,
-		MAX_HEADER-ctx->header_len);
-	read_data(ctx->plane_len, MAX_HEADER-ctx->header_len, data_fd, ctx->plane_y, buffer, BUF_LEN);
+	memcpy(ctx->header, buffer, ctx->printer->init_length);
+	memmove(buffer, buffer+ctx->printer->init_length,
+		MAX_HEADER-ctx->printer->init_length);
+	read_data(ctx->plane_len, MAX_HEADER-ctx->printer->init_length, data_fd, ctx->plane_y, buffer, BUF_LEN);
 	read_data(ctx->plane_len, 0, data_fd, ctx->plane_m, buffer, BUF_LEN);
 	read_data(ctx->plane_len, 0, data_fd, ctx->plane_c, buffer, BUF_LEN);
-	read_data(ctx->footer_len, 0, data_fd, ctx->footer, buffer, BUF_LEN);
+	read_data(ctx->printer->foot_length, 0, data_fd, ctx->footer, buffer, BUF_LEN);
 
 	return 0;
 }
@@ -487,20 +479,20 @@ top:
 	switch(state) {
 	case S_IDLE:
 		INFO("Waiting for printer idle\n");
-		if (!fancy_memcmp(rdbuf, ctx->printer->init_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->init_readback, READBACK_LEN, ctx->printer->paper_code_offset, ctx->paper_code)) {
 			state = S_PRINTER_READY;
 		}
 		break;
 	case S_PRINTER_READY:
 		INFO("Printing started; Sending init sequence\n");
 		/* Send printer init */
-		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->header, ctx->header_len)))
+		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->header, ctx->printer->init_length)))
 			return ret;
 
 		state = S_PRINTER_INIT_SENT;
 		break;
 	case S_PRINTER_INIT_SENT:
-		if (!fancy_memcmp(rdbuf, ctx->printer->ready_y_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->ready_y_readback, READBACK_LEN, ctx->printer->paper_code_offset, ctx->paper_code)) {
 			state = S_PRINTER_READY_Y;
 		}
 		break;
@@ -516,7 +508,7 @@ top:
 		state = S_PRINTER_Y_SENT;
 		break;
 	case S_PRINTER_Y_SENT:
-		if (!fancy_memcmp(rdbuf, ctx->printer->ready_m_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->ready_m_readback, READBACK_LEN, ctx->printer->paper_code_offset, ctx->paper_code)) {
 			if (ctx->bw_mode)
 				state = S_PRINTER_DONE;
 			else
@@ -532,7 +524,7 @@ top:
 		state = S_PRINTER_M_SENT;
 		break;
 	case S_PRINTER_M_SENT:
-		if (!fancy_memcmp(rdbuf, ctx->printer->ready_c_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->ready_c_readback, READBACK_LEN, ctx->printer->paper_code_offset, ctx->paper_code)) {
 			state = S_PRINTER_READY_C;
 		}
 		break;
@@ -545,15 +537,15 @@ top:
 		state = S_PRINTER_C_SENT;
 		break;
 	case S_PRINTER_C_SENT:
-		if (!fancy_memcmp(rdbuf, ctx->printer->done_c_readback, READBACK_LEN, ctx->paper_code_offset, ctx->paper_code)) {
+		if (!fancy_memcmp(rdbuf, ctx->printer->done_c_readback, READBACK_LEN, ctx->printer->paper_code_offset, ctx->paper_code)) {
 			state = S_PRINTER_DONE;
 		}
 		break;
 	case S_PRINTER_DONE:
-		if (ctx->footer_len) {
+		if (ctx->printer->foot_length) {
 			INFO("Cleaning up\n");
 
-			if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->footer, ctx->footer_len)))
+			if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->footer, ctx->printer->foot_length)))
 				return ret;
 		}
 		state = S_FINISHED;
@@ -614,7 +606,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.57",
+	.version = "0.58",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.teardown = canonselphy_teardown,
