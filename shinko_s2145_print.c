@@ -1119,28 +1119,39 @@ int shinkos2145_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 	return -1;
 }
 
-static void *shinkos2145_init(struct libusb_device_handle *dev, 
-			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static void *shinkos2145_init(void)
 {
 	struct shinkos2145_ctx *ctx = malloc(sizeof(struct shinkos2145_ctx));
 	if (!ctx)
 		return NULL;
 	memset(ctx, 0, sizeof(struct shinkos2145_ctx));
-	
+
+	return ctx;
+}
+
+static void shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, 
+			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+{
+	struct shinkos2145_ctx *ctx = vctx;
+
+
+	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
 
 	/* Ensure jobid is sane */
 	ctx->jobid = (jobid & 0x7f) + 1;
-
-	return ctx;
 }
+
 
 static void shinkos2145_teardown(void *vctx) {
 	struct shinkos2145_ctx *ctx = vctx;
 
 	if (!ctx)
 		return;
+
+	if (ctx->databuf)
+		free(ctx->databuf);
 
 	free(ctx);
 }
@@ -1363,6 +1374,7 @@ struct dyesub_backend shinkos2145_backend = {
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
 	.init = shinkos2145_init,
+	.attach = shinkos2145_attach,
 	.teardown = shinkos2145_teardown,
 	.read_parse = shinkos2145_read_parse,
 	.main_loop = shinkos2145_main_loop,

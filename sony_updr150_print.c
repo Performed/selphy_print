@@ -47,17 +47,23 @@ struct updr150_ctx {
 	int datalen;
 };
 
-static void* updr150_init(struct libusb_device_handle *dev, 
-			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static void* updr150_init(void)
 {
 	struct updr150_ctx *ctx = malloc(sizeof(struct updr150_ctx));
 	if (!ctx)
 		return NULL;
 	memset(ctx, 0, sizeof(struct updr150_ctx));
-	
+	return ctx;
+}
+
+static void updr150_attach(void *vctx, struct libusb_device_handle *dev, 
+			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+{
+	struct updr150_ctx *ctx = vctx;
+
+	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-	return ctx;
 }
 
 static void updr150_teardown(void *vctx) {
@@ -159,8 +165,8 @@ struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150",
 	.version = "0.05",
 	.uri_prefix = "sonyupdr150",
-	// .cmdline_usage = updr150_cmdline,
 	.init = updr150_init,
+	.attach = updr150_attach,
 	.teardown = updr150_teardown,
 	.read_parse = updr150_read_parse,
 	.main_loop = updr150_main_loop,

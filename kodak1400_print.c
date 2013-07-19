@@ -254,18 +254,26 @@ int kodak1400_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 	return -1;
 }
 
-static void *kodak1400_init(struct libusb_device_handle *dev, 
-			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static void *kodak1400_init(void)
 {
 	struct kodak1400_ctx *ctx = malloc(sizeof(struct kodak1400_ctx));
 	if (!ctx)
 		return NULL;
 	memset(ctx, 0, sizeof(struct kodak1400_ctx));
 	
-	ctx->endp_up = endp_up;
-	ctx->endp_down = endp_down;
 	return ctx;
 }
+
+static void kodak1400_attach(void *vctx, struct libusb_device_handle *dev, 
+			     uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+{
+	struct kodak1400_ctx *ctx = vctx;
+
+	ctx->dev = dev;
+	ctx->endp_up = endp_up;
+	ctx->endp_down = endp_down;
+}
+
 
 static void kodak1400_teardown(void *vctx) {
 	struct kodak1400_ctx *ctx = vctx;
@@ -552,6 +560,7 @@ struct dyesub_backend kodak1400_backend = {
 	.cmdline_usage = kodak1400_cmdline,
 	.cmdline_arg = kodak1400_cmdline_arg,
 	.init = kodak1400_init,
+	.attach = kodak1400_attach,
 	.teardown = kodak1400_teardown,
 	.read_parse = kodak1400_read_parse,
 	.main_loop = kodak1400_main_loop,

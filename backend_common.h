@@ -107,8 +107,9 @@ struct dyesub_backend {
 	char *version;
 	char *uri_prefix;
 	void (*cmdline_usage)(char *caller);
-	void *(*init)(struct libusb_device_handle *dev,
-		      uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
+	void *(*init)(void);
+	void (*attach)(void *ctx, struct libusb_device_handle *dev,
+		       uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
 	void (*teardown)(void *ctx);
 	int  (*cmdline_arg)(void *ctx, int run, char *arg1, char *arg2);
 	int  (*read_parse)(void *ctx, int data_fd);

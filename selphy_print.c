@@ -335,21 +335,27 @@ struct canonselphy_ctx {
 	uint8_t *footer;
 };
 
-static void *canonselphy_init(struct libusb_device_handle *dev, 
-			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static void *canonselphy_init(void)
 {
 	struct canonselphy_ctx *ctx = malloc(sizeof(struct canonselphy_ctx));
 	if (!ctx)
 		return NULL;
 	memset(ctx, 0, sizeof(struct canonselphy_ctx));
-	
-	ctx->endp_up = endp_up;
-	ctx->endp_down = endp_down;
 
 	/* Static initialization */
 	setup_paper_codes();
 
 	return ctx;
+}
+
+static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev, 
+			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+{
+	struct canonselphy_ctx *ctx = vctx;
+
+	ctx->dev = dev;
+	ctx->endp_up = endp_up;
+	ctx->endp_down = endp_down;
 }
 
 static void canonselphy_teardown(void *vctx) {
@@ -610,6 +616,7 @@ struct dyesub_backend canonselphy_backend = {
 	.version = "0.58",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
+	.attach = canonselphy_attach,
 	.teardown = canonselphy_teardown,
 	.read_parse = canonselphy_read_parse,
 	.main_loop = canonselphy_main_loop,

@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.11"
+#define BACKEND_VERSION "0.12"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -464,6 +464,9 @@ int main (int argc, char **argv)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGTERM, sigterm_handler);
 
+	/* Initialize backend */
+	backend_ctx = backend->init();
+
 	/* Libusb setup */
 	libusb_init(&ctx);
 	found = find_and_enumerate(ctx, &list, use_serno, printer_type, -1, 0);
@@ -514,8 +517,8 @@ int main (int argc, char **argv)
 		}
 	}
 
-	/* Initialize backend */
-	backend_ctx = backend->init(dev, endp_up, endp_down, jobid);
+	/* Attach backend to device */
+	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
 	
 	if (query_only) {
 		backend->cmdline_arg(backend_ctx, 1, argv[1], argv[2]);
