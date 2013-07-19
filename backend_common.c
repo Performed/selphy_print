@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.13"
+#define BACKEND_VERSION "0.14"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -243,7 +243,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 				if (desc.idVendor == backends[k]->devices[j].vid &&
 				    desc.idProduct == backends[k]->devices[j].pid) {
 					match = 1;
-					if (printer_type && printer_type == backends[k]->devices[j].type)
+					if (printer_type == P_ANY ||
+					    printer_type == backends[k]->devices[j].type)
 						found = i;
 					goto match;
 				}
