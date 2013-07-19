@@ -541,6 +541,10 @@ top:
 }
 
 /* Exported */
+#define USB_VID_KODAK       0x040A
+#define USB_PID_KODAK_1400  0x4022
+#define USB_PID_KODAK_805   0x4034
+
 struct dyesub_backend kodak1400_backend = {
 	.name = "Kodak 1400/805",
 	.version = "0.21",
@@ -551,6 +555,11 @@ struct dyesub_backend kodak1400_backend = {
 	.teardown = kodak1400_teardown,
 	.read_parse = kodak1400_read_parse,
 	.main_loop = kodak1400_main_loop,
+	.devices = {
+	{ USB_VID_KODAK, USB_PID_KODAK_1400, P_KODAK_1400_805, "Kodak"},
+	{ USB_VID_KODAK, USB_PID_KODAK_805, P_KODAK_1400_805, "Kodak"},
+	{ 0, 0, 0, ""}
+	}
 };
 
 /* Kodak 1400/805 data format

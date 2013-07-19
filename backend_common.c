@@ -27,93 +27,10 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.10"
+#define BACKEND_VERSION "0.11"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
-
-#define USB_VID_CANON       0x04a9
-#define USB_PID_CANON_CP10  0x304A
-#define USB_PID_CANON_CP100 0x3063
-#define USB_PID_CANON_CP200 0x307C
-#define USB_PID_CANON_CP220 0x30BD
-#define USB_PID_CANON_CP300 0x307D
-#define USB_PID_CANON_CP330 0x30BE
-#define USB_PID_CANON_CP400 0x30F6
-#define USB_PID_CANON_CP500 0x30F5
-#define USB_PID_CANON_CP510 0x3128
-#define USB_PID_CANON_CP520 520 // XXX 316f? 3172? (related to cp740/cp750)
-#define USB_PID_CANON_CP530 0x31b1
-#define USB_PID_CANON_CP600 0x310B
-#define USB_PID_CANON_CP710 0x3127
-#define USB_PID_CANON_CP720 0x3143
-#define USB_PID_CANON_CP730 0x3142
-#define USB_PID_CANON_CP740 0x3171
-#define USB_PID_CANON_CP750 0x3170
-#define USB_PID_CANON_CP760 0x31AB
-#define USB_PID_CANON_CP770 0x31AA
-#define USB_PID_CANON_CP780 0x31DD
-#define USB_PID_CANON_CP790 790 // XXX 31ed? 31ef? (related to es40)
-#define USB_PID_CANON_CP800 0x3214
-#define USB_PID_CANON_CP810 0x3256
-#define USB_PID_CANON_CP900 0x3255
-#define USB_PID_CANON_ES1   0x3141
-#define USB_PID_CANON_ES2   0x3185
-#define USB_PID_CANON_ES20  0x3186
-#define USB_PID_CANON_ES3   0x31AF
-#define USB_PID_CANON_ES30  0x31B0
-#define USB_PID_CANON_ES40  0x31EE
-
-#define USB_VID_SONY         0x054C
-#define USB_PID_SONY_UPDR150 0x01E8
-
-#define USB_VID_KODAK       0x040A
-#define USB_PID_KODAK_6800  0x4021
-#define USB_PID_KODAK_1400  0x4022
-#define USB_PID_KODAK_805   0x4034
-
-#define USB_VID_SHINKO       0x10CE
-#define USB_PID_SHINKO_S2145 0x000E
-
-static struct device_id devices[] = {
-	{ USB_VID_CANON, USB_PID_CANON_CP10, P_CP10, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP100, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP200, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP220, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP300, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP330, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP400, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP500, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP510, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP520, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP530, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP600, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP710, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP720, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP730, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP740, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP750, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP760, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP770, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP780, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP790, P_ES40_CP790, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP800, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP810, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_CP900, P_CP_XXX, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_ES1, P_ES1, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_ES2, P_ES2_20, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_ES20, P_ES2_20, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_ES3, P_ES3_30, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_ES30, P_ES3_30, "Canon"},
-	{ USB_VID_CANON, USB_PID_CANON_ES40, P_ES40_CP790, "Canon"},
-
-	{ USB_VID_KODAK, USB_PID_KODAK_6800, P_KODAK_6800, "Kodak"},
-	{ USB_VID_KODAK, USB_PID_KODAK_1400, P_KODAK_1400_805, "Kodak"},
-	{ USB_VID_KODAK, USB_PID_KODAK_805, P_KODAK_1400_805, "Kodak"},
-
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
-	{ USB_VID_SONY, USB_PID_SONY_UPDR150, P_SONY_UPDR150, ""},
-};
 
 /* Support Functions */
 
@@ -293,6 +210,15 @@ abort:
 	return found;
 }
 
+static struct dyesub_backend *backends[] = {
+	&canonselphy_backend,
+	&kodak6800_backend,
+	&kodak1400_backend,
+	&shinkos2145_backend,
+	&updr150_backend,
+	NULL,
+};
+
 static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
 			      char *match_serno,
@@ -300,7 +226,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			      int scan_only)
 {
 	int num;
-	int i, j;
+	int i, j, k;
 	int found = -1;
 
 	/* Enumerate and find suitable device */
@@ -310,16 +236,20 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		struct libusb_device_descriptor desc;
 		int match = 0;
 		libusb_get_device_descriptor((*list)[i], &desc);
-
-		for (j = 0 ; j < sizeof(devices)/sizeof(struct device_id) ; j++) {
-			if (desc.idVendor == devices[j].vid &&
-			    desc.idProduct == devices[j].pid) {
-				match = 1;
-				if (printer_type && printer_type == devices[j].type)
-					found = i;
-				break;
+		
+		for (k = 0 ; backends[k] ; k++) {
+			for (j = 0 ; backends[k]->devices[j].vid ; j++) {
+				if (desc.idVendor == backends[k]->devices[j].vid &&
+				    desc.idProduct == backends[k]->devices[j].pid) {
+					match = 1;
+					if (printer_type && printer_type == backends[k]->devices[j].type)
+						found = i;
+					break;
+				}
 			}
 		}
+		
+
 
 		if (!match) {
 			if (getenv("EXTRA_PID") && getenv("EXTRA_TYPE") && getenv("EXTRA_VID")) {
@@ -339,22 +269,13 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			continue;
 
 		found = print_scan_output((*list)[i], &desc,
-					  URI_PREFIX, devices[j].manuf_str,
+					  URI_PREFIX, backends[k]->devices[j].manuf_str,
 					  found, (found == i),
 					  scan_only, match_serno);
 	}
 
 	return found;
 }
-
-static struct dyesub_backend *backends[] = {
-	&canonselphy_backend,
-	&kodak6800_backend,
-	&kodak1400_backend,
-	&shinkos2145_backend,
-	&updr150_backend,
-	NULL,
-};
 
 static struct dyesub_backend *find_backend(char *uri_prefix)
 {

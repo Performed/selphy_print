@@ -78,20 +78,6 @@
 #define cpu_to_be16 be16_to_cpu
 #define cpu_to_be32 be32_to_cpu
 
-/* Backend Functions */
-struct dyesub_backend {
-	char *name;
-	char *version;
-	char *uri_prefix;
-	void (*cmdline_usage)(char *caller);
-	void *(*init)(struct libusb_device_handle *dev,
-		      uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
-	void (*teardown)(void *ctx);
-	int  (*cmdline_arg)(void *ctx, int run, char *arg1, char *arg2);
-	int  (*read_parse)(void *ctx, int data_fd);
-	int  (*main_loop)(void *ctx, int copies);
-};
-
 /* To enumerate supported devices */
 enum {
 	P_ANY = 0,
@@ -113,6 +99,22 @@ struct device_id {
 	uint16_t pid;
 	int type;  /* P_** */
 	char *manuf_str;
+};
+
+/* Backend Functions */
+struct dyesub_backend {
+	char *name;
+	char *version;
+	char *uri_prefix;
+	void (*cmdline_usage)(char *caller);
+	void *(*init)(struct libusb_device_handle *dev,
+		      uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
+	void (*teardown)(void *ctx);
+	int  (*cmdline_arg)(void *ctx, int run, char *arg1, char *arg2);
+	int  (*read_parse)(void *ctx, int data_fd);
+	int  (*main_loop)(void *ctx, int copies);
+
+	struct device_id devices[];
 };
 
 /* Exported functions */

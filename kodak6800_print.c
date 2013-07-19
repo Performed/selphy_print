@@ -516,6 +516,9 @@ top:
 }
 
 /* Exported */
+#define USB_VID_KODAK       0x040A
+#define USB_PID_KODAK_6800  0x4021
+
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800",
 	.version = "0.15",
@@ -526,6 +529,10 @@ struct dyesub_backend kodak6800_backend = {
 	.teardown = kodak6800_teardown,
 	.read_parse = kodak6800_read_parse,
 	.main_loop = kodak6800_main_loop,
+	.devices = { 
+	{ USB_VID_KODAK, USB_PID_KODAK_6800, P_KODAK_6800, "Kodak"},
+	{ 0, 0, 0, ""}
+	}
 };
 
 /* Kodak 6800/6850 data format

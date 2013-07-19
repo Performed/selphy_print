@@ -1353,6 +1353,9 @@ printer_error:
 }
 
 /* Exported */
+#define USB_VID_SHINKO       0x10CE
+#define USB_PID_SHINKO_S2145 0x000E
+
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145",
 	.version = "0.17",
@@ -1363,6 +1366,10 @@ struct dyesub_backend shinkos2145_backend = {
 	.teardown = shinkos2145_teardown,
 	.read_parse = shinkos2145_read_parse,
 	.main_loop = shinkos2145_main_loop,
+	.devices = {
+	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
+	{ 0, 0, 0, ""}
+	}
 };
 
 /* CHC-S2145 data format

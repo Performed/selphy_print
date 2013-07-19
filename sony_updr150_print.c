@@ -152,6 +152,9 @@ top:
 }
 
 /* Exported */
+#define USB_VID_SONY         0x054C
+#define USB_PID_SONY_UPDR150 0x01E8
+
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150",
 	.version = "0.05",
@@ -161,6 +164,10 @@ struct dyesub_backend updr150_backend = {
 	.teardown = updr150_teardown,
 	.read_parse = updr150_read_parse,
 	.main_loop = updr150_main_loop,
+	.devices = {
+	{ USB_VID_SONY, USB_PID_SONY_UPDR150, P_SONY_UPDR150, ""},
+	{ 0, 0, 0, ""}
+	}
 };
 
 /* Sony UP-DR150 Spool file format
