@@ -63,12 +63,15 @@
 #define USB_PID_CANON_ES3   0x31AF
 #define USB_PID_CANON_ES30  0x31B0
 #define USB_PID_CANON_ES40  0x31EE
-#define USB_VID_SONY      0x054C
-#define USB_PID_SONY_UPDR150  0x01E8
-#define USB_VID_KODAK      0x040A
-#define USB_PID_KODAK_6800 0x4021
-#define USB_PID_KODAK_1400 0x4022
-#define USB_PID_KODAK_805  0x4034
+
+#define USB_VID_SONY         0x054C
+#define USB_PID_SONY_UPDR150 0x01E8
+
+#define USB_VID_KODAK       0x040A
+#define USB_PID_KODAK_6800  0x4021
+#define USB_PID_KODAK_1400  0x4022
+#define USB_PID_KODAK_805   0x4034
+
 #define USB_VID_SHINKO       0x10CE
 #define USB_PID_SHINKO_S2145 0x000E
 
@@ -400,6 +403,7 @@ int main (int argc, char **argv)
 	char *uri = getenv("DEVICE_URI");
 	char *use_serno = NULL;
 	int query_only = 0;
+	int printer_type = P_ANY;
 
 	DEBUG("Multi-Call Gutenprint DyeSub CUPS Backend version %s\n",
 	      BACKEND_VERSION);
@@ -541,7 +545,7 @@ int main (int argc, char **argv)
 
 	/* Libusb setup */
 	libusb_init(&ctx);
-	found = find_and_enumerate(ctx, &list, use_serno, P_SONY_UPDR150, 0);
+	found = find_and_enumerate(ctx, &list, use_serno, printer_type, 0);
 
 	if (found == -1) {
 		ERROR("Printer open failure (No suitable printers found!)\n");
@@ -599,12 +603,10 @@ int main (int argc, char **argv)
 
 	/* Read in data */
 	if (backend->read_parse(backend_ctx, data_fd))
-		exit(1);
-	
+		goto done_claimed;
 	close(data_fd);
 
 	/* Time for the main processing loop */
-
 	INFO("Printing started (%d copies)\n", copies);
 
 	ret = backend->main_loop(backend_ctx, copies);
