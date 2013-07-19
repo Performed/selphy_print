@@ -39,10 +39,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define VERSION "0.16"
-#define URI_PREFIX "shinkos2145://"
+#include "backend_common.h"
 
-#include "backend_common.c"
 
 enum {
 	S_IDLE = 0,
@@ -90,6 +88,19 @@ struct s2145_printjob_hdr {
 
 	uint32_t unk21;
 } __attribute__((packed));
+
+/* Private data stucture */
+struct shinkos2145_ctx {
+	struct libusb_device_handle *dev;
+	uint8_t endp_up;
+	uint8_t endp_down;
+	uint8_t jobid;
+
+	struct s2145_printjob_hdr hdr;
+
+	uint8_t *databuf;
+	int datalen;
+};
 
 /* Structs for printer */
 struct s2145_cmd_hdr {
@@ -192,6 +203,7 @@ static char *print_medias (uint8_t v) {
 #define PRINT_MODE_STD_EGLOSSY  0x06
 #define PRINT_MODE_FINE_EGLOSSY 0x07
 
+#if 0
 static char *print_modes(uint8_t v) {
 	switch (v) {
 	case PRINT_MODE_DEFAULT:
@@ -212,6 +224,7 @@ static char *print_modes(uint8_t v) {
 		return "Unknown";
 	}
 }
+#endif
 
 #define PRINT_METHOD_STD     0x00
 #define PRINT_METHOD_4x6_2UP 0x02
@@ -620,8 +633,7 @@ static int s2145_do_cmd(libusb_device_handle *dev,
 	return ret;
 }
 
-static int get_status(libusb_device_handle *dev, 
-		      uint8_t endp_down, uint8_t endp_up) 
+static int get_status(struct shinkos2145_ctx *ctx)
 {
 	struct s2145_cmd_hdr cmd;
 	struct s2145_status_resp *resp = (struct s2145_status_resp *) rdbuf;
@@ -630,7 +642,7 @@ static int get_status(libusb_device_handle *dev,
 	cmd.cmd = cpu_to_le16(S2145_CMD_STATUS);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -670,8 +682,7 @@ static int get_status(libusb_device_handle *dev,
 	return 0;
 }
 
-static int get_fwinfo(libusb_device_handle *dev, 
-		      uint8_t endp_down, uint8_t endp_up) 
+static int get_fwinfo(struct shinkos2145_ctx *ctx)
 {
 	struct s2145_fwinfo_cmd  cmd;
 	struct s2145_fwinfo_resp *resp = (struct s2145_fwinfo_resp *)rdbuf;
@@ -686,7 +697,7 @@ static int get_fwinfo(libusb_device_handle *dev,
 	for (i = FWINFO_TARGET_MAIN_BOOT ; i <= FWINFO_TARGET_TABLES ; i++) {
 		cmd.target = i;
 
-		if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+		if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 					(uint8_t*)&cmd, sizeof(cmd),
 					sizeof(*resp),
 					&num)) < 0) {
@@ -710,8 +721,7 @@ static int get_fwinfo(libusb_device_handle *dev,
 	return 0;
 }
 
-static int get_errorlog(libusb_device_handle *dev, 
-			uint8_t endp_down, uint8_t endp_up) 
+static int get_errorlog(struct shinkos2145_ctx *ctx)
 {
 	struct s2145_cmd_hdr cmd;
 	struct s2145_errorlog_resp *resp = (struct s2145_errorlog_resp *) rdbuf;
@@ -721,7 +731,7 @@ static int get_errorlog(libusb_device_handle *dev,
 	cmd.cmd = cpu_to_le16(S2145_CMD_ERRORLOG);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -741,8 +751,7 @@ static int get_errorlog(libusb_device_handle *dev,
 	return 0;
 }
 
-static int get_mediainfo(libusb_device_handle *dev, 
-			 uint8_t endp_down, uint8_t endp_up) 
+static int get_mediainfo(struct shinkos2145_ctx *ctx) 
 {
 	struct s2145_cmd_hdr cmd;
 	struct s2145_mediainfo_resp *resp = (struct s2145_mediainfo_resp *) rdbuf;
@@ -752,7 +761,7 @@ static int get_mediainfo(libusb_device_handle *dev,
 	cmd.cmd = cpu_to_le16(S2145_CMD_MEDIAINFO);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -775,8 +784,7 @@ static int get_mediainfo(libusb_device_handle *dev,
 	return 0;
 }
 
-static int get_user_string(libusb_device_handle *dev, 
-			   uint8_t endp_down, uint8_t endp_up) 
+static int get_user_string(struct shinkos2145_ctx *ctx) 
 {
 	struct s2145_cmd_hdr cmd;
 	struct s2145_getunique_resp *resp = (struct s2145_getunique_resp*) rdbuf;
@@ -785,7 +793,7 @@ static int get_user_string(libusb_device_handle *dev,
 	cmd.cmd = cpu_to_le16(S2145_CMD_GETUNIQUE);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp) - 1,
 				&num)) < 0) {
@@ -802,8 +810,7 @@ static int get_user_string(libusb_device_handle *dev,
 	return 0;
 }
 
-static int set_user_string(char *str, libusb_device_handle *dev, 
-			   uint8_t endp_down, uint8_t endp_up) 
+static int set_user_string(struct shinkos2145_ctx *ctx, char *str)
 {
 	struct s2145_setunique_cmd cmd;
 	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
@@ -822,7 +829,7 @@ static int set_user_string(char *str, libusb_device_handle *dev,
 	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_SETUNIQUE);
 	cmd.hdr.len = cpu_to_le16(cmd.len + 1);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, cmd.len + 1 + sizeof(cmd.hdr),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -833,8 +840,7 @@ static int set_user_string(char *str, libusb_device_handle *dev,
 	return 0;
 }
 
-static int cancel_job(char *str, libusb_device_handle *dev, 
-		      uint8_t endp_down, uint8_t endp_up) 
+static int cancel_job(struct shinkos2145_ctx *ctx, char *str)
 {
 	struct s2145_cancel_cmd cmd;
 	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
@@ -848,7 +854,7 @@ static int cancel_job(char *str, libusb_device_handle *dev,
 	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_CANCELJOB);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -859,8 +865,7 @@ static int cancel_job(char *str, libusb_device_handle *dev,
 	return 0;
 }
 
-static int flash_led(libusb_device_handle *dev, 
-		     uint8_t endp_down, uint8_t endp_up) 
+static int flash_led(struct shinkos2145_ctx *ctx) 
 {
 	struct s2145_cmd_hdr cmd;
 	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
@@ -869,7 +874,7 @@ static int flash_led(libusb_device_handle *dev,
 	cmd.cmd = cpu_to_le16(S2145_CMD_FLASHLED);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -880,8 +885,7 @@ static int flash_led(libusb_device_handle *dev,
 	return 0;
 }
 
-static int reset_curve(int target, libusb_device_handle *dev, 
-		       uint8_t endp_down, uint8_t endp_up) 
+static int reset_curve(struct shinkos2145_ctx *ctx, int target) 
 {
 	struct s2145_reset_cmd cmd;
 	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
@@ -892,7 +896,7 @@ static int reset_curve(int target, libusb_device_handle *dev,
 	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_RESET);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -903,8 +907,7 @@ static int reset_curve(int target, libusb_device_handle *dev,
 	return 0;
 }
 
-static int button_set(int enable, libusb_device_handle *dev, 
-		      uint8_t endp_down, uint8_t endp_up) 
+static int button_set(struct shinkos2145_ctx *ctx, int enable) 
 {
 	struct s2145_button_cmd cmd;
 	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
@@ -915,7 +918,7 @@ static int button_set(int enable, libusb_device_handle *dev,
 
 	cmd.enabled = enable;
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -926,8 +929,7 @@ static int button_set(int enable, libusb_device_handle *dev,
 	return 0;
 }
 
-static int get_tonecurve(int type, char *fname, libusb_device_handle *dev, 
-			 uint8_t endp_down, uint8_t endp_up) 
+static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname) 
 {
 	struct s2145_readtone_cmd  cmd;
 	struct s2145_readtone_resp *resp = (struct s2145_readtone_resp *) rdbuf;
@@ -945,7 +947,7 @@ static int get_tonecurve(int type, char *fname, libusb_device_handle *dev,
 
 	INFO("Dump %s Tone Curve to '%s'\n", tonecurve_statuses(type), fname);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -959,14 +961,14 @@ static int get_tonecurve(int type, char *fname, libusb_device_handle *dev,
 
 	i = 0;
 	while (i < resp->total_size) {
-		ret = libusb_bulk_transfer(dev, endp_up,
+		ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
 					   data + i,
 					   resp->total_size * 2 - i,
 					   &num,
 					   5000);
 
 		if (ret < 0) {
-			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num + i, (int)resp->total_size, endp_up);
+			ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num + i, (int)resp->total_size, ctx->endp_up);
 			return ret;
 		}
 		i += num;
@@ -997,8 +999,7 @@ static int get_tonecurve(int type, char *fname, libusb_device_handle *dev,
 	return 0;
 }
 
-static int set_tonecurve(int target, char *fname, libusb_device_handle *dev, 
-			 uint8_t endp_down, uint8_t endp_up) 
+static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname) 
 {
 	struct s2145_update_cmd cmd;
 	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
@@ -1033,7 +1034,7 @@ static int set_tonecurve(int target, char *fname, libusb_device_handle *dev,
 		data[ret] = cpu_to_le16(data[ret]);
 	}
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -1042,7 +1043,7 @@ static int set_tonecurve(int target, char *fname, libusb_device_handle *dev,
 	}
 
 	/* Sent transfer */
-	if ((ret = send_data(dev, endp_down,
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     (uint8_t *) data, UPDATE_SIZE))) {
 		return ret;
 	}
@@ -1052,168 +1053,131 @@ static int set_tonecurve(int target, char *fname, libusb_device_handle *dev,
 	return 0;
 }
 
-
-int main (int argc, char **argv) 
+static void shinkos2145_cmdline(char *caller)
 {
-	struct libusb_context *ctx;
-	struct libusb_device **list;
-	struct libusb_device_handle *dev;
-	struct libusb_config_descriptor *config;
+	DEBUG("\t\t%s [ -qs | -qm | -qf | -qe | -qu ]\n", caller);
+	DEBUG("\t\t%s [ -qtu filename | -qtc filename ]\n", caller);
+	DEBUG("\t\t%s [ -su somestring | -stu filename | -stc filename ]\n", caller);
+	DEBUG("\t\t%s [ -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n", caller);
+}
 
-	uint8_t endp_up = 0;
-	uint8_t endp_down = 0;
+int shinkos2145_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
+{
+	struct shinkos2145_ctx *ctx = vctx;
 
-	int data_fd = fileno(stdin);
+	if (!run || !ctx)
+		return (!strcmp("-qs", arg1) ||
+			!strcmp("-qf", arg1) ||
+			!strcmp("-qe", arg1) ||
+			!strcmp("-qm", arg1) ||
+			!strcmp("-qu", arg1) ||
+			!strcmp("-qtc", arg1) ||
+			!strcmp("-qtu", arg1) ||
+			!strcmp("-pc", arg1) ||
+			!strcmp("-fl", arg1) ||
+			!strcmp("-ru", arg1) ||
+			!strcmp("-rp", arg1) ||
+			!strcmp("-b1", arg1) ||
+			!strcmp("-b0", arg1) ||
+			!strcmp("-stc", arg1) ||
+			!strcmp("-stu", arg1) ||
+			!strcmp("-su", arg1));
 
-	int i, num;
-	int claimed;
+	if (!strcmp("-qs", arg1))
+		get_status(ctx);
+	else if (!strcmp("-qf", arg1))
+		get_fwinfo(ctx);
+	else if (!strcmp("-qe", arg1))
+		get_errorlog(ctx);
+	else if (!strcmp("-qm", arg1))
+		get_mediainfo(ctx);
+	else if (!strcmp("-qu", arg1))
+		get_user_string(ctx);
+	else if (!strcmp("-qtu", arg1))
+		get_tonecurve(ctx, TONECURVE_USER, arg2);
+	else if (!strcmp("-qtc", arg1))
+		get_tonecurve(ctx, TONECURVE_CURRENT, arg2);
+	else if (!strcmp("-su", arg1))
+		set_user_string(ctx, arg2);
+	else if (!strcmp("-stu", arg1))
+		set_tonecurve(ctx, UPDATE_TARGET_USER, arg2);
+	else if (!strcmp("-stc", arg1))
+		set_tonecurve(ctx, UPDATE_TARGET_CURRENT, arg2);
+	else if (!strcmp("-pc", arg1))
+		cancel_job(ctx, arg2);
+	else if (!strcmp("-fl", arg1))
+		flash_led(ctx);
+	else if (!strcmp("-ru", arg1))
+		reset_curve(ctx, RESET_USER_CURVE);
+	else if (!strcmp("-rp", arg1))
+		reset_curve(ctx, RESET_PRINTER);
+	else if (!strcmp("-b1", arg1))
+		button_set(ctx, BUTTON_ENABLED);
+	else if (!strcmp("-b0", arg1))
+		button_set(ctx, BUTTON_DISABLED);
 
-	int query_only = 0;
-	int ret = 0;
-	int iface = 0;
-	int found = -1;
-	int copies = 1;
-	int jobid = 0;
-	char *uri = getenv("DEVICE_URI");;
-	char *use_serno = NULL;
+	return -1;
+}
 
-	struct s2145_printjob_hdr hdr;
-	struct s2145_cmd_hdr *cmd;
-	struct s2145_print_cmd *print;
-	struct s2145_status_resp *sts; 
-
-	uint8_t *planedata = NULL, *cmdbuf = NULL;
-	uint32_t datasize;
-
-	uint8_t rdbuf2[READBACK_LEN];
-	int last_state = -1, state = S_IDLE;
-
-	DEBUG("Shinko/Sinfonia CHC-S2145 CUPS backend version " VERSION "/" BACKEND_VERSION " \n");
-
-	/* Cmdline help */
-	if (argc < 2) {
-		DEBUG("Usage:\n\t%s [ infile | - ]\n\t%s job user title num-copies options [ filename ]\n\t%s [ -qs | -qm | -qf | -qe | -qu | -qtu filename | -qtc filename ]\n\t%s [ -su somestring | -stu filename | -stc filename ]\n\t%s [ -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n\n",
-		      argv[0], argv[0], argv[0], argv[0], argv[0]);
-		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, P_SHINKO_S2145, 1);
-		libusb_free_device_list(list, 1);
-		libusb_exit(ctx);
-		exit(1);
-	}
-
-	/* Are we running as a CUPS backend? */
-	if (uri) {
-		if (argv[1])
-			jobid = atoi(argv[1]);
-		if (argv[4])
-			copies = atoi(argv[4]);
-		if (argv[6]) {  /* IOW, is it specified? */
-			data_fd = open(argv[6], O_RDONLY);
-			if (data_fd < 0) {
-				perror("ERROR:Can't open input file");
-				exit(1);
-			}
-		}
-
-		/* Ensure we're using BLOCKING I/O */
-		i = fcntl(data_fd, F_GETFL, 0);
-		if (i < 0) {
-			perror("ERROR:Can't open input");
-			exit(1);
-		}
-		i &= ~O_NONBLOCK;
-		i = fcntl(data_fd, F_SETFL, 0);
-		if (i < 0) {
-			perror("ERROR:Can't open input");
-			exit(1);
-		}
-		/* Start parsing URI 'selphy://PID/SERIAL' */
-		if (strncmp(URI_PREFIX, uri, strlen(URI_PREFIX))) {
-			ERROR("Invalid URI prefix (%s)\n", uri);
-			exit(1);
-		}
-		use_serno = strchr(uri, '=');
-		if (!use_serno || !*(use_serno+1)) {
-			ERROR("Invalid URI (%s)\n", uri);
-			exit(1);
-		}
-		use_serno++;
-	} else {
-		use_serno = getenv("DEVICE");
-
-		if (!strcmp("-qs", argv[1]) ||
-		    !strcmp("-qf", argv[1]) ||
-		    !strcmp("-qe", argv[1]) ||
-		    !strcmp("-qm", argv[1]) ||
-		    !strcmp("-qu", argv[1]) ||
-		    !strcmp("-qtc", argv[1]) ||
-		    !strcmp("-qtu", argv[1]) ||
-		    !strcmp("-pc", argv[1]) ||
-		    !strcmp("-fl", argv[1]) ||
-		    !strcmp("-ru", argv[1]) ||
-		    !strcmp("-rp", argv[1]) ||
-		    !strcmp("-b1", argv[1]) ||
-		    !strcmp("-b0", argv[1]) ||
-		    !strcmp("-stc", argv[1]) ||
-		    !strcmp("-stu", argv[1]) ||
-		    !strcmp("-su", argv[1])) {
-			query_only = 1;
-			goto skip_read;
-		}
-
-		srand(getpid());
-		jobid = rand();
-
-		/* Open Input File */
-		if (strcmp("-", argv[1])) {
-			data_fd = open(argv[1], O_RDONLY);
-			if (data_fd < 0) {
-				perror("ERROR:Can't open input file");
-				exit(1);
-			}
-		}
-	}
-
-	/* Ignore SIGPIPE */
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGTERM, sigterm_handler);
+static void *shinkos2145_init(struct libusb_device_handle *dev, 
+			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+{
+	struct shinkos2145_ctx *ctx = malloc(sizeof(struct shinkos2145_ctx));
+	if (!ctx)
+		return NULL;
+	memset(ctx, 0, sizeof(struct shinkos2145_ctx));
+	
+	ctx->endp_up = endp_up;
+	ctx->endp_down = endp_down;
 
 	/* Ensure jobid is sane */
-	jobid = (jobid & 0x7f) + 1;
+	ctx->jobid = (jobid & 0x7f) + 1;
+
+	return ctx;
+}
+
+static void shinkos2145_teardown(void *vctx) {
+	struct shinkos2145_ctx *ctx = vctx;
+
+	if (!ctx)
+		return;
+
+	free(ctx);
+}
+
+static int shinkos2145_read_parse(void *vctx, int data_fd) {
+	struct shinkos2145_ctx *ctx = vctx;
+	int ret;
+	uint8_t tmpbuf[4];
+
+	if (!ctx)
+		return 1;
 
 	/* Read in then validate header */
-	read(data_fd, &hdr, sizeof(hdr));
-	if (le32_to_cpu(hdr.len1) != 0x10 ||
-	    le32_to_cpu(hdr.model) != 2145 ||
-	    le32_to_cpu(hdr.len2) != 0x64 ||
-	    le32_to_cpu(hdr.dpi) != 300) {
+	read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
+	if (le32_to_cpu(ctx->hdr.len1) != 0x10 ||
+	    le32_to_cpu(ctx->hdr.model) != 2145 ||
+	    le32_to_cpu(ctx->hdr.len2) != 0x64 ||
+	    le32_to_cpu(ctx->hdr.dpi) != 300) {
 		ERROR("Unrecognized header data format!\n");
 		exit(1);
 	}
 
-	/* Read in image data */
-	cmdbuf = malloc(CMDBUF_LEN);
-	cmd = (struct s2145_cmd_hdr *) cmdbuf;
-	print = (struct s2145_print_cmd *) cmdbuf;
-
-	sts = (struct s2145_status_resp *) rdbuf;
-
-	datasize = le32_to_cpu(hdr.rows) * le32_to_cpu(hdr.columns) * 3;
-	planedata = malloc(datasize);
-	if (!cmdbuf || !planedata) {
+	ctx->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
+	ctx->databuf = malloc(ctx->datalen);
+	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
 		exit(1);
 	}
 
 	{
-		int remain;
-		uint8_t *ptr = planedata;
-		remain = datasize;
+		int remain = ctx->datalen;
+		uint8_t *ptr = ctx->databuf;
 		do {
 			ret = read(data_fd, ptr, remain);
 			if (ret < 0) {
 				ERROR("Read failed (%d/%d/%d)\n", 
-				      ret, remain, datasize);
+				      ret, remain, ctx->datalen);
 				perror("ERROR: Read failed");
 				exit(1);
 			}
@@ -1223,112 +1187,37 @@ int main (int argc, char **argv)
 	}
 
 	/* Make sure footer is sane too */
-	ret = read(data_fd, cmdbuf, 4);
+	ret = read(data_fd, tmpbuf, 4);
 	if (ret < 0 || ret != 4) {
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      ret, 4, 4);
 		perror("ERROR: Read failed");
 		exit(1);
 	}
-	if (cmdbuf[0] != 0x04 ||
-	    cmdbuf[1] != 0x03 ||
-	    cmdbuf[2] != 0x02 ||
-	    cmdbuf[3] != 0x01) {
+	if (tmpbuf[0] != 0x04 ||
+	    tmpbuf[1] != 0x03 ||
+	    tmpbuf[2] != 0x02 ||
+	    tmpbuf[3] != 0x01) {
 		ERROR("Unrecognized footer data format!\n");
 		exit(1);
 	}
 
-	close(data_fd); /* We're done reading! */
+	return 0;
+}
 
-skip_read:	
-	/* Libusb setup */
-	libusb_init(&ctx);
-	found = find_and_enumerate(ctx, &list, use_serno, P_SHINKO_S2145, 0);
+static int shinkos2145_main_loop(void *vctx, int copies) {
+	struct shinkos2145_ctx *ctx = vctx;
 
-	if (found == -1) {
-		ERROR("Printer open failure (No suitable printers found!)\n");
-		ret = 3;
-		goto done;
-	}
+	int i, ret, num;
+	uint8_t cmdbuf[CMDBUF_LEN];
+	uint8_t rdbuf2[READBACK_LEN];
 
-	ret = libusb_open(list[found], &dev);
-	if (ret) {
-		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
-		ret = 4;
-		goto done;
-	}
-	
-	claimed = libusb_kernel_driver_active(dev, iface);
-	if (claimed) {
-		ret = libusb_detach_kernel_driver(dev, iface);
-		if (ret) {
-			ERROR("Printer open failure (Could not detach printer from kernel)\n");
-			ret = 4;
-			goto done_close;
-		}
-	}
+	int last_state = -1, state = S_IDLE;
 
-	ret = libusb_claim_interface(dev, iface);
-	if (ret) {
-		ERROR("Printer open failure (Could not claim printer interface)\n");
-		ret = 4;
-		goto done_close;
-	}
+	struct s2145_cmd_hdr *cmd = (struct s2145_cmd_hdr *) cmdbuf;;
+	struct s2145_print_cmd *print = (struct s2145_print_cmd *) cmdbuf;
+	struct s2145_status_resp *sts = (struct s2145_status_resp *) rdbuf; 
 
-	ret = libusb_get_active_config_descriptor(list[found], &config);
-	if (ret) {
-		ERROR("Printer open failure (Could not fetch config descriptor)\n");
-		ret = 4;
-		goto done_close;
-	}
-
-	for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
-		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
-			if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
-				endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
-			else
-				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
-		}
-	}
-
-	if (query_only) {
-		if (!strcmp("-qs", argv[1]))
-			get_status(dev, endp_down, endp_up);
-		else if (!strcmp("-qf", argv[1]))
-			get_fwinfo(dev, endp_down, endp_up);
-		else if (!strcmp("-qe", argv[1]))
-			get_errorlog(dev, endp_down, endp_up);
-		else if (!strcmp("-qm", argv[1]))
-			get_mediainfo(dev, endp_down, endp_up);
-		else if (!strcmp("-qu", argv[1]))
-			get_user_string(dev, endp_down, endp_up);
-		else if (!strcmp("-qtu", argv[1]))
-			get_tonecurve(TONECURVE_USER, argv[2], dev, endp_down, endp_up);
-		else if (!strcmp("-qtc", argv[1]))
-			get_tonecurve(TONECURVE_CURRENT, argv[2], dev, endp_down, endp_up);
-		else if (!strcmp("-su", argv[1]))
-			set_user_string(argv[2], dev, endp_down, endp_up);
-		else if (!strcmp("-stu", argv[1]))
-			set_tonecurve(UPDATE_TARGET_USER, argv[2], dev, endp_down, endp_up);
-		else if (!strcmp("-stc", argv[1]))
-			set_tonecurve(UPDATE_TARGET_CURRENT, argv[2], dev, endp_down, endp_up);
-		else if (!strcmp("-pc", argv[1]))
-			cancel_job(argv[2], dev, endp_down, endp_up);
-		else if (!strcmp("-fl", argv[1]))
-			flash_led(dev, endp_down, endp_up);
-		else if (!strcmp("-ru", argv[1]))
-			reset_curve(RESET_USER_CURVE, dev, endp_down, endp_up);
-		else if (!strcmp("-rp", argv[1]))
-			reset_curve(RESET_PRINTER, dev, endp_down, endp_up);
-		else if (!strcmp("-b1", argv[1]))
-			button_set(BUTTON_ENABLED, dev, endp_down, endp_up);
-		else if (!strcmp("-b0", argv[1]))
-			button_set(BUTTON_DISABLED, dev, endp_down, endp_up);
-
-		goto done_claimed;
-	}
-
-	/* Time for the main processing loop */
 top:
 	if (state != last_state) {
 		DEBUG("last_state %d new %d\n", last_state, state);
@@ -1339,12 +1228,12 @@ top:
 	cmd->cmd = cpu_to_le16(S2145_CMD_STATUS);
 	cmd->len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+	if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 				cmdbuf, sizeof(*cmd),
 				sizeof(struct s2145_status_hdr),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
-		goto done_claimed;
+		return ret;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
@@ -1384,25 +1273,25 @@ top:
 
 		break;
 	case S_PRINTER_READY_CMD:
-		INFO("Initiating print job (internal id %d)\n", jobid);
+		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		print->hdr.cmd = cpu_to_le16(S2145_CMD_PRINTJOB);
 		print->hdr.len = cpu_to_le16(sizeof (*print) - sizeof(*cmd));
-		print->id = jobid;
+		print->id = ctx->jobid;
 		print->count = cpu_to_le16(copies);
-		print->columns = cpu_to_le16(le32_to_cpu(hdr.columns));
-		print->rows = cpu_to_le16(le32_to_cpu(hdr.rows));
-		print->media = le32_to_cpu(hdr.media);
-		print->mode = le32_to_cpu(hdr.mode);
-		print->method = le32_to_cpu(hdr.method);
+		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
+		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
+		print->media = le32_to_cpu(ctx->hdr.media);
+		print->mode = le32_to_cpu(ctx->hdr.mode);
+		print->method = le32_to_cpu(ctx->hdr.method);
 
-		if ((ret = s2145_do_cmd(dev, endp_up, endp_down, 
+		if ((ret = s2145_do_cmd(ctx->dev, ctx->endp_up, ctx->endp_down, 
 					cmdbuf, sizeof(*print),
 					sizeof(struct s2145_status_hdr),
 					&num)) < 0) {
 			ERROR("Failed to execute %s command\n", cmd_names(print->hdr.cmd));
-			goto done_claimed;
+			return ret;
 		}
 
 		if (sts->hdr.result != RESULT_SUCCESS) {
@@ -1414,8 +1303,9 @@ top:
 		}
 
 		INFO("Sending image data to printer\n");
-		if ((ret = send_data(dev, endp_down, planedata, datasize)))
-			goto done_claimed;
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     ctx->databuf, ctx->datalen)))
+			return ret;
 
 		INFO("Waiting for printer to acknowledge completion\n");
 		sleep(1);
@@ -1449,10 +1339,7 @@ top:
 		goto top;
 	}
 
-	/* Done printing */
-	INFO("All printing done\n");
-	ret = 0;
-	goto done_claimed;
+	return 0;
 
 printer_error:
 	ERROR("Printer reported error: %#x (%s) status: %#x (%s) -> %#x.%#x\n", 
@@ -1462,29 +1349,21 @@ printer_error:
 	      status_str(sts->hdr.status),
 	      sts->hdr.printer_major, sts->hdr.printer_minor);
 	// XXX write this.
-
-done_claimed:
-	libusb_release_interface(dev, iface);
-
-done_close:
-#if 0
-	if (claimed)
-		libusb_attach_kernel_driver(dev, iface);
-#endif
-	libusb_close(dev);
-done:
-	if (planedata)
-		free(planedata);
-	if (cmdbuf)
-		free(cmdbuf);
-
-	libusb_free_device_list(list, 1);
-	libusb_exit(ctx);
-
-	return ret;
+	return 1;
 }
 
-
+/* Exported */
+struct dyesub_backend shinkos2145_backend = {
+	.name = "Shinko/Sinfonia CHC-S2145",
+	.version = "0.17",
+	.uri_prefix = "shinkos2145",
+	.cmdline_usage = shinkos2145_cmdline,
+	.cmdline_arg = shinkos2145_cmdline_arg,
+	.init = shinkos2145_init,
+	.teardown = shinkos2145_teardown,
+	.read_parse = shinkos2145_read_parse,
+	.main_loop = shinkos2145_main_loop,
+};
 
 /* CHC-S2145 data format
 

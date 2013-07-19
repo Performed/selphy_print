@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.08"
+#define BACKEND_VERSION "0.09"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -348,6 +348,7 @@ static struct dyesub_backend *backends[] = {
 	&updr150_backend,
 	&kodak6800_backend,
 	&kodak1400_backend,
+	&shinkos2145_backend,
 	NULL,
 };
 
@@ -393,6 +394,8 @@ int main (int argc, char **argv)
 	int iface = 0;
 	int found = -1;
 	int copies = 1;
+	int jobid = 0;
+
 	char *uri = getenv("DEVICE_URI");
 	char *use_serno = NULL;
 	int query_only = 0;
@@ -450,6 +453,8 @@ int main (int argc, char **argv)
 
 	/* Are we running as a CUPS backend? */
 	if (uri) {
+		if (argv[1])
+			jobid = atoi(argv[1]);
 		if (argv[4])
 			copies = atoi(argv[4]);
 		if (argv[6]) {  /* IOW, is it specified? */
@@ -517,6 +522,9 @@ int main (int argc, char **argv)
 			query_only = 1;
 		}
 
+		srand(getpid());
+		jobid = rand();
+
 		/* Open Input File */
 		if (strcmp("-", argv[1])) {
 			data_fd = open(argv[1], O_RDONLY);
@@ -582,7 +590,7 @@ int main (int argc, char **argv)
 	}
 
 	/* Initialize backend */
-	backend_ctx = backend->init(dev, endp_up, endp_down);
+	backend_ctx = backend->init(dev, endp_up, endp_down, jobid);
 	
 	if (query_only) {
 		backend->cmdline_arg(backend_ctx, 1, argv[1], argv[2]);

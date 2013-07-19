@@ -292,7 +292,7 @@ int kodak6800_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 
 
 static void *kodak6800_init(struct libusb_device_handle *dev, 
-			    uint8_t endp_up, uint8_t endp_down)
+			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct kodak6800_ctx *ctx = malloc(sizeof(struct kodak6800_ctx));
 	if (!ctx)

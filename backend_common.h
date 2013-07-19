@@ -85,7 +85,7 @@ struct dyesub_backend {
 	char *uri_prefix;
 	void (*cmdline_usage)(char *caller);
 	void *(*init)(struct libusb_device_handle *dev,
-		      uint8_t endp_up, uint8_t endp_down);
+		      uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
 	void (*teardown)(void *ctx);
 	int  (*cmdline_arg)(void *ctx, int run, char *arg1, char *arg2);
 	int  (*read_parse)(void *ctx, int data_fd);
@@ -126,5 +126,6 @@ extern int terminate;
 extern struct dyesub_backend updr150_backend;
 extern struct dyesub_backend kodak6800_backend;
 extern struct dyesub_backend kodak1400_backend;
+extern struct dyesub_backend shinkos2145_backend;
 
 #endif /* __BACKEND_COMMON_H */

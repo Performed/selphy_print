@@ -48,7 +48,7 @@ struct updr150_ctx {
 };
 
 static void* updr150_init(struct libusb_device_handle *dev, 
-			  uint8_t endp_up, uint8_t endp_down)
+			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct updr150_ctx *ctx = malloc(sizeof(struct updr150_ctx));
 	if (!ctx)
