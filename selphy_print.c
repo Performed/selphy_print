@@ -236,10 +236,9 @@ static int fancy_memcmp(const uint8_t *buf_a, const int16_t *buf_b, uint len, in
 	return 0;
 }
 
-static struct printer_data *parse_printjob(uint8_t *buffer, uint8_t *bw_mode, uint32_t *plane_len) 
+static int parse_printjob(uint8_t *buffer, uint8_t *bw_mode, uint32_t *plane_len) 
 {
 	int printer_type = -1;
-	int i;
 
 	if (buffer[0] != 0x40 &&
 	    buffer[1] != 0x00) {
@@ -286,14 +285,8 @@ static struct printer_data *parse_printjob(uint8_t *buffer, uint8_t *bw_mode, ui
 		}
 	}
 
-	return NULL;
-
 done:
-	for (i = 0; selphy_printers[i].type != -1; i++) {
-		if (selphy_printers[i].type == printer_type)
-			return &selphy_printers[i];
-	}
-	return NULL;
+	return printer_type;
 }
 
 static int read_data(int remaining, int present, int data_fd, uint8_t *target,
@@ -381,13 +374,21 @@ static void canonselphy_teardown(void *vctx) {
 
 static int canonselphy_read_parse(void *vctx, int data_fd) {
 	struct canonselphy_ctx *ctx = vctx;
+	int printer_type, i;
 
 	uint8_t buffer[BUF_LEN];
 
 	/* Figure out printer this file is intended for */
 	read(data_fd, buffer, MAX_HEADER);
 
-	ctx->printer = parse_printjob(buffer, &ctx->bw_mode, &ctx->plane_len);
+	printer_type = parse_printjob(buffer, &ctx->bw_mode, &ctx->plane_len);
+
+	for (i = 0; selphy_printers[i].type != -1; i++) {
+		if (selphy_printers[i].type == printer_type) {
+			ctx->printer = &selphy_printers[i];
+			break;
+		}
+	}
 	if (!ctx->printer) {
 		ERROR("Unrecognized printjob file format!\n");
 		return 1;
