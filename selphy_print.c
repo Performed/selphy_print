@@ -151,7 +151,6 @@ static struct printer_data selphy_printers[] = {
 };
 
 #define MAX_HEADER 28
-#define BUF_LEN 4096
 
 static const int es40_cp790_plane_lengths[4] = { 2227456, 1601600, 698880, 2976512 };
 
@@ -289,31 +288,6 @@ done:
 	return printer_type;
 }
 
-static int read_data(int remaining, int present, int data_fd, uint8_t *target,
-		     uint8_t *buf, uint16_t buflen) {
-	int cnt;
-	int wrote = 0;
-
-	while (remaining > 0) {
-		cnt = read(data_fd, buf + present, (remaining < (buflen-present)) ? remaining : (buflen-present));
-		
-		if (cnt < 0)
-			return -1;
-
-		if (present) {
-			cnt += present;
-			present = 0;
-		}
-
-		memcpy(target + wrote, buf, cnt);
-
-		wrote += cnt;
-		remaining -= cnt;
-	}
-	
-	return wrote;
-}
-
 /* Private data stucture */
 struct canonselphy_ctx {
 	struct libusb_device_handle *dev;
@@ -333,6 +307,8 @@ struct canonselphy_ctx {
 	uint8_t *plane_m;
 	uint8_t *plane_c;
 	uint8_t *footer;
+
+	uint8_t *buffer;
 };
 
 static void *canonselphy_init(void)
@@ -374,21 +350,23 @@ static void canonselphy_teardown(void *vctx) {
 		free(ctx->plane_c);
 	if (ctx->footer)
 		free(ctx->footer);
+	if (ctx->buffer)
+		free(ctx->buffer);
 
 	free(ctx);
 }
 
-static int canonselphy_read_parse(void *vctx, int data_fd) {
+static int canonselphy_early_parse(void *vctx, int data_fd)
+{
 	struct canonselphy_ctx *ctx = vctx;
 	int printer_type, i;
 
-	uint8_t buffer[BUF_LEN];
+	ctx->buffer = malloc(MAX_HEADER);
 
 	/* Figure out printer this file is intended for */
-	read(data_fd, buffer, MAX_HEADER);
+	read(data_fd, ctx->buffer, MAX_HEADER);
 
-	printer_type = parse_printjob(buffer, &ctx->bw_mode, &ctx->plane_len);
-
+	printer_type = parse_printjob(ctx->buffer, &ctx->bw_mode, &ctx->plane_len);
 	for (i = 0; selphy_printers[i].type != -1; i++) {
 		if (selphy_printers[i].type == printer_type) {
 			ctx->printer = &selphy_printers[i];
@@ -397,16 +375,23 @@ static int canonselphy_read_parse(void *vctx, int data_fd) {
 	}
 	if (!ctx->printer) {
 		ERROR("Unrecognized printjob file format!\n");
-		return 1;
+		return -1;
 	}
 
 	ctx->plane_len += 12; /* Add in plane header length! */
 	if (ctx->printer->pgcode_offset != -1)
-		ctx->paper_code = ctx->printer->paper_codes[buffer[ctx->printer->pgcode_offset]];
+		ctx->paper_code = ctx->printer->paper_codes[ctx->buffer[ctx->printer->pgcode_offset]];
 	else
 		ctx->paper_code = -1;
 
 	DEBUG("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
+
+	return printer_type;
+}
+
+static int canonselphy_read_parse(void *vctx, int data_fd)
+{
+	struct canonselphy_ctx *ctx = vctx;
 
 	/* Set up buffers */
 	ctx->plane_y = malloc(ctx->plane_len);
@@ -421,13 +406,15 @@ static int canonselphy_read_parse(void *vctx, int data_fd) {
 	}
 
 	/* Read in entire print job */
-	memcpy(ctx->header, buffer, ctx->printer->init_length);
-	memmove(buffer, buffer+ctx->printer->init_length,
-		MAX_HEADER-ctx->printer->init_length);
-	read_data(ctx->plane_len, MAX_HEADER-ctx->printer->init_length, data_fd, ctx->plane_y, buffer, BUF_LEN);
-	read_data(ctx->plane_len, 0, data_fd, ctx->plane_m, buffer, BUF_LEN);
-	read_data(ctx->plane_len, 0, data_fd, ctx->plane_c, buffer, BUF_LEN);
-	read_data(ctx->printer->foot_length, 0, data_fd, ctx->footer, buffer, BUF_LEN);
+	memcpy(ctx->header, ctx->buffer, ctx->printer->init_length);
+	memcpy(ctx->plane_y, ctx->buffer, MAX_HEADER-ctx->printer->init_length);
+
+	read(data_fd, ctx->plane_y + (MAX_HEADER-ctx->printer->init_length),
+	     ctx->plane_len - (MAX_HEADER-ctx->printer->init_length));
+	read(data_fd, ctx->plane_m, ctx->plane_len);
+	read(data_fd, ctx->plane_c, ctx->plane_len);
+	if (ctx->printer->foot_length)
+		read(data_fd, ctx->footer, ctx->printer->foot_length);
 
 	return 0;
 }
@@ -613,11 +600,12 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.58",
+	.version = "0.59",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
 	.teardown = canonselphy_teardown,
+	.early_parse = canonselphy_early_parse,
 	.read_parse = canonselphy_read_parse,
 	.main_loop = canonselphy_main_loop,
 	.devices = {
