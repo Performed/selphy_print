@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.09"
+#define BACKEND_VERSION "0.10"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -518,7 +518,7 @@ int main (int argc, char **argv)
 			exit(1);
 		}
 
-		if (backend->cmdline_arg(NULL, 0, argv[1], argv[2])) {
+		if (backend->cmdline_arg && backend->cmdline_arg(NULL, 0, argv[1], argv[2])) {
 			query_only = 1;
 		}
 
