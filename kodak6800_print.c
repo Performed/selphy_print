@@ -512,11 +512,7 @@ top:
 		goto top;
 	}
 
-	/* Done printing */
-	INFO("All printing done\n");
-	ret = 0;
-
-	return ret;
+	return 0;
 }
 
 /* Exported */

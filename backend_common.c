@@ -347,6 +347,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 static struct dyesub_backend *backends[] = {
 	&updr150_backend,
 	&kodak6800_backend,
+	&kodak1400_backend,
 	NULL,
 };
 

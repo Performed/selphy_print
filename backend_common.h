@@ -125,5 +125,6 @@ extern int terminate;
 /* External data */
 extern struct dyesub_backend updr150_backend;
 extern struct dyesub_backend kodak6800_backend;
+extern struct dyesub_backend kodak1400_backend;
 
 #endif /* __BACKEND_COMMON_H */
