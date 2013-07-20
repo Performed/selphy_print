@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.14"
+#define BACKEND_VERSION "0.15"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -165,7 +165,11 @@ static int print_scan_output(struct libusb_device *device,
 		uint8_t port_num;
 
 		bus_num = libusb_get_bus_number(device);
+#if defined(LIBUSBX_API_VERSION)
 		port_num = libusb_get_port_number(device);
+#else
+		port_num = 255;
+#endif
 		sprintf((char*)serial, "NONE_B%03d_D%03d", bus_num, port_num);
 	}
 	
@@ -301,8 +305,8 @@ static struct dyesub_backend *find_backend(char *uri_prefix)
 
 int main (int argc, char **argv) 
 {
-	struct libusb_context *ctx;
-	struct libusb_device **list;
+	struct libusb_context *ctx = NULL;
+	struct libusb_device **list = NULL;
 	struct libusb_device_handle *dev;
 	struct libusb_config_descriptor *config;
 
@@ -480,6 +484,7 @@ int main (int argc, char **argv)
 
 	/* Libusb setup */
 	libusb_init(&ctx);
+	/* Enumerate devices */
 	found = find_and_enumerate(ctx, &list, use_serno, printer_type, -1, 0);
 
 	if (found == -1) {
@@ -566,8 +571,10 @@ done:
 	if (backend && backend_ctx)
 		backend->teardown(backend_ctx);
 
-	libusb_free_device_list(list, 1);
-	libusb_exit(ctx);
+	if (list)
+		libusb_free_device_list(list, 1);
+	if (ctx)
+		libusb_exit(ctx);
 
 	return ret;
 }
