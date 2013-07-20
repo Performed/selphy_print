@@ -260,7 +260,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 				if (vid == desc.idVendor &&
 				    pid == desc.idProduct) {
 					match = 1;
-					if (printer_type && printer_type == type)
+					if (printer_type == P_ANY ||
+					    printer_type == type)
 						found = i;
 				}
 			}
