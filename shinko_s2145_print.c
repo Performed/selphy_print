@@ -647,7 +647,7 @@ static int get_status(struct shinkos2145_ctx *ctx)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return -1;
+		return ret;
 	}
 
 	INFO("Printer Status:  0x%02x (%s)\n", resp->hdr.status,
@@ -736,7 +736,7 @@ static int get_errorlog(struct shinkos2145_ctx *ctx)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return -1;
+		return ret;
 	}
 	
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_errorlog_resp) - sizeof(struct s2145_status_hdr)))
@@ -766,7 +766,7 @@ static int get_mediainfo(struct shinkos2145_ctx *ctx)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return -1;
+		return ret;
 	}
 	
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
@@ -798,7 +798,7 @@ static int get_user_string(struct shinkos2145_ctx *ctx)
 				sizeof(*resp) - 1,
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return -1;
+		return ret;
 	}
 
 	/* Null-terminate */
@@ -834,7 +834,7 @@ static int set_user_string(struct shinkos2145_ctx *ctx, char *str)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return -1;
+		return ret;
 	}
 
 	return 0;
@@ -859,7 +859,7 @@ static int cancel_job(struct shinkos2145_ctx *ctx, char *str)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return -1;
+		return ret;
 	}
 
 	return 0;
@@ -879,7 +879,7 @@ static int flash_led(struct shinkos2145_ctx *ctx)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return -1;
+		return ret;
 	}
 
 	return 0;
@@ -901,7 +901,7 @@ static int reset_curve(struct shinkos2145_ctx *ctx, int target)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return -1;
+		return ret;
 	}
 
 	return 0;
@@ -923,7 +923,7 @@ static int button_set(struct shinkos2145_ctx *ctx, int enable)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return -1;
+		return ret;
 	}
 
 	return 0;
@@ -952,7 +952,7 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return -1;
+		return ret;
 	}
 
 	resp->total_size = le16_to_cpu(resp->total_size);
@@ -1039,7 +1039,7 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return -1;
+		return ret;
 	}
 
 	/* Sent transfer */
@@ -1363,13 +1363,46 @@ printer_error:
 	return 1;
 }
 
+#if 0
+// XXXX this isn't sufficient, we have to do the whole
+// detach, claim, descriptor probe, etc etc, before we can do this.
+// XXXX
+static int shinkos2145_query_serno(struct libusb_device_handle *dev, char *buf, int buf_len)
+{
+	struct s2145_cmd_hdr cmd;
+	struct s2145_getunique_resp *resp = (struct s2145_getunique_resp*) rdbuf;
+	int ret, num = 0;
+
+	cmd.cmd = cpu_to_le16(S2145_CMD_GETUNIQUE);
+	cmd.len = cpu_to_le16(0);
+
+	if ((ret = s2145_do_cmd(dev, ENDP_UP, ENDP_DOWN, 
+				(uint8_t*)&cmd, sizeof(cmd),
+				sizeof(*resp) - 1,
+				&num)) < 0) {
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
+		return ret;
+	}
+
+	/* Null-terminate */
+	resp->hdr.payload_len = le16_to_cpu(resp->hdr.payload_len);
+	if (resp->hdr.payload_len > 23)
+		resp->hdr.payload_len = 23;
+	resp->data[resp->hdr.payload_len] = 0;
+	strncpy(buf, (char*)resp->data, buf_len);
+	buf[buf_len-1] = 0; /* ensure it's null terminated */
+
+	return 0;
+}
+#endif
+
 /* Exported */
 #define USB_VID_SHINKO       0x10CE
 #define USB_PID_SHINKO_S2145 0x000E
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145",
-	.version = "0.17",
+	.version = "0.18",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
@@ -1378,6 +1411,7 @@ struct dyesub_backend shinkos2145_backend = {
 	.teardown = shinkos2145_teardown,
 	.read_parse = shinkos2145_read_parse,
 	.main_loop = shinkos2145_main_loop,
+//	.query_serno = shinkos2145_query_serno,
 	.devices = {
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
 	{ 0, 0, 0, ""}
