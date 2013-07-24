@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.15"
+#define BACKEND_VERSION "0.16"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -132,7 +132,8 @@ static int print_scan_output(struct libusb_device *device,
 			     struct libusb_device_descriptor *desc,
 			     char *prefix, char *manuf2,
 			     int found, int match,
-			     int scan_only, char *match_serno)
+			     int scan_only, char *match_serno,
+			     struct dyesub_backend *backend)
 {
 	struct libusb_device_handle *dev;
 
@@ -158,6 +159,8 @@ static int print_scan_output(struct libusb_device *device,
 	if (desc->iSerialNumber) {
 		libusb_get_string_descriptor_ascii(dev, desc->iSerialNumber, serial, STR_LEN_MAX);
 		sanitize_string((char*)serial);
+	} else if (backend->query_serno) {
+		backend->query_serno(dev, (char*)serial, STR_LEN_MAX);
 	}
 	
 	if (!strlen((char*)serial)) {
@@ -277,7 +280,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		found = print_scan_output((*list)[i], &desc,
 					  URI_PREFIX, backends[k]->devices[j].manuf_str,
 					  found, (found == i),
-					  scan_only, match_serno);
+					  scan_only, match_serno,
+					  backends[k]);
 	}
 
 	return found;
