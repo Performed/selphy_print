@@ -368,13 +368,14 @@ struct s2145_status_hdr {
 
    These are the observed error codes to date (via stored error log dumps):
 
-   01/16 [ controller/parameter?
+   01/16 [ controller/parameter? ]
    05/15 [ jam/reloading? ]
    05/4e [ jam/unknown    ]
    05/4f [ jam/unknown?   ]
    05/61 [ jam/cantload?  ]
    05/62 [ jam/cantload?  ]
    05/64 [ jam/unknown?   ]
+   06/01 [ "cover open"   ]
    06/0a [ consumables ?  ]
    06/0b [ consumables ?  ]
 
@@ -407,6 +408,14 @@ struct s2145_status_hdr {
 static char *error_codes(uint8_t major, uint8_t minor)
 {
 	switch(major) {
+	case 0x06:
+		switch (minor) {
+		case 0x01:
+			return "Front Cover Open";
+		default:
+			return "Unknown";
+		}
+#if 0
 	case 9: /* "Controller Error" */
 		switch(minor) {
 		case 0x01:
@@ -476,11 +485,11 @@ static char *error_codes(uint8_t major, uint8_t minor)
 		case 0x02:
 			return "Sensor: 02 Pinch Roller";
 		case 0x03:
-			return "Sensor: 03 Cutter";
+			return "Sensor: 03 Cutter L";
 		case 0x04:
-			return "Sensor: 04 Cutter";
+			return "Sensor: 04 Cutter R";
 		case 0x05:
-			return "Sensor: 05 Cutter";
+			return "Sensor: 05 Cutter M";
 		default:
 			return "Sensor: Unknown";
 		}
@@ -502,8 +511,8 @@ static char *error_codes(uint8_t major, uint8_t minor)
 
 	case 4: /* XXXX "Front Cover Open" */
 		switch (minor) {
-		case 0x01:
-			return "Front Cover: 01 Cover Open";
+//		case 0x01:
+//			return "Front Cover: 01 Cover Open";
 		case 0x02:
 			return "Front Cover: 02 Cover Open Error";
 		default:
@@ -587,6 +596,7 @@ static char *error_codes(uint8_t major, uint8_t minor)
 		default:
 			return "Consumables: Unknown";
 		}
+#endif
 	default:
 		return "Unknown Error";
 	}
@@ -682,6 +692,8 @@ static char *status_str(uint8_t v) {
 		return "Back-Feeding - Ejected";
 	case STATUS_FINISHED:
 		return "Print Finished";
+	case ERROR_PRINTER:
+		return "Printer Error";
 	default:
 		return "Unknown";
 	}
@@ -870,7 +882,15 @@ static int get_status(struct shinkos2145_ctx *ctx)
 
 	INFO("Printer Status:  0x%02x (%s)\n", resp->hdr.status,
 	     status_str(resp->hdr.status));
-
+	if (resp->hdr.status == ERROR_PRINTER) {
+		if(resp->hdr.error == ERROR_NONE)
+			resp->hdr.error = resp->hdr.status;
+		INFO(" Error 0x%02x (%s) 0x%02x/0x%02x (%s)\n",
+		     resp->hdr.error,
+		     error_str(resp->hdr.error),
+		     resp->hdr.printer_major,
+		     resp->hdr.printer_minor, error_codes(resp->hdr.printer_major, resp->hdr.printer_minor));
+	}
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct s2145_status_hdr)))
 		return 0;
 
@@ -962,7 +982,7 @@ static int get_errorlog(struct shinkos2145_ctx *ctx)
 
 	INFO("Stored Error Events: %d entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: @ %08d prints : 0x%02x/0x%02x = %s\n", i,
+		INFO(" %02d: @ %08d prints : 0x%02x/0x%02x (%s)\n", i,
 		     le32_to_cpu(resp->items[i].print_counter),
 		     resp->items[i].major, resp->items[i].minor, 
 		     error_codes(resp->items[i].major, resp->items[i].minor));
@@ -1476,7 +1496,7 @@ top:
 		INFO("Printer Status: 0x%02x (%s)\n", 
 		     sts->hdr.status, status_str(sts->hdr.status));
 		if (sts->hdr.error == ERROR_PRINTER) {
-			ERROR("Printer Reported Error: 0x%02x.0x%02x = %s\n",
+			ERROR("Printer Reported Error: 0x%02x.0x%02x (%s)\n",
 			      sts->hdr.printer_major, sts->hdr.printer_minor,
 			      error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
 		}
@@ -1573,7 +1593,7 @@ top:
 	return 0;
 
 printer_error:
-	ERROR("Printer reported error: %#x (%s) status: %#x (%s) -> %#x.%#x = %s\n",
+	ERROR("Printer reported error: %#x (%s) status: %#x (%s) -> %#x.%#x (%s)\n",
 	      sts->hdr.error, 
 	      error_str(sts->hdr.error),
 	      sts->hdr.status, 
@@ -1617,7 +1637,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145",
-	.version = "0.19",
+	.version = "0.20",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
