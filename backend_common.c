@@ -137,7 +137,7 @@ static int print_scan_output(struct libusb_device *device,
 	unsigned char manuf[STR_LEN_MAX] = "";
 	
 	if (libusb_open(device, &dev)) {
-		ERROR("Could not open device %04x:%04x\n", desc->idVendor, desc->idProduct);
+		ERROR("Could not open device %04x:%04x (need to be root?)\n", desc->idVendor, desc->idProduct);
 		found = -1;
 		goto abort;
 	}
@@ -513,7 +513,6 @@ int main (int argc, char **argv)
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
 		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
-		ret = 4;
 		goto done;
 	}
 	
@@ -522,7 +521,6 @@ int main (int argc, char **argv)
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
 			ERROR("Printer open failure (Could not detach printer from kernel)\n");
-			ret = 4;
 			goto done_close;
 		}
 	}
@@ -530,14 +528,12 @@ int main (int argc, char **argv)
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
 		ERROR("Printer open failure (Could not claim printer interface)\n");
-		ret = 4;
 		goto done_close;
 	}
 
 	ret = libusb_get_active_config_descriptor(list[found], &config);
 	if (ret) {
 		ERROR("Printer open failure (Could not fetch config descriptor)\n");
-		ret = 4;
 		goto done_close;
 	}
 
