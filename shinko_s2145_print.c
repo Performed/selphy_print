@@ -368,12 +368,40 @@ struct s2145_status_hdr {
 
    These are the observed error codes to date (via stored error log dumps):
 
-   0x01/0x16 @ 77845 [ jam/reloading or controller/paramtable or consumables? ]
-   0x06/0x0b @ 77822, 70053        [ controller/fpga ? or consumables? ]
-   0x05/0x64 @ 76034               [ jam ? (no match ) ]
-   0x05/0x61 @ 76034, 75420        [ jam/cantload ? ]
-   0x05/0x62 @ 76034               [ jam/cantload ? ]
-   0x05/0x4e @ 69824, 69820, 69781 [ jam ? (no match) ]
+   01/16 [ controller/parameter?
+   05/15 [ jam/reloading? ]
+   05/4e [ jam/unknown    ]
+   05/4f [ jam/unknown?   ]
+   05/61 [ jam/cantload?  ]
+   05/62 [ jam/cantload?  ]
+   05/64 [ jam/unknown?   ]
+   06/0a [ consumables ?  ]
+   06/0b [ consumables ?  ]
+
+   Errors logged on printer A:
+
+   0x01/0x16 @ 77845
+   0x06/0x0b @ 77822, 70053
+   0x05/0x64 @ 76034
+   0x05/0x61 @ 76034, 75420
+   0x05/0x62 @ 76034
+   0x05/0x4e @ 69824, 69820, 69781
+
+   Errors logged on printer B:
+
+   0x06/0x0b @ 33270
+   0x05/0x4e @ 32952, 27672
+   0x05/0x4f @ 32935, 31834
+   0x05/0x61 @ 30856, 27982
+   0x01/0x16 @ 29132
+   0x05/0x64 @ 27982
+   0x05/0x62 @ 27982
+
+   Errors logged on printer C:
+
+   0x06/0x0a @ 78014, 77948, 77943, 77938 x2, 77937, 77936, 77933, 77919
+   0x05/0x15 @ 77938
+
 
  */
 static char *error_codes(uint8_t major, uint8_t minor)
