@@ -115,7 +115,7 @@ struct dyesub_backend {
 	int  (*early_parse)(void *ctx, int data_fd);
 	int  (*read_parse)(void *ctx, int data_fd);
 	int  (*main_loop)(void *ctx, int copies);
-	int  (*query_serno)(struct libusb_device_handle *dev, char *buf, int buf_len);
+	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len);
 	struct device_id devices[];
 };
 
