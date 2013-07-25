@@ -358,6 +358,212 @@ struct s2145_status_hdr {
 #define ERROR_PRINTER           0x11
 #define ERROR_BUFFER_FULL       0x21
 
+
+/*
+
+   I have a list of 72 different errors that are displayed on the printer,
+   but it appears the list is incomplete, and there's no mapping between
+   category and major code numbers.  Also, not all of the individual errors
+   have minor codes listed (particularly the "consumables")
+
+   These are the observed error codes to date (via stored error log dumps):
+
+   0x01/0x16 @ 77845 [ jam/reloading or controller/paramtable or consumables? ]
+   0x06/0x0b @ 77822, 70053        [ controller/fpga ? or consumables? ]
+   0x05/0x64 @ 76034               [ jam ? (no match ) ]
+   0x05/0x61 @ 76034, 75420        [ jam/cantload ? ]
+   0x05/0x62 @ 76034               [ jam/cantload ? ]
+   0x05/0x4e @ 69824, 69820, 69781 [ jam ? (no match) ]
+
+ */
+static char *error_codes(uint8_t major, uint8_t minor)
+{
+	switch(major) {
+	case 9: /* "Controller Error" */
+		switch(minor) {
+		case 0x01:
+			return "Controller: 01 EEPROM";
+		case 0x02:
+			return "Controller: 02 EEPROM";
+		case 0x04:
+			return "Controller: 04 DSP";
+		case 0x05:
+			return "Controller: 05 DSP";
+		case 0x06:
+			return "Controller: 06 Main FW";
+		case 0x07:
+			return "Controller: 07 Main FW";
+		case 0x08:
+			return "Controller: 08 DSP FW";
+		case 0x09:
+			return "Controller: 09 DSP FW";
+		case 0x0A:
+			return "Controller: 0A ASIC";
+		case 0x0B:
+			return "Controller: 0B FPGA";
+		case 0x0D:
+			return "Controller: 0D Tone Curve";
+		case 0x16:
+			return "Controller: 16 Parameter Table";
+		case 0x17:
+			return "Controller: 17 Parameter Table";
+		case 0x18:
+			return "Controller: 18 Parameter Table";
+		case 0x29:
+			return "Controller: 29 DSP Comms";
+		case 0x2A:
+			return "Controller: 2A DSP Comms";
+		default:
+			return "Controller: Unknown";
+		}
+	case 8: /* XXXX "Mechanical Error" */
+		switch (minor) {
+		case 0x01:
+			return "Mechanical: 01 Thermal Head";
+		case 0x02:
+			return "Mechanical: 02 Thermal Head";
+		case 0x03:
+			return "Mechanical: 03 Thermal Head";
+		case 0x04:
+			return "Mechanical: 04 Pinch Roller";
+		case 0x05:
+			return "Mechanical: 05 Pinch Roller";
+		case 0x06:
+			return "Mechanical: 06 Pinch Roller";
+		case 0x07:
+			return "Mechanical: 07 Pinch Roller";
+		case 0x08:
+			return "Mechanical: 08 Pinch Roller";
+		case 0x09:
+			return "Mechanical: 09 Cutter";
+		case 0x0A:
+			return "Mechanical: 0A Cutter";
+		default:
+			return "Mechanical: Unknown";
+		}
+	case 2: /* XXXX "Sensor Error" */
+		switch (minor) {
+		case 0x01:
+			return "Sensor: 01 Thermal Head";
+		case 0x02:
+			return "Sensor: 02 Pinch Roller";
+		case 0x03:
+			return "Sensor: 03 Cutter";
+		case 0x04:
+			return "Sensor: 04 Cutter";
+		case 0x05:
+			return "Sensor: 05 Cutter";
+		default:
+			return "Sensor: Unknown";
+		}
+	case 3: /* XXXX "Temperature Sensor Error" */
+		switch (minor) {
+		case 0x01:
+			return "Temp Sensor: 01 Thermal Head High";
+		case 0x02:
+			return "Temp Sensor: 02 Thermal Head Low";
+		case 0x03:
+			return "Temp Sensor: 03 Environment High";
+		case 0x04:
+			return "Temp Sensor: 04 Environment Low";
+		case 0x05:
+			return "Temp Sensor: 05 Warmup Timed Out";
+		default:
+			return "Temp Sensor: Unknown";
+		}
+
+	case 4: /* XXXX "Front Cover Open" */
+		switch (minor) {
+		case 0x01:
+			return "Front Cover: 01 Cover Open";
+		case 0x02:
+			return "Front Cover: 02 Cover Open Error";
+		default:
+			return "Front Cover: Unknown";
+		}
+	case 5: /* XXX "Paper Jam" */
+		switch (minor) {
+		case 0x01:
+			return "Paper Jam: 01 Loading";
+		case 0x02:
+			return "Paper Jam: 02 Loading";
+		case 0x03:
+			return "Paper Jam: 03 Loading";
+		case 0x04:
+			return "Paper Jam: 04 Loading";
+		case 0x05:
+			return "Paper Jam: 05 Loading";
+		case 0x11:
+			return "Paper Jam: 11 Reloading";
+		case 0x12:
+			return "Paper Jam: 12 Reloading";
+		case 0x13:
+			return "Paper Jam: 13 Reloading";
+		case 0x14:
+			return "Paper Jam: 14 Reloading";
+		case 0x15:
+			return "Paper Jam: 15 Reloading";
+		case 0x16:
+			return "Paper Jam: 16 Reloading";
+		case 0x21:
+			return "Paper Jam: 21 Takeup";
+		case 0x22:
+			return "Paper Jam: 22 Takeup";
+		case 0x41:
+			return "Paper Jam: 41 Printing";
+		case 0x42:
+			return "Paper Jam: 42 Printing";
+		case 0x43:
+			return "Paper Jam: 43 Printing";
+		case 0x44:
+			return "Paper Jam: 44 Printing";
+		case 0x45:
+			return "Paper Jam: 45 Printing";
+		case 0x46:
+			return "Paper Jam: 46 Printing";
+		case 0x47:
+			return "Paper Jam: 47 Printing";
+		case 0x49:
+			return "Paper Jam: 49 Printing";
+		case 0x4A:
+			return "Paper Jam: 4A Ribbon Cut";
+		case 0x61:
+			return "Paper Jam: 61 Can't Load";
+		case 0x62:
+			return "Paper Jam: 62 Can't Load";
+		default:
+			return "Paper Jam: Unknown";
+		}
+	case 6: /* XXXX "Consumables" */
+		switch (minor) {
+		case 0x01:  // XXX
+			return "Consumables: XX No Ribbon+Paper";
+		case 0x02:  // XXX
+			return "Consumables: XX No Ribbon";
+		case 0x03:  // XXX
+			return "Consumables: XX Ribbon Empty";
+		case 0x04:  // XXX
+			return "Consumables: XX Ribbon Mismatch";
+		case 0x05:  // XXX
+			return "Consumables: XX 01 Ribbon Incorrect";
+		case 0x06:  // XXX
+			return "Consumables: XX 02 Ribbon Incorrect";
+		case 0x07:  // XXX
+			return "Consumables: XX 03 Ribbon Incorrect";
+		case 0x08:  // XXX
+			return "Consumables: XX No Paper";
+		case 0x09:  // XXX
+			return "Consumables: XX Paper Empty";
+		case 0x0A:  // XXX
+			return "Consumables: XX Paper Mismatch";
+		default:
+			return "Consumables: Unknown";
+		}
+	default:
+		return "Unknown Error";
+	}
+}
+
 static char *error_str(uint8_t v) {
 	switch (v) {
 	case ERROR_NONE:
@@ -380,22 +586,6 @@ static char *error_str(uint8_t v) {
 		return "Unknown";
 	}
 }
-
-/* XXX observed major/minor error codes:
-
-   0x01/0x16 @ 77845  [maybe paper out?]
-   0x06/0x0b @ 77822, 70053
-   0x05/0x64 @ 76034
-   0x05/0x61 @ 76034, 75420
-   0x05/0x62 @ 76034
-   0x05/0x4e @ 69824, 69820, 69781
-
-   Unfortunately I have no idea what these refer to.
-
-   major (0x01/5/6) may refer to above error codes or media/print modes.
-   minor (0x61/62/64) may refer to equivalent status codes (see below)
-
- */
 
 #define STATUS_READY            0x00
 #define STATUS_INIT_CPU         0x31
@@ -624,9 +814,9 @@ static int s2145_do_cmd(libusb_device_handle *dev,
 	if (resp->result != RESULT_SUCCESS) {
 		INFO("Printer Status:  %02x (%s)\n", resp->status, 
 		     status_str(resp->status));
-		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x)\n",
+		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x = %s)\n",
 		     resp->result, resp->error, resp->printer_major,
-		     resp->printer_minor);
+		     resp->printer_minor, error_codes(resp->printer_major, resp->printer_minor));
 		return -99;
 	}
 
@@ -1257,8 +1447,9 @@ top:
 		INFO("Printer Status: 0x%02x (%s)\n", 
 		     sts->hdr.status, status_str(sts->hdr.status));
 		if (sts->hdr.error == ERROR_PRINTER) {
-			ERROR("Printer Reported Error: 0x%02x.0x%02x\n", 
-			      sts->hdr.printer_major, sts->hdr.printer_minor);
+			ERROR("Printer Reported Error: 0x%02x.0x%02x = %s\n",
+			      sts->hdr.printer_major, sts->hdr.printer_minor,
+			      error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
 		}
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
@@ -1353,13 +1544,13 @@ top:
 	return 0;
 
 printer_error:
-	ERROR("Printer reported error: %#x (%s) status: %#x (%s) -> %#x.%#x\n", 
+	ERROR("Printer reported error: %#x (%s) status: %#x (%s) -> %#x.%#x = %s\n",
 	      sts->hdr.error, 
 	      error_str(sts->hdr.error),
 	      sts->hdr.status, 
 	      status_str(sts->hdr.status),
-	      sts->hdr.printer_major, sts->hdr.printer_minor);
-	// XXX need to decode these errors..
+	      sts->hdr.printer_major, sts->hdr.printer_minor,
+	      error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
 	return 1;
 }
 
@@ -1397,7 +1588,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145",
-	.version = "0.18",
+	.version = "0.19",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
