@@ -1359,15 +1359,11 @@ printer_error:
 	      sts->hdr.status, 
 	      status_str(sts->hdr.status),
 	      sts->hdr.printer_major, sts->hdr.printer_minor);
-	// XXX write this.
+	// XXX need to decode these errors..
 	return 1;
 }
 
-#if 0
-// XXXX this isn't sufficient, we have to do the whole
-// detach, claim, descriptor probe, etc etc, before we can do this.
-// XXXX
-static int shinkos2145_query_serno(struct libusb_device_handle *dev, char *buf, int buf_len)
+static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
 {
 	struct s2145_cmd_hdr cmd;
 	struct s2145_getunique_resp *resp = (struct s2145_getunique_resp*) rdbuf;
@@ -1376,7 +1372,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, char *buf, 
 	cmd.cmd = cpu_to_le16(S2145_CMD_GETUNIQUE);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(dev, ENDP_UP, ENDP_DOWN, 
+	if ((ret = s2145_do_cmd(dev, endp_up, endp_down,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp) - 1,
 				&num)) < 0) {
@@ -1394,7 +1390,6 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, char *buf, 
 
 	return 0;
 }
-#endif
 
 /* Exported */
 #define USB_VID_SHINKO       0x10CE
@@ -1411,7 +1406,7 @@ struct dyesub_backend shinkos2145_backend = {
 	.teardown = shinkos2145_teardown,
 	.read_parse = shinkos2145_read_parse,
 	.main_loop = shinkos2145_main_loop,
-//	.query_serno = shinkos2145_query_serno,
+	.query_serno = shinkos2145_query_serno,
 	.devices = {
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
 	{ 0, 0, 0, ""}
