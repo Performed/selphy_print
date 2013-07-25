@@ -934,9 +934,10 @@ static int get_errorlog(struct shinkos2145_ctx *ctx)
 
 	INFO("Stored Error Events: %d entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: 0x%02x/0x%02x @ %08d prints\n", i,
+		INFO(" %02d: @ %08d prints : 0x%02x/0x%02x = %s\n", i,
+		     le32_to_cpu(resp->items[i].print_counter),
 		     resp->items[i].major, resp->items[i].minor, 
-		     le32_to_cpu(resp->items[i].print_counter));
+		     error_codes(resp->items[i].major, resp->items[i].minor));
 	}
 	return 0;
 }
