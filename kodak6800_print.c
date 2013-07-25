@@ -69,10 +69,12 @@ struct kodak6800_ctx {
 /* Program states */
 enum {
 	S_IDLE = 0,
-	S_PRINTER_READY_HDR,
-	S_PRINTER_SENT_HDR,
-	S_PRINTER_SENT_HDR2,
-	S_PRINTER_SENT_DATA,
+	S_6850_READY,
+	S_6850_READY_WAIT,
+	S_READY,
+	S_STARTED,
+	S_SENT_HDR,
+	S_SENT_DATA,
 	S_FINISHED,
 };
 
@@ -393,6 +395,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 
 	int last_state = -1, state = S_IDLE;
 	int i, num, ret;
+	int pending = 0;
 
 	if (!ctx)
 		return 1;
@@ -401,6 +404,9 @@ top:
 	if (state != last_state) {
 		DEBUG("last_state %d new %d\n", last_state, state);
 	}
+
+	if (pending)
+		goto skip_query;
 
 	/* Send Status Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
@@ -415,6 +421,7 @@ top:
 			     cmdbuf, CMDBUF_LEN - 1)))
 		return ret;
 
+skip_query:
 	/* Read in the printer status */
 	memset(rdbuf, 0, READBACK_LEN);
 	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
@@ -423,19 +430,20 @@ top:
 				   &num,
 				   5000);
 
-	if (ret < 0 || num < 51) {
+	if (ret < 0 || num != 51) {
 		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, ctx->endp_up);
 		if (ret < 0)
 			return ret;
 		return 4;
 	}
 
-	// XXX detect media type based on readback?
-
 	if (num != 51 && num != 58 && num != 68) {
-		ERROR("Unexpected readback from printer (%d/%d from 0x%02x))\n", num, READBACK_LEN, ctx->endp_up);
+		ERROR("Unexpected readback from printer (%d/%d from 0x%02x))\n",
+		      num, READBACK_LEN, ctx->endp_up);
 		return ret;
 	}
+
+	// XXX detect media type based on readback?
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		DEBUG("readback: ");
@@ -450,6 +458,8 @@ top:
 
 	fflush(stderr);       
 
+	pending = 0;
+
 	switch (state) {
 	case S_IDLE:
 		INFO("Waiting for printer idle\n");
@@ -459,10 +469,38 @@ top:
 			break;
 		}
 
-		state = S_PRINTER_READY_HDR;
-		break;
-	case S_PRINTER_READY_HDR:
 		INFO("Printing started; Sending init sequence\n");
+		if (ctx->type == P_KODAK_6850)
+			state = S_6850_READY;
+		else
+			state = S_READY;
+		break;
+	case S_6850_READY:
+		INFO("Sending 6850 init sequence\n");
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x03;
+		cmdbuf[1] = 0x1b;
+		cmdbuf[2] = 0x43;
+		cmdbuf[3] = 0x48;
+		cmdbuf[4] = 0x43;
+		cmdbuf[5] = 0x4c;
+
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     cmdbuf, CMDBUF_LEN -1)))
+			return ret;
+		pending = 1;
+		state = S_6850_READY_WAIT;	
+		break;
+	case S_6850_READY_WAIT:
+		if (rdbuf[0] != 0x01 ||
+		    rdbuf[1] != 0x01 ||
+		    rdbuf[2] != 0x43) {
+			break;
+		}
+		state = S_READY;
+		break;
+	case S_READY:
+		INFO("Sending attention sequence\n");
 		/* Send reset/attention */
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		cmdbuf[0] = 0x03;
@@ -471,13 +509,14 @@ top:
 		cmdbuf[3] = 0x48;
 		cmdbuf[4] = 0x43;
 		cmdbuf[5] = 0x1a;
+
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     cmdbuf, CMDBUF_LEN -1)))
 			return ret;
-		state = S_PRINTER_SENT_HDR;
+		pending = 1;
+		state = S_STARTED;
 		break;
-	case S_PRINTER_SENT_HDR:
-		INFO("Waiting for printer to acknowledge start\n");
+	case S_STARTED:
 		if (rdbuf[0] != 0x01 ||
 		    rdbuf[1] != 0x03 ||
 		    rdbuf[2] != 0x00) {
@@ -506,10 +545,10 @@ top:
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     cmdbuf, CMDBUF_LEN)))
 			return ret;
-
-		state = S_PRINTER_SENT_HDR2;
+		pending = 1;
+		state = S_SENT_HDR;
 		break;
-	case S_PRINTER_SENT_HDR2:
+	case S_SENT_HDR:
 		INFO("Waiting for printer to accept data\n");
 		if (rdbuf[0] != 0x01 ||
 		    rdbuf[1] != 0x02 ||
@@ -523,9 +562,9 @@ top:
 			return ret;
 
 		INFO("Image data sent\n");
-		state = S_PRINTER_SENT_DATA;
+		state = S_SENT_DATA;
 		break;
-	case S_PRINTER_SENT_DATA:
+	case S_SENT_DATA:
 		INFO("Waiting for printer to acknowledge completion\n");
 		if (rdbuf[0] != 0x01 ||
 		    rdbuf[1] != 0x02 ||
@@ -559,7 +598,7 @@ top:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.16",
+	.version = "0.17",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
@@ -601,13 +640,10 @@ struct dyesub_backend kodak6800_backend = {
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
 <-  [51 octets]
 
-    01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b  [ a2 7b may be print counters, increments after each print ]
-    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8  [ e6 b1 may be a print counter, increments by 2 after each print ]
-    00 01 00 83 00 00 00 00  00 00 00 00 00 00 00 00  [ "00" after "83" seems to be a per-powerup print counter, increments by 1 after each "get ready" command ]
+    01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b
+    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8
+    00 01 00 83 00 00 00 00  00 00 00 00 00 00 00 00
     00 00 00
-
-->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
-<-  [51 octets -- same as above]
 
 ->  03 1b 43 48 43 1a 00 00  00 00 00 00 00 00 00 00  [get ready]
 <-  [58 octets]
@@ -617,7 +653,9 @@ struct dyesub_backend kodak6800_backend = {
     HH 01 01 00 00 00 06 WW  WW MM MM 01 03 00 00 00
     00 00 00 00 00 00 00 00  00 00
 
-->  03 1b 43 48 43 0a 00 01  00 01 07 34 04 d8 06 01 01 [ image header, modified -- last octet is always 0x01.  '06' may be the expected media size in the printer? ]
+->  03 1b 43 48 43 0a 00 01  00 01 WW WW HH HH 06 01  [ image header, modified (trailing 0x01, '0x06' as media type) ]
+    01 
+
 <-  [51 octets]
 
     01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b
@@ -633,9 +671,9 @@ struct dyesub_backend kodak6800_backend = {
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00 [status query]
 <-  [51 octets]
 
-    01 02 01 00 00 00 00 00  00 00 a2 7b 00 00 a2 7b
-    00 00 02 f4 00 00 e6 b1  00 00 00 1a 00 03 00 e8
-    00 01 00 83 01 00 00 01  00 00 00 01 00 00 00 00
+    01 02 01 00 00 00 00 00  00 00 a2 7c 00 00 a2 7c [ note a2 7c vs a2 7b ]
+    00 00 01 7a 00 00 e6 b3  00 00 00 1a 00 03 00 e8 [ note 01 7a vs 02 f4, e6 b3 vs e6 b1 ]
+    00 01 00 83 01 00 00 00  00 01 00 01 00 00 00 00 [ note the moved '01' in the middle ]
     00 00 00
 
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00 [ status query ]
@@ -653,7 +691,7 @@ struct dyesub_backend kodak6800_backend = {
 <-  [51 octets]
 
     [[ typical status response ]]
-    [[ Followed by reset. ]]s
+    [[ Followed by reset. ]]
 
   Read tone curve data:  
 
@@ -702,7 +740,8 @@ struct dyesub_backend kodak6800_backend = {
   [[ It apepars the extra 25 bytes are to compensate for the leading '03' on 
      each of the 25 URBs. ]]
 
-   ********************************************************************************************
+   ***********************************************************************
+
    Kodak 6850 Printer Comms:
 
    [[file header]] 03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH MT LL 00
@@ -712,7 +751,7 @@ struct dyesub_backend kodak6800_backend = {
 
     01 02 01 00 00 00 00 00  00 00 21 75 00 00 08 52
     00 00 01 29 00 00 3b 0a  00 00 00 0e 00 03 02 90
-    00 01 02 1d 00 00 00 00  00 01 00 01 00 00 00 00  [ "00" after "1d" seems to be a per-powerup print counter, increments by 1 after each "get ready" command ]
+    00 01 02 1d 03 00 00 00  00 01 00 01 00 00 00 00
     00 00 00
 
 ->  03 1b 43 48 43 4c 00 00  00 00 00 00 00 00 00 00  [???]
@@ -720,7 +759,7 @@ struct dyesub_backend kodak6800_backend = {
 
     01 01 43 48 43 4c 00 00  00 00 00 00 00 00 00 00
     00 00 01 29 00 00 3b 0a  00 00 00 0e 00 03 02 90
-    00 01 02 1d 00 00 00 00  00 01 00 01 00 00 00 00
+    00 01 02 1d 03 00 00 00  00 01 00 01 00 00 00 00
     00 00 00
 
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
@@ -736,13 +775,13 @@ struct dyesub_backend kodak6800_backend = {
     04 00 00 00
 
 ->  03 1b 43 48 43 0a 00 04  00 01 07 34 04 d8 06 01 [ image header, modified ] 
-    01       [ note we use '04' for 4x6, '05' for 6x8. last octet is always 0x01 when 4x6.  '06' may be the expected media size in the printer? ]
+    01       [ note we use '04' for 4x6, '05' for 6x8. last octet is always 0x01 when 4x6. ]
 
 <-  [51 octets]
 
     01 02 01 00 00 00 00 00  00 00 21 75 00 00 08 52
     00 00 01 29 00 00 3b 0a  00 00 00 0e 00 03 02 90
-    00 01 02 1d 01 00 00 01  00 00 00 01 00 00 00 00 [ note the "01" after "1d", and the moved '01' ]
+    00 01 02 1d 04 00 00 01  00 00 00 01 00 00 00 00 [ note the "04" after "1d", and the moved '01' ]
     00 00 00
 
 ->  [4K of plane data]
@@ -753,13 +792,10 @@ struct dyesub_backend kodak6800_backend = {
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00 [status query]
 <-  [51 octets]
 
-    01 02 01 00 00 00 00 00  00 00 21 75 00 00 08 52
-    00 00 01 29 00 00 3b 0a  00 00 00 0e 00 03 02 90
-    00 01 02 1d 01 00 00 01  00 00 00 01 00 00 00 00
+    01 02 01 00 00 00 00 00  00 00 21 76 00 00 08 53 [ note 21 76, 08 53, 01 2a incremented by 1 ]
+    00 00 01 2a 00 00 3b 0c  00 00 00 0e 00 03 02 90 [ note 3b 0c incremeted by 2 ]
+    00 01 02 1d 04 00 00 01  00 00 00 01 00 00 00 00
     00 00 00
-
-->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00
-<-  [51 octets, repeats]
 
   Other stuff seen:
 
@@ -795,7 +831,7 @@ struct dyesub_backend kodak6800_backend = {
 
     [[ typical status response ]]
 
-   Generate printer calibration page:
+   Generate printer calibration page:  (maybe this resets the table?)
 
 ->  03 1b 43 48 43 05 00 00  00 00 00 00 00 00 00 00 [???]
 <-  [34 octets]
