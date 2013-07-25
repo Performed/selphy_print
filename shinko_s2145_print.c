@@ -598,7 +598,7 @@ static char *error_codes(uint8_t major, uint8_t minor)
 		}
 #endif
 	default:
-		return "Unknown Error";
+		return "Unknown";
 	}
 }
 
