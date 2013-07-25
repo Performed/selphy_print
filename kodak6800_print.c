@@ -1,5 +1,5 @@
 /*
- *   Kodak 6800 Photo Printer CUPS backend -- libusb-1.0 version
+ *   Kodak 6800/6850 Photo Printer CUPS backend -- libusb-1.0 version
  *
  *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
  *
@@ -37,6 +37,10 @@
 
 #include "backend_common.h"
 
+#define USB_VID_KODAK       0x040A
+#define USB_PID_KODAK_6800  0x4021
+#define USB_PID_KODAK_6850  0x402B
+
 /* File header */
 struct kodak6800_hdr {
 	uint8_t  hdr[9];
@@ -56,6 +60,7 @@ struct kodak6800_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 
+	int type;
 	struct kodak6800_hdr hdr;
 	uint8_t *databuf;
 	int datalen;
@@ -71,8 +76,7 @@ enum {
 	S_FINISHED,
 };
 
-#define READBACK_LEN 58
-
+#define READBACK_LEN 68
 
 #define UPDATE_SIZE 1536
 static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
@@ -298,6 +302,8 @@ static void *kodak6800_init(void)
 		return NULL;
 	memset(ctx, 0, sizeof(struct kodak6800_ctx));
 
+	ctx->type = P_ANY;
+
 	return ctx;
 }
 
@@ -305,10 +311,21 @@ static void kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct kodak6800_ctx *ctx = vctx;
+	struct libusb_device *device;
+	struct libusb_device_descriptor desc;
 
 	ctx->dev = dev;	
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+
+	/* Map out device type */
+	if (desc.idProduct == USB_PID_KODAK_6850)
+		ctx->type = P_KODAK_6850;
+	else
+		ctx->type = P_KODAK_6800;
+
+	device = libusb_get_device(dev);
+	libusb_get_device_descriptor(device, &desc);
 }
 
 
@@ -406,9 +423,17 @@ top:
 				   &num,
 				   5000);
 
-	if (ret < 0 || ((num != 51) && (num != 58))) {
+	if (ret < 0 || num < 51) {
 		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, ctx->endp_up);
-		ret = 4;
+		if (ret < 0)
+			return ret;
+		return 4;
+	}
+
+	// XXX detect media type based on readback?
+
+	if (num != 51 && num != 58 && num != 68) {
+		ERROR("Unexpected readback from printer (%d/%d from 0x%02x))\n", num, READBACK_LEN, ctx->endp_up);
 		return ret;
 	}
 
@@ -460,6 +485,14 @@ top:
 		}
 
 		memcpy(cmdbuf, &ctx->hdr, CMDBUF_LEN);
+
+		/* 6850 uses same spool format but different header gets sent */
+		if (ctx->type == P_KODAK_6850) {
+			if (ctx->hdr.media == 0x00)
+				cmdbuf[7] = 0x04;
+			else if (ctx->hdr.media == 0x06)
+				cmdbuf[7] = 0x05;
+		}
 
 		/* If we're printing a 4x6 on 8x6 media... */
 		if (ctx->hdr.media == 0x00 &&
@@ -524,12 +557,9 @@ top:
 }
 
 /* Exported */
-#define USB_VID_KODAK       0x040A
-#define USB_PID_KODAK_6800  0x4021
-
 struct dyesub_backend kodak6800_backend = {
-	.name = "Kodak 6800",
-	.version = "0.15",
+	.name = "Kodak 6800/6850",
+	.version = "0.16",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
@@ -540,6 +570,7 @@ struct dyesub_backend kodak6800_backend = {
 	.main_loop = kodak6800_main_loop,
 	.devices = { 
 	{ USB_VID_KODAK, USB_PID_KODAK_6800, P_KODAK_6800, "Kodak"},
+	{ USB_VID_KODAK, USB_PID_KODAK_6850, P_KODAK_6850, "Kodak"},
 	{ 0, 0, 0, ""}
 	}
 };
@@ -563,9 +594,9 @@ struct dyesub_backend kodak6800_backend = {
 
   ************************************************************************
 
-  The data format actually sent to the Kodak 6800 is subtly different.
+   Kodak 6800 Printer Comms:
 
-[file header] 03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH MT LL 00
+   [[file header]] 03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH MT LL 00
 
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
 <-  [51 octets]
@@ -607,7 +638,7 @@ struct dyesub_backend kodak6800_backend = {
     00 01 00 83 01 00 00 01  00 00 00 01 00 00 00 00
     00 00 00
 
-->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00
+->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00 [ status query ]
 <-  [51 octets, repeats]
 
   Other stuff seen:
@@ -670,5 +701,107 @@ struct dyesub_backend kodak6800_backend = {
   [[ total of 24 packets * 64, and then one final packet of 25: 1562 total. ]]
   [[ It apepars the extra 25 bytes are to compensate for the leading '03' on 
      each of the 25 URBs. ]]
+
+   ********************************************************************************************
+   Kodak 6850 Printer Comms:
+
+   [[file header]] 03 1b 43 48 43 0a 00 01  00 CC WW WW HH HH MT LL 00
+
+->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
+<-  [51 octets]
+
+    01 02 01 00 00 00 00 00  00 00 21 75 00 00 08 52
+    00 00 01 29 00 00 3b 0a  00 00 00 0e 00 03 02 90
+    00 01 02 1d 00 00 00 00  00 01 00 01 00 00 00 00  [ "00" after "1d" seems to be a per-powerup print counter, increments by 1 after each "get ready" command ]
+    00 00 00
+
+->  03 1b 43 48 43 4c 00 00  00 00 00 00 00 00 00 00  [???]
+<-  [51 octets]
+
+    01 01 43 48 43 4c 00 00  00 00 00 00 00 00 00 00
+    00 00 01 29 00 00 3b 0a  00 00 00 0e 00 03 02 90
+    00 01 02 1d 00 00 00 00  00 01 00 01 00 00 00 00
+    00 00 00
+
+->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
+<-  [51 octets -- same as status query before ]
+
+->  03 1b 43 48 43 1a 00 00  00 00 00 00 00 00 00 00  [get ready]
+<-  [68 octets]
+
+    01 0b 00 00 00 00 00 06  06 WW WW MM MM 01 00 00  [MM MM == max printable size of media, 09 82 == 2434 for 6x8!]
+    00 00 06 WW WW 09 ba 01  02 01 00 00 06 WW WW HH  [09 ba == 2940 == cut area?]
+    HH 01 01 00 00 00 06 WW  WW MM MM 01 03 00 00 00
+    06 WW WW 09 ba 01 05 01  00 00 06 WW WW HH HH 01
+    04 00 00 00
+
+->  03 1b 43 48 43 0a 00 04  00 01 07 34 04 d8 06 01 [ image header, modified ] 
+    01       [ note we use '04' for 4x6, '05' for 6x8. last octet is always 0x01 when 4x6.  '06' may be the expected media size in the printer? ]
+
+<-  [51 octets]
+
+    01 02 01 00 00 00 00 00  00 00 21 75 00 00 08 52
+    00 00 01 29 00 00 3b 0a  00 00 00 0e 00 03 02 90
+    00 01 02 1d 01 00 00 01  00 00 00 01 00 00 00 00 [ note the "01" after "1d", and the moved '01' ]
+    00 00 00
+
+->  [4K of plane data]
+->  ...
+->  [4K of plane data]
+->  [remainder of plane data]
+
+->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00 [status query]
+<-  [51 octets]
+
+    01 02 01 00 00 00 00 00  00 00 21 75 00 00 08 52
+    00 00 01 29 00 00 3b 0a  00 00 00 0e 00 03 02 90
+    00 01 02 1d 01 00 00 01  00 00 00 01 00 00 00 00
+    00 00 00
+
+->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00
+<-  [51 octets, repeats]
+
+  Other stuff seen:
+
+->  03 1b 43 48 43 12 00 00  00 00 00 00 00 00 00 00  
+    00 
+<-  [32 octets]
+
+    00 20 20 20 20 20 20 20  20 20 20 20 20 20 20 20  [[ Pascal string? ]]
+    20 20 20 20 20 20 20 20  36 30 39 37 4b 53 34 39  [[ ..."  6097KS49" ]]
+
+  Read tone curve data:  
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 72 01 00 00 00 00
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 20
+<-  [64 octets]
+
+    81 01 07 07 27 07 72 07  c8 07 f8 07 22 07 48 08
+    68 08 88 08 b3 08 db 08  f7 08 09 09 2e 09 49 09
+    65 09 80 09 aa 09 ca 09  e2 09 fa 09 12 0a 32 0a
+    42 0a 66 0a 81 0a 9a 0a  c3 0a d9 0a ee 0a 04 0b
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 20
+<-  [64 octets]
+
+  [[ repeats for total of 24 packets.  total of 1.5KiB. ]]
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 65 00 00 00 00 00
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+   Generate printer calibration page:
+
+->  03 1b 43 48 43 05 00 00  00 00 00 00 00 00 00 00 [???]
+<-  [34 octets]
+
+    01 00 04 00 00 00 01 00  01 00 02 00 00 00 01 00
+    01 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+    00 00 
 
 */
