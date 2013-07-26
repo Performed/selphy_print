@@ -488,6 +488,8 @@ int main (int argc, char **argv)
 	signal(SIGTERM, sigterm_handler);
 
 	/* Initialize backend */
+	INFO("Initializing '%s' backend (version %s)\n",
+	     backend->name, backend->version);
 	backend_ctx = backend->init();
 
 	/* Parse printjob if necessary */
@@ -560,8 +562,7 @@ int main (int argc, char **argv)
 	close(data_fd);
 
 	/* Time for the main processing loop */
-	INFO("Printing started with '%s' backend version '%s' (%d copies)\n",
-	     backend->name, backend->version, copies);
+	INFO("Printing started (%d copies)\n", copies);
 
 	ret = backend->main_loop(backend_ctx, copies);
 	if (ret)
