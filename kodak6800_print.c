@@ -831,7 +831,7 @@ struct dyesub_backend kodak6800_backend = {
 
     [[ typical status response ]]
 
-   Generate printer calibration page:  (maybe this resets the table?)
+  Maybe this resets the calibration table:
 
 ->  03 1b 43 48 43 05 00 00  00 00 00 00 00 00 00 00 [???]
 <-  [34 octets]
@@ -839,5 +839,32 @@ struct dyesub_backend kodak6800_backend = {
     01 00 04 00 00 00 01 00  01 00 02 00 00 00 01 00
     01 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
     00 00 
+
+  Write tone curve data:
+
+->  03 1b 43 48 43 0c 54 4f  4e 45 77 01 00 00 00 00
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+->  03 00 00 46 06 53 06 c0  06 07 07 37 07 5d 07 87 
+    07 a1 07 c8 07 08 08 08  08 08 08 48 08 68 08 88
+    08 a9 08 b9 08 d9 08 f9  08 12 09 2e 09 49 09 70
+    09 89 08 99 09 ba 09 ca  08 da 09 0a 0a 24 0a 38
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+->  03 0a 53 0a 66 0a 81 0a ...
+   ....
+->  03 cf 38 0a 39 3d 39 79  39 96 39 b6 39 fb 39 01
+    34 0a 34 08 3a 0c 1a 10  3a
+<-  [51 octets]
+
+    [[ typical status response ]]
+
+  [[ total of 24 packets * 64, and then one final packet of 25: 1562 total. ]]
+  [[ It apepars the extra 25 bytes are to compensate for the leading '03' on 
+     each of the 25 URBs. ]]
 
 */
