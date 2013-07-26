@@ -238,7 +238,7 @@ static int kodak1400_set_tonecurve(struct kodak1400_ctx *ctx, char *fname)
 
 static void kodak1400_cmdline(char *caller)
 {
-	DEBUG("\t\t%s [ -qtc filename ]\n", caller);
+	DEBUG("\t\t%s [ -stc filename ]\n", caller);
 }
 
 int kodak1400_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
