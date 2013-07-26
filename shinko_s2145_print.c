@@ -1492,6 +1492,7 @@ top:
 			DEBUG2("%02x ", rdbuf[i]);
 		}
 		DEBUG2("\n");
+		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 
 		INFO("Printer Status: 0x%02x (%s)\n", 
 		     sts->hdr.status, status_str(sts->hdr.status));
@@ -1500,7 +1501,6 @@ top:
 			      sts->hdr.printer_major, sts->hdr.printer_minor,
 			      error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
 		}
-		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
 		sleep(1);
 	}

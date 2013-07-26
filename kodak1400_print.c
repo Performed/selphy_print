@@ -389,9 +389,12 @@ top:
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		DEBUG("readback:  %02x %02x %02x %02x  %02x %02x %02x %02x\n",
-		      rdbuf[0], rdbuf[1], rdbuf[2], rdbuf[3],
-		      rdbuf[4], rdbuf[5], rdbuf[6], rdbuf[7]);
+		int i;
+		DEBUG("readback: ");
+		for (i = 0 ; i < num ; i++) {
+			DEBUG2("%02x ", rdbuf[i]);
+		}
+		DEBUG2("\n");
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
 		sleep(1);
