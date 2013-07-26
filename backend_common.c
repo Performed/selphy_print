@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.17"
+#define BACKEND_VERSION "0.18"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -560,7 +560,8 @@ int main (int argc, char **argv)
 	close(data_fd);
 
 	/* Time for the main processing loop */
-	INFO("Printing started (%d copies)\n", copies);
+	INFO("Printing started with '%s' backend version '%s' (%d copies)\n",
+	     backend->name, backend->version, copies);
 
 	ret = backend->main_loop(backend_ctx, copies);
 	if (ret)
