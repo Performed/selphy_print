@@ -430,7 +430,7 @@ skip_query:
 				   &num,
 				   5000);
 
-	if (ret < 0 || num != 51) {
+	if (ret < 0 || num < 51) {
 		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, ctx->endp_up);
 		if (ret < 0)
 			return ret;
@@ -598,7 +598,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.17",
+	.version = "0.18",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
