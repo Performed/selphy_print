@@ -320,14 +320,14 @@ static void kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
 
+	device = libusb_get_device(dev);
+	libusb_get_device_descriptor(device, &desc);
+
 	/* Map out device type */
 	if (desc.idProduct == USB_PID_KODAK_6850)
 		ctx->type = P_KODAK_6850;
 	else
 		ctx->type = P_KODAK_6800;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
 }
 
 
@@ -451,6 +451,7 @@ skip_query:
 			DEBUG2("%02x ", rdbuf[i]);
 		}
 		DEBUG2("\n");
+		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
 		sleep(1);
 	}
@@ -598,7 +599,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.18",
+	.version = "0.19",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
