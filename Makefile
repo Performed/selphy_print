@@ -1,4 +1,4 @@
-CFLAGS = -Wall -g
+CFLAGS = -Wall -Wextra -g
 LDFLAGS = -lusb-1.0
 
 CUPS_BACKEND_DIR = /usr/lib/cups/backend
@@ -11,20 +11,19 @@ gutenprint: $(SOURCES) $(DEPS)
 	gcc -o $@ $(SOURCES) $(LDFLAGS) $(CFLAGS)
 
 sonyupdr150: gutenprint
-	ln -s gutenprint $@
+	ln -sf gutenprint $@
 
 kodak6800: gutenprint
-	ln -s gutenprint $@
+	ln -sf gutenprint $@
 
 kodak1400: gutenprint
-	ln -s gutenprint $@
+	ln -sf gutenprint $@
 
 shinkos2145: gutenprint
-	ln -s gutenprint $@
+	ln -sf gutenprint $@
 
 canonselphy: gutenprint
-	ln -s gutenprint $@
-
+	ln -sf gutenprint $@
 
 install:	
 	install -o root -m 700 gutenprint $(CUPS_BACKEND_DIR)/gutenprint+usb

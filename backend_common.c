@@ -243,7 +243,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
 			      char *match_serno,
 			      int printer_type,
-			      int media_type,  /* XXX for future use */
 			      int scan_only)
 {
 	int num;
@@ -393,7 +392,7 @@ int main (int argc, char **argv)
 			}
 		}
 		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, P_ANY, -1, 1);
+		find_and_enumerate(ctx, &list, NULL, P_ANY, 1);
 		libusb_free_device_list(list, 1);
 		libusb_exit(ctx);
 		exit(1);
@@ -504,7 +503,7 @@ int main (int argc, char **argv)
 	/* Libusb setup */
 	libusb_init(&ctx);
 	/* Enumerate devices */
-	found = find_and_enumerate(ctx, &list, use_serno, printer_type, -1, 0);
+	found = find_and_enumerate(ctx, &list, use_serno, printer_type, 0);
 
 	if (found == -1) {
 		ERROR("Printer open failure (No suitable printers found!)\n");

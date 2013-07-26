@@ -152,7 +152,7 @@ static struct printer_data selphy_printers[] = {
 
 #define MAX_HEADER 28
 
-static const int es40_cp790_plane_lengths[4] = { 2227456, 1601600, 698880, 2976512 };
+static const uint32_t es40_cp790_plane_lengths[4] = { 2227456, 1601600, 698880, 2976512 };
 
 static void setup_paper_codes(void)
 {
@@ -217,10 +217,10 @@ enum {
 
 static int fancy_memcmp(const uint8_t *buf_a, const int16_t *buf_b, uint len, int16_t papercode_offset, int16_t papercode_val) 
 {
-	int i;
+	uint i;
   
 	for (i = 0 ; i < len ; i++) {
-		if (papercode_offset != -1 && i == papercode_offset) {
+		if (papercode_offset != -1 && i == (uint) papercode_offset) {
 			if (papercode_val == -1)
 				continue;
 			else if (buf_a[i] != papercode_val)
