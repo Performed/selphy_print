@@ -494,8 +494,8 @@ skip_query:
 		break;
 	case S_6850_READY_WAIT:
 		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x01 ||
 		    rdbuf[2] != 0x43) {
+			state = S_6850_READY;
 			break;
 		}
 		state = S_READY;
@@ -599,7 +599,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.19",
+	.version = "0.20",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
