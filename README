@@ -21,6 +21,7 @@
    Kodak Professional 1400
    Kodak 805 Photo Printer
    Kodak 6800 Photo Printer
+   Kodak 6850 Photo Printer
    Shinko/Sinfonia CHC-S2145 
    Sony UP-DR150
 
@@ -157,9 +158,6 @@
    Verified supported printers:
 
      Kodak 6800
-
-   Work-in-progress:
-
      Kodak 6850
 
    This backend supports additional commands:
