@@ -1636,7 +1636,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 #define USB_PID_SHINKO_S2145 0x000E
 
 struct dyesub_backend shinkos2145_backend = {
-	.name = "Shinko/Sinfonia CHC-S2145",
+	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
 	.version = "0.20",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
@@ -1671,12 +1671,5 @@ struct dyesub_backend shinkos2145_backend = {
    [[Packed RGB payload of WW*HH*3 bytes]]
 
    04 03 02 01  [[ footer ]]
-
-  ************************************************************************
-
-  The data format actually sent to the CHC-S2145 is different, but not
-  radically so:
-
-  
 
 */
