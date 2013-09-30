@@ -214,6 +214,7 @@
      -rp		Reset printer to factory defaults
      -b1		Enable printer control panel buttons
      -b0		Disable printer control panel buttons
+     -f 		Enable fast return                       [4]
 
   Notes:
 
@@ -224,11 +225,16 @@
 
     [2]  Format of curvedata file:
 
-    	 256 entries each of Yellow, Magenta, Cyan mappings:
+	 256 entries each of Yellow, Magenta, Cyan mappings:
 	 Values are unsigned 16-bit big endian, between 0 and 2047 
 	 (ie only 11 bits used)
 
     [3]  Default printer tone curve is a linear 'val << 3'
+
+    [4]  This terminates the backend as soon as the printer has acknowledged
+         the print job, without waiting for the print job to complete.
+         This can also be enabled by setting the 'FAST_RETURN' environment
+         variable.
 
  *************************************************************************** 
   BACKEND=sonyupdr150

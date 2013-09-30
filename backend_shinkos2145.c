@@ -95,6 +95,7 @@ struct shinkos2145_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 	uint8_t jobid;
+	uint8_t fast_return;
 
 	struct s2145_printjob_hdr hdr;
 
@@ -1302,6 +1303,7 @@ static void shinkos2145_cmdline(char *caller)
 	DEBUG("\t\t%s [ -qtu filename | -qtc filename ]\n", caller);
 	DEBUG("\t\t%s [ -su somestring | -stu filename | -stc filename ]\n", caller);
 	DEBUG("\t\t%s [ -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n", caller);
+	DEBUG("\t\t%s [ -f ]\n", caller);
 }
 
 int shinkos2145_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
@@ -1324,7 +1326,11 @@ int shinkos2145_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 			!strcmp("-b0", arg1) ||
 			!strcmp("-stc", arg1) ||
 			!strcmp("-stu", arg1) ||
+			!strcmp("-f", arg1) ||
 			!strcmp("-su", arg1));
+
+	if (!strcmp("-f", arg1))
+		ctx->fast_return = 1;
 
 	if (!strcmp("-qs", arg1))
 		get_status(ctx);
@@ -1406,6 +1412,9 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 
 	if (!ctx)
 		return 1;
+
+	if (getenv("FAST_RETURN"))
+		ctx->fast_return = 1;
 
 	/* Read in then validate header */
 	read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
@@ -1569,7 +1578,9 @@ top:
 	case S_PRINTER_SENT_DATA:
 		if (sts->hdr.result != RESULT_SUCCESS)
 			goto printer_error;
-		if (sts->hdr.status == STATUS_READY ||
+		if (ctx->fast_return)
+			state = S_FINISHED;
+		else if (sts->hdr.status == STATUS_READY ||
 		    sts->hdr.status == STATUS_FINISHED)
 			state = S_FINISHED;
 		break;
@@ -1647,7 +1658,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
-	.version = "0.21",
+	.version = "0.22",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
