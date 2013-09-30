@@ -1617,7 +1617,7 @@ printer_error:
 	      status_str(sts->hdr.status),
 	      sts->hdr.printer_major, sts->hdr.printer_minor,
 	      error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
-	return 1;
+	return 1; /* CUPS_BACKEND_FAILED */
 }
 
 static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)

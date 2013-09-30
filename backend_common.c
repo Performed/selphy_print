@@ -508,7 +508,7 @@ int main (int argc, char **argv)
 	if (!query_only && backend->early_parse) {
 		printer_type = backend->early_parse(backend_ctx, data_fd);
 		if (printer_type < 0) {
-			ret = 4;
+			ret = 5; /* CUPS_BACKEND_CANCEL */
 			goto done;
 		}
 	}
@@ -520,7 +520,7 @@ int main (int argc, char **argv)
 
 	if (found == -1) {
 		ERROR("Printer open failure (No suitable printers found!)\n");
-		ret = 3;
+		ret = 4; /* CUPS_BACKEND_STOP */
 		goto done;
 	}
 
