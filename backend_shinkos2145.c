@@ -1578,8 +1578,10 @@ top:
 	case S_PRINTER_SENT_DATA:
 		if (sts->hdr.result != RESULT_SUCCESS)
 			goto printer_error;
-		if (ctx->fast_return)
+		if (ctx->fast_return) {
+			INFO("Fast return mode enabled.\n");
 			state = S_FINISHED;
+		}
 		else if (sts->hdr.status == STATUS_READY ||
 		    sts->hdr.status == STATUS_FINISHED)
 			state = S_FINISHED;
