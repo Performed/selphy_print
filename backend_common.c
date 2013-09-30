@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.20"
+#define BACKEND_VERSION "0.21"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -88,7 +88,7 @@ done:
 int send_data(struct libusb_device_handle *dev, uint8_t endp, 
 	      uint8_t *buf, int len)
 {
-	int num;
+	int num = 0;
 
 	while (len) {
 		int ret = libusb_bulk_transfer(dev, endp,
