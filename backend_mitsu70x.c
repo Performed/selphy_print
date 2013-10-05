@@ -268,15 +268,22 @@ skip_query:
 	return 0;
 }
 
+struct mitsu70x_status_deck {
+	uint8_t unk[64];
+};
+
 struct mitsu70x_status_resp {
-	uint8_t unk[256];
+	uint8_t unk[128];
+	struct mitsu70x_status_deck lower;
+	struct mitsu70x_status_deck upper;
 };
 
 static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 {
 	uint8_t cmdbuf[CMDBUF_LEN];
 	struct mitsu70x_status_resp resp;
-	int i, num, ret;
+	int num, ret;
+	unsigned int i;
 
 	/* Send Printer Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
@@ -294,9 +301,19 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 				   &num,
 				   5000);
 	DEBUG("Status Dump:\n");
-	for (i = 0 ; i < num ; i++) {
+	for (i = 0 ; i < sizeof(resp.unk) ; i++) {
 		DEBUG2("%02x ", resp.unk[i]);
 	}
+	DEBUG("Lower Deck:\n");
+	for (i = 0 ; i < sizeof(resp.lower.unk) ; i++) {
+		DEBUG2("%02x ", resp.lower.unk[i]);
+	}
+	DEBUG("Upper Deck:\n");
+	for (i = 0 ; i < sizeof(resp.upper.unk) ; i++) {
+		DEBUG2("%02x ", resp.upper.unk[i]);
+	}
+	INFO("Prints remaining:  Lower: %d Upper: %d\n",
+	     resp.lower.unk[23], resp.upper.unk[23]);
 
 	return 0;
 }
