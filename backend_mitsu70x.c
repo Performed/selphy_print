@@ -150,6 +150,26 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 	if (!ctx)
 		return 1;
 
+	/* Send Printer Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x32;
+	cmdbuf[3] = 0x30;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+	memset(rdbuf, 0, READBACK_LEN);
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
+				   rdbuf,
+				   READBACK_LEN,
+				   &num,
+				   5000);
+	DEBUG("readback: ");
+	for (i = 0 ; i < num ; i++) {
+		DEBUG2("%02x ", rdbuf[i]);
+	}
+
 top:
 	if (state != last_state) {
 		DEBUG("last_state %d new %d\n", last_state, state);
@@ -170,6 +190,12 @@ top:
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, 6)))
 		return ret;
+	/* Send Status Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x31;
+	cmdbuf[3] = 0x30;
 
 skip_query:
 	/* Read in the printer status */
