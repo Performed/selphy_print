@@ -268,10 +268,14 @@ skip_query:
 	return 0;
 }
 
+struct mitsu70x_status_resp {
+	uint8_t unk[256];
+};
+
 static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 {
 	uint8_t cmdbuf[CMDBUF_LEN];
-	uint8_t rdbuf[READBACK_LEN];
+	struct mitsu70x_status_resp resp;
 	int i, num, ret;
 
 	/* Send Printer Query */
@@ -283,15 +287,15 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, 4)))
 		return ret;
-	memset(rdbuf, 0, READBACK_LEN);
+	memset(&resp, 0, sizeof(&resp));
 	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   rdbuf,
-				   READBACK_LEN,
+				   (uint8_t*) &resp,
+				   sizeof(resp),
 				   &num,
 				   5000);
 	DEBUG("Status Dump:\n");
 	for (i = 0 ; i < num ; i++) {
-		DEBUG2("%02x ", rdbuf[i]);
+		DEBUG2("%02x ", resp.unk[i]);
 	}
 
 	return 0;
