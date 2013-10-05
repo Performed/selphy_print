@@ -4,9 +4,9 @@
  *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
- *  
+ *
  *     http://git.shaftnet.org/cgit/selphy_print.git
- *  
+ *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
  *   Software Foundation; either version 3 of the License, or (at your option)
@@ -71,14 +71,14 @@ static void *mitsu70x_init(void)
 	return ctx;
 }
 
-static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, 
-			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
+			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu70x_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
 
-	ctx->dev = dev;	
+	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
 
@@ -99,7 +99,7 @@ static void mitsu70x_teardown(void *vctx) {
 }
 
 // XXX is this enough?
-#define MAX_PRINTJOB_LEN (1024*1024*32) 
+#define MAX_PRINTJOB_LEN (1024*1024*32)
 
 static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	struct mitsu70x_ctx *ctx = vctx;
@@ -149,26 +149,6 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 
 	if (!ctx)
 		return 1;
-
-	/* Send Printer Query */
-	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmdbuf[0] = 0x1b;
-	cmdbuf[1] = 0x56;
-	cmdbuf[2] = 0x32;
-	cmdbuf[3] = 0x30;
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, 4)))
-		return ret;
-	memset(rdbuf, 0, READBACK_LEN);
-	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   rdbuf,
-				   READBACK_LEN,
-				   &num,
-				   5000);
-	DEBUG("readback: ");
-	for (i = 0 ; i < num ; i++) {
-		DEBUG2("%02x ", rdbuf[i]);
-	}
 
 top:
 	if (state != last_state) {
@@ -225,7 +205,7 @@ skip_query:
 	}
 	last_state = state;
 
-	fflush(stderr);       
+	fflush(stderr);
 
 	pending = 0;
 
@@ -288,17 +268,67 @@ skip_query:
 	return 0;
 }
 
+static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
+{
+	uint8_t cmdbuf[CMDBUF_LEN];
+	uint8_t rdbuf[READBACK_LEN];
+	int i, num, ret;
+
+	/* Send Printer Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x32;
+	cmdbuf[3] = 0x30;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+	memset(rdbuf, 0, READBACK_LEN);
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
+				   rdbuf,
+				   READBACK_LEN,
+				   &num,
+				   5000);
+	DEBUG("Status Dump:\n");
+	for (i = 0 ; i < num ; i++) {
+		DEBUG2("%02x ", rdbuf[i]);
+	}
+
+	return 0;
+}
+
+static void mitsu70x_cmdline(char *caller)
+{
+	DEBUG("\t\t%s [ -qs ]\n", caller);
+}
+
+static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
+{
+	struct mitsu70x_ctx *ctx = vctx;
+
+	if (!run || !ctx)
+		return (!strcmp("-qs", arg1));
+
+	if (!strcmp("-qs", arg1))
+		return mitsu70x_get_status(ctx);
+
+	return -1;
+}
+
+
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.01",
+	.version = "0.02",
 	.uri_prefix = "mitsu70x",
+	.cmdline_usage = mitsu70x_cmdline,
+	.cmdline_arg = mitsu70x_cmdline_arg,
 	.init = mitsu70x_init,
 	.attach = mitsu70x_attach,
 	.teardown = mitsu70x_teardown,
 	.read_parse = mitsu70x_read_parse,
 	.main_loop = mitsu70x_main_loop,
-	.devices = { 
+	.devices = {
 	{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, "Mitsubishi"},
 	{ 0, 0, 0, ""}
 	}

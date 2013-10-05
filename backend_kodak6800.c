@@ -280,7 +280,7 @@ static void kodak6800_cmdline(char *caller)
 	DEBUG("\t\t%s [ -qtc filename | -stc filename ]\n", caller);
 }
 
-int kodak6800_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
+static int kodak6800_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 {
 	struct kodak6800_ctx *ctx = vctx;
 

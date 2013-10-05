@@ -254,4 +254,8 @@
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
 
+   Valid commands:
+
+     -qs                 Query printer status (Not fully decoded yet)
+
    This backend does not support additional commands
