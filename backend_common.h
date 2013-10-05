@@ -92,6 +92,7 @@ enum {
 	P_KODAK_1400_805,
 	P_SHINKO_S2145,
 	P_SONY_UPDR150,
+	P_MITSU_D70X,
 	P_END,
 };
 
@@ -133,5 +134,6 @@ extern struct dyesub_backend kodak6800_backend;
 extern struct dyesub_backend kodak1400_backend;
 extern struct dyesub_backend shinkos2145_backend;
 extern struct dyesub_backend canonselphy_backend;
+extern struct dyesub_backend mitsu70x_backend;
 
 #endif /* __BACKEND_COMMON_H */
