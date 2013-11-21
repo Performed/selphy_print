@@ -304,14 +304,17 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 	for (i = 0 ; i < sizeof(resp.unk) ; i++) {
 		DEBUG2("%02x ", resp.unk[i]);
 	}
+	DEBUG("\n");
 	DEBUG("Lower Deck:\n");
 	for (i = 0 ; i < sizeof(resp.lower.unk) ; i++) {
 		DEBUG2("%02x ", resp.lower.unk[i]);
 	}
+	DEBUG("\n");
 	DEBUG("Upper Deck:\n");
 	for (i = 0 ; i < sizeof(resp.upper.unk) ; i++) {
 		DEBUG2("%02x ", resp.upper.unk[i]);
 	}
+	DEBUG("\n");
 	INFO("Prints remaining:  Lower: %d Upper: %d\n",
 	     resp.lower.unk[23], resp.upper.unk[23]);
 
@@ -340,7 +343,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.03",
+	.version = "0.04",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
