@@ -186,7 +186,10 @@
 
      Kodak 605
 
-   This backend does not support additional commands
+   Valid commands:
+
+     -qs                 Query printer status (Not fully decoded yet)
+     -qm		 Query supported media (Not fully decoded yet)
 
  *************************************************************************** 
   BACKEND=shinkos2145
@@ -254,7 +257,7 @@
 
     Sony UP-DR150
 
-   Theoretically supportable printers: (Wnknown USB PID)
+   Theoretically supportable printers: (Unknown USB PID)
 
     Sony UP-DR200
 

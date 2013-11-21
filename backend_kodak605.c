@@ -324,11 +324,111 @@ skip_query:
 	return 0;
 }
 
+static int kodak605_get_status(struct kodak605_ctx *ctx)
+{
+	uint8_t cmdbuf[4];
+	uint8_t rdbuf[76];
+
+	int ret, i, num = 0;
+
+	/* Send Status Query */
+	cmdbuf[0] = 0x01;
+	cmdbuf[1] = 0x00;
+	cmdbuf[2] = 0x00;
+	cmdbuf[3] = 0x00;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, sizeof(cmdbuf))))
+		return ret;
+
+	/* Read in the printer status */
+	memset(rdbuf, 0, sizeof(rdbuf));
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
+				   rdbuf,
+				   READBACK_LEN,
+				   &num,
+				   5000);
+	if (ret < 0 || num < sizeof(rdbuf)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, sizeof(rdbuf), ctx->endp_up);
+		if (ret < 0)
+			return ret;
+		return 4;
+	}
+
+	DEBUG("status: ");
+	for (i = 0 ; i < num ; i++) {
+		DEBUG2("%02x ", rdbuf[i]);
+	}
+
+	return 0;
+}
+
+static int kodak605_get_media(struct kodak605_ctx *ctx)
+{
+	uint8_t cmdbuf[4];
+	uint8_t rdbuf[113];
+
+	int ret, i, num = 0;
+
+	/* Send Status Query */
+	cmdbuf[0] = 0x02;
+	cmdbuf[1] = 0x00;
+	cmdbuf[2] = 0x00;
+	cmdbuf[3] = 0x00;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, sizeof(cmdbuf))))
+		return ret;
+
+	/* Read in the printer status */
+	memset(rdbuf, 0, sizeof(rdbuf));
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
+				   rdbuf,
+				   READBACK_LEN,
+				   &num,
+				   5000);
+	if (ret < 0 || num < sizeof(rdbuf)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, sizeof(rdbuf), ctx->endp_up);
+		if (ret < 0)
+			return ret;
+		return 4;
+	}
+
+	DEBUG("media: ");
+	for (i = 0 ; i < num ; i++) {
+		DEBUG2("%02x ", rdbuf[i]);
+	}
+	DEBUG("\n");
+
+	return 0;
+}
+
+static void kodak605_cmdline(char *caller)
+{
+	DEBUG("\t\t%s [ -qs | -qm ]\n", caller);
+}
+
+static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
+{
+	struct kodak605_ctx *ctx = vctx;
+
+	if (!run || !ctx)
+		return (!strcmp("-qs", arg1) ||
+			!strcmp("-qm", arg1) );
+
+	if (!strcmp("-qs", arg1))
+		return kodak605_get_status(ctx);
+	if (!strcmp("-qm", arg1))
+		return kodak605_get_media(ctx);
+
+	return -1;
+}
+
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.02",
+	.version = "0.03",
 	.uri_prefix = "kodak605",
+	.cmdline_usage = kodak605_cmdline,
+	.cmdline_arg = kodak605_cmdline_arg,
 	.init = kodak605_init,
 	.attach = kodak605_attach,
 	.teardown = kodak605_teardown,
@@ -351,8 +451,8 @@ struct dyesub_backend kodak605_backend = {
   XX                             Unknown, usually 01 or 02
   CC                             Number of copies
   00                             Always 0x00
-  WW WW                          Number of columns, big endian. (Fixed at 1844)
-  HH HH                          Number of rows, big endian. (1240 or 2434)
+  WW WW                          Number of columns, little endian. (Fixed at 1844)
+  HH HH                          Number of rows, little endian. (1240 or 2434)
   DD                             0x01 (4x6) 0x02 (8x6) 
   LL                             Laminate, 0x01 (off) or 0x02 (on)
   00
