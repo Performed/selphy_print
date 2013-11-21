@@ -19,6 +19,7 @@
    Canon SELPHY ES series
    Canon SELPHY CP series
    Kodak Professional 1400
+   Kodak 605 Photo Printer
    Kodak 805 Photo Printer
    Kodak 6800 Photo Printer
    Kodak 6850 Photo Printer
@@ -179,6 +180,15 @@
 	 (ie 14-bit)
 
  *************************************************************************** 
+  BACKEND=kodak605
+
+   Theoreticallly supported printers:
+
+     Kodak 605
+
+   This backend does not support additional commands
+
+ *************************************************************************** 
   BACKEND=shinkos2145
 
    Verified supported printers:
@@ -261,5 +271,3 @@
    Valid commands:
 
      -qs                 Query printer status (Not fully decoded yet)
-
-   This backend does not support additional commands
