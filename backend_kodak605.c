@@ -211,14 +211,14 @@ skip_query:
 				   &num,
 				   5000);
 
-	if (ret < 0 || num < 76) {
+	if (ret < 0 || num < 10) {
 		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, ctx->endp_up);
 		if (ret < 0)
 			return ret;
 		return 4;
 	}
 
-	if (num != 76 || num != 113) {
+	if (num != 10 && num != 76 && num != 113) {
 		ERROR("Unexpected readback from printer (%d/%d from 0x%02x))\n",
 		      num, READBACK_LEN, ctx->endp_up);
 		return ret;
@@ -277,13 +277,11 @@ skip_query:
 		break;
 	case S_SENT_HDR:
 		INFO("Waiting for printer to accept data\n");
-#if 0
 		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x02 ||
-		    rdbuf[2] != 0x01) {
+		    rdbuf[6] == 0x00 ||
+		    num != 10) {
 			break;
 		}
-#endif
 		INFO("Sending image data\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down, 
 				     ctx->databuf, ctx->datalen)))
@@ -425,7 +423,7 @@ static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.04",
+	.version = "0.05",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -482,7 +480,7 @@ struct dyesub_backend kodak605_backend = {
 -> 02 00 00 00
 <- [113 bytes -- supported media?? ]
 -> 01 40 0a 00  01 01 00 34  07 d8 04 01  02 00  [[ unmodified header ]]
-<- 01 00 00 00  00 00 02 00  00 00
+<- 01 00 00 00  00 00 XX 00  00 00  [[ Seen 0x01 and 0x02 ]
 -> image data!
 -> image data!
 
