@@ -135,7 +135,7 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 		return(1);
 	}
 
-	ctx->datalen = be16_to_cpu(ctx->hdr.rows) * be16_to_cpu(ctx->hdr.columns) * 3;
+	ctx->datalen = le16_to_cpu(ctx->hdr.rows) * le16_to_cpu(ctx->hdr.columns) * 3;
 	ctx->databuf = malloc(ctx->datalen);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
@@ -425,7 +425,7 @@ static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.03",
+	.version = "0.04",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
