@@ -224,8 +224,6 @@ skip_query:
 		return ret;
 	}
 
-	// XXX detect media type based on readback.
-
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		DEBUG("readback: ");
 		for (i = 0 ; i < num ; i++) {
@@ -252,6 +250,8 @@ skip_query:
 			break;
 		}
 #endif
+		// XXX detect media type based on readback!
+
 		INFO("Printing started; Sending init sequence\n");
 		state = S_STARTED;
 
@@ -288,6 +288,7 @@ skip_query:
 			return ret;
 
 		INFO("Image data sent\n");
+		sleep(1);  /* An experiment */
 		state = S_SENT_DATA;
 		break;
 	case S_SENT_DATA:
@@ -423,7 +424,7 @@ static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.05",
+	.version = "0.06",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -446,12 +447,12 @@ struct dyesub_backend kodak605_backend = {
   Header:
 
   01 40 0a 00                    Fixed header
-  XX                             Unknown, usually 01 or 02
-  CC                             Number of copies
+  XX                             Unknown, always 01 in file, but 02 seen in sniffs sometimes
+  CC                             Number of copies (1-255)
   00                             Always 0x00
   WW WW                          Number of columns, little endian. (Fixed at 1844)
   HH HH                          Number of rows, little endian. (1240 or 2434)
-  DD                             0x01 (4x6) 0x02 (8x6) 
+  DD                             0x01 (4x6) 0x03 (8x6) 
   LL                             Laminate, 0x01 (off) or 0x02 (on)
   00
 
