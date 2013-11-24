@@ -206,7 +206,7 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	close(tc_fd);
 
 	/* Byteswap data to printer's format */
-	for (ret = 0; ret < (UPDATE_SIZE-16)/2 ; ret++) {
+	for (ret = 0; ret < (UPDATE_SIZE)/2 ; ret++) {
 		data[ret] = cpu_to_le16(be16_to_cpu(data[ret]));
 	}
 
@@ -604,7 +604,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.23",
+	.version = "0.24",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
