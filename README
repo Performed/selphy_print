@@ -182,7 +182,7 @@
  *************************************************************************** 
   BACKEND=kodak605
 
-   Theoreticallly supported printers:
+   Verified supported printers:
 
      Kodak 605
 
@@ -190,6 +190,15 @@
 
      -qs                 Query printer status (Not fully decoded yet)
      -qm		 Query supported media (Not fully decoded yet)
+     -stc filename       Set tone curve [1]
+
+  Notes:
+
+    [1]  Format of curvedata file:
+
+    	 256 entries each of Yellow, Magenta, Cyan mappings:
+	 Values are unsigned 16-bit big endian, between 0 and ???
+	 (unsure as to the bit usage)
 
  *************************************************************************** 
   BACKEND=shinkos2145

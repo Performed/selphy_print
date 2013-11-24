@@ -402,25 +402,105 @@ static int kodak605_get_media(struct kodak605_ctx *ctx)
 	return 0;
 }
 
+#define UPDATE_SIZE 1536
+static int kodak605_set_tonecurve(struct kodak605_ctx *ctx, char *fname)
+{
+	libusb_device_handle *dev = ctx->dev;
+	uint8_t endp_down = ctx->endp_down;
+	uint8_t endp_up = ctx->endp_up;
+
+	uint8_t cmdbuf[16];
+	uint8_t respbuf[16];
+	int ret, num = 0;
+
+	uint16_t *data = malloc(UPDATE_SIZE);
+
+	INFO("Set Tone Curve from '%s'\n", fname);
+
+	/* Read in file */
+	int tc_fd = open(fname, O_RDONLY);
+	if (tc_fd < 0)
+		return -1;
+	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE)
+		return -2;
+	close(tc_fd);
+
+	/* Byteswap data to printer's format */
+	for (ret = 0; ret < (UPDATE_SIZE/2) ; ret++) {
+		data[ret] = cpu_to_le16(be16_to_cpu(data[ret]));
+	}
+
+	/* Initial Request */
+	cmdbuf[0] = 0x04;
+	cmdbuf[1] = 0xc0;
+	cmdbuf[2] = 0x0a;
+	cmdbuf[3] = 0x00;
+	cmdbuf[4] = 0x03;
+	cmdbuf[5] = 0x01;
+	cmdbuf[6] = 0x00;
+	cmdbuf[7] = 0x00;
+	cmdbuf[8] = 0x00;
+	cmdbuf[9] = 0x00;
+	cmdbuf[10] = 0x00; /* 00 06 in LE means 1536 bytes */
+	cmdbuf[11] = 0x06;
+	cmdbuf[12] = 0x00;
+	cmdbuf[13] = 0x00;
+
+	if ((ret = send_data(dev, endp_down,
+			     cmdbuf, 14)))
+		return -1;
+
+	/* Get response back */
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   respbuf,
+				   sizeof(respbuf),
+				   &num,
+				   5000);
+
+	if (ret < 0 || (num != 10)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
+		return ret;
+	}
+
+	// XXX parse the response?
+
+	ret = libusb_bulk_transfer(dev, endp_up,
+				   (uint8_t*) data,
+				   sizeof(respbuf),
+				   &num,
+				   5000);
+	if (ret < 0 || (num != sizeof(data))) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(respbuf), endp_up);
+		return ret;
+	}
+        
+	/* We're done */
+	free(data);
+	return 0;
+}
+
+
 static void kodak605_cmdline(char *caller)
 {
 	DEBUG("\t\t%s [ -qs | -qm ]\n", caller);
+	DEBUG("\t\t%s [ -stc filename ]\n", caller);
 }
 
 static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 {
 	struct kodak605_ctx *ctx = vctx;
 
-	UNUSED(arg2);
-
 	if (!run || !ctx)
 		return (!strcmp("-qs", arg1) ||
-			!strcmp("-qm", arg1) );
+			!strcmp("-qm", arg1) ||
+			!strcmp("-stc", arg1) );
 
 	if (!strcmp("-qs", arg1))
 		return kodak605_get_status(ctx);
 	if (!strcmp("-qm", arg1))
 		return kodak605_get_media(ctx);
+	if (!strcmp("-stc", arg1))
+		return kodak605_set_tonecurve(ctx, arg2);
 
 	return -1;
 }
@@ -428,7 +508,7 @@ static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.07",
+	.version = "0.08",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -513,5 +593,13 @@ struct dyesub_backend kodak605_backend = {
    00 00 00 00  00 00 01 00  00 01 00 01  00 00 02 01
    00 00 00 01  00 02 02 01  00 00 00 01  00 02 00 00
    00 00 00 00  00 00 01 00  00 00 00 00
+
+
+  Write tone curve data:
+
+->  04 c0 0a 00  03 01 00 00  00 00 LL LL  00 00  [[ LL LL == 0x0600 in LE ]]
+<-  01 00 00 00  00 00 XX 00  00 00  [[ Seen 0x01 and 0x02 ]
+
+->  [[ 1536 bytes of LE tone curve data ]]
 
 */
