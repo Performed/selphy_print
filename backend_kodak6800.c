@@ -316,6 +316,8 @@ static void kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
 
+	UNUSED(jobid);
+
 	ctx->dev = dev;	
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
@@ -602,7 +604,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.22",
+	.version = "0.23",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

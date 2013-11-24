@@ -78,6 +78,8 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
 
+	UNUSED(jobid);
+
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
@@ -294,7 +296,7 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, 4)))
 		return ret;
-	memset(&resp, 0, sizeof(&resp));
+	memset(&resp, 0, sizeof(resp));
 	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
 				   (uint8_t*) &resp,
 				   sizeof(resp),
@@ -330,6 +332,8 @@ static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 {
 	struct mitsu70x_ctx *ctx = vctx;
 
+	UNUSED(arg2);
+
 	if (!run || !ctx)
 		return (!strcmp("-qs", arg1));
 
@@ -343,7 +347,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.04",
+	.version = "0.05",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

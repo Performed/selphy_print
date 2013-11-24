@@ -98,6 +98,8 @@ static void kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
 
+	UNUSED(jobid);
+
 	ctx->dev = dev;	
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
@@ -346,8 +348,8 @@ static int kodak605_get_status(struct kodak605_ctx *ctx)
 				   READBACK_LEN,
 				   &num,
 				   5000);
-	if (ret < 0 || num < sizeof(rdbuf)) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, sizeof(rdbuf), ctx->endp_up);
+	if (ret < 0 || num < (int)sizeof(rdbuf)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(rdbuf), ctx->endp_up);
 		if (ret < 0)
 			return ret;
 		return 4;
@@ -384,8 +386,8 @@ static int kodak605_get_media(struct kodak605_ctx *ctx)
 				   READBACK_LEN,
 				   &num,
 				   5000);
-	if (ret < 0 || num < sizeof(rdbuf)) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, sizeof(rdbuf), ctx->endp_up);
+	if (ret < 0 || num < (int)sizeof(rdbuf)) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(rdbuf), ctx->endp_up);
 		if (ret < 0)
 			return ret;
 		return 4;
@@ -409,6 +411,8 @@ static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 {
 	struct kodak605_ctx *ctx = vctx;
 
+	UNUSED(arg2);
+
 	if (!run || !ctx)
 		return (!strcmp("-qs", arg1) ||
 			!strcmp("-qm", arg1) );
@@ -424,7 +428,7 @@ static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.06",
+	.version = "0.07",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -479,7 +483,17 @@ struct dyesub_backend kodak605_backend = {
    00 00 00 00  00 00 01 00  00 00 00 00
 
 -> 02 00 00 00
-<- [113 bytes -- supported media?? ]
+<- [113 bytes -- supported media/sizes? Always seems to be identical ]
+
+   01 00 00 00  00 00 02 00  67 00 02 0b  04 01 34 07
+   d8 04 01 00  00 00 00 02  dc 05 34 08  01 00 00 00
+   00 03 34 07  82 09 01 00  00 00 00 04  34 07 ba 09
+   01 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+   00
+
 -> 01 40 0a 00  01 01 00 34  07 d8 04 01  02 00  [[ unmodified header ]]
 <- 01 00 00 00  00 00 XX 00  00 00  [[ Seen 0x01 and 0x02 ]
 -> image data!

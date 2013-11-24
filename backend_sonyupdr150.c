@@ -61,6 +61,8 @@ static void updr150_attach(void *vctx, struct libusb_device_handle *dev,
 {
 	struct updr150_ctx *ctx = vctx;
 
+	UNUSED(jobid);
+
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
@@ -163,7 +165,7 @@ top:
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150",
-	.version = "0.05",
+	.version = "0.06",
 	.uri_prefix = "sonyupdr150",
 	.init = updr150_init,
 	.attach = updr150_attach,
