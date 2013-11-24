@@ -362,7 +362,7 @@ struct dyesub_backend mitsu70x_backend = {
 	}
 };
 
-/* Mitsubish CP-D70x data format 
+/* Mitsubish CP-D70x/CP-K60 data format 
 
    Spool file consists of two headers followed by three image planes
    and an optional lamination data plane.  All blocks are rounded up to
@@ -375,11 +375,11 @@ struct dyesub_backend mitsu70x_backend = {
    1b 45 57 55 00 00 00 00  00 00 00 00 00 00 00 00
    (padded by NULLs to a 512-byte boundary)
 
-   Header 2:  (Header)
+   [[ D70x ]] Header 2:  (Header)  
 
    1b 5a 54 01 00 00 00 00  00 00 00 00 00 00 00 00
    XX XX YY YY QQ QQ ZZ ZZ  SS 00 00 00 00 00 00 00
-   UU 00 00 00 00 00 00 00  00 02 00 00 00 00 00 00
+   UU 00 00 00 00 00 00 00  00 TT 00 00 00 00 00 00
    (padded by NULLs to a 512-byte boundary)
 
    XX XX == columns
@@ -389,7 +389,26 @@ struct dyesub_backend mitsu70x_backend = {
    SS    == SuperFine mode (00 == off, 03 == on
             Lamination always turns this on!
    UU    == 00 == Auto, 01 == Lower Deck, 02 == Upper Deck
+   TT    == 00 with no lamination, 02 with.
    
+   [[ K60 ]] Header 2:  (Header) 
+
+   1b 5a 54 00 00 00 00 00  00 00 00 00 00 00 00 00
+   XX XX YY YY QQ QQ ZZ ZZ  SS 00 00 00 00 00 00 00
+   UU 00 00 00 00 00 00 00  00 TT 00 00 00 00 00 00
+   RR 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+
+   (padded by NULLs to a 512-byte boundary)
+
+   XX XX == columns
+   YY YY == rows
+   QQ QQ == lamination columns (equal to XX XX)
+   ZZ ZZ == lamination rows (usually YY YY + 12)
+   SS    == UltraFine mode (00 == off, 04 == on.. forces 8x6 print?)
+   UU    == 01 (Lower Deck)
+   TT    == 00 with no lamination, 02 with.
+   RR    == 0x05 for double-cut 2x6, 0x00 for double-cut 4x6, otherwise 0x01
+
    Data planes:
    16-bit data, rounded up to 512-byte block (XX * YY * 2 bytes)
    
@@ -400,7 +419,7 @@ struct dyesub_backend mitsu70x_backend = {
 
    ********************************************************************
 
-   Command format:
+   Command format: (D70/D707)
 
    -> 1b 56 32 30
    <- [256 byte payload] 
