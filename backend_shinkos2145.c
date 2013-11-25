@@ -1227,10 +1227,10 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 
 	/* Open file and write it out */
 	{
-		int tc_fd = open(fname, O_WRONLY|O_CREAT);
+		int tc_fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
 		if (tc_fd < 0)
 			return -1;
-		
+
 		for (i = 0 ; i < 768; i++) {
 			/* Byteswap appropriately */
 			curves[i] = cpu_to_be16(le16_to_cpu(curves[i]));
@@ -1660,7 +1660,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
-	.version = "0.22",
+	.version = "0.23",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
