@@ -39,6 +39,7 @@
 
 #define USB_VID_DNP       0x1343
 #define USB_PID_DNP_DS40  0x0003
+#define USB_PID_DNP_DS80  0x0004
 
 /* Private data stucture */
 struct dnpds40_ctx {
@@ -68,6 +69,8 @@ struct dnpds40_cmd {
 
 static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, uint32_t arg3_len)
 {
+	uint i;
+
 	memset(cmd, 0x20, sizeof(*cmd));
 	cmd->esc = 0x1b;
 	cmd->p = 0x50;
@@ -75,6 +78,13 @@ static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, u
 	memcpy(cmd->arg2, arg2, min(strlen(arg2), sizeof(cmd->arg2)));
 	if (arg3_len)
 		snprintf((char*)cmd->arg3, 8, "%08d", arg3_len);
+
+
+	DEBUG("command: '%s' ", (char*)cmd);
+	for (i = 0 ; i < sizeof(*cmd); i++) {
+		DEBUG2("%02x ", *(((uint8_t*)cmd)+i));
+	}
+	DEBUG2("\n");
 }
 
 static void dnpds40_cleanup_string(char *start, int len)
@@ -277,9 +287,11 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	tmp[8] = 0;
 	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
 
+	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
+
 	dnpds40_cleanup_string((char*)rdbuf + 8, i);
 
-	INFO("Firmware Version: %s\n", (char*)rdbuf + 8);
+	INFO("Firmware Version: '%s'\n", (char*)rdbuf + 8);
 
 	/* *************************** */
 
@@ -309,9 +321,11 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	tmp[8] = 0;
 	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
 
+	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
+
 	dnpds40_cleanup_string((char*)rdbuf + 8, i);
 
-	INFO("Sensor Info: %s\n", (char*)rdbuf + 8);
+	INFO("Sensor Info: '%s'\n", (char*)rdbuf + 8);
 
 	/* *************************** */
 
@@ -341,9 +355,11 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	tmp[8] = 0;
 	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
 
+	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
+
 	dnpds40_cleanup_string((char*)rdbuf + 8, i);
 
-	INFO("Media Type: %s\n", (char*)rdbuf + 8);
+	INFO("Media Type: '%s'\n", (char*)rdbuf + 8);
 
 	INFO("  %s\n", dnpds40_media_types((char*)rdbuf+8));	
 	switch (*(rdbuf+8+4)) {
@@ -395,9 +411,11 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	tmp[8] = 0;
 	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
 
+	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
+
 	dnpds40_cleanup_string((char*)rdbuf + 8, i);
 
-	INFO("Prints remaining: %s\n", (char*)rdbuf + 8 + 4);
+	INFO("Prints remaining: '%s'\n", (char*)rdbuf + 8 + 4);
 
 	return 0;
 }
@@ -436,6 +454,8 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	tmp[8] = 0;
 	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
 
+	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
+
 	dnpds40_cleanup_string((char*)rdbuf + 8, i);
 
 	INFO("Printer Status: %s => %s\n", (char*)rdbuf + 8, dnpds40_statuses((char*)rdbuf+8));
@@ -469,7 +489,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.02",
+	.version = "0.03",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -479,7 +499,8 @@ struct dyesub_backend dnpds40_backend = {
 	.read_parse = dnpds40_read_parse,
 	.main_loop = dnpds40_main_loop,
 	.devices = { 
-	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, "Kodak"},
+	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
+	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
 	{ 0, 0, 0, ""}
 	}
 };
