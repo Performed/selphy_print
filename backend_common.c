@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.23"
+#define BACKEND_VERSION "0.24"
 #ifndef URI_PREFIX
 #define URI_PREFIX "gutenprint+usb"
 #endif
@@ -240,6 +240,7 @@ static struct dyesub_backend *backends[] = {
 	&shinkos2145_backend,
 	&updr150_backend,
 	&mitsu70x_backend,
+	&dnpds40_backend,
 	NULL,
 };
 
