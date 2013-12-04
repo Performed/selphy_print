@@ -79,7 +79,6 @@ static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, u
 	if (arg3_len)
 		snprintf((char*)cmd->arg3, 8, "%08d", arg3_len);
 
-
 	DEBUG("command: '%s' ", (char*)cmd);
 	for (i = 0 ; i < sizeof(*cmd); i++) {
 		DEBUG2("%02x ", *(((uint8_t*)cmd)+i));
@@ -91,7 +90,7 @@ static void dnpds40_cleanup_string(char *start, int len)
 {
 	char *ptr = strchr(start, 0x0d);
 
-	if (ptr)
+	if (ptr && (ptr - start < len))
 		*ptr = 0x00; /* If there is a <CR>, terminate there */
 	else
 		*(start + len - 1) = 0x00;  /* force null-termination */
@@ -162,6 +161,62 @@ static char *dnpds40_statuses(char *str)
 	return "Unkown type";
 }
 
+static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
+				  struct dnpds40_cmd *cmd,
+				  int *len)
+{
+	char tmp[9];
+	uint8_t *respbuf;
+
+	int ret, i, num = 0;
+	
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*)cmd, sizeof(*cmd))))
+		return NULL;
+
+	/* Read in the response header */
+	memset(tmp, 0, sizeof(tmp));
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
+				   (uint8_t*)tmp,
+				   8,
+				   &num,
+				   5000);
+
+	if (ret < 0 || num != 8) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, 8, ctx->endp_up);
+		return NULL;
+	}
+
+	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
+	DEBUG("readback: '%s' len %d/%d\n", (char*) tmp, i, num);
+
+	respbuf = malloc(i);
+
+	/* Read in the actual response */
+	memset(respbuf, 0, i);
+	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
+				   respbuf,
+				   i,
+				   &num,
+				   5000);
+
+	if (ret < 0 || num != i) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, i, ctx->endp_up);
+
+		free(respbuf);
+		return NULL;
+	}
+
+	DEBUG("response: ");
+	for (i = 0 ; i < num; i++) {
+		DEBUG2("%02x ", respbuf[i]);
+	}
+	DEBUG2("\n");
+
+	*len = num;
+	return respbuf;
+}
+
 static void *dnpds40_init(void)
 {
 	struct dnpds40_ctx *ctx = malloc(sizeof(struct dnpds40_ctx));
@@ -210,7 +265,6 @@ static void dnpds40_teardown(void *vctx) {
 }
 
 #define MAX_PRINTJOB_LEN (27927714+1024) // Add a little bit of padding
-#define READBACK_LEN 1024
 
 static int dnpds40_read_parse(void *vctx, int data_fd) {
 	struct dnpds40_ctx *ctx = vctx;
@@ -256,113 +310,48 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 {
 	struct dnpds40_cmd cmd;
-	uint8_t rdbuf[READBACK_LEN];
-	char tmp[9];
+	uint8_t *resp;
+	int len = 0;
 
-	int ret, i, num = 0;
-	
 	/* Get Firmware Version */
 	dnpds40_build_cmd(&cmd, "INFO", "FVER", 0);
 
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*)&cmd, sizeof(cmd))))
-		return ret;
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
 
-	/* Read in the response */
-	memset(rdbuf, 0, sizeof(rdbuf));
-	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   rdbuf,
-				   READBACK_LEN,
-				   &num,
-				   5000);
+	dnpds40_cleanup_string((char*)resp, len);
 
-	if (ret < 0 || num < 8) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(rdbuf), ctx->endp_up);
-		if (ret < 0)
-			return ret;
-		return 4;
-	}
+	INFO("Firmware Version: '%s'\n", (char*)resp);
 
-	memcpy(tmp, rdbuf, 8);
-	tmp[8] = 0;
-	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
-
-	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
-
-	dnpds40_cleanup_string((char*)rdbuf + 8, i);
-
-	INFO("Firmware Version: '%s'\n", (char*)rdbuf + 8);
-
-	/* *************************** */
+	free(resp);
 
 	/* Get Sensor Info */
 	dnpds40_build_cmd(&cmd, "INFO", "SENSOR", 0);
 
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*)&cmd, sizeof(cmd))))
-		return ret;
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
 
-	/* Read in the response */
-	memset(rdbuf, 0, sizeof(rdbuf));
-	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   rdbuf,
-				   READBACK_LEN,
-				   &num,
-				   5000);
+	dnpds40_cleanup_string((char*)resp, len);
 
-	if (ret < 0 || num < 8) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(rdbuf), ctx->endp_up);
-		if (ret < 0)
-			return ret;
-		return 4;
-	}
+	INFO("Sensor Info: '%s'\n", (char*)resp);
 
-	memcpy(tmp, rdbuf, 8);
-	tmp[8] = 0;
-	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
-
-	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
-
-	dnpds40_cleanup_string((char*)rdbuf + 8, i);
-
-	INFO("Sensor Info: '%s'\n", (char*)rdbuf + 8);
-
-	/* *************************** */
+	free(resp);
 
 	/* Get Media Info */
 	dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
 
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*)&cmd, sizeof(cmd))))
-		return ret;
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
 
-	/* Read in the response */
-	memset(rdbuf, 0, sizeof(rdbuf));
-	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   rdbuf,
-				   READBACK_LEN,
-				   &num,
-				   5000);
+	dnpds40_cleanup_string((char*)resp, len);
 
-	if (ret < 0 || num < 8) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(rdbuf), ctx->endp_up);
-		if (ret < 0)
-			return ret;
-		return 4;
-	}
+	INFO("Media Type: '%s'\n", (char*)resp);
 
-	memcpy(tmp, rdbuf, 8);
-	tmp[8] = 0;
-	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
-
-	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
-
-	dnpds40_cleanup_string((char*)rdbuf + 8, i);
-
-	INFO("Media Type: '%s'\n", (char*)rdbuf + 8);
-
-	INFO("  %s\n", dnpds40_media_types((char*)rdbuf+8));	
-	switch (*(rdbuf+8+4)) {
+	INFO("  %s\n", dnpds40_media_types((char*)resp));	
+	switch (*(resp+4)) {
 	case '1':
 		INFO("   Stickier paper\n");
 		break;
@@ -370,10 +359,10 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		INFO("   Standard paper\n");
 		break;
 	default:
-		INFO("   Unknown paper(%c)\n", *(rdbuf+8+4));
+		INFO("   Unknown paper(%c)\n", *(resp+4));
 		break;
 	}
-	switch (*(rdbuf+8+7)) {
+	switch (*(resp+7)) {
 	case '1':
 		INFO("   With mark\n");
 		break;
@@ -381,41 +370,24 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		INFO("   Without mark\n");
 		break;
 	default:
-		INFO("   Unknown mark(%c)\n", *(rdbuf+8+7));
+		INFO("   Unknown mark(%c)\n", *(resp+7));
 		break;
 	}
+
+	free(resp);
 
 	/* Get Media remaining */
 	dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
 
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*)&cmd, sizeof(cmd))))
-		return ret;
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
 
-	/* Read in the response */
-	memset(rdbuf, 0, sizeof(rdbuf));
-	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   rdbuf,
-				   READBACK_LEN,
-				   &num,
-				   5000);
+	dnpds40_cleanup_string((char*)resp, len);
 
-	if (ret < 0 || num < 8) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(rdbuf), ctx->endp_up);
-		if (ret < 0)
-			return ret;
-		return 4;
-	}
+	INFO("Prints Remaining: '%s'\n", (char*)resp + 4);
 
-	memcpy(tmp, rdbuf, 8);
-	tmp[8] = 0;
-	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
-
-	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
-
-	dnpds40_cleanup_string((char*)rdbuf + 8, i);
-
-	INFO("Prints remaining: '%s'\n", (char*)rdbuf + 8 + 4);
+	free(resp);
 
 	return 0;
 }
@@ -423,42 +395,22 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 {
 	struct dnpds40_cmd cmd;
-	uint8_t rdbuf[READBACK_LEN];
-	char tmp[9];
+	uint8_t *resp;
+	int len = 0;
 
-	int ret, i, num = 0;
-	
-	/* Get Firmware Version */
+	/* Generate command */
 	dnpds40_build_cmd(&cmd, "STATUS", "", 0);
 
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*)&cmd, sizeof(cmd))))
-		return ret;
+	/* Send command over */
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
 
-	/* Read in the response */
-	memset(rdbuf, 0, sizeof(rdbuf));
-	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   rdbuf,
-				   READBACK_LEN,
-				   &num,
-				   5000);
+	dnpds40_cleanup_string((char*)resp, len);
 
-	if (ret < 0 || num < 8) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, (int)sizeof(rdbuf), ctx->endp_up);
-		if (ret < 0)
-			return ret;
-		return 4;
-	}
+	INFO("Printer Status: %s => %s\n", (char*)resp, dnpds40_statuses((char*)resp));
 
-	memcpy(tmp, rdbuf, 8);
-	tmp[8] = 0;
-	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
-
-	DEBUG("readback: '%s' len %d/%d\n", (char*) rdbuf, i, num);
-
-	dnpds40_cleanup_string((char*)rdbuf + 8, i);
-
-	INFO("Printer Status: %s => %s\n", (char*)rdbuf + 8, dnpds40_statuses((char*)rdbuf+8));
+	free(resp);
 
 	return 0;
 }
@@ -489,7 +441,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.03",
+	.version = "0.04",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
