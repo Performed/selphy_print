@@ -14,7 +14,7 @@
 
  ***************************************************************************
 
-  Supported Printers:
+  Known Supported Printers:
 
    Canon SELPHY ES series
    Canon SELPHY CP series
@@ -279,6 +279,10 @@
 
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
+
+   Theoretically supportable printers: (Unknown USB PID)
+
+    Mitsubishi CP-K60DW-S
 
    Valid commands:
 
