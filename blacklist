@@ -116,3 +116,6 @@
 
 # Sony UP-DR150
 0x054c 0x01e8 blacklist
+
+# DNP DS40
+0x1343 0x0003 blacklist
