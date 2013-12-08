@@ -59,11 +59,11 @@ struct dnpds40_cmd {
 	uint8_t arg1[6];
 	uint8_t arg2[16];
 	uint8_t arg3[8]; /* Decimal value of arg4's length, or empty */
+	uint8_t arg4[0]; /* Extra payload if arg3 is non-empty
+			    Doesn't have to be sent in the same URB */
 
-	/* All unused elements are set to ' ' (ie ascii space) */
+	/* All unused elements are set to 0x20 (ie ascii space) */
 };
-
-#define DS40_CMD_LEN 32
 
 #define min(__x, __y) ((__x) < (__y)) ? __x : __y
 
@@ -79,7 +79,7 @@ static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, u
 	if (arg3_len)
 		snprintf((char*)cmd->arg3, 8, "%08d", arg3_len);
 
-	DEBUG("command: '%s' ", (char*)cmd);
+	DEBUG("command: ");
 	for (i = 0 ; i < sizeof(*cmd); i++) {
 		DEBUG2("%02x ", *(((uint8_t*)cmd)+i));
 	}
@@ -169,13 +169,14 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 	uint8_t *respbuf;
 
 	int ret, i, num = 0;
-	
+
+	memset(tmp, 0, sizeof(tmp));
+
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     (uint8_t*)cmd, sizeof(*cmd))))
 		return NULL;
 
 	/* Read in the response header */
-	memset(tmp, 0, sizeof(tmp));
 	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
 				   (uint8_t*)tmp,
 				   8,
@@ -293,16 +294,19 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	if (!ctx)
 		return 1;
 
-	// XXX printer probably supports making copies.
 	while (copies--) {
+		/* Just dump the whole damn thing over */
 		DEBUG("Sending %d bytes to printer\n", ctx->datalen);
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, ctx->datalen)))
 			return ret;
+
+		/* Clean up */
+		if (terminate)
+			copies = 1;
+
 		INFO("Print complete (%d remaining)\n", copies);
 	}
-
-	/* Just dump the whole damn thing over */
 
 	return 0;
 }
@@ -441,7 +445,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.04",
+	.version = "0.05",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
