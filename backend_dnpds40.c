@@ -192,7 +192,9 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 	}
 
 	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
+#if 0
 	DEBUG("readback: '%s' len %d/%d\n", (char*) tmp, i, num);
+#endif
 
 	respbuf = malloc(i);
 
@@ -211,11 +213,13 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 		return NULL;
 	}
 
+#if 0
 	DEBUG("response: ");
 	for (i = 0 ; i < num; i++) {
 		DEBUG2("%02x ", respbuf[i]);
 	}
 	DEBUG2("\n");
+#endif
 
 	*len = num;
 	return respbuf;
@@ -405,7 +409,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Horizontal Resolution: '%s' dpi\n", (char*)resp + 4);
+	INFO("Horizontal Resolution: '%s' dpi\n", (char*)resp + 3);
 
 	free(resp);
 
@@ -418,7 +422,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Vertical Resolution: '%s' dpi\n", (char*)resp + 4);
+	INFO("Vertical Resolution: '%s' dpi\n", (char*)resp + 3);
 
 	free(resp);
 
@@ -488,7 +492,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.06",
+	.version = "0.07",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
