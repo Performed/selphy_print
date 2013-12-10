@@ -4,9 +4,9 @@
  *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
- *  
+ *
  *     http://git.shaftnet.org/cgit/selphy_print.git
- *  
+ *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
  *   Software Foundation; either version 3 of the License, or (at your option)
@@ -69,8 +69,9 @@ struct dnpds40_cmd {
 
 static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, uint32_t arg3_len)
 {
+#if 0
 	uint i;
-
+#endif
 	memset(cmd, 0x20, sizeof(*cmd));
 	cmd->esc = 0x1b;
 	cmd->p = 0x50;
@@ -79,11 +80,13 @@ static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, u
 	if (arg3_len)
 		snprintf((char*)cmd->arg3, 8, "%08d", arg3_len);
 
+#if 0
 	DEBUG("command: ");
 	for (i = 0 ; i < sizeof(*cmd); i++) {
 		DEBUG2("%02x ", *(((uint8_t*)cmd)+i));
 	}
 	DEBUG2("\n");
+#endif
 }
 
 static void dnpds40_cleanup_string(char *start, int len)
@@ -129,7 +132,7 @@ static char *dnpds40_statuses(char *str)
 	tmp[5] = 0;
 
 	i = atoi(tmp);
-	
+
 	switch (i) {
 	case 0:	return "Idle";
 	case 1:	return "Printing";
@@ -230,7 +233,7 @@ static void *dnpds40_init(void)
 	return ctx;
 }
 
-static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev, 
+static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct dnpds40_ctx *ctx = vctx;
@@ -239,7 +242,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 
 	UNUSED(jobid);
 
-	ctx->dev = dev;	
+	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
 
@@ -354,8 +357,8 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	INFO("Media Type: '%s'\n", (char*)resp);
 
-	INFO("  %s\n", dnpds40_media_types((char*)resp));	
-	switch (*(resp+4)) {
+	INFO("  %s\n", dnpds40_media_types((char*)resp));
+	switch (*(resp+3)) {
 	case '1':
 		INFO("   Stickier paper\n");
 		break;
@@ -366,7 +369,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		INFO("   Unknown paper(%c)\n", *(resp+4));
 		break;
 	}
-	switch (*(resp+7)) {
+	switch (*(resp+6)) {
 	case '1':
 		INFO("   With mark\n");
 		break;
@@ -393,6 +396,32 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
+	/* Get Horizonal resolution */
+	dnpds40_build_cmd(&cmd, "INFO", "RESOLUTION_H", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Horizontal Resolution: '%s' dpi\n", (char*)resp + 4);
+
+	free(resp);
+
+	/* Get Vertical resolution */
+	dnpds40_build_cmd(&cmd, "INFO", "RESOLUTION_V", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Vertical Resolution: '%s' dpi\n", (char*)resp + 4);
+
+	free(resp);
+
 	return 0;
 }
 
@@ -416,12 +445,26 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
+
+	/* Send command over */
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Free Buffers: '%s'\n", (char*)resp + 3);
+
+	free(resp);
+
 	return 0;
 }
 
 static void dnpds40_cmdline(char *caller)
 {
-	DEBUG("\t\t%s [ -qs | -qi ]\n", caller);
+	DEBUG("\t\t%s [ --qs | -qi ]\n", caller);
 }
 
 static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
@@ -445,7 +488,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.05",
+	.version = "0.06",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -454,7 +497,7 @@ struct dyesub_backend dnpds40_backend = {
 	.teardown = dnpds40_teardown,
 	.read_parse = dnpds40_read_parse,
 	.main_loop = dnpds40_main_loop,
-	.devices = { 
+	.devices = {
 	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
 	{ 0, 0, 0, ""}
