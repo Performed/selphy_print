@@ -26,6 +26,7 @@
    Mitsubishi CP-D70x series
    Shinko/Sinfonia CHC-S2145 (aka "S2")
    Sony UP-DR150
+   DNP DS40/DS80
 
  ***************************************************************************
   Compilation:
@@ -101,6 +102,7 @@
 	EXTRA_PID is the USB PID, in hex
 	EXTRA_TYPE is:	3 for SELPHY CP790
 		   	4 for SELPHY CP520 (or other CP-series model)
+			(See P_ANY enum in backend_common.h for more)
 
       If you have a model the spooler doesn't recognize but it works with
       a VID/PID/TYPE specification, please let me know via e-mail.
@@ -284,6 +286,34 @@
 
     Mitsubishi CP-K60DW-S
 
+   This backend supports additional commands:
+
+      mitsu70x [command [arg] ]
+
    Valid commands:
 
      -qs                 Query printer status (Not fully decoded yet)
+
+ *************************************************************************** 
+  BACKEND=dnpds40
+
+   Supported printers:
+
+    DNP DS40
+    DNP DS80
+
+   NOTE:  This backend has **NOT** been tested with spooling operation, but
+          is known to work with various status/etc commands.
+
+   This backend supports additional commands:
+
+      dnpds40 [command [arg] ]
+
+   Valid commands:
+
+     -qs                 Query printer status
+     -qi		 Query printer info (media, resolution, etc)
+     -qc		 Query printer counters
+     -cca		 Clear 'A' Counter
+     -ccb		 Clear 'B' Counter
+     -ccm		 Clear 'M' Counter
