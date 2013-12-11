@@ -69,9 +69,6 @@ struct dnpds40_cmd {
 
 static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, uint32_t arg3_len)
 {
-#if 0
-	uint i;
-#endif
 	memset(cmd, 0x20, sizeof(*cmd));
 	cmd->esc = 0x1b;
 	cmd->p = 0x50;
@@ -80,13 +77,6 @@ static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, u
 	if (arg3_len)
 		snprintf((char*)cmd->arg3, 8, "%08d", arg3_len);
 
-#if 0
-	DEBUG("command: ");
-	for (i = 0 ; i < sizeof(*cmd); i++) {
-		DEBUG2("%02x ", *(((uint8_t*)cmd)+i));
-	}
-	DEBUG2("\n");
-#endif
 }
 
 static void dnpds40_cleanup_string(char *start, int len)
@@ -165,8 +155,8 @@ static char *dnpds40_statuses(char *str)
 }
 
 static int dnpds40_do_cmd(struct dnpds40_ctx *ctx,
-			   struct dnpds40_cmd *cmd,
-			   uint8_t *data, int len)
+			  struct dnpds40_cmd *cmd,
+			  uint8_t *data, int len)
 {
 	int ret;
 
@@ -174,7 +164,7 @@ static int dnpds40_do_cmd(struct dnpds40_ctx *ctx,
 			     (uint8_t*)cmd, sizeof(*cmd))))
 		return ret;
 
-	if (*data && len) 
+	if (data && len) 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     data, len)))
 			return ret;
@@ -208,11 +198,15 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 		return NULL;
 	}
 
-	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
-#if 0
-	DEBUG("readback: '%s' len %d/%d\n", (char*) tmp, i, num);
-#endif
+	if (getenv("DYESUB_DEBUG")) {
+		DEBUG("<- ");
+		for (i = 0 ; i < num; i++) {
+			DEBUG2("%02x ", tmp[i]);
+		}
+		DEBUG2("\n");
+	}
 
+	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
 	respbuf = malloc(i);
 
 	/* Read in the actual response */
@@ -223,20 +217,20 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 				   &num,
 				   5000);
 
+	if (getenv("DYESUB_DEBUG")) {
+		DEBUG("<- ");
+		for (i = 0 ; i < num; i++) {
+			DEBUG2("%02x ", respbuf[i]);
+		}
+		DEBUG2("\n");
+	}
+
 	if (ret < 0 || num != i) {
 		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, i, ctx->endp_up);
 
 		free(respbuf);
 		return NULL;
 	}
-
-#if 0
-	DEBUG("response: ");
-	for (i = 0 ; i < num; i++) {
-		DEBUG2("%02x ", respbuf[i]);
-	}
-	DEBUG2("\n");
-#endif
 
 	*len = num;
 	return respbuf;
@@ -379,7 +373,6 @@ top:
 	
 	// XXX for now, dump the whole spool file over.  Parse first?
 
-	DEBUG("Sending %d bytes to printer\n", ctx->datalen);
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     ctx->databuf, ctx->datalen)))
 		return ret;
@@ -740,7 +733,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.10",
+	.version = "0.11",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
