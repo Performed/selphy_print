@@ -164,6 +164,24 @@ static char *dnpds40_statuses(char *str)
 	return "Unkown type";
 }
 
+static int dnpds40_do_cmd(struct dnpds40_ctx *ctx,
+			   struct dnpds40_cmd *cmd,
+			   uint8_t *data, int len)
+{
+	int ret;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*)cmd, sizeof(*cmd))))
+		return ret;
+
+	if (*data && len) 
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     data, len)))
+			return ret;
+
+	return 0;
+}
+
 static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 				  struct dnpds40_cmd *cmd,
 				  int *len)
@@ -175,8 +193,7 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 
 	memset(tmp, 0, sizeof(tmp));
 
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*)cmd, sizeof(*cmd))))
+	if ((ret = dnpds40_do_cmd(ctx, cmd, NULL, 0)))
 		return NULL;
 
 	/* Read in the response header */
@@ -287,6 +304,21 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		return 2;
 	}
 
+	i = read(data_fd, ctx->databuf, sizeof(struct dnpds40_cmd));
+	if (i < 0)
+		return i;
+
+	ctx->databuf += i;
+
+	// XXX no way to figure out print job length without parsing stream
+	// until we get to the plane data
+
+	if (ctx->databuf[0] != 0x1b ||
+	    ctx->databuf[1] != 0x50) {
+		ERROR("Unrecognized header data format!\n");
+		return 1;
+	}
+
 	while((i = read(data_fd, ctx->databuf + ctx->datalen, 4096)) > 0) {
 		ctx->datalen += i;
 	}
@@ -297,23 +329,72 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 static int dnpds40_main_loop(void *vctx, int copies) {
 	struct dnpds40_ctx *ctx = vctx;
 	int ret;
+	struct dnpds40_cmd cmd;
+	uint8_t *resp = NULL;
+	int len = 0;
 
 	if (!ctx)
 		return 1;
 
-	while (copies--) {
-		/* Just dump the whole damn thing over */
-		DEBUG("Sending %d bytes to printer\n", ctx->datalen);
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ctx->databuf, ctx->datalen)))
-			return ret;
+top:
 
-		/* Clean up */
-		if (terminate)
-			copies = 1;
+	if (resp) free(resp);
 
-		INFO("Print complete (%d remaining)\n", copies);
+	/* Query status */
+	dnpds40_build_cmd(&cmd, "STATUS", "", 0);
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+	dnpds40_cleanup_string((char*)resp, len);
+
+	/* If we're not idle */
+	if (strcmp("00000", (char*)resp)) {
+		if (!strcmp("00001", (char*)resp) ||
+		    !strcmp("00500", (char*)resp) ||
+		    !strcmp("00510", (char*)resp)) {
+			INFO("Printer busy, retrying...\n");
+			/* We're printing or cooling still.. */
+			sleep(1);
+			goto top;
+		}
+		ERROR("Printer Status: %s\n", dnpds40_statuses((char*)resp));
+		return 1;
 	}
+	
+	/* Query buffer state */
+	dnpds40_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+	dnpds40_cleanup_string((char*)resp, len);
+	
+	/* We need a minumum of two buffers to be safe everywhere */
+	if (!strcmp("FBP00", (char*)resp) ||
+	    !strcmp("FBP01", (char*)resp)) {
+		/* We don't have enough buffers */
+		INFO("Insufficient printer buffers, retrying...\n");
+		sleep(1);
+		goto top;
+	}
+	
+	// XXX for now, dump the whole spool file over.  Parse first?
+
+	DEBUG("Sending %d bytes to printer\n", ctx->datalen);
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     ctx->databuf, ctx->datalen)))
+		return ret;
+	
+	/* Clean up */
+	if (terminate)
+		copies = 1;
+	
+	INFO("Print complete (%d remaining)\n", copies);
+
+	if (copies && --copies) {
+		goto top;
+	}
+
+	if (resp) free(resp);
 
 	return 0;
 }
@@ -583,9 +664,29 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 }
 
 
+static int dnpds40_clear_counter(struct dnpds40_ctx *ctx, char counter)
+{
+	struct dnpds40_cmd cmd;
+	char msg[4];
+	int ret;
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTER_CLR", 0);
+	msg[0] = 'C';
+	msg[1] = counter;
+	msg[2] = '\r';
+	msg[3] = 0;
+
+	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, sizeof(msg))))
+		return ret;
+
+	return 0;
+}
+
 static void dnpds40_cmdline(char *caller)
 {
 	DEBUG("\t\t%s [ -qs | -qi | -qc ]\n", caller);
+	DEBUG("\t\t%s [ -cca | -ccb | -ccm \n", caller);
 }
 
 static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
@@ -597,7 +698,10 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 	if (!run || !ctx)
 		return (!strcmp("-qs", arg1) ||
 			!strcmp("-qi", arg1) ||
-			!strcmp("-qc", arg1));
+			!strcmp("-qc", arg1) || 
+			!strcmp("-cca", arg1) ||
+			!strcmp("-ccb", arg1) ||
+			!strcmp("-ccm", arg1));
 
 	if (!strcmp("-qs", arg1))
 		return dnpds40_get_status(ctx);
@@ -605,6 +709,12 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 		return dnpds40_get_info(ctx);
 	if (!strcmp("-qc", arg1))
 		return dnpds40_get_counters(ctx);
+	if (!strcmp("-cca", arg1))
+		return dnpds40_clear_counter(ctx, 'A');
+	if (!strcmp("-ccb", arg1))
+		return dnpds40_clear_counter(ctx, 'B');
+	if (!strcmp("-ccm", arg1))
+		return dnpds40_clear_counter(ctx, 'M');
 
 
 	return -1;
@@ -613,7 +723,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.08",
+	.version = "0.09",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
