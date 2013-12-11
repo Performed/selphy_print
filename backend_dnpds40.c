@@ -663,7 +663,6 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 	return 0;
 }
 
-
 static int dnpds40_clear_counter(struct dnpds40_ctx *ctx, char counter)
 {
 	struct dnpds40_cmd cmd;
@@ -683,17 +682,33 @@ static int dnpds40_clear_counter(struct dnpds40_ctx *ctx, char counter)
 	return 0;
 }
 
+static int dnpds40_set_counter_p(struct dnpds40_ctx *ctx, char *arg)
+{
+	struct dnpds40_cmd cmd;
+	char msg[9];
+	int i = atoi(arg);
+	int ret;
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTERP_SET", 0);
+	snprintf(msg, 9, "%08d", i);
+
+	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 8)))
+		return ret;
+
+	return 0;
+}
+
 static void dnpds40_cmdline(char *caller)
 {
 	DEBUG("\t\t%s [ -qs | -qi | -qc ]\n", caller);
-	DEBUG("\t\t%s [ -cca | -ccb | -ccm \n", caller);
+	DEBUG("\t\t%s [ -cca | -ccb | -ccm ]\n", caller);
+	DEBUG("\t\t%s [ -scp num ]\n", caller);
 }
 
 static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 {
 	struct dnpds40_ctx *ctx = vctx;
-
-	UNUSED(arg2);
 
 	if (!run || !ctx)
 		return (!strcmp("-qs", arg1) ||
@@ -701,7 +716,8 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 			!strcmp("-qc", arg1) || 
 			!strcmp("-cca", arg1) ||
 			!strcmp("-ccb", arg1) ||
-			!strcmp("-ccm", arg1));
+			!strcmp("-ccm", arg1) ||
+			!strcmp("-scp", arg1));
 
 	if (!strcmp("-qs", arg1))
 		return dnpds40_get_status(ctx);
@@ -715,7 +731,8 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 		return dnpds40_clear_counter(ctx, 'B');
 	if (!strcmp("-ccm", arg1))
 		return dnpds40_clear_counter(ctx, 'M');
-
+	if (!strcmp("-scp", arg1))
+		return dnpds40_set_counter_p(ctx, arg2);
 
 	return -1;
 }
@@ -723,7 +740,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.09",
+	.version = "0.10",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,

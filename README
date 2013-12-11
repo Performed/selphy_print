@@ -317,3 +317,4 @@
      -cca		 Clear 'A' Counter
      -ccb		 Clear 'B' Counter
      -ccm		 Clear 'M' Counter
+     -scp num		 Set 'P' Counter to 'num'
