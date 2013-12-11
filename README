@@ -84,6 +84,9 @@
       Gutenprint (eg via its gimp plugin) or the Windows print-to-file 
       output.
 
+      You can enable full data dumps by defining the DYESUB_DEBUG 
+      environment variable.
+
       If there is more than one device present that the backend handles,
       the backend will choose the first supported device it finds. If you
       wish to specify the specific device when operating in standalone 
