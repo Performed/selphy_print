@@ -347,6 +347,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	dnpds40_cleanup_string((char*)resp, len);
 
 	INFO("Sensor Info: '%s'\n", (char*)resp);
+	// XXX parse this out. Each token is 'XXX-###' delimited by '; '
 
 	free(resp);
 
@@ -426,6 +427,35 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
+	/* Get Media Color offset */
+	dnpds40_build_cmd(&cmd, "INFO", "MCOLOR", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Media Color Offset: '%02x%02x%02x%02x'\n", *(resp+2), *(resp+3),
+	     *(resp+4), *(resp+5));
+
+	free(resp);
+
+	/* Get Media Lot */
+	dnpds40_build_cmd(&cmd, "INFO", "MLOT", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Media Lot Code: '%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x'\n", 
+	     *(resp+2), *(resp+3), *(resp+4), *(resp+5), *(resp+6), *(resp+7),
+	     *(resp+8), *(resp+9), *(resp+10), *(resp+11), *(resp+12), *(resp+13));
+
+	free(resp);
+
 	return 0;
 }
 
@@ -438,7 +468,6 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	/* Generate command */
 	dnpds40_build_cmd(&cmd, "STATUS", "", 0);
 
-	/* Send command over */
 	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 	if (!resp)
 		return -1;
@@ -452,7 +481,6 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	/* Generate command */
 	dnpds40_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
 
-	/* Send command over */
 	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 	if (!resp)
 		return -1;
@@ -466,9 +494,98 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	return 0;
 }
 
+static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
+{
+	struct dnpds40_cmd cmd;
+	uint8_t *resp;
+	int len = 0;
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_LIFE", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Lifetime Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_A", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("A Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_B", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("B Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_P", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("P Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_M", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("M Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_MATTE", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Matte Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+
+	return 0;
+}
+
+
 static void dnpds40_cmdline(char *caller)
 {
-	DEBUG("\t\t%s [ --qs | -qi ]\n", caller);
+	DEBUG("\t\t%s [ -qs | -qi | -qc ]\n", caller);
 }
 
 static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
@@ -479,12 +596,16 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 
 	if (!run || !ctx)
 		return (!strcmp("-qs", arg1) ||
-			!strcmp("-qi", arg1));
+			!strcmp("-qi", arg1) ||
+			!strcmp("-qc", arg1));
 
 	if (!strcmp("-qs", arg1))
 		return dnpds40_get_status(ctx);
 	if (!strcmp("-qi", arg1))
 		return dnpds40_get_info(ctx);
+	if (!strcmp("-qc", arg1))
+		return dnpds40_get_counters(ctx);
+
 
 	return -1;
 }
@@ -492,7 +613,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.07",
+	.version = "0.08",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
