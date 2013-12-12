@@ -648,7 +648,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Matte Counter: '%s'\n", (char*)resp+2);
+	INFO("Matte Counter: '%s'\n", (char*)resp+4);
 
 	free(resp);
 
@@ -666,8 +666,8 @@ static int dnpds40_clear_counter(struct dnpds40_ctx *ctx, char counter)
 	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTER_CLR", 0);
 	msg[0] = 'C';
 	msg[1] = counter;
-	msg[2] = '\r';
-	msg[3] = 0;
+	msg[2] = 0x0d;
+	msg[3] = 0x00;
 
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, sizeof(msg))))
 		return ret;
@@ -733,7 +733,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.11",
+	.version = "0.12",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
