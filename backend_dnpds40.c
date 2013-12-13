@@ -663,13 +663,13 @@ static int dnpds40_clear_counter(struct dnpds40_ctx *ctx, char counter)
 	int ret;
 
 	/* Generate command */
-	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTER_CLR", 0);
+	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTER_CLR", 4);
 	msg[0] = 'C';
 	msg[1] = counter;
 	msg[2] = 0x0d;
 	msg[3] = 0x00;
 
-	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, sizeof(msg))))
+	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 4)))
 		return ret;
 
 	return 0;
@@ -683,8 +683,8 @@ static int dnpds40_set_counter_p(struct dnpds40_ctx *ctx, char *arg)
 	int ret;
 
 	/* Generate command */
-	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTERP_SET", 0);
-	snprintf(msg, 9, "%08d", i);
+	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTERP_SET", 8);
+	snprintf(msg, sizeof(msg), "%08d", i);
 
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 8)))
 		return ret;
@@ -733,7 +733,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.12",
+	.version = "0.13",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
