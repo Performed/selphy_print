@@ -23,10 +23,14 @@
    Kodak 805 Photo Printer
    Kodak 6800 Photo Printer
    Kodak 6850 Photo Printer
-   Mitsubishi CP-D70x series
-   Shinko/Sinfonia CHC-S2145 (aka "S2")
+   Shinko CHC-S2145 (aka "Sinfonia S2")
    Sony UP-DR150
-   DNP DS40/DS80 
+
+ Work-in-progress printers:
+
+   Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
+   DNP DS40 and DS80 
+   Sony UP-DR200
 
  ***************************************************************************
   Compilation:
