@@ -54,8 +54,8 @@ struct dnpds40_ctx {
 };
 
 struct dnpds40_cmd {
-	uint8_t esc;
-	uint8_t p;
+	uint8_t esc; /* Fixed at ascii ESC, aka 0x1B */
+	uint8_t p;   /* Fixed at ascii 'P' aka 0x50 */
 	uint8_t arg1[6];
 	uint8_t arg2[16];
 	uint8_t arg3[8]; /* Decimal value of arg4's length, or empty */
@@ -69,13 +69,16 @@ struct dnpds40_cmd {
 
 static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, uint32_t arg3_len)
 {
+	char buf[9];
 	memset(cmd, 0x20, sizeof(*cmd));
 	cmd->esc = 0x1b;
 	cmd->p = 0x50;
 	memcpy(cmd->arg1, arg1, min(strlen(arg1), sizeof(cmd->arg1)));
 	memcpy(cmd->arg2, arg2, min(strlen(arg2), sizeof(cmd->arg2)));
-	if (arg3_len)
-		snprintf((char*)cmd->arg3, 8, "%08d", arg3_len);
+	if (arg3_len) {
+		snprintf(buf, sizeof(buf), "%08d", arg3_len);
+		memcpy(cmd->arg3, buf, 8);
+	}
 
 }
 
@@ -234,6 +237,35 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 
 	*len = num;
 	return respbuf;
+}
+
+static int dnpds40_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+{
+	struct dnpds40_cmd cmd;
+	uint8_t *resp;
+	int len = 0;
+
+	struct dnpds40_ctx ctx = {
+		.dev = dev,
+		.endp_up = endp_up,
+		.endp_down = endp_down,
+	};
+
+	/* Get Serial Number */
+	dnpds40_build_cmd(&cmd, "INFO", "SERIAL_NUMBER", 0);
+
+	resp = dnpds40_resp_cmd(&ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	strncpy(buf, (char*)resp, buf_len);
+	buf[buf_len-1] = 0;
+
+	free(resp);
+
+	return 0;
 }
 
 static void *dnpds40_init(void)
@@ -398,6 +430,19 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	uint8_t *resp;
 	int len = 0;
 
+	/* Get Serial Number */
+	dnpds40_build_cmd(&cmd, "INFO", "SERIAL_NUMBER", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Serial Number: '%s'\n", (char*)resp);
+
+	free(resp);
+
 	/* Get Firmware Version */
 	dnpds40_build_cmd(&cmd, "INFO", "FVER", 0);
 
@@ -475,6 +520,19 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
+	/* Get Qty of prints made on this media? */
+	dnpds40_build_cmd(&cmd, "INFO", "PQTY", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Prints Performed(?): '%s'\n", (char*)resp + 4);
+
+	free(resp);
+
 	/* Get Horizonal resolution */
 	dnpds40_build_cmd(&cmd, "INFO", "RESOLUTION_H", 0);
 
@@ -527,6 +585,19 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	INFO("Media Lot Code: '%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x'\n", 
 	     *(resp+2), *(resp+3), *(resp+4), *(resp+5), *(resp+6), *(resp+7),
 	     *(resp+8), *(resp+9), *(resp+10), *(resp+11), *(resp+12), *(resp+13));
+
+	free(resp);
+
+	/* Get Media ID Set (?) */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "MEDIA_ID_SET", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Media ID(?): '%s'\n", (char*)resp+4);
 
 	free(resp);
 
@@ -652,7 +723,6 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-
 	return 0;
 }
 
@@ -663,10 +733,10 @@ static int dnpds40_clear_counter(struct dnpds40_ctx *ctx, char counter)
 	int ret;
 
 	/* Generate command */
-	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTER_CLR", 4);
+	dnpds40_build_cmd(&cmd, "MNT_WT", "COUNTER_CLEAR", 4);
 	msg[0] = 'C';
 	msg[1] = counter;
-	msg[2] = 0x0d;
+	msg[2] = 0x0d; /* ie carriage return, ASCII '\r' */
 	msg[3] = 0x00;
 
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 4)))
@@ -733,7 +803,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.13",
+	.version = "0.14",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -742,6 +812,7 @@ struct dyesub_backend dnpds40_backend = {
 	.teardown = dnpds40_teardown,
 	.read_parse = dnpds40_read_parse,
 	.main_loop = dnpds40_main_loop,
+	.query_serno = dnpds40_query_serno,
 	.devices = {
 	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
