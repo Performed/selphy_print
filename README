@@ -307,8 +307,6 @@
  *************************************************************************** 
   BACKEND=dnpds40
 
-   NOTE:  This backend is not yet present in mainline Gutenprint
-
    Verified supported printers:
 
     DNP DS40
