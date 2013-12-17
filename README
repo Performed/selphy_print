@@ -25,11 +25,12 @@
    Kodak 6850 Photo Printer
    Shinko CHC-S2145 (aka "Sinfonia S2")
    Sony UP-DR150
+   DNP DS40
+   DNP DS80 
 
  Work-in-progress printers:
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
-   DNP DS40 and DS80 
    Sony UP-DR200
 
  ***************************************************************************
@@ -312,9 +313,6 @@
 
     DNP DS40
     DNP DS80
-
-   NOTE:  This backend has **NOT** been tested with spooling operation, but
-          is known to work for the various status/etc commands.
 
    This backend supports additional commands:
 

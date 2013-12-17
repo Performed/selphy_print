@@ -334,7 +334,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	if (i < 0)
 		return i;
 
-	ctx->databuf += i;
+	ctx->datalen += i;
 
 	// XXX no way to figure out print job length without parsing stream
 	// until we get to the plane data
@@ -803,7 +803,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.14",
+	.version = "0.15",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
