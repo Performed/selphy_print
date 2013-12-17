@@ -362,6 +362,29 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	if (!ctx)
 		return 1;
 
+	/* Parse job to figure out quantity offset. */
+	if (copies > 1) {
+		uint8_t *ptr = ctx->databuf;
+		char buf[9];
+		int     offset;
+
+		while(ptr && ptr < (ctx->databuf + ctx->datalen)) {
+			if(!memcmp("CNTRL QTY", (char*)ptr+2, 9)) {
+				snprintf(buf, sizeof(buf), "%07d\r", copies);
+				memcpy(ptr + 24 + 8, buf, 8);
+				break;
+			}
+			buf[9] = 0;
+			memcpy(buf, ptr + 24, 8);
+			offset = atoi(buf);
+			ptr += 24+8+offset;
+		}
+		// XXX should we set/reset BUFFCNTRL?
+		// XXX should we verify we have sufficient media for prints?
+	}
+
+	return 0;
+
 top:
 
 	if (resp) free(resp);
@@ -383,10 +406,12 @@ top:
 			sleep(1);
 			goto top;
 		}
+		free(resp);
 		ERROR("Printer Status: %s\n", dnpds40_statuses((char*)resp));
 		return 1;
 	}
-	
+	free(resp);
+
 	/* Query buffer state */
 	dnpds40_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
 	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
@@ -403,17 +428,19 @@ top:
 		goto top;
 	}
 	
-	// XXX for now, dump the whole spool file over.  Parse first?
-
+	/* Just dump the whole thing over */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     ctx->databuf, ctx->datalen)))
 		return ret;
 	
+	/* This printer handles copies internally */
+	copies = 1;
+
 	/* Clean up */
 	if (terminate)
 		copies = 1;
 	
-	INFO("Print complete (%d remaining)\n", copies);
+	INFO("Print complete (%d remaining)\n", copies - 1);
 
 	if (copies && --copies) {
 		goto top;
@@ -803,7 +830,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.15",
+	.version = "0.16",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
