@@ -52,7 +52,7 @@
    (possibly older versions of) this backend.  Without Gutenprint to
    rasterize the print data, this backend is useless.
 
-   The backend is called 'gutenprint+usb', and must be installed with 0700
+   The backend is called 'gutenprint52+usb', and must be installed with 0700
    file permissions and owned by root in order to function properly.
 
    To install this backend for use with CUPS, simply type 'make install'.
@@ -110,7 +110,7 @@
 	EXTRA_PID is the USB PID, in hex
 	EXTRA_TYPE is:	3 for SELPHY CP790
 		   	4 for SELPHY CP520 (or other CP-series model)
-			(See P_ANY enum in backend_common.h for more)
+			(See P_ANY enum in backend_common.h for more types)
 
       If you have a model the spooler doesn't recognize but it works with
       a VID/PID/TYPE specification, please let me know via e-mail.
@@ -321,7 +321,7 @@
    Valid commands:
 
      -qs                 Query printer status
-     -qi		 Query printer info (media, resolution, etc)
+     -qi		 Query printer info (resolution, etc)
      -qc		 Query printer counters
      -cca		 Clear 'A' Counter
      -ccb		 Clear 'B' Counter
