@@ -309,10 +309,14 @@
 
    NOTE:  This backend is not yet present in mainline Gutenprint
 
-   Supported printers:
+   Verified supported printers:
 
     DNP DS40
     DNP DS80
+
+   Development was sponsored by:
+
+        Marco Di Antonio and ilgruppodigitale.com
 
    This backend supports additional commands:
 
