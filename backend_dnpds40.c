@@ -359,15 +359,16 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	uint8_t *resp = NULL;
 	int len = 0;
 
+	uint8_t *ptr;
+	char buf[9];
+
 	if (!ctx)
 		return 1;
 
 	/* Parse job to figure out quantity offset. */
 	if (copies > 1) {
-		uint8_t *ptr = ctx->databuf;
-		char buf[9];
-		int     offset;
-
+		int offset;
+		ptr = ctx->databuf;
 		while(ptr && ptr < (ctx->databuf + ctx->datalen)) {
 			if(!memcmp("CNTRL QTY", (char*)ptr+2, 9)) {
 				snprintf(buf, sizeof(buf), "%07d\r", copies);
@@ -419,7 +420,11 @@ top:
 		return -1;
 	dnpds40_cleanup_string((char*)resp, len);
 	
+	// XXX should we query the vertical resolution?
+
 	/* We need a minumum of two buffers to be safe everywhere */
+	// XXX 300x300 dpi is always safe with one buffer.
+	// XXX 300x600 dpi often requires two buffers to be safe.
 	if (!strcmp("FBP00", (char*)resp) ||
 	    !strcmp("FBP01", (char*)resp)) {
 		/* We don't have enough buffers */
@@ -428,10 +433,20 @@ top:
 		goto top;
 	}
 	
-	/* Just dump the whole thing over */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     ctx->databuf, ctx->datalen)))
-		return ret;
+	/* Send the stream over as individual data chunks */
+	ptr = ctx->databuf;
+	while(ptr && ptr < (ctx->databuf + ctx->datalen)) {
+		int i;
+		buf[9] = 0;
+		memcpy(buf, ptr + 24, 8);
+		i = atoi(buf) + 24 + 8;
+
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     ptr, i)))
+			return ret;
+
+		ptr += i;
+	}
 	
 	/* This printer handles copies internally */
 	copies = 1;
@@ -627,6 +642,33 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	INFO("Media ID(?): '%s'\n", (char*)resp+4);
 
 	free(resp);
+
+	/* Get Color Control Data Version */
+	dnpds40_build_cmd(&cmd, "TBL_RD", "Version", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Color Data Version: '%s'\n", (char*)resp);
+
+	free(resp);
+
+	/* Get Color Control Data Checksum */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "CTRLD_CHKSUM", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Color Data Checksum: '%s'\n", (char*)resp);
+
+	free(resp);
+
 
 	return 0;
 }
@@ -830,7 +872,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.16",
+	.version = "0.17",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
