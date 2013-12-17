@@ -921,10 +921,9 @@ struct dyesub_backend dnpds40_backend = {
 
    UNKNOWN variables/offsets:
 
-    - 300 vs 600dpi selection
     - number of copies
     - lamination type
-    - media type
+    - media type 
 
   4x6, 300dpi, 1 copy, 0 sharpen, glossy
 
@@ -942,8 +941,8 @@ struct dyesub_backend dnpds40_backend = {
   01 00 08 00
   00 00 00 00
   00 00 00 00
-  20 2e 00 00  <- 11808 = ??
-  20 2e 00 00  <- 11808
+  20 2e 00 00  <- 11808 = X pixels per meter @ 300dpi
+  20 2e 00 00  <- 11808 = Y pixels per meter @ 300dpi
   00 01 00 00
   00 00 00 00 
 
@@ -968,8 +967,8 @@ struct dyesub_backend dnpds40_backend = {
   01 00 08 00
   00 00 00 00
   00 00 00 00
-  40 5c 00 00 <- 23615 = ?
-  40 5c 00 00 <- 23615
+  40 5c 00 00 <- 23615 = X pixels per meter @ 600dpi
+  40 5c 00 00 <- 23615 = Y pixels per meter @ 600dpi
   00 01 00 00
   00 00 00 00
 
