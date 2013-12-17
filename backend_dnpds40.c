@@ -49,6 +49,10 @@ struct dnpds40_ctx {
 
         int type;
 
+	int y_res;
+	int buf_needed;
+	uint8_t *qty_offset;
+
 	uint8_t *databuf;
 	int datalen;
 };
@@ -319,34 +323,71 @@ static void dnpds40_teardown(void *vctx) {
 
 static int dnpds40_read_parse(void *vctx, int data_fd) {
 	struct dnpds40_ctx *ctx = vctx;
-	int i;
+	int i, j;
+	char buf[9] = { 0 };
 
 	if (!ctx)
 		return 1;
 
+	ctx->datalen = 0;
 	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return 2;
 	}
 
-	i = read(data_fd, ctx->databuf, sizeof(struct dnpds40_cmd));
-	if (i < 0)
-		return i;
-
-	ctx->datalen += i;
-
 	// XXX no way to figure out print job length without parsing stream
 	// until we get to the plane data
 
-	if (ctx->databuf[0] != 0x1b ||
-	    ctx->databuf[1] != 0x50) {
-		ERROR("Unrecognized header data format!\n");
-		return 1;
-	}
+	/* Read in command header */
+	while (1) {
+		i = read(data_fd, ctx->databuf + ctx->datalen, 
+			 sizeof(struct dnpds40_cmd));
+		if (i < 0)
+			return i;
+		if (i == 0)
+			break;
+		if (i < (int) sizeof(struct dnpds40_cmd))
+			return 1;
 
-	while((i = read(data_fd, ctx->databuf + ctx->datalen, 4096)) > 0) {
-		ctx->datalen += i;
+		if (ctx->databuf[ctx->datalen + 0] != 0x1b ||
+		    ctx->databuf[ctx->datalen + 1] != 0x50) {
+			ERROR("Unrecognized header data format @%d!\n", ctx->datalen);
+			return 1;
+		}
+
+		/* Parse out length of data chunk, if any */
+		memcpy(buf, ctx->databuf + ctx->datalen + 24, 8);
+		j = atoi(buf);
+
+		/* Read in data chunk */
+		i = read(data_fd, ctx->databuf + ctx->datalen + sizeof(struct dnpds40_cmd), 
+			 j);
+		if (i < 0)
+			return i;
+		if (i != j)
+			return 1;
+
+		/* Check for some offsets */
+		if(!memcmp("CNTRL QTY", ctx->databuf + ctx->datalen+2, 9)) {
+			ctx->qty_offset = ctx->databuf + ctx->datalen + 32;
+		}
+	        if(!memcmp("IMAGE YPLANE", ctx->databuf + ctx->datalen + 2, 12)) {
+			uint32_t x;
+			memcpy(&x, ctx->databuf + ctx->datalen + 32 + 42, sizeof(x));
+			x = le32_to_cpu(x);
+
+			if (x == 23615) {
+				ctx->y_res = 600;
+				ctx->buf_needed = 2; // XXX not always true.
+			} else { // x == 11808 or anything else..
+				ctx->y_res = 300;
+				ctx->buf_needed = 1;
+			}
+		}
+
+		/* Add in the size of this chunk */
+		ctx->datalen += sizeof(struct dnpds40_cmd) + j;
 	}
 
 	return 0;
@@ -366,25 +407,13 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		return 1;
 
 	/* Parse job to figure out quantity offset. */
-	if (copies > 1) {
-		int offset;
-		ptr = ctx->databuf;
-		while(ptr && ptr < (ctx->databuf + ctx->datalen)) {
-			if(!memcmp("CNTRL QTY", (char*)ptr+2, 9)) {
-				snprintf(buf, sizeof(buf), "%07d\r", copies);
-				memcpy(ptr + 24 + 8, buf, 8);
-				break;
-			}
-			buf[9] = 0;
-			memcpy(buf, ptr + 24, 8);
-			offset = atoi(buf);
-			ptr += 24+8+offset;
-		}
+	if (copies > 1 && ctx->qty_offset) {
+		snprintf(buf, sizeof(buf), "%07d\r", copies);
+		memcpy(ctx->qty_offset, buf, 8);
+
 		// XXX should we set/reset BUFFCNTRL?
 		// XXX should we verify we have sufficient media for prints?
 	}
-
-	return 0;
 
 top:
 
@@ -399,11 +428,25 @@ top:
 
 	/* If we're not idle */
 	if (strcmp("00000", (char*)resp)) {
-		if (!strcmp("00001", (char*)resp) ||
-		    !strcmp("00500", (char*)resp) ||
-		    !strcmp("00510", (char*)resp)) {
-			INFO("Printer busy, retrying...\n");
-			/* We're printing or cooling still.. */
+		if (!strcmp("00001", (char*)resp)) {
+			free(resp);
+			/* Query buffer state */
+			dnpds40_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
+			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+			if (!resp)
+				return -1;
+			dnpds40_cleanup_string((char*)resp, len);
+
+			if (!strcmp("FBP00", (char*)resp) ||
+			    (ctx->buf_needed == 1 && !strcmp("FBP01", (char*)resp))) {
+				/* We don't have enough buffers */
+				INFO("Insufficient printer buffers, retrying...\n");
+				sleep(1);
+				goto top;
+			}
+		} else if (!strcmp("00500", (char*)resp) ||
+			   !strcmp("00510", (char*)resp)) {
+			INFO("Printer cooling, retrying...\n");
 			sleep(1);
 			goto top;
 		}
@@ -411,35 +454,16 @@ top:
 		ERROR("Printer Status: %s\n", dnpds40_statuses((char*)resp));
 		return 1;
 	}
-	free(resp);
-
-	/* Query buffer state */
-	dnpds40_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return -1;
-	dnpds40_cleanup_string((char*)resp, len);
-	
-	// XXX should we query the vertical resolution?
-
-	/* We need a minumum of two buffers to be safe everywhere */
-	// XXX 300x300 dpi is always safe with one buffer.
-	// XXX 300x600 dpi often requires two buffers to be safe.
-	if (!strcmp("FBP00", (char*)resp) ||
-	    !strcmp("FBP01", (char*)resp)) {
-		/* We don't have enough buffers */
-		INFO("Insufficient printer buffers, retrying...\n");
-		sleep(1);
-		goto top;
-	}
 	
 	/* Send the stream over as individual data chunks */
 	ptr = ctx->databuf;
+
 	while(ptr && ptr < (ctx->databuf + ctx->datalen)) {
 		int i;
-		buf[9] = 0;
+		buf[8] = 0;
 		memcpy(buf, ptr + 24, 8);
-		i = atoi(buf) + 24 + 8;
+		i = atoi(buf) + 32;
+
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ptr, i)))
@@ -449,7 +473,8 @@ top:
 	}
 	
 	/* This printer handles copies internally */
-	copies = 1;
+	if (ctx->qty_offset)
+		copies = 1;
 
 	/* Clean up */
 	if (terminate)
@@ -509,56 +534,6 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	INFO("Sensor Info: '%s'\n", (char*)resp);
 	// XXX parse this out. Each token is 'XXX-###' delimited by '; '
-
-	free(resp);
-
-	/* Get Media Info */
-	dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return -1;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
-	INFO("Media Type: '%s'\n", (char*)resp);
-
-	INFO("  %s\n", dnpds40_media_types((char*)resp));
-	switch (*(resp+3)) {
-	case '1':
-		INFO("   Stickier paper\n");
-		break;
-	case '0':
-		INFO("   Standard paper\n");
-		break;
-	default:
-		INFO("   Unknown paper(%c)\n", *(resp+4));
-		break;
-	}
-	switch (*(resp+6)) {
-	case '1':
-		INFO("   With mark\n");
-		break;
-	case '0':
-		INFO("   Without mark\n");
-		break;
-	default:
-		INFO("   Unknown mark(%c)\n", *(resp+7));
-		break;
-	}
-
-	free(resp);
-
-	/* Get Media remaining */
-	dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return -1;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
-	INFO("Prints Remaining: '%s'\n", (char*)resp + 4);
 
 	free(resp);
 
@@ -702,6 +677,57 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	dnpds40_cleanup_string((char*)resp, len);
 
 	INFO("Free Buffers: '%s'\n", (char*)resp + 3);
+
+	free(resp);
+
+	/* Get Media Info */
+	dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Media Type: '%s'\n", dnpds40_media_types((char*)resp));
+
+#if 0
+	switch (*(resp+3)) {
+	case '1':
+		INFO("   Stickier paper\n");
+		break;
+	case '0':
+		INFO("   Standard paper\n");
+		break;
+	default:
+		INFO("   Unknown paper(%c)\n", *(resp+4));
+		break;
+	}
+	switch (*(resp+6)) {
+	case '1':
+		INFO("   With mark\n");
+		break;
+	case '0':
+		INFO("   Without mark\n");
+		break;
+	default:
+		INFO("   Unknown mark(%c)\n", *(resp+7));
+		break;
+	}
+#endif
+
+	free(resp);
+
+	/* Get Media remaining */
+	dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Prints Remaining: '%s'\n", (char*)resp + 4);
 
 	free(resp);
 
@@ -872,7 +898,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.17",
+	.version = "0.18",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
