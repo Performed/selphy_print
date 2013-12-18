@@ -19,7 +19,7 @@ $(BACKENDS): gutenprint
 	ln -sf gutenprint $@
 
 install:	
-	install -o root -m 700 gutenprint $(CUPS_BACKEND_DIR)/gutenprint52+usb
+	install -o root -m 700 gutenprint $(CUPS_BACKEND_DIR)/gutenprint52usb
 	mkdir -p $(CUPS_DATA_DIR)/usb
 	install -o root -m 644 blacklist $(CUPS_DATA_DIR)/usb/net.sf.gimp-print.usb-quirks
 
