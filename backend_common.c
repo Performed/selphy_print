@@ -29,7 +29,7 @@
 
 #define BACKEND_VERSION "0.26"
 #ifndef URI_PREFIX
-#define URI_PREFIX "gutenprint+usb"
+#error "Must Define URI_PREFIX"
 #endif
 
 /* Support Functions */
