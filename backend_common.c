@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.26"
+#define BACKEND_VERSION "0.27"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -405,7 +405,7 @@ int main (int argc, char **argv)
 		if (!backend) {
 			DEBUG("CUPS Usage:\n\tDEVICE_URI=someuri %s job user title num-copies options [ filename ]\n\n",
 			      URI_PREFIX);
-			DEBUG("Internal Backends: (prefix with SERIAL=serno for specific device)\n");
+			DEBUG("Internal Backends: (prefix with DEVICE=serno for specific device)\n");
 			for (i = 0; ; i++) {
 				backend = backends[i];
 				if (!backend)
@@ -422,7 +422,7 @@ int main (int argc, char **argv)
 		} else {
 			DEBUG(" %s backend version %s (BACKEND=%s)\n",
 			      backend->name, backend->version, backend->uri_prefix);
-			DEBUG("  Standalone Usage: (prefix with SERIAL=serno for specific device)\n");
+			DEBUG("  Standalone Usage: (prefix with DEVICE=serno for specific device)\n");
 			DEBUG("\t\t%s [ infile | - ]\n",
 			      backend->uri_prefix);
 
