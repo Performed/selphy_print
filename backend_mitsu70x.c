@@ -146,7 +146,7 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 	uint8_t cmdbuf[CMDBUF_LEN];
 
 	int last_state = -1, state = S_IDLE;
-	int i, num, ret;
+	int num, ret;
 	int pending = 0;
 
 	if (!ctx)
@@ -182,28 +182,17 @@ top:
 
 skip_query:
 	/* Read in the printer status */
-	memset(rdbuf, 0, READBACK_LEN);
-	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   rdbuf,
-				   READBACK_LEN,
-				   &num,
-				   5000);
+	ret = read_data(ctx->dev, ctx->endp_up,
+			rdbuf, READBACK_LEN, &num);
+	if (ret < 0)
+		return ret;
 
-	if (ret < 0 || num != 26) {
-		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, num, READBACK_LEN, ctx->endp_up);
-		if (ret < 0)
-			return ret;
+	if (num != 26) {
+		ERROR("Short Read! (%d/%d)\n", num, 26);
 		return 4;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		if(dyesub_debug) {
-			DEBUG("<- ");
-			for (i = 0 ; i < num ; i++) {
-				DEBUG2("%02x ", rdbuf[i]);
-			}
-			DEBUG2("\n");
-		}
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
 		sleep(1);
@@ -300,11 +289,16 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 			     cmdbuf, 4)))
 		return ret;
 	memset(&resp, 0, sizeof(resp));
-	ret = libusb_bulk_transfer(ctx->dev, ctx->endp_up,
-				   (uint8_t*) &resp,
-				   sizeof(resp),
-				   &num,
-				   5000);
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) &resp, sizeof(resp), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num != sizeof(resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(resp));
+		return 4;
+	}
+
 	if (dyesub_debug) {
 		DEBUG("Status Dump:\n");
 		for (i = 0 ; i < sizeof(resp.unk) ; i++) {
@@ -352,7 +346,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.06",
+	.version = "0.07",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
