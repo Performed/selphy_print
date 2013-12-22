@@ -84,6 +84,37 @@ done:
 	return buf;
 }
 
+int read_data(struct libusb_device_handle *dev, uint8_t endp,
+	      uint8_t *buf, int buflen, int *readlen)
+{
+	int ret;
+
+	/* Clear buffer */
+	memset(buf, buflen, 0);
+
+	ret = libusb_bulk_transfer(dev, endp,
+				   buf,
+				   buflen,
+				   readlen,
+				   5000);
+
+	if (ret < 0) {
+		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, *readlen, buflen, endp);
+		goto done;
+	}
+
+	if (dyesub_debug) {
+		int i;
+		DEBUG("<- ");
+		for (i = 0 ; i < *readlen; i++) {
+			DEBUG2("%02x ", *(buf+i));
+		}
+		DEBUG2("\n");
+	}
+
+done:
+	return ret;
+}
 
 int send_data(struct libusb_device_handle *dev, uint8_t endp, 
 	      uint8_t *buf, int len)

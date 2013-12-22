@@ -130,6 +130,8 @@ struct dyesub_backend {
 /* Exported functions */
 int send_data(struct libusb_device_handle *dev, uint8_t endp, 
 	      uint8_t *buf, int len);
+int read_data(struct libusb_device_handle *dev, uint8_t endp,
+	      uint8_t *buf, int buflen, int *readlen);
 
 /* Exported data */
 extern int terminate;
