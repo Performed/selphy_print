@@ -366,7 +366,8 @@ static int kodak1400_main_loop(void *vctx, int copies) {
 
 top:
 	if (state != last_state) {
-		DEBUG("last_state %d new %d\n", last_state, state);
+		if (dyesub_debug)
+			DEBUG("last_state %d new %d\n", last_state, state);
 	}
 
 	/* Send Status Query */
@@ -392,11 +393,13 @@ top:
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		int i;
-		DEBUG("readback: ");
-		for (i = 0 ; i < num ; i++) {
-			DEBUG2("%02x ", rdbuf[i]);
+		if (dyesub_debug) {
+			DEBUG("<- ");
+			for (i = 0 ; i < num ; i++) {
+				DEBUG2("%02x ", rdbuf[i]);
+			}
+			DEBUG2("\n");
 		}
-		DEBUG2("\n");
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
 		sleep(1);
@@ -567,7 +570,7 @@ top:
 
 struct dyesub_backend kodak1400_backend = {
 	.name = "Kodak 1400/805",
-	.version = "0.23",
+	.version = "0.24",
 	.uri_prefix = "kodak1400",
 	.cmdline_usage = kodak1400_cmdline,
 	.cmdline_arg = kodak1400_cmdline_arg,

@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.27"
+#define BACKEND_VERSION "0.28"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -90,7 +90,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 {
 	int num = 0;
 
-	if (getenv("DYESUB_DEBUG")) {
+	if (dyesub_debug) {
 		DEBUG("Sending %d bytes to printer\n", len);
 	}
 
@@ -100,7 +100,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 					   buf, len2,
 					   &num, 5000);
 
-		if (getenv("DYESUB_DEBUG")) {
+		if (dyesub_debug) {
 			int i;
 			DEBUG("-> ");
 			for (i = 0 ; i < len2; i++) {
@@ -206,9 +206,10 @@ static int print_scan_output(struct libusb_device *device,
 		sprintf((char*)serial, "NONE_B%03d_D%03d", bus_num, port_num);
 	}
 	
-	DEBUG("%sVID: %04X PID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
-	      match ? "MATCH: " : "",
-	      desc->idVendor, desc->idProduct, manuf, product, serial);
+	if (dyesub_debug)
+		DEBUG("%sVID: %04X PID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
+		      match ? "MATCH: " : "",
+		      desc->idVendor, desc->idProduct, manuf, product, serial);
 	
 	if (scan_only) {
 
@@ -356,6 +357,9 @@ static struct dyesub_backend *find_backend(char *uri_prefix)
 	return NULL;
 }
 
+/* Debug flag */
+int dyesub_debug = 0;
+
 /* MAIN */
 
 int main (int argc, char **argv) 
@@ -386,6 +390,9 @@ int main (int argc, char **argv)
 	char *use_serno = NULL;
 	int query_only = 0;
 	int printer_type = P_ANY;
+
+	if (getenv("DYESUB_DEBUG"))
+		dyesub_debug = 1;
 
 	DEBUG("Multi-Call Gutenprint DyeSub CUPS Backend version %s\n",
 	      BACKEND_VERSION);
@@ -536,8 +543,8 @@ int main (int argc, char **argv)
 	signal(SIGTERM, sigterm_handler);
 
 	/* Initialize backend */
-	INFO("Initializing '%s' backend (version %s)\n",
-	     backend->name, backend->version);
+	DEBUG("Initializing '%s' backend (version %s)\n",
+	      backend->name, backend->version);
 	backend_ctx = backend->init();
 
 	/* Parse printjob if necessary */

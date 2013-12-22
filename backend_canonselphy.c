@@ -386,7 +386,7 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 	else
 		ctx->paper_code = -1;
 
-	DEBUG("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
+	INFO("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
 
 	return printer_type;
 }
@@ -437,7 +437,8 @@ static int canonselphy_main_loop(void *vctx, int copies) {
 top:
 
 	if (state != last_state) {
-		DEBUG("last_state %d new %d\n", last_state, state);
+		if (dyesub_debug)
+			DEBUG("last_state %d new %d\n", last_state, state);
 	}
 
 	/* Do it twice to clear initial state */
@@ -454,11 +455,13 @@ top:
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		int i;
-		DEBUG("readback: ");
-		for (i = 0 ; i < num ; i++) {
-			DEBUG2("%02x ", rdbuf[i]);
+		if (dyesub_debug) {
+			DEBUG("<- ");
+			for (i = 0 ; i < num ; i++) {
+				DEBUG2("%02x ", rdbuf[i]);
+			}
+			DEBUG2("\n");
 		}
-		DEBUG2("\n");
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
 		sleep(1);
@@ -549,7 +552,7 @@ top:
 		state = S_FINISHED;
 		/* Intentional Fallthrough */
 	case S_FINISHED:
-		DEBUG("All data sent to printer!\n");	
+		INFO("All data sent to printer!\n");	
 		break;
 	}
 	if (state != S_FINISHED)
@@ -604,7 +607,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.61",
+	.version = "0.62",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,

@@ -209,7 +209,7 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 		return NULL;
 	}
 
-	if (getenv("DYESUB_DEBUG")) {
+	if (dyesub_debug) {
 		DEBUG("<- ");
 		for (i = 0 ; i < num; i++) {
 			DEBUG2("%02x ", tmp[i]);
@@ -228,7 +228,7 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 				   &num,
 				   5000);
 
-	if (getenv("DYESUB_DEBUG")) {
+	if (dyesub_debug) {
 		DEBUG("<- ");
 		for (i = 0 ; i < num; i++) {
 			DEBUG2("%02x ", respbuf[i]);

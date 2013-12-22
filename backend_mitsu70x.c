@@ -154,7 +154,8 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 
 top:
 	if (state != last_state) {
-		DEBUG("last_state %d new %d\n", last_state, state);
+		if (dyesub_debug)
+			DEBUG("last_state %d new %d\n", last_state, state);
 	}
 
 	if (pending)
@@ -196,11 +197,13 @@ skip_query:
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		DEBUG("readback: ");
-		for (i = 0 ; i < num ; i++) {
-			DEBUG2("%02x ", rdbuf[i]);
+		if(dyesub_debug) {
+			DEBUG("<- ");
+			for (i = 0 ; i < num ; i++) {
+				DEBUG2("%02x ", rdbuf[i]);
+			}
+			DEBUG2("\n");
 		}
-		DEBUG2("\n");
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
 		sleep(1);
@@ -302,21 +305,23 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 				   sizeof(resp),
 				   &num,
 				   5000);
-	DEBUG("Status Dump:\n");
-	for (i = 0 ; i < sizeof(resp.unk) ; i++) {
-		DEBUG2("%02x ", resp.unk[i]);
+	if (dyesub_debug) {
+		DEBUG("Status Dump:\n");
+		for (i = 0 ; i < sizeof(resp.unk) ; i++) {
+			DEBUG2("%02x ", resp.unk[i]);
+		}
+		DEBUG2("\n");
+		DEBUG("Lower Deck:\n");
+		for (i = 0 ; i < sizeof(resp.lower.unk) ; i++) {
+			DEBUG2("%02x ", resp.lower.unk[i]);
+		}
+		DEBUG2("\n");
+		DEBUG("Upper Deck:\n");
+		for (i = 0 ; i < sizeof(resp.upper.unk) ; i++) {
+			DEBUG2("%02x ", resp.upper.unk[i]);
+		}
+		DEBUG2("\n");
 	}
-	DEBUG("\n");
-	DEBUG("Lower Deck:\n");
-	for (i = 0 ; i < sizeof(resp.lower.unk) ; i++) {
-		DEBUG2("%02x ", resp.lower.unk[i]);
-	}
-	DEBUG("\n");
-	DEBUG("Upper Deck:\n");
-	for (i = 0 ; i < sizeof(resp.upper.unk) ; i++) {
-		DEBUG2("%02x ", resp.upper.unk[i]);
-	}
-	DEBUG("\n");
 	INFO("Prints remaining:  Lower: %d Upper: %d\n",
 	     resp.lower.unk[23], resp.upper.unk[23]);
 
@@ -347,7 +352,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.05",
+	.version = "0.06",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
