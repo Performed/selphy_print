@@ -112,7 +112,13 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 		return 1;
 
 	/* Read in initial header to sanity check */
-	read(data_fd, hdr, sizeof(hdr));
+	i = read(data_fd, hdr, sizeof(hdr));
+	if (i < 0 || i != sizeof(hdr)) {
+		ERROR("Read failed (%d/%d/%d)\n", 
+		      i, 0, (int)sizeof(hdr));
+		perror("ERROR: Read failed");
+		return i;
+	}
 	if (hdr[0] != 0x1b ||
 	    hdr[1] != 0x45 ||
 	    hdr[2] != 0x57 ||
@@ -346,7 +352,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.07",
+	.version = "0.08",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
