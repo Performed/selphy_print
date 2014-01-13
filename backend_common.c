@@ -129,7 +129,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 		int len2 = (len > 65536) ? 65536: len;
 		int ret = libusb_bulk_transfer(dev, endp,
 					   buf, len2,
-					   &num, 5000);
+					   &num, 15000);
 
 		if (dyesub_debug) {
 			int i;

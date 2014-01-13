@@ -4,9 +4,9 @@
  *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
- *  
+ *
  *     http://git.shaftnet.org/cgit/selphy_print.git
- *  
+ *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
  *   Software Foundation; either version 3 of the License, or (at your option)
@@ -48,7 +48,7 @@ struct kodak605_hdr {
 	uint8_t  unk2;     /* always 00 */
 	uint16_t columns;  /* BE always 0x0734 */
 	uint16_t rows;     /* BE */
-	uint8_t  media;    /* 0x03 for 6x8, 0x01 for 6x4 */ 
+	uint8_t  media;    /* 0x03 for 6x8, 0x01 for 6x4 */
 	uint8_t  laminate; /* 0x02 to laminate, 0x01 for not */
 	uint8_t  unk3;     /* 0x00, 0x01 [may be print mode] */
 } __attribute__((packed));
@@ -88,7 +88,7 @@ static void *kodak605_init(void)
 	return ctx;
 }
 
-static void kodak605_attach(void *vctx, struct libusb_device_handle *dev, 
+static void kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct kodak605_ctx *ctx = vctx;
@@ -147,7 +147,7 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 		do {
 			ret = read(data_fd, ptr, remain);
 			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%d)\n", 
+				ERROR("Read failed (%d/%d/%d)\n",
 				      ret, remain, ctx->datalen);
 				perror("ERROR: Read failed");
 				return ret;
@@ -207,7 +207,7 @@ skip_query:
 			rdbuf, READBACK_LEN, &num);
 	if (ret < 0)
 		return ret;
-	
+
 	if (num < 10) {
 		ERROR("Short read! (%d/%d)\n", num, 10);
 		return 4;
@@ -226,7 +226,7 @@ skip_query:
 	}
 	last_state = state;
 
-	fflush(stderr);       
+	fflush(stderr);
 
 	pending = 0;
 
@@ -273,7 +273,7 @@ skip_query:
 			break;
 		}
 		INFO("Sending image data\n");
-		if ((ret = send_data(ctx->dev, ctx->endp_down, 
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, ctx->datalen)))
 			return ret;
 
@@ -446,7 +446,7 @@ static int kodak605_set_tonecurve(struct kodak605_ctx *ctx, char *fname)
 	/* Send the data over! */
 	ret = send_data(dev, endp_up,
 			(uint8_t*)data, sizeof(data));
-        
+
 	/* We're done */
 	free(data);
 	return ret;
@@ -509,7 +509,7 @@ struct dyesub_backend kodak605_backend = {
   00                             Always 0x00
   WW WW                          Number of columns, little endian. (Fixed at 1844)
   HH HH                          Number of rows, little endian. (1240 or 2434)
-  DD                             0x01 (4x6) 0x03 (8x6) 
+  DD                             0x01 (4x6) 0x03 (8x6)
   LL                             Laminate, 0x01 (off) or 0x02 (on)
   00
 

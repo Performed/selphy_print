@@ -4,9 +4,9 @@
  *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
- *  
+ *
  *     http://git.shaftnet.org/cgit/selphy_print.git
- *  
+ *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
  *   Software Foundation; either version 3 of the License, or (at your option)
@@ -47,7 +47,7 @@ struct kodak6800_hdr {
 	uint8_t  copies;
 	uint16_t columns;  /* BE */
 	uint16_t rows;     /* BE */
-	uint8_t  media;    /* 0x06 for 6x8, 0x00 for 6x4, 0x07 for 5x7 */ 
+	uint8_t  media;    /* 0x06 for 6x8, 0x00 for 6x4, 0x07 for 5x7 */
 	uint8_t  laminate; /* 0x01 to laminate, 0x00 for not */
 	uint8_t  unk1; /* 0x00, 0x01 [may be print mode] */
 } __attribute__((packed));
