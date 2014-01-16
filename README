@@ -13,11 +13,11 @@
     http://bugs.shaftnet.org/index.php?project=4
 
  ***************************************************************************
-
-  Known Supported Printers:
+ 
+  Supported Printers:
 
    Canon SELPHY ES series
-   Canon SELPHY CP series
+   Canon SELPHY CP series (except CP520 and CP790)
    Kodak Professional 1400
    Kodak 605 Photo Printer
    Kodak 805 Photo Printer
@@ -34,6 +34,45 @@
    Sony UP-DR200
 
  ***************************************************************************
+
+  This intelligent backend is needed to utilize many common dye-sublimation
+  photo printers under Linux, OSX, and other UNIX-like operating systems.
+
+  Although these printers advertise themselves as standard USB Printer Class
+  devices, they do not actually obey those specifications, and require 
+  two-way communications in order to successfully print.
+
+  If you do not have one of the printers listed above, this backend is
+  not relevant for you and you can just ignore everything below.
+
+  In order to properly utilize this backend, you must have an up-to-date
+  version of Gutenprint (5.2.10) installed.
+
+  Once Gutenprint and this backend are installed, if you are using up-to-date
+  versions of CUPS (1.6.4 or newer) on Linux, then your system will 
+  automatically select this backend if you plug in one of its supported 
+  printers.  No further intervention on the user's part should be necessary.
+
+  Unfortunately, if you are using an older version of CUPS or a non-Linux
+  system (particularly OSX) then you will need to manually configure the
+  use of this backend, as the system will automatically attempt to use the
+  default backend which does not work with these printers.
+
+  To do this, you will need to remove the printer that was automatically 
+  added by your system then manually add a new one, taking care to select 
+  the correct backend ("gutenprint52+usb").  Instructions on how to do this
+  are beyond the scope of this document; please see the CUPS documentation.
+
+  Once the printer is properly configured, this backend will be automatically
+  invoked as needed; the user will never invoke the backend directly.
+
+ ***************************************************************************
+
+  This backend also supports a "standalone" mode that performs various 
+  utility functions for selected printers, such as querying status.
+  The exact commands supported for each printer are documented below.
+
+ ***************************************************************************
   Compilation:
 
      You will need libusbx to build this tool.
@@ -48,17 +87,6 @@
  ***************************************************************************
   CUPS backend usage:
 
-   The simple method is to use Gutenprint 5.2.10 or newer, which bundles 
-   (possibly older versions of) this backend.  Without Gutenprint to
-   rasterize the print data, this backend is useless.
-
-   The backend is called 'gutenprint52+usb', and must be installed with 0700
-   file permissions and owned by root in order to function properly.
-
-   To install this backend for use with CUPS, simply type 'make install'.
-
-   You may need to restart CUPS afterwards.
-
    DEVICE_URI=someuri \
        gutenprint+usb job-id user title num-copies options [ filename ]
 
@@ -72,7 +100,7 @@
     environment variable to force a specific backend to be used:
 
         BACKEND=backend \
-    	  gutenprint [ args ]
+    	  gutenprint52+usb [ args ]
 
       (OR)
  
@@ -122,17 +150,13 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES3, ES30, ES40, CP-100, CP-200, CP-300, CP-330, CP400, 
+     ES1, ES2, ES3, ES30, ES40, CP-10, CP-100, CP-200, CP-300, CP-330, CP400, 
      CP500, CP510, CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, 
      CP800, CP900
 
    Unverified/untested, but should work:
 
      ES20, CP-220, CP530, CP600, CP810
-
-   Semi-supported (has problems)
-
-     CP-10
 
    NOT currently supported by libusb backend:  (USB PIDs unknown) 
 	
