@@ -103,22 +103,45 @@ static void mitsu70x_teardown(void *vctx) {
 /* Max job size is 6x9+lamination, equalling ~38MB */
 #define MAX_PRINTJOB_LEN (1024*1024*40)
 
+struct mitsu70x_hdr {
+	uint32_t cmd;
+	uint8_t  zero0[12];
+	uint16_t cols;
+	uint16_t rows;
+	uint16_t lamcols;
+	uint16_t lamrows;
+	uint8_t  superfine;
+	uint8_t  zero1[7];
+	uint8_t  deck;
+	uint8_t  zero2[7];
+	uint8_t  zero3;
+	uint8_t  laminate;
+	uint8_t  zero4[6];
+	uint8_t  zero5[512-48];
+};
+
 static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	struct mitsu70x_ctx *ctx = vctx;
-	uint8_t hdr[16];
-	int i;
+	uint8_t hdr[1024];
+	int i, remain;
+	struct mitsu70x_hdr *mhdr = (struct mitsu70x_hdr*)(hdr + 512);
 
 	if (!ctx)
 		return 1;
 
-	/* Read in initial header to sanity check */
-	i = read(data_fd, hdr, sizeof(hdr));
-	if (i < 0 || i != sizeof(hdr)) {
-		ERROR("Read failed (%d/%d/%d)\n", 
-		      i, 0, (int)sizeof(hdr));
-		perror("ERROR: Read failed");
-		return i;
+	if (ctx->databuf)
+		free(ctx->databuf);
+
+	/* Read in initial header */
+	remain = sizeof(hdr);
+	while (remain > 0) {
+		i = read(data_fd, hdr + sizeof(hdr) - remain, remain);
+		if (i < 0)
+			return i;
+		remain -= i;
 	}
+
+	/* Sanity check */
 	if (hdr[0] != 0x1b ||
 	    hdr[1] != 0x45 ||
 	    hdr[2] != 0x57 ||
@@ -127,16 +150,32 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 		return(1);
 	}
 
-	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
+	/* Work out printjob size */
+	remain = be16_to_cpu(mhdr->rows) * be16_to_cpu(mhdr->cols) * 2;
+	remain = (remain + 511) / 512 * 512; /* Round to nearest 512 bytes. */
+	remain *= 3;  /* One for each plane */
+	if (mhdr->laminate) {
+		i = be16_to_cpu(mhdr->lamrows) * be16_to_cpu(mhdr->lamcols) * 2;
+		i = (i + 511) / 512 * 512; /* Round to nearest 512 bytes. */
+		remain += i;
+	}
+
+	ctx->databuf = malloc(remain + sizeof(hdr));
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return 2;
 	}
 
-	/* Just read teh whole thing in */
-        while((i = read(data_fd, ctx->databuf + ctx->datalen, 4096)) > 0) {
-                ctx->datalen += i;
-        }
+	memcpy(ctx->databuf, &hdr, sizeof(hdr));
+	ctx->datalen += sizeof(hdr);
+
+	/* Read in the spool data */
+	while(remain) {
+		i = read(data_fd, ctx->databuf + ctx->datalen - remain, remain);
+		if (i < 0)
+			return i;
+		remain -= i;
+	}
 
 	return 0;
 }
@@ -352,8 +391,9 @@ static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.08",
+	.version = "0.09",
 	.uri_prefix = "mitsu70x",
+	.multipage_capable = 1,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
 	.init = mitsu70x_init,
