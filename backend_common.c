@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.28"
+#define BACKEND_VERSION "0.29"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -416,6 +416,7 @@ int main (int argc, char **argv)
 	int found = -1;
 	int copies = 1;
 	int jobid = 0;
+	int pages = 0;
 
 	char *uri = getenv("DEVICE_URI");
 	char *use_serno = NULL;
@@ -642,20 +643,40 @@ int main (int argc, char **argv)
 		goto done_claimed;
 	} 
 
+	/* Time for the main processing loop */
+	INFO("Printing started (%d copies)\n", copies);
+
+newpage:
+	/* Do early parsing if needed for subsequent pages */
+	if (pages && backend->early_parse) {
+		backend->early_parse(backend_ctx, data_fd);
+	}
+
 	/* Read in data */
 	if (backend->read_parse(backend_ctx, data_fd))
 		goto done_claimed;
-	close(data_fd);
 
-	/* Time for the main processing loop */
-	INFO("Printing started (%d copies)\n", copies);
+	INFO("Printing page %d\n", ++pages);
 
 	ret = backend->main_loop(backend_ctx, copies);
 	if (ret)
 		goto done_claimed;
 
+	/* Do we have another page of data waiting for us? */
+	if (backend->multipage_capable) {
+		fd_set fds;
+		struct timeval tmo = { 0, 0 };
+		FD_ZERO(&fds);
+		FD_SET(data_fd, &fds);
+		i = select(data_fd + 1, &fds, NULL, NULL, &tmo);
+		if (i > 0)
+			goto newpage;
+	}
+
+	close(data_fd);
+
 	/* Done printing */
-	INFO("All printing done\n");
+	INFO("All printing done (%d pages * %d copies)\n", pages, copies);
 	ret = 0;
 
 done_claimed:
