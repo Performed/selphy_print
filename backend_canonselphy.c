@@ -321,6 +321,8 @@ static void *canonselphy_init(void)
 	/* Static initialization */
 	setup_paper_codes();
 
+	ctx->buffer = malloc(MAX_HEADER);
+
 	return ctx;
 }
 
@@ -352,6 +354,7 @@ static void canonselphy_teardown(void *vctx) {
 		free(ctx->plane_c);
 	if (ctx->footer)
 		free(ctx->footer);
+
 	if (ctx->buffer)
 		free(ctx->buffer);
 
@@ -363,7 +366,8 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 	struct canonselphy_ctx *ctx = vctx;
 	int printer_type, i;
 
-	ctx->buffer = malloc(MAX_HEADER);
+	if (!ctx)
+		return 1;
 
 	/* Figure out printer this file is intended for */
 	i = read(data_fd, ctx->buffer, MAX_HEADER);
@@ -373,7 +377,6 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 		perror("ERROR: Read failed");
 		return i;
 	}
-
 
 	printer_type = parse_printjob(ctx->buffer, &ctx->bw_mode, &ctx->plane_len);
 	for (i = 0; selphy_printers[i].type != -1; i++) {
@@ -402,6 +405,20 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 {
 	struct canonselphy_ctx *ctx = vctx;
 	int i, remain;
+
+	if (!ctx)
+		return 1;
+
+	if (ctx->header)
+		free(ctx->header);
+	if (ctx->plane_y)
+		free(ctx->plane_y);
+	if (ctx->plane_m)
+		free(ctx->plane_m);
+	if (ctx->plane_c)
+		free(ctx->plane_c);
+	if (ctx->footer)
+		free(ctx->footer);
 
 	/* Set up buffers */
 	ctx->plane_y = malloc(ctx->plane_len);
@@ -637,7 +654,8 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.63",
+	.version = "0.64",
+	.multipage_capable = 1,
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
