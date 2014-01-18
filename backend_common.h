@@ -114,6 +114,7 @@ struct dyesub_backend {
 	char *name;
 	char *version;
 	char *uri_prefix;
+	int  multipage_capable;
 	void (*cmdline_usage)(char *caller);
 	void *(*init)(void);
 	void (*attach)(void *ctx, struct libusb_device_handle *dev,
