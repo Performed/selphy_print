@@ -856,7 +856,6 @@ struct dyesub_backend canonselphy_backend = {
       'C' paper 0x33
       'W' paper 0x44
 
-
  ***************************************************************************
  Selphy CP790:
 
