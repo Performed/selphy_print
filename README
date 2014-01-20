@@ -54,9 +54,9 @@
   printers.  No further intervention on the user's part should be necessary.
 
   Unfortunately, if you are using an older version of CUPS or a non-Linux
-  system (particularly OSX) then you will need to manually configure the
-  use of this backend, as the system may attempt to use the default usb 
-  backend which does not work properly with these printers.
+  system (particularly OSX) then you will probably need to manually 
+  configure the use of this backend, as the system may attempt to use the 
+  default usb backend which does not work properly with these printers.
 
   To check which backend your printers are using, run the 'lpstat -s' command.
   Below is an example of its output:
@@ -65,8 +65,8 @@
     device for Canon_SELPHY_ES3: usb://Canon/Canon%20SELPHY%20ES3
 
   In this example, the SELPHY ES1 is using the correct gutenprint backend, but
-  the ES3 is using the incorrect 'usb' backend.  For the ES3 to function
-  properly, you need to configure it to use the correct backend.
+  the ES3 is using the incorrect 'usb' backend. In order for the ES3 to 
+  function properly, you need to configure it to use the correct backend.
 
   The most expedient way to accomplish this is to remove the printer via your
   system's printer configuration interface, then manually add a new one, taking
