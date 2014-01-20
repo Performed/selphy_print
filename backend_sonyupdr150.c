@@ -82,72 +82,106 @@ static void updr150_teardown(void *vctx) {
 #define MAX_PRINTJOB_LEN 16736455
 static int updr150_read_parse(void *vctx, int data_fd) {
 	struct updr150_ctx *ctx = vctx;
-	int i;
+	int i, len, run = 1;
+	uint32_t *ptr;
 
 	if (!ctx)
 		return 1;
 
+	if (ctx->databuf)
+		free(ctx->databuf);
+
+	ctx->datalen = 0;
 	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return 2;
 	}
 
-	while((i = read(data_fd, ctx->databuf + ctx->datalen, 4096)) > 0) {
-		ctx->datalen += i;
-	}
+	while(run) {
+		int keep = 0;
+		i = read(data_fd, ctx->databuf + ctx->datalen, 4);
+		if (i < 0)
+			return i;
 
+		ptr = (uint32_t *) ctx->databuf + ctx->datalen;
+		len = le32_to_cpu(*ptr);
+
+		/* Filter out chunks we don't send to the printer */
+		switch (len) {
+		case 0xffffff6a:
+		case 0xfffffffc:
+		case 0xfffffffb:
+		case 0xfffffff4:
+		case 0xffffffed:
+		case 0xfffffff9:
+		case 0xfffffff8:
+		case 0xffffffec:
+		case 0xffffffeb:
+		case 0xfffffffa:
+		case 0xfffffff3:
+			len = 0;
+			if(dyesub_debug)
+				DEBUG("Block ID '%x' (len %d)\n", *ptr, len);
+			break;
+		case 0xffffffef:
+		case 0xfffffff5:
+			len = 4;
+			if(dyesub_debug)
+				DEBUG("Block ID '%x' (len %d)\n", *ptr, len);
+			break;
+		default:
+			if (len & 0xff000000) {
+				ERROR("Unknown block ID '%x', aborting!\n", *ptr);
+				return 1;
+			} else {
+				/* Only keep these chunks */
+				if(dyesub_debug)
+					DEBUG("Data chunk (len %d)\n", len);
+				keep = 1;
+			}
+			break;
+		}
+		if (keep)
+			ctx->datalen += sizeof(uint32_t);
+
+		/* Last block is the plane data, and is HUGE.. */
+		if (len > 4096)
+			run = 0;
+
+		/* Read in the data chunk */
+		while(len > 0) {
+			i = read(data_fd, ctx->databuf + ctx->datalen, len);
+			if (i < 0)
+				return i;
+			if (keep)
+				ctx->datalen += i;
+			len -= i;
+		}
+	}
 	return 0;
 }
 
 static int updr150_main_loop(void *vctx, int copies) {
 	struct updr150_ctx *ctx = vctx;
-	int i, ret;
+	int i = 0, ret;
 
 	if (!ctx)
 		return 1;
 
 top:
-	for (i = 0 ; i < ctx->datalen ; ) {
-		uint8_t *ptr = ctx->databuf + i;
-		i += 4;
-		if (*(ptr+3) == 0xff) {
-			switch (*ptr) {
-			case 0x6a:
-			case 0xfc:
-			case 0xfb:
-			case 0xf4:
-			case 0xed:
-			case 0xf9:
-			case 0xf8:
-			case 0xec:
-			case 0xeb:
-			case 0xfa:
-			case 0xf3:
-				if(dyesub_debug)
-					DEBUG("Block ID '%x' (len %d)\n", *ptr, 0);
-				break;
-			case 0xef:
-			case 0xf5:
-				if(dyesub_debug)
-					DEBUG("Block ID '%x' (len %d)\n", *ptr, 4);
-				i += 4;
-				break;
-			default:
-				if(dyesub_debug)
-					DEBUG("Unknown block ID '%x'\n", *ptr);
-				break;
-			}
-		} else {
-			uint32_t len = le32_to_cpu(*((uint32_t*)ptr));
+	while (i < ctx->datalen) {
+		uint32_t *ptr = (uint32_t *) ctx->databuf + i;
+		uint32_t len = le32_to_cpu(*ptr);
 
-			if (dyesub_debug)
-				DEBUG("Sending %d bytes to printer\n", len);
-			if ((ret = send_data(ctx->dev, ctx->endp_down,
-					     ctx->databuf + i, len)))
-				return ret;
-			i += len;
-		}
+		i += sizeof(uint32_t);
+
+		if (dyesub_debug)
+			DEBUG("Sending %d bytes to printer\n", len);
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     ctx->databuf + i, len)))
+			return ret;
+		i += len;
 	}
 
 	/* Clean up */
@@ -171,6 +205,7 @@ struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150",
 	.version = "0.08",
 	.uri_prefix = "sonyupdr150",
+	.multipage_capable = 1,
 	.init = updr150_init,
 	.attach = updr150_attach,
 	.teardown = updr150_teardown,
