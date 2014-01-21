@@ -130,6 +130,8 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
 	if (ret < 0 || ret != sizeof(ctx->hdr)) {
+		if (ret == 0)
+			return 1;
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      ret, 0, (int)sizeof(ctx->hdr));
 		perror("ERROR: Read failed");
@@ -491,7 +493,7 @@ static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.14",
+	.version = "0.15",
 	.uri_prefix = "kodak605",
 	.multipage_capable = 1,
 	.cmdline_usage = kodak605_cmdline,

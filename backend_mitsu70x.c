@@ -136,6 +136,8 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	remain = sizeof(hdr);
 	while (remain > 0) {
 		i = read(data_fd, hdr + sizeof(hdr) - remain, remain);
+		if (i == 0)
+			return 1;
 		if (i < 0)
 			return i;
 		remain -= i;

@@ -367,11 +367,13 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 	int printer_type, i;
 
 	if (!ctx)
-		return 1;
+		return -1;
 
 	/* Figure out printer this file is intended for */
 	i = read(data_fd, ctx->buffer, MAX_HEADER);
 	if (i < 0 || i != MAX_HEADER) {
+		if (i == 0)
+			return -1;
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      i, 0, MAX_HEADER);
 		perror("ERROR: Read failed");
@@ -654,7 +656,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.64",
+	.version = "0.65",
 	.multipage_capable = 1,
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,

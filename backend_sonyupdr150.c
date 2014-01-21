@@ -103,6 +103,8 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		i = read(data_fd, ctx->databuf + ctx->datalen, 4);
 		if (i < 0)
 			return i;
+		if (i == 0)
+			break;
 
 		ptr = (uint32_t *) ctx->databuf + ctx->datalen;
 		len = le32_to_cpu(*ptr);
@@ -159,6 +161,9 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 			len -= i;
 		}
 	}
+	if (!ctx->datalen)
+		return 1;
+
 	return 0;
 }
 
@@ -203,7 +208,7 @@ top:
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150",
-	.version = "0.09",
+	.version = "0.10",
 	.uri_prefix = "sonyupdr150",
 	.multipage_capable = 1,
 	.init = updr150_init,

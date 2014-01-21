@@ -307,6 +307,8 @@ static int kodak1400_read_parse(void *vctx, int data_fd) {
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
 	if (ret < 0 || ret != sizeof(ctx->hdr)) {
+		if (ret == 0)
+			return 1;
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      ret, 0, (int)sizeof(ctx->hdr));
 		perror("ERROR: Read failed");
@@ -566,7 +568,7 @@ top:
 
 struct dyesub_backend kodak1400_backend = {
 	.name = "Kodak 1400/805",
-	.version = "0.27",
+	.version = "0.28",
 	.uri_prefix = "kodak1400",
 	.multipage_capable = 1,
 	.cmdline_usage = kodak1400_cmdline,
