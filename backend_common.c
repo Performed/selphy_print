@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.29"
+#define BACKEND_VERSION "0.30"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -309,6 +309,7 @@ static struct dyesub_backend *backends[] = {
 
 static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
+			      struct dyesub_backend *backend,
 			      char *match_serno,
 			      int printer_type,
 			      int scan_only)
@@ -326,6 +327,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		libusb_get_device_descriptor((*list)[i], &desc);
 		
 		for (k = 0 ; backends[k] ; k++) {
+			if (backend && backend != backends[k])
+				continue;
 			for (j = 0 ; backends[k]->devices[j].vid ; j++) {
 				if (desc.idVendor == backends[k]->devices[j].vid &&
 				    desc.idProduct == backends[k]->devices[j].pid) {
@@ -470,7 +473,7 @@ int main (int argc, char **argv)
 			}
 		}
 		libusb_init(&ctx);
-		find_and_enumerate(ctx, &list, NULL, P_ANY, 1);
+		find_and_enumerate(ctx, &list, backend, NULL, P_ANY, 1);
 		libusb_free_device_list(list, 1);
 		libusb_exit(ctx);
 		exit(0);
@@ -591,7 +594,7 @@ int main (int argc, char **argv)
 	/* Libusb setup */
 	libusb_init(&ctx);
 	/* Enumerate devices */
-	found = find_and_enumerate(ctx, &list, use_serno, printer_type, 0);
+	found = find_and_enumerate(ctx, &list, backend, use_serno, printer_type, 0);
 
 	if (found == -1) {
 		ERROR("Printer open failure (No suitable printers found!)\n");
@@ -649,12 +652,18 @@ int main (int argc, char **argv)
 newpage:
 	/* Do early parsing if needed for subsequent pages */
 	if (pages && backend->early_parse) {
-		backend->early_parse(backend_ctx, data_fd);
+		ret = backend->early_parse(backend_ctx, data_fd);
+		if (ret < 0)
+			goto done_multiple;
 	}
 
 	/* Read in data */
-	if (backend->read_parse(backend_ctx, data_fd))
-		goto done_claimed;
+	if (backend->read_parse(backend_ctx, data_fd)) {
+		if (pages)
+			goto done_multiple;
+		else
+			goto done_claimed;
+	}
 
 	INFO("Printing page %d\n", ++pages);
 
@@ -662,17 +671,12 @@ newpage:
 	if (ret)
 		goto done_claimed;
 
-	/* Do we have another page of data waiting for us? */
-	if (backend->multipage_capable) {
-		fd_set fds;
-		struct timeval tmo = { 0, 0 };
-		FD_ZERO(&fds);
-		FD_SET(data_fd, &fds);
-		i = select(data_fd + 1, &fds, NULL, NULL, &tmo);
-		if (i > 0)
-			goto newpage;
-	}
+	/* Since we have no way of telling if there's more data remaining
+	   to be read (without actually trying to read it), always assume
+	   multiple print jobs. */
+	goto newpage;
 
+done_multiple:
 	close(data_fd);
 
 	/* Done printing */
