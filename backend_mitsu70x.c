@@ -301,7 +301,7 @@ skip_query:
 	if (terminate)
 		copies = 1;
 
-	INFO("Print complete (%d remaining)\n", copies - 1);
+	INFO("Print complete (%d copies remaining)\n", copies - 1);
 
 	if (copies && --copies) {
 		state = S_IDLE;
