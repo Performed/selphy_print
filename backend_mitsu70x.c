@@ -129,8 +129,10 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	if (!ctx)
 		return 1;
 
-	if (ctx->databuf)
+	if (ctx->databuf) {
 		free(ctx->databuf);
+		ctx->databuf = NULL;
+	}
 
 	/* Read in initial header */
 	remain = sizeof(hdr);
@@ -393,7 +395,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.09",
+	.version = "0.10",
 	.uri_prefix = "mitsu70x",
 	.multipage_capable = 1,
 	.cmdline_usage = mitsu70x_cmdline,

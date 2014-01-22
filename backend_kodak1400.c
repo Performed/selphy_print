@@ -297,12 +297,18 @@ static int kodak1400_read_parse(void *vctx, int data_fd) {
 	if (!ctx)
 		return 1;
 
-	if (ctx->plane_r)
+	if (ctx->plane_r) {
 		free(ctx->plane_r);
-	if (ctx->plane_g)
+		ctx->plane_r = NULL;
+	}
+	if (ctx->plane_g) {
 		free(ctx->plane_g);
-	if (ctx->plane_b)
+		ctx->plane_g = NULL;
+	}
+	if (ctx->plane_b) {
 		free(ctx->plane_b);
+		ctx->plane_b = NULL;
+	}
 
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
@@ -568,7 +574,7 @@ top:
 
 struct dyesub_backend kodak1400_backend = {
 	.name = "Kodak 1400/805",
-	.version = "0.28",
+	.version = "0.29",
 	.uri_prefix = "kodak1400",
 	.multipage_capable = 1,
 	.cmdline_usage = kodak1400_cmdline,

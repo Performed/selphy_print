@@ -315,8 +315,10 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	if (!ctx)
 		return 1;
 
-	if (ctx->databuf)
+	if (ctx->databuf) {
 		free(ctx->databuf);
+		ctx->databuf = NULL;
+	}
 
 	ctx->datalen = 0;
 	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
@@ -900,7 +902,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.23",
+	.version = "0.24",
 	.uri_prefix = "dnpds40",
 	.multipage_capable = 1,
 	.cmdline_usage = dnpds40_cmdline,

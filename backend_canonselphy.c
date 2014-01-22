@@ -411,16 +411,26 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	if (!ctx)
 		return 1;
 
-	if (ctx->header)
+	if (ctx->header) {
 		free(ctx->header);
-	if (ctx->plane_y)
+		ctx->header = NULL;
+	}
+	if (ctx->plane_y) {
 		free(ctx->plane_y);
-	if (ctx->plane_m)
+		ctx->plane_y = NULL;
+	}
+	if (ctx->plane_m) {
 		free(ctx->plane_m);
-	if (ctx->plane_c)
+		ctx->plane_m = NULL;
+	}
+	if (ctx->plane_c) {
 		free(ctx->plane_c);
-	if (ctx->footer)
+		ctx->plane_c = NULL;
+	}
+	if (ctx->footer) {
 		free(ctx->footer);
+		ctx->footer = NULL;
+	}
 
 	/* Set up buffers */
 	ctx->plane_y = malloc(ctx->plane_len);
@@ -656,7 +666,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.65",
+	.version = "0.66",
 	.multipage_capable = 1,
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,

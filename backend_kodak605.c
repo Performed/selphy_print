@@ -124,8 +124,10 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 	if (!ctx)
 		return 1;
 
-	if (ctx->databuf)
+	if (ctx->databuf) {
 		free(ctx->databuf);
+		ctx->databuf = NULL;
+	}
 
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
@@ -493,7 +495,7 @@ static int kodak605_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.15",
+	.version = "0.16",
 	.uri_prefix = "kodak605",
 	.multipage_capable = 1,
 	.cmdline_usage = kodak605_cmdline,

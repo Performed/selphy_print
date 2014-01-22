@@ -88,8 +88,10 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 	if (!ctx)
 		return 1;
 
-	if (ctx->databuf)
+	if (ctx->databuf) {
 		free(ctx->databuf);
+		ctx->databuf = NULL;
+	}
 
 	ctx->datalen = 0;
 	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
@@ -208,7 +210,7 @@ top:
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150",
-	.version = "0.10",
+	.version = "0.11",
 	.uri_prefix = "sonyupdr150",
 	.multipage_capable = 1,
 	.init = updr150_init,

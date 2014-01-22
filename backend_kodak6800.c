@@ -350,8 +350,10 @@ static int kodak6800_read_parse(void *vctx, int data_fd) {
 	if (!ctx)
 		return 1;
 
-	if (ctx->databuf)
+	if (ctx->databuf) {
 		free(ctx->databuf);
+		ctx->databuf = NULL;
+	}
 
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
@@ -606,7 +608,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.29",
+	.version = "0.30",
 	.uri_prefix = "kodak6800",
 	.multipage_capable = 1,
 	.cmdline_usage = kodak6800_cmdline,

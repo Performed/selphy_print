@@ -1411,8 +1411,10 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	if (!ctx)
 		return 1;
 
-	if (ctx->databuf)
+	if (ctx->databuf) {
 		free(ctx->databuf);
+		ctx->databuf = NULL;
+	}
 
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
@@ -1663,7 +1665,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
-	.version = "0.28",
+	.version = "0.29",
 	.multipage_capable = 1,
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
