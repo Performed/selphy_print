@@ -207,10 +207,11 @@ top:
 /* Exported */
 #define USB_VID_SONY         0x054C
 #define USB_PID_SONY_UPDR150 0x01E8
+#define USB_PID_SONY_UPDR200 0x035F
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150",
-	.version = "0.11",
+	.version = "0.12",
 	.uri_prefix = "sonyupdr150",
 	.multipage_capable = 1,
 	.init = updr150_init,
@@ -220,6 +221,7 @@ struct dyesub_backend updr150_backend = {
 	.main_loop = updr150_main_loop,
 	.devices = {
 	{ USB_VID_SONY, USB_PID_SONY_UPDR150, P_SONY_UPDR150, ""},
+	{ USB_VID_SONY, USB_PID_SONY_UPDR200, P_SONY_UPDR150, ""},
 	{ 0, 0, 0, ""}
 	}
 };
