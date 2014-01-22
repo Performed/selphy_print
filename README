@@ -102,7 +102,7 @@
   CUPS backend usage:
 
    DEVICE_URI=someuri \
-       gutenprint+usb job-id user title num-copies options [ filename ]
+       gutenprint52+usb job-id user title num-copies options [ filename ]
 
  ***************************************************************************
   Standalone usage:
