@@ -1,7 +1,7 @@
 /*
  *   CUPS Backend common code
  *
- *   (c) 2013 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2013-2014 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *
@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.30"
+#define BACKEND_VERSION "0.31"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -431,7 +431,7 @@ int main (int argc, char **argv)
 
 	DEBUG("Multi-Call Gutenprint DyeSub CUPS Backend version %s\n",
 	      BACKEND_VERSION);
-	DEBUG("Copyright 2007-2013 Solomon Peachy\n");
+	DEBUG("Copyright 2007-2014 Solomon Peachy\n");
 
 	/* Cmdline help */
 	if (argc < 2) {

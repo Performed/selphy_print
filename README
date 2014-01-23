@@ -2,7 +2,7 @@
 
   Unified Gutenprint/CUPS Backend for various Dye-Sublimation photo printers
 
-  (c) 2007-2013 Solomon Peachy <pizza@shaftnet.org>
+  (c) 2007-2014 Solomon Peachy <pizza@shaftnet.org>
 
   The latest version can be found at
   
@@ -17,7 +17,7 @@
   Supported Printers:
 
    Canon SELPHY ES series
-   Canon SELPHY CP series (except CP520 and CP790)
+   Canon SELPHY CP series (except CP520, CP790, and CP910)
    Kodak Professional 1400
    Kodak 605 Photo Printer
    Kodak 805 Photo Printer
@@ -174,7 +174,7 @@
 
    NOT currently supported by libusb backend:  (USB PIDs unknown) 
 	
-     CP520, CP790
+     CP520, CP790, CP910
 
    This backend does not support additional commands
 
