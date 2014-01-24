@@ -109,7 +109,8 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 			break;
 
 		ptr = (uint32_t *) ctx->databuf + ctx->datalen;
-		len = le32_to_cpu(*ptr);
+		memcpy(&len, ptr, sizeof(len));
+		len = le32_to_cpu(len);
 
 		/* Filter out chunks we don't send to the printer */
 		switch (len) {
@@ -210,8 +211,8 @@ top:
 #define USB_PID_SONY_UPDR200 0x035F
 
 struct dyesub_backend updr150_backend = {
-	.name = "Sony UP-DR150",
-	.version = "0.12",
+	.name = "Sony UP-DR150/UP-DR200",
+	.version = "0.13",
 	.uri_prefix = "sonyupdr150",
 	.multipage_capable = 1,
 	.init = updr150_init,
