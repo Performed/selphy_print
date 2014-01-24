@@ -146,7 +146,6 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 		}
 		len -= num;
 		buf += num;
-//		DEBUG("Sent %d (%d copies remaining) to 0x%x\n", num, len, endp);
 	}
 
 	return 0;
