@@ -83,7 +83,6 @@ static void updr150_teardown(void *vctx) {
 static int updr150_read_parse(void *vctx, int data_fd) {
 	struct updr150_ctx *ctx = vctx;
 	int i, len, run = 1;
-	uint32_t *ptr;
 
 	if (!ctx)
 		return 1;
@@ -108,8 +107,7 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		if (i == 0)
 			break;
 
-		ptr = (uint32_t *) ctx->databuf + ctx->datalen;
-		memcpy(&len, ptr, sizeof(len));
+		memcpy(&len, ctx->databuf + ctx->datalen, sizeof(len));
 		len = le32_to_cpu(len);
 
 		/* Filter out chunks we don't send to the printer */
@@ -124,25 +122,30 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		case 0xffffffec:
 		case 0xffffffeb:
 		case 0xfffffffa:
-		case 0xfffffff3:
-			len = 0;
 			if(dyesub_debug)
-				DEBUG("Block ID '%x' (len %d)\n", *ptr, len);
+				DEBUG("Block ID '%08x' (len %d)\n", len, 0);
+			len = 0;
+			break;
+		case 0xfffffff3:
+			if(dyesub_debug)
+				DEBUG("Block ID '%08x' (len %d)\n", len, 0);
+			len = 0;
+			run = 0;
 			break;
 		case 0xffffffef:
 		case 0xfffffff5:
-			len = 4;
 			if(dyesub_debug)
-				DEBUG("Block ID '%x' (len %d)\n", *ptr, len);
+				DEBUG("Block ID '%08x' (len %d)\n", len, 4);
+			len = 4;
 			break;
 		default:
 			if (len & 0xff000000) {
-				ERROR("Unknown block ID '%x', aborting!\n", *ptr);
+				ERROR("Unknown block ID '%08x', aborting!\n", len);
 				return 1;
 			} else {
 				/* Only keep these chunks */
 				if(dyesub_debug)
-					DEBUG("Data chunk (len %d)\n", len);
+					DEBUG("Data block (len %d)\n", len);
 				keep = 1;
 			}
 			break;
@@ -150,15 +153,13 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		if (keep)
 			ctx->datalen += sizeof(uint32_t);
 
-		/* Last block is the plane data, and is HUGE.. */
-		if (len > 4096)
-			run = 0;
-
 		/* Read in the data chunk */
 		while(len > 0) {
 			i = read(data_fd, ctx->databuf + ctx->datalen, len);
 			if (i < 0)
 				return i;
+			if (i == 0)
+				break;
 			if (keep)
 				ctx->datalen += i;
 			len -= i;
@@ -179,16 +180,18 @@ static int updr150_main_loop(void *vctx, int copies) {
 
 top:
 	while (i < ctx->datalen) {
-		uint32_t *ptr = (uint32_t *) ctx->databuf + i;
-		uint32_t len = le32_to_cpu(*ptr);
+		uint32_t len;
+		memcpy(&len, ctx->databuf + i, sizeof(len));
+		len = le32_to_cpu(len);
 
 		i += sizeof(uint32_t);
 
 		if (dyesub_debug)
-			DEBUG("Sending %d bytes to printer\n", len);
+			DEBUG("Sending %d bytes to printer @ %d\n", len, i);
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf + i, len)))
 			return ret;
+
 		i += len;
 	}
 
