@@ -272,13 +272,13 @@ static int parse_printjob(uint8_t *buffer, uint8_t *bw_mode, uint32_t *plane_len
 			*bw_mode = (buffer[7] == 0x01);
 			goto done;
 		}
-    
+
 		if (es40_cp790_plane_lengths[buffer[2]] == *plane_len) {
-			printer_type = P_ES40_CP790; 
+			printer_type = P_ES40_CP790;
 			*bw_mode = (buffer[3] == 0x01);
 			goto done;
 		} else {
-			printer_type = P_ES3_30; 
+			printer_type = P_ES3_30;
 			*bw_mode = (buffer[3] == 0x01);
 			goto done;
 		}
@@ -653,7 +653,7 @@ top:
 #define USB_PID_CANON_CP760 0x31AB
 #define USB_PID_CANON_CP770 0x31AA
 #define USB_PID_CANON_CP780 0x31DD
-#define USB_PID_CANON_CP790 790 // XXX 31ed? 31ef? (related to es40)
+#define USB_PID_CANON_CP790 0x31E7
 #define USB_PID_CANON_CP800 0x3214
 #define USB_PID_CANON_CP810 0x3256
 #define USB_PID_CANON_CP900 0x3255
@@ -666,7 +666,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.66",
+	.version = "0.67",
 	.multipage_capable = 1,
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
@@ -709,7 +709,7 @@ struct dyesub_backend canonselphy_backend = {
 	{ 0, 0, 0, ""}
 	}
 };
-/* 
+/*
 
  ***************************************************************************
 
@@ -719,7 +719,7 @@ struct dyesub_backend canonselphy_backend = {
  Selphy ES1:
 
    Init func:   40 00 [typeA] [pgcode]  00 00 00 00  00 00 00 00
-   Plane func:  40 01 [typeB] [plane]  [length, 32-bit LE]  00 00 00 00 
+   Plane func:  40 01 [typeB] [plane]  [length, 32-bit LE]  00 00 00 00
 
    TypeA codes are 0x10 for Color papers, 0x20 for B&W papers.
    TypeB codes are 0x01 for Color papers, 0x02 for B&W papers.
@@ -757,7 +757,7 @@ struct dyesub_backend canonselphy_backend = {
  Selphy ES2/20:
 
    Init func:   40 00 [pgcode] 00  02 00 00 [type]  00 00 00 [pg2] [length, 32-bit LE]
-   Plane func:  40 01 [plane] 00  00 00 00 00  00 00 00 00 
+   Plane func:  40 01 [plane] 00  00 00 00 00  00 00 00 00
 
    Type codes are 0x00 for Color papers, 0x01 for B&W papers.
 
