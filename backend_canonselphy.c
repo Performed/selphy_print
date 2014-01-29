@@ -657,7 +657,7 @@ top:
 			break;
 		
 		/* Make sure paper is correct */
-		if (ctx->printer->paper_code_offset != -1) {
+		if (ctx->paper_code != -1) {
 			if ((rdbuf[ctx->printer->paper_code_offset] & 0x0f) !=
 			    (ctx->paper_code & 0x0f)) {
 				ERROR("Incorrect paper loaded, aborting job!\n");
