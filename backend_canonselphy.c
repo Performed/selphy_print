@@ -901,8 +901,31 @@ struct dyesub_backend canonselphy_backend = {
    'C'	      pgcode of 0x02 and a plane length of  698880 bytes.
    'W' 	      pgcode of 0x03 and a plane length of 2976512 bytes.
 
-   Readback codes are completely unknown, but are likely to be the same
-   as the ES40.
+   Readback values seen on an CP790:
+
+   00 00 ff 00  10 01 00 00  00 00 00 [pg]
+   00 00 00 00  10 01 00 00  00 00 00 [pg]   [idle, ready for header]
+   00 00 01 00  10 01 00 00  00 00 00 [pg]   
+   00 01 01 00  10 01 00 00  00 00 00 [pg]   [ready for Y data]
+   00 03 01 00  10 01 00 00  00 00 00 [pg]   [transitions to this]
+   00 03 02 00  10 01 00 00  00 00 00 [pg]   [ready for M data]
+   00 05 02 00  10 01 00 00  00 00 00 [pg]   [transitions to this]
+   00 05 03 00  10 01 00 00  00 00 00 [pg]   [ready for C data]
+   00 0b ff 00  10 01 00 00  00 00 00 [pg]   [transitions to this]
+   00 0e ff 00  10 01 00 00  00 00 00 [pg]   [transitions to this]
+   00 00 10 00  10 01 00 00  00 00 00 [pg]   [ready for footer]
+
+   [pg] is as follows:
+
+        'P' paper 0x01  (??)
+        'L' paper 0x02
+        'C' paper 0x03  (??)
+        'W' paper 0x44  (??)
+
+   Other readbacks seen:
+
+   00 00 10 00  10 ff 00 00  00 00 00 [pg]   [no ribbon]
+   00 00 10 00  ff 01 00 00  00 00 00 [pg]   [no paper casette]
 
  ***************************************************************************
  Selphy CP-10:
