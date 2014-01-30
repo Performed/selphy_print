@@ -62,7 +62,7 @@ static int es1_error_detect(uint8_t *rdbuf)
 		if (rdbuf[9] == 0x00) {
 			ERROR("Cover open!\n");
 		} else {
-			ERROR("Unknown error %02x\n", rdbuf[9]
+			ERROR("Unknown error %02x\n", rdbuf[9]);
 		}
 		return 1;
 	} else if (rdbuf[4] == 0x01 && rdbuf[5] == 0xff &&
@@ -87,6 +87,11 @@ static int es2_error_detect(uint8_t *rdbuf)
 	    rdbuf[5] == 0x05 &&
 	    rdbuf[6] == 0x02) {
 		ERROR("No media loaded!\n");
+		return 1;
+	}
+
+	if (rdbuf[0] == 0x14) {
+		ERROR("Out of media!\n");
 		return 1;
 	}
 
@@ -116,8 +121,8 @@ static int es3_error_detect(uint8_t *rdbuf)
 	}
 
 	if (rdbuf[8] || rdbuf[10]) {
-			ERROR("Unknown error - %02x + %02x\n", 
-			      rdbuf[8], rdbuf[10]);
+		ERROR("Unknown error - %02x + %02x\n", 
+		      rdbuf[8], rdbuf[10]);
 	}
 	
 	return 0;
