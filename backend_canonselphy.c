@@ -658,12 +658,22 @@ top:
 		
 		/* Make sure paper is correct */
 		if (ctx->paper_code != -1) {
-			if ((rdbuf[ctx->printer->paper_code_offset] & 0x0f) !=
-			    (ctx->paper_code & 0x0f)) {
-				ERROR("Incorrect paper loaded (%02x vs %02x), aborting job!\n", 
-				      ctx->paper_code,
-				      rdbuf[ctx->printer->paper_code_offset]);
-				return 3;  /* Hold this job, don't stop queue */
+			if (ctx->printer->type == P_ES40_CP790) {
+				if ((rdbuf[ctx->printer->paper_code_offset] & 0x0f) !=
+				    (ctx->paper_code & 0x0f)) {
+					ERROR("Incorrect paper loaded (%02x vs %02x), aborting job!\n", 
+					      ctx->paper_code,
+					      rdbuf[ctx->printer->paper_code_offset]);
+					return 3;  /* Hold this job, don't stop queue */
+				}
+			} else {
+				if (rdbuf[ctx->printer->paper_code_offset] !=
+				    ctx->paper_code) {
+					ERROR("Incorrect paper loaded (%02x vs %02x), aborting job!\n", 
+					      ctx->paper_code,
+					      rdbuf[ctx->printer->paper_code_offset]);
+					return 3;  /* Hold this job, don't stop queue */
+				}
 			}
 		}
 
@@ -792,7 +802,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.70",
+	.version = "0.71",
 	.multipage_capable = 1,
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
