@@ -58,17 +58,20 @@ struct printer_data {
 
 static int es1_error_detect(uint8_t *rdbuf)
 {
-	if (!rdbuf[1]) 
-		return 0;
-
-	if (rdbuf[9] == 0x80)
+	if (rdbuf[1] == 0x01) {
+		if (rdbuf[9] == 0x00) {
+			ERROR("Cover open!\n");
+		} else {
+			ERROR("Unknown error %02x\n", rdbuf[9]
+		}
+		return 1;
+	} else if (rdbuf[4] == 0x01 && rdbuf[5] == 0xff &&
+		   rdbuf[6] == 0xff && rdbuf[7] == 0xff) {
 		ERROR("No media loaded!\n");
-	else if (rdbuf[9] == 0x00)
-		ERROR("Cover open!\n");
-	else
-		ERROR("Unknown error - %02x\n",
-		      rdbuf[9]);
-	return 1;
+		return 1;
+	}
+
+	return 0;
 }
 
 static int es2_error_detect(uint8_t *rdbuf)
@@ -880,7 +883,7 @@ struct dyesub_backend canonselphy_backend = {
    02 00 00 00  02 01 [pg] 01  00 00 00 00   [..transitions back to idle]
 
    02 01 00 00  01 ff ff ff  00 80 00 00     [error, no media]
-   02 01 00 00  01 ff ff ff  00 00 00 00     [error, cover open]
+   02 00 00 00  01 ff ff ff  00 00 00 00     [error, cover open]
 
    Known paper types for all ES printers:  P, Pbw, L, C, Cl
    Additional types for ES3/30/40:         Pg, Ps
