@@ -69,6 +69,9 @@ static int es1_error_detect(uint8_t *rdbuf)
 		   rdbuf[6] == 0xff && rdbuf[7] == 0xff) {
 		ERROR("No media loaded!\n");
 		return 1;
+	} else if (rdbuf[0] == 0x0f) {
+		ERROR("Out of media!\n");
+		return 1;
 	}
 
 	return 0;
@@ -894,6 +897,7 @@ struct dyesub_backend canonselphy_backend = {
 
    02 01 00 00  01 ff ff ff  00 80 00 00     [error, no media]
    02 00 00 00  01 ff ff ff  00 00 00 00     [error, cover open]
+   0f 00 00 00  02 01 01 01  00 00 00 00     [error, out of media]
 
    Known paper types for all ES printers:  P, Pbw, L, C, Cl
    Additional types for ES3/30/40:         Pg, Ps
