@@ -17,7 +17,7 @@
   Supported Printers:
 
    Canon SELPHY ES series
-   Canon SELPHY CP series (except CP520, CP790, and CP910)
+   Canon SELPHY CP series (except CP520 and CP910)
    Kodak Professional 1400
    Kodak 605 Photo Printer
    Kodak 805 Photo Printer
@@ -150,8 +150,7 @@
 
 	EXTRA_VID is the USB VID, in hex
 	EXTRA_PID is the USB PID, in hex
-	EXTRA_TYPE is:	3 for SELPHY CP790
-		   	4 for SELPHY CP520 (or other CP-series model)
+	EXTRA_TYPE is:	4 for SELPHY CP520/910 (or other CP-series model)
 			(See P_ANY enum in backend_common.h for more types)
 
       If you have a model the spooler doesn't recognize but it works with
@@ -164,9 +163,9 @@
 
    Verified supported printers:
   
-     ES1, ES2, ES3, ES30, ES40, CP-10, CP-100, CP-200, CP-300, CP-330, CP400, 
-     CP500, CP510, CP710, CP720, CP730, CP740, CP750, CP760, CP770, CP780, 
-     CP800, CP900
+     ES1, ES2, ES3, ES30, ES40, CP-10, CP-100, CP-200, CP-300, CP-330, 
+     CP400, CP500, CP510, CP710, CP720, CP730, CP740, CP750, CP760, CP770, 
+     CP780, CP790, CP800, CP900
 
    Unverified/untested, but should work:
 
@@ -174,7 +173,7 @@
 
    NOT currently supported by libusb backend:  (USB PIDs unknown) 
 	
-     CP520, CP790, CP910
+     CP520, CP910
 
    This backend does not support additional commands
 
@@ -367,3 +366,4 @@
      -ccb		 Clear 'B' Counter
      -ccm		 Clear 'M' Counter
      -scp num		 Set 'P' Counter to 'num'
+
