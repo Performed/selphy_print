@@ -118,11 +118,16 @@ static int es3_error_detect(uint8_t *rdbuf)
 		   rdbuf[10] == 0x04) {
 		ERROR("Cover open!\n");
 		return 1;
+	} else if (rdbuf[8] == 0x05 &&
+		   rdbuf[10] == 0x01) {
+		ERROR("Incorrect media!\n");
+		return 1;
 	}
 
 	if (rdbuf[8] || rdbuf[10]) {
 		ERROR("Unknown error - %02x + %02x\n", 
 		      rdbuf[8], rdbuf[10]);
+		return 1;
 	}
 	
 	return 0;
@@ -979,6 +984,7 @@ struct dyesub_backend canonselphy_backend = {
 
    01 ff 10 00  ff ff ff ff  01 00 0f 00   [communication error]
    00 ff 01 00  ff ff ff ff  01 00 01 00   [error, no media/ink]
+   00 ff 01 00  ff ff ff ff  05 00 01 00   [error, incorrect media]
    00 ff 01 00  ff ff ff ff  03 00 02 00   [attempt to print with no media]
    00 ff 01 00  ff ff ff ff  08 00 04 00   [attempt to print with cover open]
 
