@@ -142,7 +142,7 @@ static int es40_error_detect(uint8_t *rdbuf)
 		/* ES40 */
 		if (!rdbuf[3])
 			return 0;
-		
+
 		if (rdbuf[3] == 0x01)
 			ERROR("Generic communication error\n");
 		else if (rdbuf[3] == 0x32)
@@ -151,13 +151,16 @@ static int es40_error_detect(uint8_t *rdbuf)
 			ERROR("Unknown error - %02x\n", rdbuf[3]);
 		return 1;
 	}
-	
+
 	/* CP790 */
 	if (rdbuf[4] == 0x10 && rdbuf[5] == 0xff) {
 		ERROR("No ribbon!\n");
 		return 1;
 	} else if (rdbuf[4] == 0xff && rdbuf[5] == 0x01) {
 		ERROR("No media loaded!\n");
+		return 1;
+	} else if (rdbuf[2] == 0x01 && rdbuf[3] == 0x11) {
+		ERROR("Media feed error!\n");
 		return 1;
 	}
 
@@ -808,7 +811,9 @@ top:
 #define USB_PID_CANON_CP790 0x31E7
 #define USB_PID_CANON_CP800 0x3214
 #define USB_PID_CANON_CP810 0x3256
+#define USB_PID_CANON_CP820 820 // XXX
 #define USB_PID_CANON_CP900 0x3255
+#define USB_PID_CANON_CP910 910 // XXX
 #define USB_PID_CANON_ES1   0x3141
 #define USB_PID_CANON_ES2   0x3185
 #define USB_PID_CANON_ES20  0x3186
@@ -818,7 +823,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.71",
+	.version = "0.72",
 	.multipage_capable = 1,
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
@@ -851,7 +856,9 @@ struct dyesub_backend canonselphy_backend = {
 	{ USB_VID_CANON, USB_PID_CANON_CP790, P_ES40_CP790, "Canon"},
 	{ USB_VID_CANON, USB_PID_CANON_CP800, P_CP_XXX, "Canon"},
 	{ USB_VID_CANON, USB_PID_CANON_CP810, P_CP_XXX, "Canon"},
+	{ USB_VID_CANON, USB_PID_CANON_CP820, P_CP_XXX, "Canon"},
 	{ USB_VID_CANON, USB_PID_CANON_CP900, P_CP_XXX, "Canon"},
+	{ USB_VID_CANON, USB_PID_CANON_CP910, P_CP_XXX, "Canon"},
 	{ USB_VID_CANON, USB_PID_CANON_ES1, P_ES1, "Canon"},
 	{ USB_VID_CANON, USB_PID_CANON_ES2, P_ES2_20, "Canon"},
 	{ USB_VID_CANON, USB_PID_CANON_ES20, P_ES2_20, "Canon"},
@@ -1079,6 +1086,7 @@ struct dyesub_backend canonselphy_backend = {
 
    00 00 10 00  10 ff 00 00  00 00 00 [pg]   [no ribbon]
    00 00 10 00  ff 01 00 00  00 00 00 [pg]   [no paper casette]
+   00 00 01 11  10 01 00 00  00 00 00 [pg]   [media feed error]
 
  ***************************************************************************
  Selphy CP-10:
