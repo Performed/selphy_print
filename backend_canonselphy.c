@@ -834,7 +834,6 @@ top:
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
 	.version = "0.73",
-	.multipage_capable = 1,
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,

@@ -904,7 +904,6 @@ struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
 	.version = "0.24",
 	.uri_prefix = "dnpds40",
-	.multipage_capable = 1,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
 	.init = dnpds40_init,

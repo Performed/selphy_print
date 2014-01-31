@@ -397,7 +397,6 @@ struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
 	.version = "0.10",
 	.uri_prefix = "mitsu70x",
-	.multipage_capable = 1,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
 	.init = mitsu70x_init,
