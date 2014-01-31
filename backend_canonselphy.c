@@ -49,7 +49,7 @@ struct printer_data {
 	int16_t ready_m_readback[READBACK_LEN];
 	int16_t ready_c_readback[READBACK_LEN];
 	int16_t done_c_readback[READBACK_LEN];
-	int16_t clear_error[READBACK_LEN];
+	uint8_t clear_error[READBACK_LEN];
 	int16_t paper_codes[256];
 	int16_t pgcode_offset;  /* Offset into printjob for paper type */
 	int16_t paper_code_offset; /* Offset in readback for paper type */
@@ -632,6 +632,7 @@ static int canonselphy_main_loop(void *vctx, int copies) {
 	uint8_t rdbuf[READBACK_LEN], rdbuf2[READBACK_LEN];
 	int last_state = -1, state = S_IDLE;
 	int ret, num;
+	int err_flag = 2;
 
 	/* Read in the printer status */
 	ret = read_data(ctx->dev, ctx->endp_up,
@@ -663,11 +664,19 @@ top:
 	}
 	last_state = state;
 
-	fflush(stderr);       
+	fflush(stderr);
 
-	/* Error detection */
-	if (ctx->printer->error_detect(rdbuf))
-		return 4;
+	/* Error detection & (possible) recovery */
+	if (ctx->printer->error_detect(rdbuf)) {
+		if (!ctx->printer->clear_error)
+			return 4;
+		if (!err_flag--) /* Try up to err_flag times */
+			return 4;
+
+		/* Try to clear error state */
+		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->printer->clear_error, READBACK_LEN)))
+			return ret;
+	}
 
 	switch(state) {
 	case S_IDLE:
@@ -833,7 +842,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.73",
+	.version = "0.74",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
