@@ -5,7 +5,7 @@
  *
  *   Development of this backend was sponsored by:
  *
- *       Marco Di Antonio and ilgruppodigitale.com
+ *       Marco Di Antonio and [ ilgruppodigitale.com ]
  *
  *   The latest version of this program can be found at:
  *
@@ -44,6 +44,13 @@
 #define USB_VID_DNP       0x1343
 #define USB_PID_DNP_DS40  0x0003
 #define USB_PID_DNP_DS80  0x0004
+
+//#define USB_VID_CITIZEN XXXXX
+//#define USB_PID_CITIZEN_CX XXXXX
+//#define USB_PID_CITIZEN_CX-W XXXXX
+//#define USB_PID_CITIZEN_CY XXXXX
+//#define USB_PID_CITIZEN_CW-02 XXXXX
+//#define USB_PID_CITIZEN_OP900II XXXXX
 
 /* Private data stucture */
 struct dnpds40_ctx {
@@ -915,6 +922,11 @@ struct dyesub_backend dnpds40_backend = {
 	.devices = {
 	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
+//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX, P_DNP_DS80, ""},
+//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX-W, P_DNP_DS80, ""},
+//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CY, P_DNP_DS80, ""},
+//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS80, ""},
+//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS80, ""},
 	{ 0, 0, 0, ""}
 	}
 };

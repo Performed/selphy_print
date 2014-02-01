@@ -32,6 +32,7 @@
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
    Sony UP-DR200
+   Citizen CX/CX-W/CY/CW-02/OP900II
 
  ***************************************************************************
 
@@ -348,10 +349,14 @@
 
     DNP DS40
     DNP DS80
+ 
+   Work-in-progress (Unknown USB IDs):
+
+    Citizen CX/CX-W/CY/CW-02/OP900II
 
    Development was sponsored by:
 
-        Marco Di Antonio and ilgruppodigitale.com
+        Marco Di Antonio and [ ilgruppodigitale.com ]
 
    This backend supports additional commands:
 
