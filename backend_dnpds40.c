@@ -63,6 +63,8 @@ struct dnpds40_ctx {
 	int type;
 
 	int buf_needed;
+	uint32_t last_matte;
+
 	uint8_t *qty_offset;
 
 	uint8_t *databuf;
@@ -437,7 +439,17 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		/* Add in the size of this chunk */
 		ctx->datalen += sizeof(struct dnpds40_cmd) + j;
 	}
-	DEBUG("dpi %d matte %d mcut %d bufs %d\n", dpi, matte, multicut, ctx->buf_needed);
+
+	/* Special case: switching to matte or back needs both buffers */
+	if (matte != ctx->last_matte)
+		ctx->buf_needed = 2;
+
+	DEBUG("dpi %d matte %d(%d) mcut %d bufs %d\n", 
+	      dpi, matte, ctx->last_matte, multicut, ctx->buf_needed);
+
+	/* Track if our last print was matte */
+	ctx->last_matte = matte;
+
 	if (!ctx->datalen)
 		return 1;
 
