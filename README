@@ -93,7 +93,7 @@
  ***************************************************************************
   Compilation:
 
-     You will need libusbx to build this tool.
+     You will need libusb/libusbx v1.0.13 (or newer) to build this tool.
 
      Fedora/RedHat:
 	yum install libusbx-devel
