@@ -163,6 +163,9 @@ static int es40_error_detect(uint8_t *rdbuf)
 	} else if (rdbuf[2] == 0x01 && rdbuf[3] == 0x11) {
 		ERROR("Paper feed error!\n");
 		return 1;
+	} else if (rdbuf[3]) {
+		ERROR("Unknown error - %02x\n", rdbuf[3]);
+		return 1;
 	}
 
 	return 0;
@@ -175,6 +178,8 @@ static int cp10_error_detect(uint8_t *rdbuf)
 
 	if (rdbuf[2] == 0x80)
 		ERROR("No ribbon loaded\n");
+	else if (rdbuf[2] == 0x08)
+		ERROR("Ribbon depleted!\n");
 	else if (rdbuf[2] == 0x01)
 		ERROR("No paper loaded!\n");
 	else
@@ -855,7 +860,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.76",
+	.version = "0.77",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
@@ -1117,7 +1122,7 @@ struct dyesub_backend canonselphy_backend = {
 
    00 00 10 00  10 ff 00 00  00 00 00 [pg]   [no ribbon]
    00 00 10 00  ff 01 00 00  00 00 00 [pg]   [no paper casette]
-   00 00 01 11  10 01 00 00  00 00 00 [pg]   [media feed error]
+   00 00 01 11  10 01 00 00  00 00 00 [pg]   [paper feed error]
 
  ***************************************************************************
  Selphy CP-10:
@@ -1142,8 +1147,9 @@ struct dyesub_backend canonselphy_backend = {
    10 00 00 00  00 00 00 00  00 00 00 00   [C done, waiting]
    20 00 00 00  00 00 00 00  00 00 00 00   [All done]
 
-   02 00 80 00  00 00 00 00  00 00 00 00   [No ink]
-   02 00 01 00  00 00 00 00  00 00 00 00   [No media]
+   02 00 80 00  00 00 00 00  00 00 00 00   [No ribbon]
+   02 00 80 00  00 00 00 00  00 00 00 00   [Ribbon depleted]
+   02 00 01 00  00 00 00 00  00 00 00 00   [No paper]
 
   There are no media type codes; the printer only supports one type.
 
