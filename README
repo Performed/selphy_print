@@ -36,6 +36,7 @@
    Citizen CX/CX-W/CY/CW-01/OP900/CW-02/OP900II
    Olmec OP900
    ICI Imagedata OP900
+   Mitsubishi CP-3800DW
 
  ***************************************************************************
 
@@ -356,6 +357,9 @@
    Work-in-progress (Unknown USB IDs):
 
     Citizen CX/CX-W/CY/CW-02/OP900II
+    Olmec OP900
+    ICI Imagedata OP900
+    Mitsubishi CP-3800DW
 
    Development was sponsored by:
 
