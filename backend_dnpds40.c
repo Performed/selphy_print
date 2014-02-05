@@ -42,13 +42,10 @@
 #include "backend_common.h"
 
 #define USB_VID_DNP       0x1343
-#define USB_PID_DNP_DS40  0x0003
-#define USB_PID_DNP_DS80  0x0004
+#define USB_PID_DNP_DS40  0x0003 // Also Citizen CX
+#define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W
+#define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
 
-//#define USB_VID_CITIZEN XXXXX
-//#define USB_PID_CITIZEN_CX XXXXX
-//#define USB_PID_CITIZEN_CX-W XXXXX
-//#define USB_PID_CITIZEN_CY XXXXX
 //#define USB_PID_CITIZEN_CW-01 XXXXX
 //#define USB_PID_CITIZEN_OP900 XXXXX
 //#define USB_PID_CITIZEN_CW-02 XXXXX
@@ -963,7 +960,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80",
-	.version = "0.25",
+	.version = "0.26",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -976,9 +973,7 @@ struct dyesub_backend dnpds40_backend = {
 	.devices = {
 	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
-//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX, P_DNP_DS80, ""},
-//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX-W, P_DNP_DS80, ""},
-//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CY, P_DNP_DS40, ""},
+	{ USB_VID_DNP, USB_PID_DNP_DSRX1, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-01, P_DNP_DS40, ""},

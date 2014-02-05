@@ -26,14 +26,13 @@
    Shinko CHC-S2145 (aka "Sinfonia S2")
    Sony UP-DR150
    Sony UP-DR200
-   DNP DS40
-   DNP DS80 
+   DNP DS40/DS80/DS-RX1
+   Citizen CX/CX-W/CY
 
  Work-in-progress printers:
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
-   DNP DSRX1
-   Citizen CX/CX-W/CY/CW-01/OP900/CW-02/OP900II
+   Citizen CW-01/OP900/CW-02/OP900II
    Olmec OP900
    ICI Imagedata OP900
    Mitsubishi CP-3800DW
@@ -353,10 +352,14 @@
 
     DNP DS40
     DNP DS80
+    DNP DS-RX1
+    Citizen CX
+    Citizen CX-W
+    Citizen CY
  
    Work-in-progress (Unknown USB IDs):
 
-    Citizen CX/CX-W/CY/CW-02/OP900II
+    Citizen CW-01/OP900/CW-02/OP900II
     Olmec OP900
     ICI Imagedata OP900
     Mitsubishi CP-3800DW
