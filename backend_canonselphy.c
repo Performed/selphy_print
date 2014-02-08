@@ -158,10 +158,13 @@ static int es40_error_detect(uint8_t *rdbuf)
 		ERROR("No ribbon loaded!\n");
 		return 1;
 	} else if (rdbuf[4] == 0xff && rdbuf[5] == 0x01) {
-		ERROR("No paper loaded!\n");
+		ERROR("No paper tray loaded!\n");
 		return 1;
 	} else if (rdbuf[2] == 0x01 && rdbuf[3] == 0x11) {
 		ERROR("Paper feed error!\n");
+		return 1;
+	} else if (rdbuf[3] == 0x21) {
+		ERROR("Ribbon depleted!\n");
 		return 1;
 	} else if (rdbuf[3]) {
 		ERROR("Unknown error - %02x\n", rdbuf[3]);
@@ -261,7 +264,7 @@ static struct printer_data selphy_printers[] = {
 	  // .clear_error + clear_error_len
 	  // .paper_codes
 	  .pgcode_offset = 2,
-	  .paper_code_offset = 11,
+	  .paper_code_offset = 11, // XXX ES40 only, CP790 doesn't use this.
 	  .error_detect = es40_error_detect,
 	},
 	{ .type = P_CP_XXX,
@@ -715,12 +718,15 @@ top:
 					}
 				}
 			} else if (ctx->printer->type == P_ES40_CP790) {
+
+#if 0
 				if ((rdbuf[ctx->printer->paper_code_offset] & 0x0f) !=
 				    (ctx->paper_code & 0x0f)) {
 					ERROR("Incorrect media/ribbon loaded (%02x vs %02x), aborting job!\n", 
 					      ctx->paper_code,
 					      rdbuf[ctx->printer->paper_code_offset]);
 					return 3;  /* Hold this job, don't stop queue */
+#endif
 				}
 			} else {
 				if (rdbuf[ctx->printer->paper_code_offset] !=
@@ -860,7 +866,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.77",
+	.version = "0.78",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
@@ -1123,6 +1129,7 @@ struct dyesub_backend canonselphy_backend = {
    00 00 10 00  10 ff 00 00  00 00 00 [pg]   [no ribbon]
    00 00 10 00  ff 01 00 00  00 00 00 [pg]   [no paper casette]
    00 00 01 11  10 01 00 00  00 00 00 [pg]   [paper feed error]
+   00 00 01 21  10 01 00 00  00 00 00 [pg]   [depleted ribbon]
 
  ***************************************************************************
  Selphy CP-10:
