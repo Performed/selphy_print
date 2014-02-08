@@ -88,6 +88,8 @@ enum {
 	P_ES2_20,
 	P_ES3_30,
 	P_ES40_CP790,
+	P_ES40,
+	P_CP790,
 	P_CP_XXX,
 	P_CP10,
 	P_KODAK_6800,
