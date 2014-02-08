@@ -45,6 +45,7 @@
 #define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
 #define DEBUG2( ... ) fprintf(stderr, __VA_ARGS__ )
 #define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
+#define WARNING( ... )  fprintf(stderr, "WARNING: " __VA_ARGS__ )
 #define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
