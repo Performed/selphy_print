@@ -959,7 +959,7 @@ static int dnpds40_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
 
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
-	.name = "DNP DS40/DS80",
+	.name = "DNP DS40/DS80/DSRX1",
 	.version = "0.26",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
