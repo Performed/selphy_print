@@ -912,7 +912,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.78",
+	.version = "0.79",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
