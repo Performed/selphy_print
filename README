@@ -13,7 +13,10 @@
     http://bugs.shaftnet.org/index.php?project=4
 
  ***************************************************************************
- 
+
+  If you do not have one of the printers listed below, this backend is
+  not relevant for you and you can just ignore all of this.
+
   Supported Printers:
 
    Canon SELPHY ES series
@@ -29,7 +32,7 @@
    DNP DS40/DS80/DS-RX1
    Citizen CX/CX-W/CY
 
- Work-in-progress printers:
+  Work-in-progress printers (untested/partial support present)
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
    Citizen CW-01/OP900/CW-02/OP900II
@@ -43,52 +46,26 @@
   photo printers under Linux, OSX, and other UNIX-like operating systems.
 
   Although these printers advertise themselves as standard USB Printer Class
-  devices, they do not actually obey those specifications, and require 
-  two-way communications in order to successfully print.
+  devices, they do not actually obey those specifications and require 
+  special two-way handshaking in order to successfully print.
 
-  If you do not have one of the printers listed above, this backend is
-  not relevant for you and you can just ignore everything below.
-
-  In order to properly utilize this backend, you must have an up-to-date
-  version of Gutenprint (5.2.10) installed.
-
-  Once Gutenprint and this backend are installed, if you are using up-to-date
-  versions of CUPS (1.6.4 or newer) on Linux, then your system will 
-  automatically select this backend if you plug in one of its supported 
-  printers.  No further intervention on the user's part should be necessary.
-
-  Unfortunately, if you are using an older version of CUPS or a non-Linux
-  system (particularly OSX) then you will probably need to manually 
-  configure the use of this backend, as the system may attempt to use the 
-  default usb backend which does not work properly with these printers.
-
-  To check which backend your printers are using, run the 'lpstat -s' command.
-  Below is an example of its output:
-
-    device for Canon_SELPHY_ES1: gutenprint52+usb://Canon/SELPHY%20ES1?serial=221CD10131&backend=canonselphy
-    device for Canon_SELPHY_ES3: usb://Canon/Canon%20SELPHY%20ES3
-
-  In this example, the SELPHY ES1 is using the correct gutenprint backend, but
-  the ES3 is using the incorrect 'usb' backend. In order for the ES3 to 
-  function properly, you need to configure it to use the correct backend.
-
-  The most expedient way to accomplish this is to remove the printer via your
-  system's printer configuration interface, then manually add a new one, taking
-  care to select the correct backend ("gutenprint52+usb").  This backend name
-  is present in the device URI for the printer, as demonstrated in the above
-  example.  An alternative to the system printer configuration interface is to
-  use your local system's CUPS web interface, if it is enabled. Step-by-step
-  instructions for using any of these interfaces is beyond the scope of this
-  document.
-
-  Once the printer is properly configured, this backend will be automatically
-  invoked as needed; the user will never invoke the backend directly.
+  This backend can only be used in conjunction with Gutenprint 5.2.10 or
+  newer.  Please see the Gutenprint README file for more information on 
+  use of this backend and integration into CUPS.
+  
+  Although this backend is bundled with Gutenprint, this repository is 
+  considered the canonical upstream source where all development occurs.
+  As such, when compared to the current Gutenprint release, the code here
+  often has additional features or device support. At the same time, it may
+  have half-developed features that don't quite work, and have bugs that 
+  may eat your cats while you sleep.
 
  ***************************************************************************
 
   This backend also supports a "standalone" mode that performs various 
-  utility functions for selected printers, such as querying status.
-  The exact commands supported for each printer are documented below.
+  utility functions for selected printers, such as querying status and
+  configuring various parameters. The exact commands supported for each
+  printer are documented below.
 
  ***************************************************************************
   Compilation:
@@ -278,12 +255,12 @@
      -qf		Query firmware version
      -qe		Query Error log
      -qu		Query User String
-     -qtu filename	Query User tone curve (stored in flash)  [2]
-     -qtc filename	Query Current tone curve (stored in RAM) [2]
+     -qtu filename	Query User tone curve (stored in flash)  [1]
+     -qtc filename	Query Current tone curve (stored in RAM) [1]
      -su  somestring    Set User String to 'somestring'
-     -stu filename      Set User tone curve (stored in flash)    [2]
-     -stc filename      Set Current tone curve (stored in RAM)   [2]
-     -pc  id            Cancel print job 'id'                    [1]
+     -stu filename      Set User tone curve (stored in flash)    [1]
+     -stc filename      Set Current tone curve (stored in RAM)   [1]
+     -pc  id            Cancel print job 'id'                    [2]
      -fl  		Flash printer LEDs for five seconds.
      -ru		Reset User tone curve to default         [3]
      -rp		Reset printer to factory defaults
@@ -293,33 +270,31 @@
 
   Notes:
 
-    [1]  Job ID is the Internal Job ID (reported via status)
-    	   This cancels a multi-copy print job.
-	   To see which jobs are active/pending, see the output of the
-	   '-qs' command, specifically the 'Bank' output.
-
-    [2]  Format of curvedata file:
+    [1]  Format of curvedata file:
 
 	 256 entries each of Yellow, Magenta, Cyan mappings:
 	 Values are unsigned 16-bit big endian, between 0 and 2047 
 	 (ie only 11 bits used)
+
+    [2]  Job ID is the Internal Job ID (reported via status)
+    	   This cancels a multi-copy print job.
+	   To see which jobs are active/pending, see the output of the
+	   '-qs' command, specifically the 'Bank' output.
 
     [3]  Default printer tone curve is a linear 'val << 3'
 
     [4]  This terminates the backend as soon as the printer has acknowledged
          the print job, without waiting for the print job to complete.
          This can also be enabled by setting the 'FAST_RETURN' environment
-         variable.
+         variable.  This is the default behavior when using this backend
+	 with CUPS.
 
  *************************************************************************** 
   BACKEND=sonyupdr150
 
    Verified supported printers:
 
-    Sony UP-DR150
-
-   Theoretically supportable printers: (Unknown USB PID)
-
+    Sony UP-DR150, 
     Sony UP-DR200
 
    This backend does not support additional commands
@@ -327,14 +302,15 @@
  *************************************************************************** 
   BACKEND=mitsu70x
 
-   NOTE:  This backend is not yet present in mainline Gutenprint
+   NOTE:  We are looking for someone to help test this backend, as it has
+          received no testing whatsoever.
 
-   Theoretically supported printers:  (Untested)
+   Supported but untested printers:
 
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
 
-   Theoretically supportable printers: (Unknown USB PID)
+   Work-in-progress (Unknown USB IDs):
 
     Mitsubishi CP-K60DW-S
 
@@ -344,7 +320,7 @@
 
    Valid commands:
 
-     -qs                 Query printer status (Not fully decoded yet)
+     -qs                 Query printer status (Only partially decoded)
 
  *************************************************************************** 
   BACKEND=dnpds40
@@ -383,3 +359,4 @@
      -ccm		 Clear 'M' Counter
      -scp num		 Set 'P' Counter to 'num'
 
+ *************************************************************************** 
