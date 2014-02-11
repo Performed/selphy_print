@@ -615,6 +615,13 @@ int main (int argc, char **argv)
 		}
 	}
 
+	if (dyesub_debug) {
+		const struct libusb_version *ver;
+		ver = libusb_get_version();
+		DEBUG(" ** running with libusb %d.%d.%d%s (%d)\n",
+		      ver->major, ver->minor, ver->micro, (ver->rc? ver->rc : ""), ver->nano );
+
+	}
 	/* Make sure a filename was specified */
 	if (!unk && (optind == argc || !argv[optind])) {
 		print_help(argv[0], backend);
