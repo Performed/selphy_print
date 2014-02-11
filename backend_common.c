@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.40"
+#define BACKEND_VERSION "0.41"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -297,9 +297,10 @@ static int print_scan_output(struct libusb_device *device,
 		WARNING("**** THIS PRINTER DOES NOT REPORT A SERIAL NUMBER!\n");
 		WARNING("**** If you intend to use multiple printers of this typpe, you\n");
 		WARNING("**** must only plug one in at a time or unexpected behaivor will occur!\n");
-		sprintf(serial, "NONE_UNKNOWN");
+		serial = strdup("NONE_UNKNOWN");
+	} else {
+		serial = url_encode(buf);
 	}
-	serial = url_encode(buf);
 
 	if (dyesub_debug)
 		DEBUG("%sVID: %04X PID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
@@ -465,7 +466,7 @@ along with this program; if not, write to the Free Software\n\
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.\n\
 \n          [http://www.gnu.org/licenses/gpl-3.0.html]\n\n";
 
-	fprintf(stderr, license);
+	fprintf(stderr, "%s", license);
 }
 
 static void print_help(char *argv0, struct dyesub_backend *backend)
@@ -525,7 +526,7 @@ int main (int argc, char **argv)
 	struct libusb_device_handle *dev;
 	struct libusb_config_descriptor *config;
 
-	struct dyesub_backend *backend;
+	struct dyesub_backend *backend = NULL;
 	void * backend_ctx = NULL;
 
 	uint8_t endp_up = 0;
@@ -545,7 +546,7 @@ int main (int argc, char **argv)
 	int pages = 0;
 
 	char *uri;
-	char *fname;
+	char *fname = NULL;
 	int query_only = 0;
 	int printer_type = P_ANY;
 
@@ -705,6 +706,10 @@ int main (int argc, char **argv)
 		    backend->cmdline_arg(NULL, argc, argv)) {
 			query_only = 1;
 		} else {
+			if (!fname) {
+				perror("ERROR:No input file");
+				exit(1);
+			}
 			/* Open Input File */
 			if (strcmp("-", fname)) {
 				data_fd = open(fname, O_RDONLY);
