@@ -1292,75 +1292,127 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 	return 0;
 }
 
-static void shinkos2145_cmdline(char *caller)
+static void shinkos2145_cmdline(void)
 {
-	DEBUG("\t\t%s [ -qs | -qm | -qf | -qe | -qu ]\n", caller);
-	DEBUG("\t\t%s [ -qtu filename | -qtc filename ]\n", caller);
-	DEBUG("\t\t%s [ -su somestring | -stu filename | -stc filename ]\n", caller);
-	DEBUG("\t\t%s [ -pc id | -fl | -ru | -rp | -b1 | -b0 ]\n", caller);
-	DEBUG("\t\t%s [ -f ]\n", caller);
+	DEBUG("\t\t[ -b 0|1 ]       # Disable/Enable control panel\n");
+	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
+	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
+	DEBUG("\t\t[ -e ]           # Query error log\n");
+	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
+	DEBUG("\t\t[ -F ]           # Flash Printer LED\n");
+	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
+	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");
+	DEBUG("\t\t[ -m ]           # Query media\n");
+	DEBUG("\t\t[ -i ]           # Query printer info\n");
+	DEBUG("\t\t[ -r ]           # Reset user/NV tone curve\n");
+	DEBUG("\t\t[ -R ]           # Reset printer to factory defaults\n");
+	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -u ]           # Query user string\n");
+	DEBUG("\t\t[ -U sometext ]  # Set user string\n");
+	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");
 }
 
-int shinkos2145_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
+int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct shinkos2145_ctx *ctx = vctx;
+	int i;
 
-	if (!run || !ctx)
-		return (!strcmp("-qs", arg1) ||
-			!strcmp("-qf", arg1) ||
-			!strcmp("-qe", arg1) ||
-			!strcmp("-qm", arg1) ||
-			!strcmp("-qu", arg1) ||
-			!strcmp("-qtc", arg1) ||
-			!strcmp("-qtu", arg1) ||
-			!strcmp("-pc", arg1) ||
-			!strcmp("-fl", arg1) ||
-			!strcmp("-ru", arg1) ||
-			!strcmp("-rp", arg1) ||
-			!strcmp("-b1", arg1) ||
-			!strcmp("-b0", arg1) ||
-			!strcmp("-stc", arg1) ||
-			!strcmp("-stu", arg1) ||
-			!strcmp("-f", arg1) ||
-			!strcmp("-su", arg1));
+	/* Reset arg parsing */
+	optind = 1;
+	opterr = 0;
+	while ((i = getopt(argc, argv, "b:c:C:efFil:L:mr:R:suU:X:")) >= 0) {
+		switch(i) {
+		case 'b':
+			if (ctx) {
+				if (optarg[0] == '1')
+					button_set(ctx, BUTTON_ENABLED);
+				else if (optarg[0] == '0')
+					button_set(ctx, BUTTON_DISABLED);
+				else
+					return -1;
+			} else 
+				return 1;
+		case 'c':
+			if (ctx)
+				return get_tonecurve(ctx, TONECURVE_USER, optarg);
+			else 
+				return 1;
+		case 'C':
+			if (ctx)
+				return set_tonecurve(ctx, TONECURVE_USER, optarg);
+			else 
+				return 1;
+		case 'e':
+			if (ctx)
+				return get_errorlog(ctx);
+			else
+				return 1;
+		case 'f':
+			if (ctx)
+				ctx->fast_return = 1;
+			else
+				return 1;
+		case 'F':
+			if (ctx)
+				return flash_led(ctx);
+			else
+				return 1;
+		case 'i':
+			if (ctx)
+				return get_fwinfo(ctx);
+			else
+				return 1;
+		case 'l':
+			if (ctx)
+				return get_tonecurve(ctx, TONECURVE_CURRENT, optarg);
+			else 
+				return 1;
+		case 'L':
+			if (ctx)
+				return set_tonecurve(ctx, TONECURVE_CURRENT, optarg);
+			else 
+				return 1;
+		case 'm':
+			if (ctx)
+				return get_mediainfo(ctx);
+			else
+				return 1;
+		case 'r':
+			if (ctx)
+				return reset_curve(ctx, RESET_USER_CURVE);
+			else
+				return 1;
+		case 'R':
+			if (ctx)
+				return reset_curve(ctx, RESET_PRINTER);
+			else
+				return 1;
+		case 's':
+			if (ctx)
+				return get_status(ctx);
+			else
+				return 1;
+		case 'u':
+			if (ctx)
+				return get_user_string(ctx);
+			else
+				return 1;
+		case 'U':
+			if (ctx)
+				return set_user_string(ctx, optarg);
+			else
+				return 1;
+		case 'X':
+			if (ctx)
+				return cancel_job(ctx, optarg);
+			else
+				return 1;
+		default:
+			break;  /* Ignore completely */
+		}
+	}
 
-	if (!strcmp("-f", arg1))
-		ctx->fast_return = 1;
-
-	if (!strcmp("-qs", arg1))
-		get_status(ctx);
-	else if (!strcmp("-qf", arg1))
-		get_fwinfo(ctx);
-	else if (!strcmp("-qe", arg1))
-		get_errorlog(ctx);
-	else if (!strcmp("-qm", arg1))
-		get_mediainfo(ctx);
-	else if (!strcmp("-qu", arg1))
-		get_user_string(ctx);
-	else if (!strcmp("-qtu", arg1))
-		get_tonecurve(ctx, TONECURVE_USER, arg2);
-	else if (!strcmp("-qtc", arg1))
-		get_tonecurve(ctx, TONECURVE_CURRENT, arg2);
-	else if (!strcmp("-su", arg1))
-		set_user_string(ctx, arg2);
-	else if (!strcmp("-stu", arg1))
-		set_tonecurve(ctx, UPDATE_TARGET_USER, arg2);
-	else if (!strcmp("-stc", arg1))
-		set_tonecurve(ctx, UPDATE_TARGET_CURRENT, arg2);
-	else if (!strcmp("-pc", arg1))
-		cancel_job(ctx, arg2);
-	else if (!strcmp("-fl", arg1))
-		flash_led(ctx);
-	else if (!strcmp("-ru", arg1))
-		reset_curve(ctx, RESET_USER_CURVE);
-	else if (!strcmp("-rp", arg1))
-		reset_curve(ctx, RESET_PRINTER);
-	else if (!strcmp("-b1", arg1))
-		button_set(ctx, BUTTON_ENABLED);
-	else if (!strcmp("-b0", arg1))
-		button_set(ctx, BUTTON_DISABLED);
-
-	return -1;
+	return 0;
 }
 
 static void *shinkos2145_init(void)
@@ -1370,7 +1422,8 @@ static void *shinkos2145_init(void)
 		return NULL;
 	memset(ctx, 0, sizeof(struct shinkos2145_ctx));
 
-	if (getenv("FAST_RETURN"))
+	/* Use Fast return by default in CUPS mode */
+	if (getenv("DEVICE_URI"))
 		ctx->fast_return = 1;
 
 	return ctx;
@@ -1665,7 +1718,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
-	.version = "0.29",
+	.version = "0.30",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

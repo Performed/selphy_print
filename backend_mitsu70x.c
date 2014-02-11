@@ -371,31 +371,39 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 	return 0;
 }
 
-static void mitsu70x_cmdline(char *caller)
+static void mitsu70x_cmdline(void)
 {
-	DEBUG("\t\t%s [ -qs ]\n", caller);
+	DEBUG("\t\t[ -s ]           # Query status\n");
 }
 
-static int mitsu70x_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
+static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct mitsu70x_ctx *ctx = vctx;
+	int i;
 
-	UNUSED(arg2);
+	/* Reset arg parsing */
+	optind = 1;
+	opterr = 0;
+	while ((i = getopt(argc, argv, "s")) >= 0) {
+		switch(i) {
+		case 's':
+			if (ctx)
+				return mitsu70x_get_status(ctx);
+			else
+				return 1;
+		default:
+			break;  /* Ignore completely */
+		}
+	}
 
-	if (!run || !ctx)
-		return (!strcmp("-qs", arg1));
-
-	if (!strcmp("-qs", arg1))
-		return mitsu70x_get_status(ctx);
-
-	return -1;
+	return 0;
 }
 
 
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.10",
+	.version = "0.11",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

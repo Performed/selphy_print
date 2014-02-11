@@ -234,22 +234,32 @@ static int kodak1400_set_tonecurve(struct kodak1400_ctx *ctx, char *fname)
 	return 0;
 }
 
-static void kodak1400_cmdline(char *caller)
+static void kodak1400_cmdline(void)
 {
-	DEBUG("\t\t%s [ -stc filename ]\n", caller);
+	DEBUG("\t\t[ -C filename ]  # Set tone curve\n");
 }
 
-int kodak1400_cmdline_arg(void *vctx, int run, char *arg1, char *arg2)
+int kodak1400_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct kodak1400_ctx *ctx = vctx;
+	int i;
 
-	if (!run || !ctx)
-		return (!strcmp("-stc", arg1));
+	/* Reset arg parsing */
+	optind = 1;
+	opterr = 0;
+	while ((i = getopt(argc, argv, "C:")) >= 0) {
+		switch(i) {
+		case 'C':
+			if (ctx)
+				return kodak1400_set_tonecurve(ctx, optarg);
+			else 
+				return 1;
+		default:
+			break;  /* Ignore completely */
+		}
+	}
 
-	if (!strcmp("-stc", arg1))
-		return kodak1400_set_tonecurve(ctx, arg2);
-
-	return -1;
+	return 0;
 }
 
 static void *kodak1400_init(void)
@@ -574,7 +584,7 @@ top:
 
 struct dyesub_backend kodak1400_backend = {
 	.name = "Kodak 1400/805",
-	.version = "0.29",
+	.version = "0.30",
 	.uri_prefix = "kodak1400",
 	.cmdline_usage = kodak1400_cmdline,
 	.cmdline_arg = kodak1400_cmdline_arg,
