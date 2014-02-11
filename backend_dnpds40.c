@@ -86,13 +86,13 @@ struct dnpds40_cmd {
 
 static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, uint32_t arg3_len)
 {
-	char buf[9];
 	memset(cmd, 0x20, sizeof(*cmd));
 	cmd->esc = 0x1b;
 	cmd->p = 0x50;
 	memcpy(cmd->arg1, arg1, min(strlen(arg1), sizeof(cmd->arg1)));
 	memcpy(cmd->arg2, arg2, min(strlen(arg2), sizeof(cmd->arg2)));
 	if (arg3_len) {
+		char buf[9];
 		snprintf(buf, sizeof(buf), "%08d", arg3_len);
 		memcpy(cmd->arg3, buf, 8);
 	}
@@ -318,7 +318,7 @@ static void dnpds40_teardown(void *vctx) {
 
 static int dnpds40_read_parse(void *vctx, int data_fd) {
 	struct dnpds40_ctx *ctx = vctx;
-	int i, j, run = 1;
+	int run = 1;
 	char buf[9] = { 0 };
 
 	uint32_t matte = 0, multicut = 0, dpi = 0;
@@ -348,7 +348,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	}
 
 	while (run) {
-		int remain;
+		int remain, i, j;
 		/* Read in command header */
 		i = read(data_fd, ctx->databuf + ctx->datalen, 
 			 sizeof(struct dnpds40_cmd));

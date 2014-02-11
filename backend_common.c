@@ -97,7 +97,7 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	int ret;
 
 	/* Clear buffer */
-	memset(buf, buflen, 0);
+	memset(buf, 0, buflen);
 
 	ret = libusb_bulk_transfer(dev, endp,
 				   buf,
@@ -267,7 +267,7 @@ static int print_scan_output(struct libusb_device *device,
 		/* XXX this is ... a cut-n-paste hack */
 
 		uint8_t endp_up, endp_down;
-		int i, iface = 0;
+		int iface = 0;
 		struct libusb_config_descriptor *config;
 
 		if (libusb_kernel_driver_active(dev, iface))
@@ -276,6 +276,7 @@ static int print_scan_output(struct libusb_device *device,
 		/* If we fail to claim the printer, it's already in use
 		   so we should just skip over it... */
 		if (!libusb_claim_interface(dev, iface)) {
+			int i;
 			libusb_get_active_config_descriptor(device, &config);
 			for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
 				if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
@@ -429,13 +430,13 @@ static int find_and_enumerate(struct libusb_context *ctx,
 static struct dyesub_backend *find_backend(char *uri_prefix)
 {
 	int i;
-	struct dyesub_backend *backend;
+	
 
 	if (!uri_prefix)
 		return NULL;
 
 	for (i = 0; ; i++) {
-		backend = backends[i];
+		struct dyesub_backend *backend = backends[i];
 		if (!backend)
 			return NULL;
 		if (!strcmp(uri_prefix, backend->uri_prefix))
@@ -471,7 +472,6 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 {
 	struct libusb_context *ctx = NULL;
 	struct libusb_device **list = NULL;
-	int i;
 
 	char *ptr = strrchr(argv0, '/');
 	if (ptr)
@@ -483,6 +483,7 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		backend = find_backend(ptr);
 	
 	if (!backend) {
+		int i;
 		DEBUG("CUPS Usage:\n");
 		DEBUG("\tDEVICE_URI=someuri %s job user title num-copies options [ filename ]\n", URI_PREFIX);
 		DEBUG("\n");

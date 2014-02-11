@@ -326,7 +326,6 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 	uint8_t cmdbuf[CMDBUF_LEN];
 	struct mitsu70x_status_resp resp;
 	int num, ret;
-	unsigned int i;
 
 	/* Send Printer Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
@@ -349,6 +348,8 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 	}
 
 	if (dyesub_debug) {
+		unsigned int i;
+
 		DEBUG("Status Dump:\n");
 		for (i = 0 ; i < sizeof(resp.unk) ; i++) {
 			DEBUG2("%02x ", resp.unk[i]);
