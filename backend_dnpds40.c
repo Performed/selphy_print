@@ -937,7 +937,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "inN:ps")) >= 0) {
+	while ((i = getopt(argc, argv, "inN:p:s")) >= 0) {
 		switch(i) {
 		case 'i':
 			if (ctx)
