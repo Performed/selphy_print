@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.39"
+#define BACKEND_VERSION "0.40"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -334,8 +334,7 @@ static int print_scan_output(struct libusb_device *device,
 	}
 	
 	/* If a serial number was passed down, use it. */
-	if (found && match_serno &&
-	    strcmp(match_serno, (char*)serial)) {
+	if (match_serno && strcmp(match_serno, (char*)serial)) {
 		found = -1;
 	}
 
@@ -569,6 +568,8 @@ int main (int argc, char **argv)
 			extra_pid = strtol(optarg, NULL, 16);
 			break;
 		case 'S':
+			use_serno = optarg;
+			break;
 		case 'T':
 			extra_type = atoi(optarg);
 			break;
