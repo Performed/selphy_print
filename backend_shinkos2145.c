@@ -1325,9 +1325,9 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 		case 'b':
 			if (ctx) {
 				if (optarg[0] == '1')
-					button_set(ctx, BUTTON_ENABLED);
+					return button_set(ctx, BUTTON_ENABLED);
 				else if (optarg[0] == '0')
-					button_set(ctx, BUTTON_DISABLED);
+					return button_set(ctx, BUTTON_DISABLED);
 				else
 					return -1;
 			} else 
