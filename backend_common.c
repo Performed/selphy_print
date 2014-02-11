@@ -475,9 +475,8 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 				break;
 			DEBUG("  -B %s\t# %s v%s\n",
 			      backend->uri_prefix, backend->name, backend->version);
-			if (backend->cmdline_usage) {
+			if (backend->cmdline_usage)
 				backend->cmdline_usage();
-			}
 		}
 	} else {
 		DEBUG("Standalone %s backend v%s\n",
@@ -487,9 +486,8 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("\t\t[ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
 		DEBUG("\t\t[ infile | - ]\n");
 		
-		if (backend->cmdline_usage) {
+		if (backend->cmdline_usage)
 			backend->cmdline_usage();
-		}
 	}
 	libusb_init(&ctx);
 	find_and_enumerate(ctx, &list, backend, NULL, P_ANY, 1);
@@ -514,6 +512,7 @@ int main (int argc, char **argv)
 
 	int i;
 	int claimed;
+	int unk = 0;
 
 	int ret = 0;
 	int iface = 0;
@@ -577,6 +576,7 @@ int main (int argc, char **argv)
 			extra_pid = strtol(optarg, NULL, 16);
 			break;
 		case '?':
+			unk = 1;
 			/* We want to ignore unknown arguments */
 			break;
 		default:
@@ -586,7 +586,7 @@ int main (int argc, char **argv)
 	}
 
 	/* Make sure a filename was specified */
-	if (optind <= argc && !argv[optind]) {
+	if (!unk && (optind == argc || !argv[optind])) {
 		print_help(argv[0], backend);
 		exit(0);
 	}
@@ -672,8 +672,8 @@ int main (int argc, char **argv)
 		jobid = rand();
 
 		/* Check cmdline arguments */
-		// XXX optind = 1;
-		if (backend->cmdline_arg && backend->cmdline_arg(NULL, argc, argv)) {
+		if (backend->cmdline_arg && 
+		    backend->cmdline_arg(NULL, argc, argv)) {
 			query_only = 1;
 		} else {
 			/* Open Input File */
