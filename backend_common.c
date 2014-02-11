@@ -482,8 +482,8 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("Standalone %s backend v%s\n",
 		      backend->name, backend->version);
 		DEBUG("\t%s\n", backend->uri_prefix);
-		DEBUG("\t\t[ -D ] [ -S serialnum ] [ -B backendname ] \n");
-		DEBUG("\t\t[ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
+		DEBUG("\t[ -D ] [ -S serialnum ] [ -B backendname ] \n");
+		DEBUG("\t[ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
 		DEBUG("\t\t[ infile | - ]\n");
 		
 		if (backend->cmdline_usage)
