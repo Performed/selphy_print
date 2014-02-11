@@ -1,7 +1,7 @@
 /*
  *   CUPS Backend common code
  *
- *   (c) 2013-2014 Solomon Peachy <pizza@shaftnet.org>
+ *   Copyright (c) 2007-2014 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *
@@ -444,7 +444,29 @@ static struct dyesub_backend *find_backend(char *uri_prefix)
 	return NULL;
 }
 
-/* MAIN */
+static void print_license_blurb(void)
+{
+	const char *license = "\n\
+Copyright 2007-2014 Solomon Peachy <pizza AT shaftnet DOT org>\n\
+\n\
+This program is free software; you can redistribute it and/or modify it\n\
+under the terms of the GNU General Public License as published by the Free\n\
+Software Foundation; either version 3 of the License, or (at your option)\n\
+any later version.\n\
+\n\
+This program is distributed in the hope that it will be useful, but\n\
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n\
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License\n\
+for more details.\n\
+\n\
+You should have received a copy of the GNU General Public License\n\
+along with this program; if not, write to the Free Software\n\
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.\n\
+\n          [http://www.gnu.org/licenses/gpl-3.0.html]\n\n";
+
+	fprintf(stderr, license);
+}
+
 static void print_help(char *argv0, struct dyesub_backend *backend)
 {
 	struct libusb_context *ctx = NULL;
@@ -466,20 +488,20 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("\n");
 		DEBUG("Standalone Usage:\n");
 		DEBUG("\t%s\n", URI_PREFIX);
-		DEBUG("  [ -D ] [ -S serialnum ] [ -B backendname ] \n");
+		DEBUG("  [ -D ] [ -G ] [ -S serialnum ] [ -B backendname ] \n");
 		DEBUG("  [ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
 		DEBUG("  [ [ backend_specific_args ] | [ - | infile ] ]\n");
 		for (i = 0; ; i++) {
 			backend = backends[i];
 			if (!backend)
 				break;
-			DEBUG("  -B %s\t# %s v%s\n",
+			DEBUG("  -B %s\t# %s version %s\n",
 			      backend->uri_prefix, backend->name, backend->version);
 			if (backend->cmdline_usage)
 				backend->cmdline_usage();
 		}
 	} else {
-		DEBUG("Standalone %s backend v%s\n",
+		DEBUG("Standalone %s backend version %s\n",
 		      backend->name, backend->version);
 		DEBUG("\t%s\n", backend->uri_prefix);
 		DEBUG("\t[ -D ] [ -S serialnum ] [ -B backendname ] \n");
@@ -526,9 +548,12 @@ int main (int argc, char **argv)
 	int query_only = 0;
 	int printer_type = P_ANY;
 
-	DEBUG("Multi-Call Gutenprint DyeSub CUPS Backend version %s\n",
+	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
 	      BACKEND_VERSION);
 	DEBUG("Copyright 2007-2014 Solomon Peachy\n");
+	DEBUG("This free software comes with ABSOLUTELY NO WARRANTY! \n");
+	DEBUG("Licensed under the GNU GPL.  Run with '-G' for more details.\n");
+	DEBUG("\n");
 
 	/* First pass at cmdline parsing */
 	if (getenv("DYESUB_DEBUG"))
@@ -547,7 +572,7 @@ int main (int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "B:DhP:S:T:V:")) >= 0) {
+	while ((i = getopt(argc, argv, "B:DGhP:S:T:V:")) >= 0) {
 		switch(i) {
 		case 'B':
 			backend = find_backend(optarg);
@@ -558,6 +583,9 @@ int main (int argc, char **argv)
 		case 'D':
 			dyesub_debug++;
 			break;
+		case 'G':
+			print_license_blurb();
+			exit(0);
 		case 'h':
 			print_help(argv[0], backend);
 			exit(0);
