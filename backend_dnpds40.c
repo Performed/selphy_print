@@ -103,10 +103,17 @@ static void dnpds40_cleanup_string(char *start, int len)
 {
 	char *ptr = strchr(start, 0x0d);
 
-	if (ptr && (ptr - start < len))
+	if (ptr && (ptr - start < len)) {
 		*ptr = 0x00; /* If there is a <CR>, terminate there */
-	else
-		*(start + len - 1) = 0x00;  /* force null-termination */
+		len = ptr - start;
+	} else {
+		start[--len] = 0x00;  /* force null-termination */
+	}
+
+	/* Trim trailing spaces */
+	while (len && start[len-1] == ' ') {
+		start[--len] = 0;
+	}
 }
 
 static char *dnpds40_media_types(char *str)
@@ -980,7 +987,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.27",
+	.version = "0.28",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
