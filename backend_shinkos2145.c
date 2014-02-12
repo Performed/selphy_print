@@ -1357,9 +1357,10 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 			else
 				return 1;
 		case 'f':
-			if (ctx)
+			if (ctx) {
 				ctx->fast_return = 1;
-			else
+				return 0;
+			} else
 				return 1;
 		case 'F':
 			if (ctx)
@@ -1432,7 +1433,7 @@ static void *shinkos2145_init(void)
 	memset(ctx, 0, sizeof(struct shinkos2145_ctx));
 
 	/* Use Fast return by default in CUPS mode */
-	if (getenv("DEVICE_URI"))
+	if (getenv("DEVICE_URI") || getenv("FAST_RETURN"))
 		ctx->fast_return = 1;
 
 	return ctx;
@@ -1442,7 +1443,6 @@ static void shinkos2145_attach(void *vctx, struct libusb_device_handle *dev,
 			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos2145_ctx *ctx = vctx;
-
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
