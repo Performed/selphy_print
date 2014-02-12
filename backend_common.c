@@ -796,7 +796,8 @@ int main (int argc, char **argv)
 	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
 	
 	if (backend_cmd && !uri) {
-		backend->cmdline_arg(backend_ctx, argc, argv);
+		if (backend->cmdline_arg(backend_ctx, argc, argv))
+			goto done_claimed;
 		if (!fname)
 			goto done_claimed;
 	} 
