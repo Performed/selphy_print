@@ -614,7 +614,8 @@ int main (int argc, char **argv)
 		case 'V':
 			extra_pid = strtol(optarg, NULL, 16);
 			break;
-		case '?': {
+		case '?': 
+		default: {
 			/* Check to see if it is claimed by the backend */
 			if (backend && backend->cmdline_arg) {
 				int keep = optind;
@@ -623,9 +624,6 @@ int main (int argc, char **argv)
 			}
 			break;
 		}
-		default:
-			// XXX unhandled.  do something else?
-			break;
 		}
 	}
 
@@ -713,11 +711,11 @@ int main (int argc, char **argv)
 		/* Grab the filename */
 		fname = argv[optind];
 
-		if (!backend_cmd) {  /* ie no backend arguments */
-			if (!fname) {
-				perror("ERROR:No input file");
-				exit(1);
-			}
+		if (!fname && !backend_cmd) {
+			perror("ERROR:No input file");
+			exit(1);
+		}
+		if (fname) {
 			/* Open Input File */
 			if (strcmp("-", fname)) {
 				data_fd = open(fname, O_RDONLY);
@@ -739,7 +737,7 @@ int main (int argc, char **argv)
 	backend_ctx = backend->init();
 
 	/* Parse printjob if necessary */
-	if (!backend_cmd && backend->early_parse) {
+	if (fname && backend->early_parse) {
 		printer_type = backend->early_parse(backend_ctx, data_fd);
 		if (printer_type < 0) {
 			ret = 5; /* CUPS_BACKEND_CANCEL */
@@ -799,7 +797,8 @@ int main (int argc, char **argv)
 	
 	if (backend_cmd) {
 		backend->cmdline_arg(backend_ctx, argc, argv);
-		goto done_claimed;
+		if (!fname)
+			goto done_claimed;
 	} 
 
 	/* Time for the main processing loop */
