@@ -294,7 +294,7 @@ static void kodak6800_cmdline(void)
 static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct kodak6800_ctx *ctx = vctx;
-	int i;
+	int i, j = 0;
 
 	/* Reset arg parsing */
 	optind = 1;
@@ -302,18 +302,22 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 	while ((i = getopt(argc, argv, "C:c:")) >= 0) {
 		switch(i) {
 		case 'c':
-			if (ctx)
-				return kodak6800_get_tonecurve(ctx, optarg);
-			else 
-				return 1;
+			if (ctx) {
+				j = kodak6800_get_tonecurve(ctx, optarg);
+				break;
+			} 
+			return 1;
 		case 'C':
-			if (ctx)
-				return kodak6800_set_tonecurve(ctx, optarg);
-			else 
-				return 1;
+			if (ctx) {
+				j = kodak6800_set_tonecurve(ctx, optarg);
+				break;
+			}
+			return 1;
 		default:
 			break;  /* Ignore completely */
 		}
+
+		if (j) return j;
 	}
 
 	return 0;
@@ -632,7 +636,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.31",
+	.version = "0.32",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

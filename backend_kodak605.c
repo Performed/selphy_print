@@ -483,7 +483,7 @@ static void kodak605_cmdline(void)
 static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct kodak605_ctx *ctx = vctx;
-	int i;
+	int i, j = 0;
 
 	/* Reset arg parsing */
 	optind = 1;
@@ -491,23 +491,28 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 	while ((i = getopt(argc, argv, "C:ms")) >= 0) {
 		switch(i) {
 		case 'C':
-			if (ctx)
-				return kodak605_set_tonecurve(ctx, optarg);
-			else 
-				return 1;
+			if (ctx) {
+				j = kodak605_set_tonecurve(ctx, optarg);
+				break;
+			}
+			return 1;
 		case 'm':
-			if (ctx)
-				return kodak605_get_media(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = kodak605_get_media(ctx);
+				break;
+			}
+			return 1;
 		case 's':
-			if (ctx)
-				return kodak605_get_status(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = kodak605_get_status(ctx);
+				break;
+			}
+			return 1;
 		default:
 			break;  /* Ignore completely */
 		}
+
+		if (j) return j;
 	}
 
 	return 0;
@@ -516,7 +521,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.17",
+	.version = "0.18",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,

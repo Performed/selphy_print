@@ -380,7 +380,7 @@ static void mitsu70x_cmdline(void)
 static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct mitsu70x_ctx *ctx = vctx;
-	int i;
+	int i, j = 0;
 
 	/* Reset arg parsing */
 	optind = 1;
@@ -388,13 +388,16 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 	while ((i = getopt(argc, argv, "s")) >= 0) {
 		switch(i) {
 		case 's':
-			if (ctx)
-				return mitsu70x_get_status(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = mitsu70x_get_status(ctx);
+				break;
+			}
+			return 1;
 		default:
 			break;  /* Ignore completely */
 		}
+
+		if (j) return j;
 	}
 
 	return 0;
@@ -404,7 +407,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707",
-	.version = "0.11",
+	.version = "0.12",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

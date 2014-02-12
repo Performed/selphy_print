@@ -1324,7 +1324,7 @@ static void shinkos2145_cmdline(void)
 int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct shinkos2145_ctx *ctx = vctx;
-	int i;
+	int i, j = 0;
 
 	/* Reset arg parsing */
 	optind = 1;
@@ -1334,92 +1334,109 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 		case 'b':
 			if (ctx) {
 				if (optarg[0] == '1')
-					return button_set(ctx, BUTTON_ENABLED);
+					j = button_set(ctx, BUTTON_ENABLED);
 				else if (optarg[0] == '0')
-					return button_set(ctx, BUTTON_DISABLED);
+					j = button_set(ctx, BUTTON_DISABLED);
 				else
 					return -1;
-			} else 
-				return 1;
+				break;
+			}
+			return 1;
 		case 'c':
-			if (ctx)
-				return get_tonecurve(ctx, TONECURVE_USER, optarg);
-			else 
-				return 1;
+			if (ctx) {
+				j = get_tonecurve(ctx, TONECURVE_USER, optarg);
+				break;
+			}
+			return 1;
 		case 'C':
-			if (ctx)
-				return set_tonecurve(ctx, TONECURVE_USER, optarg);
-			else 
-				return 1;
+			if (ctx) {
+				j = set_tonecurve(ctx, TONECURVE_USER, optarg);
+				break;
+			}
+			return 1;
 		case 'e':
-			if (ctx)
-				return get_errorlog(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = get_errorlog(ctx);
+				break;
+			}
+			return 1;
 		case 'f':
 			if (ctx) {
 				ctx->fast_return = 1;
-				return 0;
-			} else
-				return 1;
+				break;
+			}
+			return 1;
 		case 'F':
-			if (ctx)
-				return flash_led(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = flash_led(ctx);
+				break;
+			}
+			return 1;
 		case 'i':
-			if (ctx)
-				return get_fwinfo(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = get_fwinfo(ctx);
+				break;
+			}
+			return 1;
 		case 'l':
-			if (ctx)
-				return get_tonecurve(ctx, TONECURVE_CURRENT, optarg);
-			else 
-				return 1;
+			if (ctx) {
+				j = get_tonecurve(ctx, TONECURVE_CURRENT, optarg);
+				break;
+			}
+			return 1;
 		case 'L':
-			if (ctx)
-				return set_tonecurve(ctx, TONECURVE_CURRENT, optarg);
-			else 
-				return 1;
+			if (ctx) {
+				j = set_tonecurve(ctx, TONECURVE_CURRENT, optarg);
+				break;
+			}
+			return 1;
 		case 'm':
-			if (ctx)
-				return get_mediainfo(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = get_mediainfo(ctx);
+				break;
+			}
+			return 1;
 		case 'r':
-			if (ctx)
-				return reset_curve(ctx, RESET_USER_CURVE);
-			else
-				return 1;
+			if (ctx) {
+				j = reset_curve(ctx, RESET_USER_CURVE);
+				break;
+			}
+			return 1;
 		case 'R':
-			if (ctx)
-				return reset_curve(ctx, RESET_PRINTER);
-			else
-				return 1;
+			if (ctx) {
+				j = reset_curve(ctx, RESET_PRINTER);
+				break;
+			}
+			return 1;
 		case 's':
-			if (ctx)
-				return get_status(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = get_status(ctx);
+				break;
+			} 
+			return 1;
 		case 'u':
-			if (ctx)
-				return get_user_string(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = get_user_string(ctx);
+				break;
+			}
+			return 1;
 		case 'U':
-			if (ctx)
-				return set_user_string(ctx, optarg);
-			else
-				return 1;
+			if (ctx) {
+				j = set_user_string(ctx, optarg);
+				break;
+			}
+			return 1;
 		case 'X':
-			if (ctx)
-				return cancel_job(ctx, optarg);
-			else
-				return 1;
+			if (ctx) {
+				j = cancel_job(ctx, optarg);
+				break;
+			}
+			return 1;
 		default:
 			break;  /* Ignore completely */
 		}
+
+		if (j) return j;
 	}
 
 	return 0;
@@ -1727,7 +1744,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
-	.version = "0.30",
+	.version = "0.31",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

@@ -939,7 +939,7 @@ static void dnpds40_cmdline(void)
 static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct dnpds40_ctx *ctx = vctx;
-	int i;
+	int i, j = 0;
 
 	/* Reset arg parsing */
 	optind = 1;
@@ -947,38 +947,44 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 	while ((i = getopt(argc, argv, "inN:p:s")) >= 0) {
 		switch(i) {
 		case 'i':
-			if (ctx)
-				return dnpds40_get_info(ctx);
-			else
-				return 1;
-		case 'n':
-			if (ctx)
-				return dnpds40_get_counters(ctx);
-			else
-				return 1;
-		case 'N':
 			if (ctx) {
-				if (optarg[0] != 'A' &&
-				    optarg[0] != 'B' &&
-				    optarg[0] != 'M')
-					return -1;
-				else
-					return dnpds40_clear_counter(ctx, optarg[0]);
-			} else 
-				return 1;
+				j = dnpds40_get_info(ctx);
+				break;
+			}
+			return 1;
+		case 'n':
+			if (ctx) {
+				j = dnpds40_get_counters(ctx);
+				break;
+			}
+			return 1;
+		case 'N':
+			if (optarg[0] != 'A' &&
+			    optarg[0] != 'B' &&
+			    optarg[0] != 'M')
+				return -1;
+			if (ctx) {
+				j = dnpds40_clear_counter(ctx, optarg[0]);
+				break;
+			}
+			return 1;
 		case 'p':
-			if (ctx)
-				return dnpds40_set_counter_p(ctx, optarg);
-			else
-				return 1;
+			if (ctx) {
+				j = dnpds40_set_counter_p(ctx, optarg);
+				break;
+			}
+			return 1;
 		case 's':
-			if (ctx)
-				return dnpds40_get_status(ctx);
-			else
-				return 1;
+			if (ctx) {
+				j = dnpds40_get_status(ctx);
+				break;
+			}
+			return 1;
 		default:
 			break;  /* Ignore completely */
 		}
+
+		if (j) return j;
 	}
 
 	return 0;
@@ -987,7 +993,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.28",
+	.version = "0.29",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
