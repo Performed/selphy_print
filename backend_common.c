@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.42"
+#define BACKEND_VERSION "0.43"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -490,9 +490,11 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("\n");
 		DEBUG("Standalone Usage:\n");
 		DEBUG("\t%s\n", URI_PREFIX);
-		DEBUG("  [ -D ] [ -G ] [ -S serialnum ] [ -B backendname ] \n");
+		DEBUG("  [ -D ] [ -G ]\n");
+		DEBUG("  [ -S serialnum ] [ -B backendname ] \n");
 		DEBUG("  [ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
-		DEBUG("  [ [ backend_specific_args ] | [ - | infile ] ]\n");
+		DEBUG("  [ backend_specific_args ] \n");
+		DEBUG("  [ -d copies ] [ - | infile ] \n");
 		for (i = 0; ; i++) {
 			backend = backends[i];
 			if (!backend)
@@ -506,12 +508,11 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("Standalone %s backend version %s\n",
 		      backend->name, backend->version);
 		DEBUG("\t%s\n", backend->uri_prefix);
-		DEBUG("\t[ -D ] [ -S serialnum ] \n");
+		DEBUG("\t[ -D ] [ -G ] [ -S serialnum ] \n");
 		DEBUG("\t[ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
-		DEBUG("\t\t[ infile | - ]\n");
-		
 		if (backend->cmdline_usage)
 			backend->cmdline_usage();
+		DEBUG("\t[ -d copies ] [ infile | - ]\n");
 	}
 	libusb_init(&ctx);
 	find_and_enumerate(ctx, &list, backend, NULL, P_ANY, 1);
@@ -584,13 +585,16 @@ int main (int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "B:DGhP:S:T:V:")) >= 0) {
+	while ((i = getopt(argc, argv, "B:dDGhP:S:T:V:")) >= 0) {
 		switch(i) {
 		case 'B':
 			backend = find_backend(optarg);
 			if (!backend) {
 				fprintf(stderr, "ERROR:  Unknown backend '%s'\n", optarg);
 			}
+			break;
+		case 'd':
+			copies = atoi(optarg);
 			break;
 		case 'D':
 			dyesub_debug++;
