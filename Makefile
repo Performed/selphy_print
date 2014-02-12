@@ -22,7 +22,7 @@ $(BACKENDS): $(EXEC_NAME)
 	ln -sf $(EXEC_NAME) $@
 
 cppcheck:
-	cppcheck -q -v --std=c99 --enable=all -DURI_PREFIX=\"$(BACKEND_NAME)\" $(SOURCES) 
+	cppcheck -q -v --std=c99 --enable=all -I/usr/include -DURI_PREFIX=\"$(BACKEND_NAME)\" $(SOURCES) 
 
 install:	
 	install -o root -m 700 $(EXEC_NAME) $(CUPS_BACKEND_DIR)/$(BACKEND_NAME)

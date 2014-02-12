@@ -93,7 +93,7 @@ static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, u
 	memcpy(cmd->arg2, arg2, min(strlen(arg2), sizeof(cmd->arg2)));
 	if (arg3_len) {
 		char buf[9];
-		snprintf(buf, sizeof(buf), "%08d", arg3_len);
+		snprintf(buf, sizeof(buf), "%08u", arg3_len);
 		memcpy(cmd->arg3, buf, 8);
 	}
 
@@ -443,7 +443,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	if (matte != ctx->last_matte)
 		ctx->buf_needed = 2;
 
-	DEBUG("dpi %d matte %d(%d) mcut %d bufs %d\n", 
+	DEBUG("dpi %u matte %u(%u) mcut %u bufs %d\n", 
 	      dpi, matte, ctx->last_matte, multicut, ctx->buf_needed);
 
 	/* Track if our last print was matte */

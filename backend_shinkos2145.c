@@ -899,13 +899,13 @@ static int get_status(struct shinkos2145_ctx *ctx)
 		return 0;
 
 	INFO(" Print Counts:\n");
-	INFO("\tSince Paper Changed:\t%08d\n", le32_to_cpu(resp->count_paper));
-	INFO("\tLifetime:\t\t%08d\n", le32_to_cpu(resp->count_lifetime));
-	INFO("\tMaintainence:\t\t%08d\n", le32_to_cpu(resp->count_maint));
-	INFO("\tPrint Head:\t\t%08d\n", le32_to_cpu(resp->count_head));
-	INFO(" Cutter Actuations:\t%08d\n", le32_to_cpu(resp->count_cutter));
-	INFO(" Ribbon Remaining:\t%08d\n", le32_to_cpu(resp->count_ribbon_left));
-	INFO("Bank 1: 0x%02x (%s) Job %03d @ %03d/%03d (%03d remaining)\n",
+	INFO("\tSince Paper Changed:\t%08u\n", le32_to_cpu(resp->count_paper));
+	INFO("\tLifetime:\t\t%08u\n", le32_to_cpu(resp->count_lifetime));
+	INFO("\tMaintainence:\t\t%08u\n", le32_to_cpu(resp->count_maint));
+	INFO("\tPrint Head:\t\t%08u\n", le32_to_cpu(resp->count_head));
+	INFO(" Cutter Actuations:\t%08u\n", le32_to_cpu(resp->count_cutter));
+	INFO(" Ribbon Remaining:\t%08u\n", le32_to_cpu(resp->count_ribbon_left));
+	INFO("Bank 1: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
 	     resp->bank1_status, bank_statuses(resp->bank1_status),
 	     resp->bank1_printid,
 	     le16_to_cpu(resp->bank1_finished),
@@ -928,7 +928,7 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 {
 	struct s2145_fwinfo_cmd  cmd;
 	struct s2145_fwinfo_resp *resp = (struct s2145_fwinfo_resp *)rdbuf;
-	int ret, num = 0;
+	int num = 0;
 	int i;
 
 	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_FWINFO);
@@ -937,6 +937,7 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 	INFO("FW Information:\n");
 
 	for (i = FWINFO_TARGET_MAIN_BOOT ; i <= FWINFO_TARGET_TABLES ; i++) {
+		int ret;
 		cmd.target = i;
 
 		if ((ret = s2145_do_cmd(ctx,
@@ -986,7 +987,7 @@ static int get_errorlog(struct shinkos2145_ctx *ctx)
 
 	INFO("Stored Error Events: %d entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: @ %08d prints : 0x%02x/0x%02x (%s)\n", i,
+		INFO(" %02d: @ %08u prints : 0x%02x/0x%02x (%s)\n", i,
 		     le32_to_cpu(resp->items[i].print_counter),
 		     resp->items[i].major, resp->items[i].minor, 
 		     error_codes(resp->items[i].major, resp->items[i].minor));
@@ -1209,7 +1210,7 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 				resp->total_size * 2 - i,
 				&num);
 		if (ret < 0)
-			return ret;
+			goto done;
 		i += num;
 	}
 
@@ -1223,8 +1224,10 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 	/* Open file and write it out */
 	{
 		int tc_fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
-		if (tc_fd < 0)
-			return -1;
+		if (tc_fd < 0) {
+			ret = -1;
+			goto done;
+		}
 
 		for (i = 0 ; i < 768; i++) {
 			/* Byteswap appropriately */
@@ -1234,8 +1237,9 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 		close(tc_fd);
 	}
 
+done:
 	free(data);
-	return 0;
+	return ret;
 }
 
 static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname) 
@@ -1250,10 +1254,14 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 
 	/* Read in file */
 	int tc_fd = open(fname, O_RDONLY);
-	if (tc_fd < 0)
-		return -1;
-	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE)
-		return -2;
+	if (tc_fd < 0) {
+		ret = -1;
+		goto done;
+	}
+	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE) {
+		ret = -2;
+		goto done;
+	}
 	close(tc_fd);
 	/* Byteswap data to local CPU.. */
 	for (ret = 0; ret < UPDATE_SIZE ; ret+=2) {
@@ -1278,18 +1286,19 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 				sizeof(*resp),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return ret;
+		goto done;
 	}
 
 	/* Sent transfer */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     (uint8_t *) data, UPDATE_SIZE))) {
-		return ret;
+		goto done;
 	}
 
+done:
 	free(data);
 
-	return 0;
+	return ret;
 }
 
 static void shinkos2145_cmdline(void)
@@ -1513,7 +1522,7 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 
 	/* Make sure footer is sane too */
 	ret = read(data_fd, tmpbuf, 4);
-	if (ret < 0 || ret != 4) {
+	if (ret != 4) {
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      ret, 4, 4);
 		perror("ERROR: Read failed");

@@ -116,16 +116,17 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 
 	if ((ret = send_data(dev, endp_down,
 			     cmdbuf, 16)))
-		return ret;
+		goto done;
 	
 	ret = read_data(dev, endp_up,
 			respbuf, sizeof(respbuf), &num);
 	if (ret < 0)
-		return ret;
+		goto done;
 	
 	if (num != 51) {
 		ERROR("Short read! (%d/%d)\n", num, 51);
-		return 4;
+		ret = 4;
+		goto done;
 	}
 
 	/* Then we can poll the data */
@@ -143,16 +144,17 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	for (i = 0 ; i < 24 ; i++) {
 		if ((ret = send_data(dev, endp_down,
 				     cmdbuf, 11)))
-			return -1;
+			goto done;
 
 		ret = read_data(dev, endp_up,
 				respbuf, sizeof(respbuf), &num);
 		if (ret < 0)
-			return ret;
-		
+			goto done;
+
 		if (num != 64) {
 			ERROR("Short read! (%d/%d)\n", num, 51);
-			return 4;
+			ret = 4;
+			goto done;
 		}
 
 		/* Copy into buffer */
@@ -162,8 +164,10 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	/* Open file and write it out */
 	{
 		int tc_fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
-		if (tc_fd < 0)
-			return -1;
+		if (tc_fd < 0) {
+			ret = 4;
+			goto done;
+		}
 
 		for (i = 0 ; i < 768; i++) {
 			/* Byteswap appropriately */
@@ -173,7 +177,7 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 		close(tc_fd);
 	}
 
-
+ done:
 	/* We're done */
 	free(data);
 
@@ -198,10 +202,14 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 
 	/* Read in file */
 	int tc_fd = open(fname, O_RDONLY);
-	if (tc_fd < 0)
-		return -1;
-	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE)
-		return -2;
+	if (tc_fd < 0) {
+		ret = -1;
+		goto done;
+	}
+	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE) {
+	        ret = -2;
+		goto done;
+	}
 	close(tc_fd);
 
 	/* Byteswap data to printer's format */
@@ -229,16 +237,17 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 
 	if ((ret = send_data(dev, endp_down,
 			     cmdbuf, 16)))
-		return -1;
+		goto done;
 	
 	ret = read_data(dev, endp_up,
 			respbuf, sizeof(respbuf), &num);
 	if (ret < 0)
-		return ret;
+		goto done;
 	
 	if (num != 51) {
 		ERROR("Short read! (%d/%d)\n", num, 51);
-		return 4;
+		ret = 4;
+		goto done;
 	}
 
 	ptr = (uint8_t*) data;
@@ -255,23 +264,25 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 		/* Send next block over */
 		if ((ret = send_data(dev, endp_down,
 				     cmdbuf, count+1)))
-			return -1;
+			goto done;
 
 
 		ret = read_data(dev, endp_up,
 				respbuf, sizeof(respbuf), &num);
 		if (ret < 0)
-			return ret;
+			goto done;
 		
 		if (num != 51) {
 			ERROR("Short read! (%d/%d)\n", num, 51);
-			return 4;
+			ret = 4;
+			goto done;
 		}
 	};
         
+done:
 	/* We're done */
 	free(data);
-	return 0;
+	return ret;
 }
 
 static void kodak6800_cmdline(void)

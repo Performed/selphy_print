@@ -266,7 +266,6 @@ static int print_scan_output(struct libusb_device *device,
 	} else if (backend->query_serno) {
 		/* XXX this is ... a cut-n-paste hack */
 
-		uint8_t endp_up, endp_down;
 		int iface = 0;
 		struct libusb_config_descriptor *config;
 
@@ -277,6 +276,7 @@ static int print_scan_output(struct libusb_device *device,
 		   so we should just skip over it... */
 		if (!libusb_claim_interface(dev, iface)) {
 			int i;
+			uint8_t endp_up, endp_down;
 			libusb_get_active_config_descriptor(device, &config);
 			for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
 				if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {

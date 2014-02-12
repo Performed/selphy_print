@@ -188,7 +188,7 @@ top:
 		i += sizeof(uint32_t);
 
 		if (dyesub_debug)
-			DEBUG("Sending %d bytes to printer @ %d\n", len, i);
+			DEBUG("Sending %u bytes to printer @ %i\n", len, i);
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf + i, len)))
 			return ret;
