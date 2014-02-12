@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.41"
+#define BACKEND_VERSION "0.42"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -536,7 +536,7 @@ int main (int argc, char **argv)
 
 	int i;
 	int claimed;
-	int unk = 0;
+	int backend_cmd = 0;
 
 	int ret = 0;
 	int iface = 0;
@@ -547,7 +547,6 @@ int main (int argc, char **argv)
 
 	char *uri;
 	char *fname = NULL;
-	int query_only = 0;
 	int printer_type = P_ANY;
 
 	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
@@ -571,6 +570,17 @@ int main (int argc, char **argv)
 	use_serno = getenv("DEVICE");
 	uri = getenv("DEVICE_URI");  /* For CUPS */
 
+	/* Try to ensure we have a sane backend for standalone mode.
+	   CUPS mode uses 'uri' later on. */
+	if (!backend) {
+		char *ptr = strrchr(argv[0], '/');
+		if (ptr)
+			ptr++;
+		else
+			ptr = argv[0];
+		backend = find_backend(ptr);
+	}
+
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
@@ -591,7 +601,6 @@ int main (int argc, char **argv)
 		case 'h':
 			print_help(argv[0], backend);
 			exit(0);
-			// XXX display help!
 			break;
 		case 'P':
 			extra_pid = strtol(optarg, NULL, 16);
@@ -605,10 +614,15 @@ int main (int argc, char **argv)
 		case 'V':
 			extra_pid = strtol(optarg, NULL, 16);
 			break;
-		case '?':
-			unk = 1;
-			/* We want to ignore unknown arguments */
+		case '?': {
+			/* Check to see if it is claimed by the backend */
+			if (backend && backend->cmdline_arg) {
+				int keep = optind;
+				backend_cmd += backend->cmdline_arg(NULL, argc, argv);
+				optind = keep;
+			}
 			break;
+		}
 		default:
 			// XXX unhandled.  do something else?
 			break;
@@ -622,24 +636,29 @@ int main (int argc, char **argv)
 		      ver->major, ver->minor, ver->micro, (ver->rc? ver->rc : ""), ver->nano );
 
 	}
+
 	/* Make sure a filename was specified */
-	if (!unk && (optind == argc || !argv[optind])) {
+	if (!backend_cmd && (optind == argc || !argv[optind])) {
 		print_help(argv[0], backend);
 		exit(0);
 	}
 
 	/* Are we running as a CUPS backend? */
 	if (uri) {
-		if (argv[1])
-			jobid = atoi(argv[1]);
-		if (argv[4])
-			copies = atoi(argv[4]);
-		if (argv[6]) {  /* IOW, is it specified? */
-			data_fd = open(argv[6], O_RDONLY);
+		int base = optind; // XXX aka 1.
+		fname = argv[base + 5];
+		if (argv[base])
+			jobid = atoi(argv[base]);
+		if (argv[base + 3])
+			copies = atoi(argv[base + 3]);
+		if (fname) {  /* IOW, is it specified? */
+			data_fd = open(fname, O_RDONLY);
 			if (data_fd < 0) {
 				perror("ERROR:Can't open input file");
 				exit(1);
 			}
+		} else {
+			fname = "-";
 		}
 
 		/* Ensure we're using BLOCKING I/O */
@@ -655,7 +674,7 @@ int main (int argc, char **argv)
 			exit(1);
 		}
 
-		/* Figure out backend */
+		/* Figure out backend based on URI */
 		{
 			char *ptr = strstr (uri, "backend="), *ptr2;
 			if (!ptr) {
@@ -688,31 +707,13 @@ int main (int argc, char **argv)
 				*ptr = 0;
 		}
 	} else {
-		/* Grab the filename */
-		fname = argv[optind];
-
-		/* Make sure we have a sane backend */
-		if (!backend) {
-			char *ptr = strrchr(argv[0], '/');
-			if (ptr)
-				ptr++;
-			else
-				ptr = argv[0];
-			backend = find_backend(ptr);
-		}
-		if (!backend) {
-			ERROR("Invalid backend (%s)\n", uri);
-			exit(1);
-		}
-
 		srand(getpid());
 		jobid = rand();
 
-		/* Check cmdline arguments */
-		if (backend->cmdline_arg && 
-		    backend->cmdline_arg(NULL, argc, argv)) {
-			query_only = 1;
-		} else {
+		/* Grab the filename */
+		fname = argv[optind];
+
+		if (!backend_cmd) {  /* ie no backend arguments */
 			if (!fname) {
 				perror("ERROR:No input file");
 				exit(1);
@@ -738,7 +739,7 @@ int main (int argc, char **argv)
 	backend_ctx = backend->init();
 
 	/* Parse printjob if necessary */
-	if (!query_only && backend->early_parse) {
+	if (!backend_cmd && backend->early_parse) {
 		printer_type = backend->early_parse(backend_ctx, data_fd);
 		if (printer_type < 0) {
 			ret = 5; /* CUPS_BACKEND_CANCEL */
@@ -796,7 +797,7 @@ int main (int argc, char **argv)
 	/* Attach backend to device */
 	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
 	
-	if (query_only) {
+	if (backend_cmd) {
 		backend->cmdline_arg(backend_ctx, argc, argv);
 		goto done_claimed;
 	} 
