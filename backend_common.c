@@ -795,7 +795,7 @@ int main (int argc, char **argv)
 	/* Attach backend to device */
 	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
 	
-	if (backend_cmd) {
+	if (backend_cmd && !uri) {
 		backend->cmdline_arg(backend_ctx, argc, argv);
 		if (!fname)
 			goto done_claimed;
