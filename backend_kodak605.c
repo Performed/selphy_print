@@ -189,12 +189,9 @@ static int kodak605_main_loop(void *vctx, int copies) {
 		return 1;
 
 	/* Printer handles generating copies.. */
-#if 1
-	ctx->hdr.copies = copies;
+	if (ctx->hdr.copies < copies)
+		ctx->hdr.copies = copies;
 	copies = 1;
-#else
-	ctx->hdr.copies = 1;
-#endif
 
 top:
 	if (state != last_state) {
@@ -521,7 +518,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.18",
+	.version = "0.19",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,

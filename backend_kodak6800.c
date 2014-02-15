@@ -442,6 +442,18 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	if (!ctx)
 		return 1;
 
+#if 0
+	/* Printer handles generating copies.. */
+	if (ctx->hdr.copies < copies)
+		ctx->hdr.copies = copies;
+	copies = 1;
+#else
+	/* Driver handles generating copies */
+	if (ctx->hdr.copies > copies)
+		copies = ctx->hdr.copies;
+	ctx->hdr.copies = 1;
+#endif
+
 top:
 	if (state != last_state) {
 		if (dyesub_debug)
@@ -636,7 +648,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.32",
+	.version = "0.33",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
@@ -662,7 +674,7 @@ struct dyesub_backend kodak6800_backend = {
   Header:
 
   03 1b 43 48 43 0a 00 01 00     Fixed header
-  CC                             Number of copies
+  CC                             Number of copies (01-255)
   WW WW                          Number of columns, big endian. (Fixed at 1844 on 6800)
   HH HH                          Number of rows, big endian.
   DD                             0x00 (4x6) 0x06 (8x6) 0x07 (5x7 on 6850)
