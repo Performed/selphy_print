@@ -2,7 +2,8 @@ BACKEND_NAME = gutenprint52+usb
 EXEC_NAME = dyesub_backend
 
 CFLAGS = -Wall -Wextra -g
-LDFLAGS = -lusb-1.0
+LDFLAGS = `pkg-config --libs libusb-1.0`
+CFLAGS += `pkg-config --cflags libusb-1.0`
 
 CUPS_BACKEND_DIR = /usr/lib/cups/backend
 CUPS_DATA_DIR = /usr/share/cups
