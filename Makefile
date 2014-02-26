@@ -3,7 +3,7 @@ EXEC_NAME = dyesub_backend
 
 CFLAGS = -Wall -Wextra -g
 LDFLAGS = `pkg-config --libs libusb-1.0`
-CFLAGS += `pkg-config --cflags libusb-1.0`
+CPPFLAGS = `pkg-config --cflags libusb-1.0`
 
 CUPS_BACKEND_DIR = /usr/lib/cups/backend
 CUPS_DATA_DIR = /usr/share/cups
@@ -17,7 +17,7 @@ SOURCES = backend_common.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 all: $(EXEC_NAME) $(BACKENDS)
 
 $(EXEC_NAME): $(SOURCES) $(DEPS)
-	gcc -o $@ $(SOURCES) $(LDFLAGS) $(CFLAGS) -DURI_PREFIX=\"$(BACKEND_NAME)\"
+	gcc -o $@ $(SOURCES) $(LDFLAGS) $(CFLAGS) $(CPPFLAGS) -DURI_PREFIX=\"$(BACKEND_NAME)\"
 
 $(BACKENDS): $(EXEC_NAME)
 	ln -sf $(EXEC_NAME) $@
