@@ -314,7 +314,7 @@ skip_query:
 struct mitsu70x_status_deck {
 	uint8_t unk[64];
 	// unk[0]  0x80 for NOT PRESENT, 0x00 for present.
-	// unk[23] prints remaining
+	// unk[22-23] prints remaining, 16-bit BE
 
 };
 
@@ -370,10 +370,12 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 		DEBUG2("\n");
 	}
 	if (resp.upper.unk[0] & 0x80) {  /* Not present */
-		INFO("Prints remaining:  %d\n",  resp.lower.unk[23]);
+		INFO("Prints remaining:  %d\n", 
+		     (resp.lower.unk[22] << 8) | resp.lower.unk[23]);
 	} else {
 		INFO("Prints remaining:  Lower: %d Upper: %d\n",
-		     resp.lower.unk[23], resp.upper.unk[23]);
+		     (resp.lower.unk[22] << 8) | resp.lower.unk[23],
+		     (resp.upper.unk[22] << 8) | resp.upper.unk[23]);
 	}
 
 	return 0;
@@ -414,7 +416,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.14",
+	.version = "0.15",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -448,16 +450,19 @@ struct dyesub_backend mitsu70x_backend = {
    1b 5a 54 01 00 00 00 00  00 00 00 00 00 00 00 00
    XX XX YY YY QQ QQ ZZ ZZ  SS 00 00 00 00 00 00 00
    UU 00 00 00 00 00 00 00  00 TT 00 00 00 00 00 00
+   RR 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+
    (padded by NULLs to a 512-byte boundary)
 
    XX XX == columns
    YY YY == rows
    QQ QQ == lamination columns (equal to XX XX)
    ZZ ZZ == lamination rows (YY YY + 12)
-   SS    == SuperFine mode (00 == off, 03 == on
-            Lamination always turns this on!
+   SS    == Print mode: 00 = Fine, 03 = SuperFine, 04 = UltraFine
+            (Matte requires Superfine or Ultrafine)
    UU    == 00 == Auto, 01 == Lower Deck, 02 == Upper Deck
    TT    == 00 with no lamination, 02 with.
+   RR    == 00 (normal), 01 == (Double-cut 4x6), 05 == (double-cut 2x6)
    
    [[ K60 ]] Header 2:  (Header) 
 
@@ -472,10 +477,11 @@ struct dyesub_backend mitsu70x_backend = {
    YY YY == rows
    QQ QQ == lamination columns (equal to XX XX)
    ZZ ZZ == lamination rows (usually YY YY + 12)
-   SS    == UltraFine mode (00 == off, 04 == on.. forces 8x6 print?)
+   SS    == Print mode: 00 = Fine, 04 = UltraFine
+            (Matte requires Ultrafine)
    UU    == 01 (Lower Deck)
    TT    == 00 with no lamination, 02 with.
-   RR    == 0x05 for double-cut 2x6, 0x00 for double-cut 4x6, otherwise 0x01
+   RR    == 00 (normal), 01 == (Double-cut 4x6), 05 == (double-cut 2x6)
 
    Data planes:
    16-bit data, rounded up to 512-byte block (XX * YY * 2 bytes)
@@ -492,57 +498,74 @@ struct dyesub_backend mitsu70x_backend = {
    -> 1b 56 32 30
    <- [256 byte payload]
 
-   e4 56 32 30 00 00 00 00 00 00 00 00 00 00 00 00   .V20............
-   00 00 00 00 00 00 00 00 00 00 00 80 00 00 00 00   ................
-   44 80 00 00 5f 00 00 3d 43 00 50 00 44 00 37 00   D..._..=C.P.D.7.
-   30 00 44 00 30 00 30 00 31 00 31 00 31 00 37 00   0.D.0.0.1.1.1.7.
-   33 31 36 54 31 33 21 a3 33 31 35 42 31 32 f5 e5   316T13!.315B12..
-   33 31 39 42 31 31 a3 fb 33 31 38 45 31 32 50 0d   319B11..318E12P.
-   33 31 37 41 32 32 a3 82 44 55 4d 4d 59 40 00 00   317A22..DUMMY@..
-   44 55 4d 4d 59 40 00 00 00 00 00 00 00 00 00 00   DUMMY@..........
+   CP-D707DW:
 
-   LOWER DECK (D707)
+    e4 56 32 30 00 00 00 00  00 00 00 00 00 00 00 00   .V20............
+    00 00 00 00 00 00 00 00  00 00 00 80 00 00 00 00   ................
+    44 80 00 00 5f 00 00 3d  43 00 50 00 44 00 37 00   D..._..=C.P.D.7.
+    30 00 44 00 30 00 30 00  31 00 31 00 31 00 37 00   0.D.0.0.1.1.1.7.
+    33 31 36 54 31 33 21 a3  33 31 35 42 31 32 f5 e5   316T13!.315B12..
+    33 31 39 42 31 31 a3 fb  33 31 38 45 31 32 50 0d   319B11..318E12P.
+    33 31 37 41 32 32 a3 82  44 55 4d 4d 59 40 00 00   317A22..DUMMY@..
+    44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00   DUMMY@..........
 
-   00 00 00 00 00 00 02 04  3f 00 00 04 96 00 00 00   ........?.......
-   ff 0f 01 00 00 c8 NN NN  00 00 00 00 05 28 75 80   .......R.....(u.
-   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00   ................
-   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00   ................
+    LOWER DECK
 
-   UPPER DECK (D707)
+    00 00 00 00 00 00 02 04  3f 00 00 04 96 00 00 00
+    ff 0f 01 00 00 c8 NN NN  00 00 00 00 05 28 75 80  NN NN: prints remaining
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
-   00 00 00 00 00 00 01 ee  3d 00 00 06 39 00 00 00   ........=...9...
-   ff 02 00 00 01 90 NN NN  00 00 00 00 06 67 78 00   .............gx.
-   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00   ................
-   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00   ................
+    UPPER DECK
 
-   NN NN == Number of prints remaining on that deck,
-   (None of the other fields are decoded yet)
+    00 00 00 00 00 00 01 ee  3d 00 00 06 39 00 00 00
+    ff 02 00 00 01 90 NN NN  00 00 00 00 06 67 78 00  NN NN: prints remaining
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
-   LOWER DECK (K60)
+   CP-K60DW-S:
 
-   00 00 00 00 00 00 02 09  3f 00 00 00 05 00 00 01 
-   61 8f 00 00 01 40 01 38  00 00 00 00 00 16 81 80
-   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00 
-   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    e4 56 32 30 0f 00 00 00  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00 0a 80 00 00 00 00
+    02 00 00 00 5e 00 04 87  43 00 50 00 4b 00 36 00
+    30 00 44 00 30 00 32 00  33 00 32 00 30 00 36 00
+    33 31 36 4b 33 31 d6 7a  33 31 35 41 33 31 ae 37
+    33 31 39 41 37 31 6a 36  33 31 38 44 33 31 1e 4a
+    33 31 37 42 32 31 f4 19  44 55 4d 4d 59 40 00 00
+    44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00
 
-   UPPER DECK (K60 -- No upper deck present)
+    LOWER DECK (K60)
 
-   80 00 00 00 00 00 00 ff  ff 00 00 00 00 00 00 00
-   ff ff ff ff ff ff ff ff  ff ff 00 00 00 00 80 00
-   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
-   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    00 00 00 00 00 00 02 09  3f 00 00 00 05 00 00 01
+    61 8f 00 00 01 40 NN NN  00 00 00 00 00 16 81 80  NN NN: prints remaining
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+
+    UPPER DECK (K60 -- No upper deck present)
+
+    80 00 00 00 00 00 00 ff  ff 00 00 00 00 00 00 00
+    ff ff ff ff ff ff ff ff  ff ff 00 00 00 00 80 00
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
    -> 1b 56 31 30  00 00
    <- [26 byte payload]
 
-   e4 56 31 30  00 00 00 XX  YY ZZ 00 00 00 00 00 00
-   00 00 00 00  00 00 00 00  00 00
+   CP-D707DW:
 
-   XX/YY/ZZ are unkown.  Observed values:
+    e4 56 31 30 00 00 00 XX  YY ZZ 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00
 
-   40 80 a0
-   00 00 00
-   80 80 a0
+    XX/YY/ZZ are unkown.  Observed values:
+
+    40 80 a0
+    00 00 00
+    80 80 a0
+
+   CP-K60DW-S:  (only one readback observed so far)
+
+    e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
+    00 00 00 00 80 00 00 00  00 00
 
    ** ** ** ** ** **
 
