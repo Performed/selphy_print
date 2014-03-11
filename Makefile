@@ -14,6 +14,8 @@ DEPS = backend_common.h
 
 SOURCES = backend_common.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 
+# CFLAGS += -DLIBUSB_PRE_1_0_10
+
 all: $(EXEC_NAME) $(BACKENDS)
 
 $(EXEC_NAME): $(SOURCES) $(DEPS)

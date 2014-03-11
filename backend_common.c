@@ -631,13 +631,14 @@ int main (int argc, char **argv)
 		}
 	}
 
+#ifndef LIBUSB_PRE_1_0_10
 	if (dyesub_debug) {
 		const struct libusb_version *ver;
 		ver = libusb_get_version();
 		DEBUG(" ** running with libusb %d.%d.%d%s (%d)\n",
 		      ver->major, ver->minor, ver->micro, (ver->rc? ver->rc : ""), ver->nano );
-
 	}
+#endif
 
 	/* Make sure a filename was specified */
 	if (!backend_cmd && (optind == argc || !argv[optind])) {
