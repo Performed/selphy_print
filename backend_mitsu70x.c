@@ -76,17 +76,12 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu70x_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
 }
 
 
@@ -159,13 +154,14 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	remain = be16_to_cpu(mhdr->rows) * be16_to_cpu(mhdr->cols) * 2;
 	remain = (remain + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 	remain *= 3;  /* One for each plane */
+
 	if (mhdr->laminate) {
 		i = be16_to_cpu(mhdr->lamrows) * be16_to_cpu(mhdr->lamcols) * 2;
 		i = (i + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 		remain += i;
 	}
 
-	ctx->databuf = malloc(remain + sizeof(hdr));
+	ctx->databuf = malloc(sizeof(hdr) + remain);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return 2;
@@ -176,9 +172,12 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 
 	/* Read in the spool data */
 	while(remain) {
-		i = read(data_fd, ctx->databuf + ctx->datalen - remain, remain);
+		i = read(data_fd, ctx->databuf + ctx->datalen, remain);
+		if (i == 0)
+			return 1;
 		if (i < 0)
 			return i;
+		ctx->datalen += i;
 		remain -= i;
 	}
 
