@@ -76,12 +76,20 @@
  ***************************************************************************
   Compilation:
 
-     You will need libusb/libusbx 1.0 to build this tool.
+     This tool requires libusb 1.0 to build.  We highly recommend 
+     v1.0.16 or newer due to general stability improvements. Versions
+     older than 1.0.10 will require -DLIBUSB_PRE_1_0_10 to be defined 
+     (see the Makefile).
+
+     To further complicate things, libusb-1.0 had a temporary fork called
+     libusbx, but that was merged back into libusb as of v1.0.18.  
+     Consequently, your distribution package for libusb-1.0 may be 
+     called libusbx instead.
 
      Fedora/RedHat:
-	yum install libusbx-devel
+	yum install libusbx-devel libusb1-devel
      Debian/Ubuntu
-	apt-get install libusbx-dev
+	apt-get install libusbx-dev libusb-1.0-0-dev
 
    And all you need to do after that is type 'make'
 
