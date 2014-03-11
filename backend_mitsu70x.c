@@ -314,6 +314,9 @@ skip_query:
 
 struct mitsu70x_status_deck {
 	uint8_t unk[64];
+	// unk[0]  0x80 for NOT PRESENT, 0x00 for present.
+	// unk[23] prints remaining
+
 };
 
 struct mitsu70x_status_resp {
@@ -367,8 +370,12 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
 		}
 		DEBUG2("\n");
 	}
-	INFO("Prints remaining:  Lower: %d Upper: %d\n",
-	     resp.lower.unk[23], resp.upper.unk[23]);
+	if (resp.upper.unk[0] & 0x80) {  /* Not present */
+		INFO("Prints remaining:  %d\n",  resp.lower.unk[23]);
+	} else {
+		INFO("Prints remaining:  Lower: %d Upper: %d\n",
+		     resp.lower.unk[23], resp.upper.unk[23]);
+	}
 
 	return 0;
 }
@@ -408,7 +415,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.13",
+	.version = "0.14",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -418,8 +425,8 @@ struct dyesub_backend mitsu70x_backend = {
 	.read_parse = mitsu70x_read_parse,
 	.main_loop = mitsu70x_main_loop,
 	.devices = {
-	{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, "Mitsubishi"},
-	{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_D70X, "Mitsubishi"},
+	{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_D70X, ""},
 	{ 0, 0, 0, ""}
 	}
 };
@@ -481,10 +488,10 @@ struct dyesub_backend mitsu70x_backend = {
 
    ********************************************************************
 
-   Command format: (D70/D707)
+   Command format: (D707)
 
    -> 1b 56 32 30
-   <- [256 byte payload] 
+   <- [256 byte payload]
 
    e4 56 32 30 00 00 00 00 00 00 00 00 00 00 00 00   .V20............
    00 00 00 00 00 00 00 00 00 00 00 80 00 00 00 00   ................
@@ -495,29 +502,43 @@ struct dyesub_backend mitsu70x_backend = {
    33 31 37 41 32 32 a3 82 44 55 4d 4d 59 40 00 00   317A22..DUMMY@..
    44 55 4d 4d 59 40 00 00 00 00 00 00 00 00 00 00   DUMMY@..........
 
-   LOWER DECK
+   LOWER DECK (D707)
 
    00 00 00 00 00 00 02 04  3f 00 00 04 96 00 00 00   ........?.......
    ff 0f 01 00 00 c8 NN NN  00 00 00 00 05 28 75 80   .......R.....(u.
    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00   ................
    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00   ................
-   
-   UPPER DECK
-   
+
+   UPPER DECK (D707)
+
    00 00 00 00 00 00 01 ee  3d 00 00 06 39 00 00 00   ........=...9...
    ff 02 00 00 01 90 NN NN  00 00 00 00 06 67 78 00   .............gx.
    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00   ................
    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00   ................
 
-   NN NN == Number of prints remaining on that deck.  
+   NN NN == Number of prints remaining on that deck,
    (None of the other fields are decoded yet)
+
+   LOWER DECK (K60)
+
+   00 00 00 00 00 00 02 09  3f 00 00 00 05 00 00 01 
+   61 8f 00 00 01 40 01 38  00 00 00 00 00 16 81 80
+   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00 
+   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+
+   UPPER DECK (K60 -- No upper deck present)
+
+   80 00 00 00 00 00 00 ff  ff 00 00 00 00 00 00 00
+   ff ff ff ff ff ff ff ff  ff ff 00 00 00 00 80 00
+   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+   80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
    -> 1b 56 31 30  00 00
    <- [26 byte payload]
 
    e4 56 31 30  00 00 00 XX  YY ZZ 00 00 00 00 00 00
    00 00 00 00  00 00 00 00  00 00
-   
+
    XX/YY/ZZ are unkown.  Observed values:
 
    40 80 a0
@@ -526,7 +547,7 @@ struct dyesub_backend mitsu70x_backend = {
 
    ** ** ** ** ** **
 
-   The windows drivers seem to send the id and status queries before 
+   The windows drivers seem to send the id and status queries before
    and in between each of the chunks sent to the printer.  There doesn't
    appear to be any particular intelligence in the protocol, but it didn't
    work when the raw dump was submitted as-is.
