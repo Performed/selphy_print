@@ -292,10 +292,10 @@ static int print_scan_output(struct libusb_device *device,
 			libusb_release_interface(dev, iface);
 		}
 	}
-	
+
 	if (!strlen(buf)) {
 		WARNING("**** THIS PRINTER DOES NOT REPORT A SERIAL NUMBER!\n");
-		WARNING("**** If you intend to use multiple printers of this typpe, you\n");
+		WARNING("**** If you intend to use multiple printers of this type, you\n");
 		WARNING("**** must only plug one in at a time or unexpected behaivor will occur!\n");
 		serial = strdup("NONE_UNKNOWN");
 	} else {
@@ -755,6 +755,7 @@ int main (int argc, char **argv)
 	/* Enumerate devices */
 	found = find_and_enumerate(ctx, &list, backend, use_serno, printer_type, 0);
 
+#if 1
 	if (found == -1) {
 		ERROR("Printer open failure (No suitable printers found!)\n");
 		ret = 4; /* CUPS_BACKEND_STOP */
@@ -766,7 +767,7 @@ int main (int argc, char **argv)
 		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
 		goto done;
 	}
-	
+
 	claimed = libusb_kernel_driver_active(dev, iface);
 	if (claimed) {
 		ret = libusb_detach_kernel_driver(dev, iface);
@@ -796,16 +797,16 @@ int main (int argc, char **argv)
 				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
 		}
 	}
-
+#endif
 	/* Attach backend to device */
 	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
-	
+
 	if (backend_cmd && !uri) {
 		if (backend->cmdline_arg(backend_ctx, argc, argv))
 			goto done_claimed;
 		if (!fname)
 			goto done_claimed;
-	} 
+	}
 
 	/* Time for the main processing loop */
 	INFO("Printing started (%d copies)\n", copies);
