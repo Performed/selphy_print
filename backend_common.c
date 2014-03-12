@@ -128,7 +128,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 {
 	int num = 0;
 
-	if (dyesub_debug > 1) {
+	if (dyesub_debug) {
 		DEBUG("Sending %d bytes to printer\n", len);
 	}
 
@@ -138,10 +138,10 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 					   buf, len2,
 					   &num, 15000);
 
-		if (dyesub_debug) {
+		if (dyesub_debug > 1) {
 			int i;
 			DEBUG("-> ");
-			for (i = 0 ; i < len2; i++) {
+			for (i = 0 ; i < num; i++) {
 				DEBUG2("%02x ", *(buf+i));
 			}
 			DEBUG2("\n");

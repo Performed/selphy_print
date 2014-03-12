@@ -243,10 +243,11 @@ skip_query:
 
 	if (dyesub_debug) {
 		unsigned int i;
-		DEBUG("Printer Status Dump:\n");
+		DEBUG("Printer Status Dump: ");
 		for (i = 0 ; i < 26 ; i++) {
 			DEBUG2("%02x ", rdbuf[i]);
 		}
+		DEBUG2("\n");
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
