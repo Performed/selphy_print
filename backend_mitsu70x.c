@@ -241,6 +241,14 @@ skip_query:
 		return 4;
 	}
 
+	if (dyesub_debug) {
+		unsigned int i;
+		DEBUG("Printer Status Dump:\n");
+		for (i = 0 ; i < 26 ; i++) {
+			DEBUG2("%02x ", rdbuf[i]);
+		}
+	}
+
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
@@ -313,7 +321,8 @@ skip_query:
 
 struct mitsu70x_status_deck {
 	uint8_t unk[64];
-	// unk[0]  0x80 for NOT PRESENT, 0x00 for present.
+	// unk[0]     0x80 for NOT PRESENT, 0x00 for present.
+	// unk[7-8]   0x01ff or 0x0200?  Changes; maybe status?
 	// unk[22-23] prints remaining, 16-bit BE
 
 };
@@ -416,7 +425,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.15",
+	.version = "0.16",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -558,8 +567,8 @@ struct dyesub_backend mitsu70x_backend = {
 
     XX/YY/ZZ are unkown.  Observed values:
 
-    40 80 a0
     00 00 00
+    40 80 a0
     80 80 a0
 
    CP-K60DW-S:  (only one readback observed so far)
