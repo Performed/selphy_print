@@ -1280,6 +1280,37 @@ struct dyesub_backend canonselphy_backend = {
       necessarily identical.  So it's possible to have a code of, say,
       0x41 if the 'Wide' paper tray is loaded with a 'P' ribbon. A '0' is used
       to signify nothing being loaded.
- 
+
+ ***************************************************************************
+ Selphy CP820/CP910:
+
+  Radically different spool file format!  300dpi, same print sizes, but also
+  adding a 50x50mm sticker and 22x17.3mm ministickers, though I think the
+  driver treats all of those as 'C' sizes for printing purposes.
+
+  32-byte header:
+
+  0f 00 00 40 00 00 00 00  00 00 00 00 00 00 01 00
+  01 00 ?? 00 00 00 00 00  XX 04 00 00 WW ZZ 00 00
+
+  ?? == 50  (P)
+     == 4c  (L)
+     == 43  (C)
+
+  XX == e0  (P)
+        80  (L)
+        40  (C)
+
+  WW == 50  (P)
+        c0  (L)
+        9c  (C)
+
+  ZZ == 07  (P)
+        05  (L)
+        02  (C)
+
+  P == 7008800  == 2336256 * 3 + 32 (4.884% larger than CP)
+  L == 5087264  == 1695744 * 3 + 32 (5.878% larger than CP)
+  C == 2180384  == 726784 * 3 + 32  (3.991% larger than CP)
 
 */
