@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.45"
+#define BACKEND_VERSION "0.46"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -90,6 +90,76 @@ done:
 
 	return buf;
 }
+
+/* Used with the IEEE1284 deviceid string parsing */
+
+struct deviceid_dict {
+	char *key;
+	char *val;
+};
+
+#define MAX_DICT 32
+
+static int parse1284_data(const char *device_id, struct deviceid_dict* dict)
+{
+	char *ptr;
+	char key[256];
+	char val[256];
+	int num = 0;
+
+	//[whitespace]key[whitespace]:[whitespace]value[whitespace];
+
+	while (*device_id && num < MAX_DICT) {
+		/* Skip leading spaces */
+		if (*device_id == ' ')
+			device_id++;
+		if (!*device_id)
+			break;
+
+		/* Work out key */
+		for (ptr = key; *device_id && *device_id != ':'; device_id++)
+			*ptr++ = *device_id;
+		if (!*device_id)
+			break;
+		while (ptr > key && *(ptr-1) != ' ')
+			ptr--;
+		*ptr = 0;
+		device_id++;
+		if (!*device_id)
+			break;
+
+		/* Next up, value */
+		for (ptr = val; *device_id && *device_id != 'l'; device_id++)
+			*ptr++ = *device_id;
+		if (!*device_id)
+			break;
+		while (ptr > val && *(ptr-1) != ' ')
+			ptr--;
+		*ptr = 0;
+		device_id++;
+		if (!*device_id)
+			break;
+
+		/* Add it to the dictionary */
+		dict[num].key = strdup(key);
+		dict[num].val = strdup(val);
+		num++;
+	}
+	return num;
+};
+
+static char *dict_find(const char *key, int dlen, struct deviceid_dict* dict)
+{
+	while(dlen) {
+		if (!strcmp(key, dict->key))
+			return dict->val;
+		dlen--;
+		dict++;
+	}
+	return NULL;
+}
+
+/* I/O functions */
 
 int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int buflen, int *readlen)
@@ -158,6 +228,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 	return 0;
 }
 
+/* More stuff */
 int terminate = 0;
 
 static void sigterm_handler(int signum) {
@@ -237,9 +308,12 @@ static int print_scan_output(struct libusb_device *device,
 			     struct dyesub_backend *backend)
 {
 	struct libusb_device_handle *dev;
-
 	char buf[256];
 	char *product = NULL, *serial = NULL, *manuf = NULL;
+
+	int dlen = 0;
+	struct deviceid_dict dict[MAX_DICT];
+	char *ieee_id = get_device_id(dev);
 
 	if (libusb_open(device, &dev)) {
 		ERROR("Could not open device %04x:%04x (need to be root?)\n", desc->idVendor, desc->idProduct);
@@ -247,25 +321,62 @@ static int print_scan_output(struct libusb_device *device,
 		goto abort;
 	}
 
-	/* Query detailed info */
-	if (desc->iManufacturer) {
+	/* Get IEEE1284 info */
+	dlen = parse1284_data(ieee_id, dict);
+
+	/* Look up mfg string. */
+	if (manuf2) {
+		manuf = url_encode(manuf2);  /* Backend supplied */
+	} else if ((manuf = dict_find("MANUFACTURER", dlen, dict))) {
+		manuf = url_encode(manuf);
+	} else if ((manuf = dict_find("MFG", dlen, dict))) {
+		manuf = url_encode(manuf);
+	} else if ((manuf = dict_find("MFR", dlen, dict))) {
+		manuf = url_encode(manuf);
+	} else if (desc->iManufacturer) { /* Get from USB descriptor */
+		buf[0] = 0;
 		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
 		sanitize_string(buf);
 		manuf = url_encode(buf);
 	}
-	buf[0] = 0;
-	if (desc->iProduct) {
-		libusb_get_string_descriptor_ascii(dev, desc->iProduct, (unsigned char *)buf, STR_LEN_MAX);
+	if (!manuf || !strlen(manuf)) {  /* Last-ditch */
+		if (manuf) free(manuf);
+		// XXX possibly use DES/DESCRIPTION?
+		manuf = url_encode("Unknown");
+	}
+
+	/* Look up model number */
+	if ((product = dict_find("MODEL", dlen, dict))) {
+		product = url_encode(product);
+	} else if ((product = dict_find("MDL", dlen, dict))) {
+		product = url_encode(product);
+	} else if (desc->iProduct) {  /* Get from USB descriptor */
+		buf[0] = 0;
+		libusb_get_string_descriptor_ascii(dev, desc->iProduct, (unsigned char*)buf, STR_LEN_MAX);
 		sanitize_string(buf);
 		product = url_encode(buf);
 	}
-	buf[0] = 0;
-	if (desc->iSerialNumber) {
+
+	if (!product || !strlen(product)) { /* Last-ditch */
+		if (!product) free(product);
+		// XXX possibly use DES/DESCRIPTION?
+		product = url_encode("Unknown");
+	}
+
+	/* Look up serial number */
+	if ((serial = dict_find("SERIALNUMBER", dlen, dict))) {
+		serial = url_encode(serial);
+	} else if ((serial = dict_find("SN", dlen, dict))) {
+		serial = url_encode(serial);
+	} else if ((serial = dict_find("SER", dlen, dict))) {
+		serial = url_encode(serial);
+	} else if ((serial = dict_find("SERN", dlen, dict))) {
+		serial = url_encode(serial);
+	} else if (desc->iSerialNumber) {  /* Get from USB descriptor */
 		libusb_get_string_descriptor_ascii(dev, desc->iSerialNumber, (unsigned char*)buf, STR_LEN_MAX);
 		sanitize_string(buf);
-	} else if (backend->query_serno) {
-		/* XXX this is ... a cut-n-paste hack */
-
+		serial = url_encode(buf);
+	} else if (backend->query_serno) { /* Get from backend hook */
 		int iface = 0;
 		struct libusb_config_descriptor *config;
 
@@ -274,6 +385,7 @@ static int print_scan_output(struct libusb_device *device,
 
 		/* If we fail to claim the printer, it's already in use
 		   so we should just skip over it... */
+		buf[0] = 0;
 		if (!libusb_claim_interface(dev, iface)) {
 			int i;
 			uint8_t endp_up, endp_down;
@@ -291,15 +403,15 @@ static int print_scan_output(struct libusb_device *device,
 			backend->query_serno(dev, endp_up, endp_down, buf, STR_LEN_MAX);
 			libusb_release_interface(dev, iface);
 		}
+		serial = url_encode(buf);
 	}
 
-	if (!strlen(buf)) {
+	if (!serial || !strlen(serial)) {  /* Last-ditch */
+		if (serial) free(serial);
 		WARNING("**** THIS PRINTER DOES NOT REPORT A SERIAL NUMBER!\n");
 		WARNING("**** If you intend to use multiple printers of this type, you\n");
 		WARNING("**** must only plug one in at a time or unexpected behaivor will occur!\n");
 		serial = strdup("NONE_UNKNOWN");
-	} else {
-		serial = url_encode(buf);
 	}
 
 	if (dyesub_debug)
@@ -308,21 +420,16 @@ static int print_scan_output(struct libusb_device *device,
 		      desc->idVendor, desc->idProduct, manuf, product, serial);
 	
 	if (scan_only) {
-		int j = 0, k = 0;
-		char *ieee_id = get_device_id(dev);
+		int k = 0;
 		char *product2 = url_decode(product);
 
 		/* URLify the manuf and model strings */
-		if (strlen(manuf2))
-			strncpy(buf, manuf2, sizeof(buf) - 2);
-		else
-			strncpy(buf, manuf, sizeof(buf) - 2);
+		strncpy(buf, manuf, sizeof(buf) - 2);
 		k = strlen(buf);
 		buf[k++] = '/';
 		buf[k] = 0;
 
-		j = (manuf2 && strlen(manuf2)) ? strlen(manuf2) + 1 : 0;
-		strncpy(buf + k, product + j, sizeof(buf)-k);
+		strncpy(buf + k, product, sizeof(buf)-k);
 		
 		fprintf(stdout, "direct %s://%s?serial=%s&backend=%s \"%s\" \"%s\" \"%s\" \"\"\n",
 			prefix, buf, serial, backend->uri_prefix, 
@@ -347,6 +454,12 @@ static int print_scan_output(struct libusb_device *device,
 
 	libusb_close(dev);
 abort:
+
+	/* Clean up the dictionary */
+	while (dlen--) {
+		free (dict[dlen].key);
+		free (dict[dlen].val);
+	}
 
 	return found;
 }
