@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.46"
+#define BACKEND_VERSION "0.47"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -108,7 +108,6 @@ static int parse1284_data(const char *device_id, struct deviceid_dict* dict)
 	int num = 0;
 
 	//[whitespace]key[whitespace]:[whitespace]value[whitespace];
-
 	while (*device_id && num < MAX_DICT) {
 		/* Skip leading spaces */
 		if (*device_id == ' ')
@@ -121,7 +120,7 @@ static int parse1284_data(const char *device_id, struct deviceid_dict* dict)
 			*ptr++ = *device_id;
 		if (!*device_id)
 			break;
-		while (ptr > key && *(ptr-1) != ' ')
+		while (ptr > key && *(ptr-1) == ' ')
 			ptr--;
 		*ptr = 0;
 		device_id++;
@@ -129,21 +128,22 @@ static int parse1284_data(const char *device_id, struct deviceid_dict* dict)
 			break;
 
 		/* Next up, value */
-		for (ptr = val; *device_id && *device_id != 'l'; device_id++)
+		for (ptr = val; *device_id && *device_id != ';'; device_id++)
 			*ptr++ = *device_id;
 		if (!*device_id)
 			break;
-		while (ptr > val && *(ptr-1) != ' ')
+		while (ptr > val && *(ptr-1) == ' ')
 			ptr--;
 		*ptr = 0;
 		device_id++;
-		if (!*device_id)
-			break;
 
 		/* Add it to the dictionary */
 		dict[num].key = strdup(key);
 		dict[num].val = strdup(val);
 		num++;
+
+		if (!*device_id)
+			break;
 	}
 	return num;
 };
@@ -309,11 +309,11 @@ static int print_scan_output(struct libusb_device *device,
 {
 	struct libusb_device_handle *dev;
 	char buf[256];
-	char *product = NULL, *serial = NULL, *manuf = NULL;
+	char *product = NULL, *serial = NULL, *manuf = NULL, *descr = NULL;
 
 	int dlen = 0;
 	struct deviceid_dict dict[MAX_DICT];
-	char *ieee_id = get_device_id(dev);
+	char *ieee_id;
 
 	if (libusb_open(device, &dev)) {
 		ERROR("Could not open device %04x:%04x (need to be root?)\n", desc->idVendor, desc->idProduct);
@@ -321,11 +321,13 @@ static int print_scan_output(struct libusb_device *device,
 		goto abort;
 	}
 
+	ieee_id = get_device_id(dev);
+
 	/* Get IEEE1284 info */
 	dlen = parse1284_data(ieee_id, dict);
 
 	/* Look up mfg string. */
-	if (manuf2) {
+	if (manuf2 && strlen(manuf2)) {
 		manuf = url_encode(manuf2);  /* Backend supplied */
 	} else if ((manuf = dict_find("MANUFACTURER", dlen, dict))) {
 		manuf = url_encode(manuf);
@@ -341,7 +343,6 @@ static int print_scan_output(struct libusb_device *device,
 	}
 	if (!manuf || !strlen(manuf)) {  /* Last-ditch */
 		if (manuf) free(manuf);
-		// XXX possibly use DES/DESCRIPTION?
 		manuf = url_encode("Unknown");
 	}
 
@@ -359,8 +360,22 @@ static int print_scan_output(struct libusb_device *device,
 
 	if (!product || !strlen(product)) { /* Last-ditch */
 		if (!product) free(product);
-		// XXX possibly use DES/DESCRIPTION?
 		product = url_encode("Unknown");
+	}
+
+	/* Look up description */
+	if ((descr = dict_find("DESCRIPTION", dlen, dict))) {
+		descr = strdup(descr);
+	} else if ((descr = dict_find("DES", dlen, dict))) {
+		descr = strdup(descr);
+	}
+	if (!descr || !strlen(descr)) { /* Last-ditch, generate */
+		char *product2 = url_decode(product);
+		char *manuf3 = url_decode(manuf);
+		descr = malloc(256);
+		sprintf(descr, "%s %s", manuf3, product2);
+		free(product2);
+		free(manuf3);
 	}
 
 	/* Look up serial number */
@@ -421,7 +436,6 @@ static int print_scan_output(struct libusb_device *device,
 	
 	if (scan_only) {
 		int k = 0;
-		char *product2 = url_decode(product);
 
 		/* URLify the manuf and model strings */
 		strncpy(buf, manuf, sizeof(buf) - 2);
@@ -430,16 +444,14 @@ static int print_scan_output(struct libusb_device *device,
 		buf[k] = 0;
 
 		strncpy(buf + k, product, sizeof(buf)-k);
-		
+
 		fprintf(stdout, "direct %s://%s?serial=%s&backend=%s \"%s\" \"%s\" \"%s\" \"\"\n",
 			prefix, buf, serial, backend->uri_prefix, 
-			product2, product2,
+			descr, descr,
 			ieee_id? ieee_id : "");
 		
 		if (ieee_id)
 			free(ieee_id);
-		if (product2)
-			free(product2);
 	}
 	
 	/* If a serial number was passed down, use it. */
@@ -451,6 +463,7 @@ static int print_scan_output(struct libusb_device *device,
 	if(serial) free(serial);
 	if(manuf) free(manuf);
 	if(product) free(product);
+	if(descr) free(descr);
 
 	libusb_close(dev);
 abort:
@@ -494,7 +507,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		struct libusb_device_descriptor desc;
 		int match = 0;
 		libusb_get_device_descriptor((*list)[i], &desc);
-		
+
 		for (k = 0 ; backends[k] ; k++) {
 			if (backend && backend != backends[k])
 				continue;
