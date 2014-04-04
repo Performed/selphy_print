@@ -54,7 +54,7 @@
 
   This backend can only be used in conjunction with Gutenprint 5.2.10 or
   newer.  Please see the Gutenprint README file (section II D) for more
-   information on  use of this backend and integration into CUPS.
+  information on  use of this backend and integration into CUPS.
   
   Although this backend is bundled with Gutenprint, this repository is 
   considered the canonical upstream source where all development occurs.
@@ -285,7 +285,7 @@
     [3]  Job ID is the Internal Job ID (reported via status)
     	   This cancels a multi-copy print job.
 	   To see which jobs are active/pending, see the output of the
-	   '-qs' command, specifically the 'Bank' output.
+	   '-s' command, specifically the 'Bank' output.
 
     [4]  Default printer tone curve is a linear 'val << 3'
 
