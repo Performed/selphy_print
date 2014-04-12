@@ -96,9 +96,6 @@ static void mitsu70x_teardown(void *vctx) {
 	free(ctx);
 }
 
-/* Max job size is 6x9+lamination, equalling ~38MB */
-#define MAX_PRINTJOB_LEN (1024*1024*40)
-
 struct mitsu70x_hdr {
 	uint32_t cmd;
 	uint8_t  zero0[12];
