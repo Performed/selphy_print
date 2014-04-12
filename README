@@ -204,6 +204,7 @@
 
      -c filename        Query tone curve [1]
      -C filename        Set tone curve   [1]
+     -m                 Query supported media
 
   Notes:
 
