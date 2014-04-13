@@ -634,8 +634,6 @@ skip_query:
 		return ret;
 	}
 
-	// XXX detect media type based on readback?
-
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 	} else if (state == last_state) {
