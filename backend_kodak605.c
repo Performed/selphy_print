@@ -40,6 +40,20 @@
 #define USB_VID_KODAK       0x040A
 #define USB_PID_KODAK_605   0x402E
 
+/* Media structure */
+struct kodak605_medium {
+	uint8_t  index;
+	uint16_t cols;   /* LE */
+	uint16_t rows;   /* LE */
+	uint8_t  unk[5]; /* 01 00 00 00 00 */
+}  __attribute__((packed));
+
+struct kodak605_media_list {
+	uint8_t  unk[12]; /* 01 00 00 00 00 00 02 00 67 00 02 0b */
+	uint8_t  count;
+	struct kodak605_medium entries[];
+} __attribute__((packed));
+
 /* File header */
 struct kodak605_hdr {
 	uint8_t  hdr[4];   /* 01 40 0a 00 */
@@ -359,12 +373,25 @@ static int kodak605_get_status(struct kodak605_ctx *ctx)
 	return 0;
 }
 
+static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
+{
+	int i;
+
+	DEBUG("Legal print sizes:\n");
+	for (i = 0 ; i < media->count ; i++) {
+		DEBUG("\t%d: %dx%d\n", i, 
+		      le16_to_cpu(media->entries[i].cols),
+		      le16_to_cpu(media->entries[i].rows));
+	}
+	DEBUG("\n");
+}
+
 static int kodak605_get_media(struct kodak605_ctx *ctx)
 {
 	uint8_t cmdbuf[4];
 	uint8_t rdbuf[113];
 
-	int ret, i, num = 0;
+	int ret, num = 0;
 
 	/* Send Media Query */
 	cmdbuf[0] = 0x02;
@@ -386,11 +413,7 @@ static int kodak605_get_media(struct kodak605_ctx *ctx)
 		return 4;
 	}
 
-	DEBUG("media: ");
-	for (i = 0 ; i < num ; i++) {
-		DEBUG2("%02x ", rdbuf[i]);
-	}
-	DEBUG("\n");
+	kodak605_dump_mediainfo((struct kodak605_media_list *)rdbuf);
 
 	return 0;
 }
@@ -518,7 +541,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.19",
+	.version = "0.20",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -574,6 +597,8 @@ struct dyesub_backend kodak605_backend = {
 
 -> 02 00 00 00
 <- [113 bytes -- supported media/sizes? Always seems to be identical ]
+
+   [ 13-byte header, plus 10 slots for 10-byte media definitions, see above ]
 
    01 00 00 00  00 00 02 00  67 00 02 0b  04 01 34 07
    d8 04 01 00  00 00 00 02  dc 05 34 08  01 00 00 00
