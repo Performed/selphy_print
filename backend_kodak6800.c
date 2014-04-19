@@ -120,7 +120,7 @@ enum {
 	S_FINISHED,
 };
 
-static void dump_mediainfo(struct kodak68x0_media_readback *media)
+static void kodak68x0_dump_mediainfo(struct kodak68x0_media_readback *media)
 {
 	int i;
 	DEBUG("Media type %02x\n", media->media);
@@ -167,7 +167,7 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 		return 4;
 	}
 
-	dump_mediainfo((struct kodak68x0_media_readback*)resp);
+	kodak68x0_dump_mediainfo((struct kodak68x0_media_readback*)resp);
 	return 0;
 }
 
