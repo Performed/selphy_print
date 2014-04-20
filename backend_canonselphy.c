@@ -612,7 +612,7 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      i, 0, MAX_HEADER);
 		perror("ERROR: Read failed");
-		return i;
+		return CUPS_BACKEND_CANCEL;
 	}
 
 	printer_type = parse_printjob(ctx->buffer, &ctx->bw_mode, &ctx->plane_len);
@@ -644,7 +644,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	int i, remain;
 
 	if (!ctx)
-		return 1;
+		return CUPS_BACKEND_FAILED;
 
 	if (ctx->header) {
 		free(ctx->header);
@@ -676,7 +676,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	if (!ctx->plane_y || !ctx->plane_m || !ctx->plane_c || !ctx->header ||
 	    (ctx->printer->foot_length && !ctx->footer)) {
 		ERROR("Memory allocation failure!\n");
-		return 1;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	/* Move over chunks already read in */
@@ -689,7 +689,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	while (remain > 0) {
 		i = read(data_fd, ctx->plane_y + (ctx->plane_len - remain), remain);
 		if (i < 0)
-			return i;
+			return CUPS_BACKEND_CANCEL;
 		remain -= i;
 	}
 
@@ -698,7 +698,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	while (remain > 0) {
 		i = read(data_fd, ctx->plane_m + (ctx->plane_len - remain), remain);
 		if (i < 0)
-			return i;
+			return CUPS_BACKEND_CANCEL;
 		remain -= i;
 	}
 
@@ -707,7 +707,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	while (remain > 0) {
 		i = read(data_fd, ctx->plane_c + (ctx->plane_len - remain), remain);
 		if (i < 0)
-			return i;
+			return CUPS_BACKEND_CANCEL;
 		remain -= i;
 	}
 
@@ -717,12 +717,12 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 		while (remain > 0) {
 			i = read(data_fd, ctx->footer + (ctx->printer->foot_length - remain), remain);
 			if (i < 0)
-				return i;
+				return CUPS_BACKEND_CANCEL;
 			remain -= i;
 		}
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int canonselphy_main_loop(void *vctx, int copies) {
@@ -737,7 +737,7 @@ static int canonselphy_main_loop(void *vctx, int copies) {
 			rdbuf, READBACK_LEN, &num);
 
 	if (ret < 0)
-		return ret;
+		return CUPS_BACKEND_FAILED;
 
 top:
 
@@ -750,11 +750,11 @@ top:
 	ret = read_data(ctx->dev, ctx->endp_up,
 			rdbuf, READBACK_LEN, &num);
 	if (ret < 0)
-		return ret;
+		return CUPS_BACKEND_FAILED;
 
 	if (num != READBACK_LEN) {
 		ERROR("Short read! (%d/%d)\n", num, READBACK_LEN);
-		return 4;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	/* Error detection */
@@ -762,8 +762,8 @@ top:
 		if (ctx->printer->clear_error_len)
 			/* Try to clear error state */
 			if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->printer->clear_error, ctx->printer->clear_error_len)))
-				return ret;
-		return 4;
+				return CUPS_BACKEND_FAILED;
+		return CUPS_BACKEND_HOLD;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
@@ -789,20 +789,20 @@ top:
 
 					if (pc & 0xf0) {
 						ERROR("Incorrect paper tray loaded, aborting job!\n");
-						return 3;
+						return CUPS_BACKEND_HOLD;
 					} else {
 						ERROR("No paper tray loaded, aborting!\n");
-						return 4;
+						return CUPS_BACKEND_STOP;
 					}
 				}
 				if ((pc & 0xf) != (ctx->paper_code & 0xf)) {
 					if (pc & 0x0f) {
 						ERROR("Incorrect ribbon loaded, aborting job!\n");
-						return 3;
+						return CUPS_BACKEND_HOLD;
 					} else {
 
 						ERROR("No ribbon loaded, aborting job!\n");
-						return 4;
+						return CUPS_BACKEND_STOP;
 					}
 				}
 			} else {
@@ -811,7 +811,7 @@ top:
 					ERROR("Incorrect media/ribbon loaded (%02x vs %02x), aborting job!\n", 
 					      ctx->paper_code,
 					      rdbuf[ctx->printer->paper_code_offset]);
-					return 3;  /* Hold this job, don't stop queue */
+					return CUPS_BACKEND_HOLD;  /* Hold this job, don't stop queue */
 				}
 			}
 		} else if (ctx->printer->type == P_CP790) {
@@ -820,17 +820,17 @@ top:
 
 			if (ribbon == 0xf) {
 				ERROR("No ribbon loaded, aborting!\n");
-				return 4;	
+				return CUPS_BACKEND_STOP;	
 			} else if (ribbon != ctx->paper_code) {
 				ERROR("Incorrect ribbon loaded, aborting job!\n");
-				return 3;
+				return CUPS_BACKEND_HOLD;
 			}
 			if (paper == 0xf) {
 				ERROR("No paper tray loaded, aborting!\n");
-				return 4;
+				return CUPS_BACKEND_STOP;
 			} else if (paper != ctx->paper_code) {
 				ERROR("Incorrect paper loaded, aborting job!\n");
-				return 3;
+				return CUPS_BACKEND_HOLD;
 			}
 		}
 
@@ -840,7 +840,7 @@ top:
 		INFO("Printing started; Sending init sequence\n");
 		/* Send printer init */
 		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->header, ctx->printer->init_length)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 
 		state = S_PRINTER_INIT_SENT;
 		break;
@@ -856,7 +856,7 @@ top:
 			INFO("Sending YELLOW plane\n");
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->plane_y, ctx->plane_len)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 
 		state = S_PRINTER_Y_SENT;
 		break;
@@ -872,7 +872,7 @@ top:
 		INFO("Sending MAGENTA plane\n");
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->plane_m, ctx->plane_len)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 
 		state = S_PRINTER_M_SENT;
 		break;
@@ -885,7 +885,7 @@ top:
 		INFO("Sending CYAN plane\n");
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->plane_c, ctx->plane_len)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 
 		state = S_PRINTER_C_SENT;
 		break;
@@ -899,7 +899,7 @@ top:
 			INFO("Cleaning up\n");
 
 			if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->footer, ctx->printer->foot_length)))
-				return ret;
+				return CUPS_BACKEND_FAILED;
 		}
 		state = S_FINISHED;
 		/* Intentional Fallthrough */
@@ -921,12 +921,12 @@ top:
 		goto top;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.82",
+	.version = "0.83",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
@@ -1309,8 +1309,8 @@ struct dyesub_backend canonselphy_backend = {
         05  (L)
         02  (C)
 
-  P == 7008800  == 2336256 * 3 + 32 (4.884% larger than CP)
-  L == 5087264  == 1695744 * 3 + 32 (5.878% larger than CP)
-  C == 2180384  == 726784 * 3 + 32  (3.991% larger than CP)
+  P == 7008800  == 2336256 * 3 + 32 (plane 108880/4.884% larger than CP) ie 425*256
+  L == 5087264  == 1695744 * 3 + 32 (plane 94144/5.878% larger than CP) ie 367.75*256
+  C == 2180384  == 726784 * 3 + 32  (plane 27904/3.991% larger than CP) ie 109*256
 
 */
