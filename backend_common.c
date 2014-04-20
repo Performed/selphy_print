@@ -955,11 +955,9 @@ int main (int argc, char **argv)
 
 newpage:
 	/* Do early parsing if needed for subsequent pages */
-	if (pages && backend->early_parse) {
-		ret = backend->early_parse(backend_ctx, data_fd);
-		if (ret < 0)
+	if (pages && backend->early_parse &&
+	    backend->early_parse(backend_ctx, data_fd) < 0)
 			goto done_multiple;
-	}
 
 	/* Read in data */
 	if ((ret = backend->read_parse(backend_ctx, data_fd))) {
