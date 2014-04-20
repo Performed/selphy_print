@@ -1488,7 +1488,7 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	uint8_t tmpbuf[4];
 
 	if (!ctx)
-		return 1;
+		return CUPS_BACKEND_FAILED;
 
 	if (ctx->databuf) {
 		free(ctx->databuf);
@@ -1499,7 +1499,7 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
 	if (ret < 0 || ret != sizeof(ctx->hdr)) {
 		if (ret == 0)
-			return 1;
+			return CUPS_BACKEND_CANCEL;
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      ret, 0, (int)sizeof(ctx->hdr));
 		perror("ERROR: Read failed");
@@ -1511,14 +1511,14 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	    le32_to_cpu(ctx->hdr.len2) != 0x64 ||
 	    le32_to_cpu(ctx->hdr.dpi) != 300) {
 		ERROR("Unrecognized header data format!\n");
-		return 1;
+		return CUPS_BACKEND_CANCEL;
 	}
 
 	ctx->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
 	ctx->databuf = malloc(ctx->datalen);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return 1;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	{
@@ -1550,10 +1550,10 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	    tmpbuf[2] != 0x02 ||
 	    tmpbuf[3] != 0x01) {
 		ERROR("Unrecognized footer data format!\n");
-		return 1;
+		return CUPS_BACKEND_FAILED;
 	}
 
-	return 0;
+	return CUPS_BACKEND_CANCEL;
 }
 
 static int shinkos2145_main_loop(void *vctx, int copies) {
@@ -1586,11 +1586,11 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 				sizeof(*media),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
-		return ret;
+		return CUPS_BACKEND_FAILED;
 	}
 	
 	if (le16_to_cpu(media->hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
-		return ret;
+		return CUPS_BACKEND_FAILED;
 
 	/* Validate print sizes */
 	for (i = 0; i < media->count ; i++) {
@@ -1601,7 +1601,7 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 	}
 	if (i == media->count) {
 		ERROR("Incorrect media loaded for print!\n");
-		return 3;
+		return CUPS_BACKEND_HOLD;
 	}
 
 	/* Send Status Query */
@@ -1614,7 +1614,7 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 				sizeof(struct s2145_status_hdr),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
-		return ret;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
@@ -1682,7 +1682,7 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 		INFO("Sending image data to printer\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, ctx->datalen)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 
 		INFO("Waiting for printer to acknowledge completion\n");
 		sleep(1);
@@ -1720,7 +1720,7 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 		goto top;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 
 printer_error:
 	ERROR("Printer reported error: %#x (%s) status: %#x (%s) -> %#x.%#x (%s)\n",
@@ -1730,7 +1730,7 @@ printer_error:
 	      status_str(sts->hdr.status),
 	      sts->hdr.printer_major, sts->hdr.printer_minor,
 	      error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
-	return 1; /* CUPS_BACKEND_FAILED */
+	return CUPS_BACKEND_FAILED;
 }
 
 static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
@@ -1773,7 +1773,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
-	.version = "0.32",
+	.version = "0.33",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
