@@ -1563,16 +1563,45 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 	uint8_t cmdbuf[CMDBUF_LEN];
 	uint8_t rdbuf2[READBACK_LEN];
 
-	int last_state = -1, state = S_IDLE;
+	int i, last_state = -1, state = S_IDLE;
 
 	struct s2145_cmd_hdr *cmd = (struct s2145_cmd_hdr *) cmdbuf;;
 	struct s2145_print_cmd *print = (struct s2145_print_cmd *) cmdbuf;
 	struct s2145_status_resp *sts = (struct s2145_status_resp *) rdbuf; 
+	struct s2145_mediainfo_resp *media = (struct s2145_mediainfo_resp *) rdbuf;
 
  top:
 	if (state != last_state) {
 		if (dyesub_debug)
 			DEBUG("last_state %d new %d\n", last_state, state);
+	}
+
+	/* Send Media Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmd->cmd = cpu_to_le16(S2145_CMD_ERRORLOG);
+	cmd->len = cpu_to_le16(0);
+
+	if ((ret = s2145_do_cmd(ctx,
+				cmdbuf, sizeof(*cmd),
+				sizeof(*media),
+				&num)) < 0) {
+		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
+		return ret;
+	}
+	
+	if (le16_to_cpu(media->hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
+		return ret;
+
+	/* Validate print sizes */
+	for (i = 0; i < media->count ; i++) {
+		/* Look for matching media */
+		if (le16_to_cpu(media->items[i].columns) == cpu_to_le16(le32_to_cpu(ctx->hdr.columns)) &&
+		    le16_to_cpu(media->items[i].rows) == cpu_to_le16(le32_to_cpu(ctx->hdr.rows)))
+			break;
+	}
+	if (i == media->count) {
+		ERROR("Incorrect media loaded for print!\n");
+		return 3;
 	}
 
 	/* Send Status Query */
@@ -1744,7 +1773,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
-	.version = "0.31",
+	.version = "0.32",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
