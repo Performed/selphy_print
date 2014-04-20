@@ -448,8 +448,9 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	if (matte != ctx->last_matte)
 		ctx->buf_needed = 2;
 
-	DEBUG("dpi %u matte %u(%u) mcut %u bufs %d\n", 
-	      dpi, matte, ctx->last_matte, multicut, ctx->buf_needed);
+	if (dpi)
+		DEBUG("dpi %u matte %u(%u) mcut %u bufs %d\n", 
+		      dpi, matte, ctx->last_matte, multicut, ctx->buf_needed);
 
 	/* Track if our last print was matte */
 	ctx->last_matte = matte;
@@ -991,7 +992,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.30",
+	.version = "0.31",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
