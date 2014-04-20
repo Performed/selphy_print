@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.48"
+#define BACKEND_VERSION "0.49"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -645,7 +645,7 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 	i = libusb_init(&ctx);
 	if (i) {
 		ERROR("Failed to initialize libusb (%d)\n", i);
-		exit(4); /* CUPS_BACKEND_STOP */
+		exit(CUPS_BACKEND_STOP);
 	}
 	find_and_enumerate(ctx, &list, backend, NULL, P_ANY, 1);
 	libusb_free_device_list(list, 1);
@@ -671,7 +671,7 @@ int main (int argc, char **argv)
 	int claimed;
 	int backend_cmd = 0;
 
-	int ret = 0;
+	int ret = CUPS_BACKEND_OK;
 	int iface = 0;
 	int found = -1;
 	int copies = 1;
@@ -877,7 +877,7 @@ int main (int argc, char **argv)
 	if (fname && backend->early_parse) {
 		printer_type = backend->early_parse(backend_ctx, data_fd);
 		if (printer_type < 0) {
-			ret = 5; /* CUPS_BACKEND_CANCEL */
+			ret = CUPS_BACKEND_CANCEL;
 			goto done;
 		}
 	}
@@ -886,7 +886,7 @@ int main (int argc, char **argv)
 	ret = libusb_init(&ctx);
 	if (ret) {
 		ERROR("Failed to initialize libusb (%d)\n", ret);
-		ret = 4;
+		ret = CUPS_BACKEND_STOP;
 		goto done;
 	}
 
@@ -896,13 +896,14 @@ int main (int argc, char **argv)
 #if 1
 	if (found == -1) {
 		ERROR("Printer open failure (No suitable printers found!)\n");
-		ret = 4; /* CUPS_BACKEND_STOP */
+		ret = CUPS_BACKEND_HOLD;
 		goto done;
 	}
 
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
 		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
+		ret = CUPS_BACKEND_STOP;
 		goto done;
 	}
 
@@ -910,20 +911,23 @@ int main (int argc, char **argv)
 	if (claimed) {
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
-			ERROR("Printer open failure (Could not detach printer from kernel)\n");
+			ERROR("Printer open failure (Could not detach printer from kernel) (%d)\n", ret);
+			ret = CUPS_BACKEND_STOP;
 			goto done_close;
 		}
 	}
 
 	ret = libusb_claim_interface(dev, iface);
 	if (ret) {
-		ERROR("Printer open failure (Could not claim printer interface)\n");
+		ERROR("Printer open failure (Could not claim printer interface) (%d)\n", ret);
+		ret = CUPS_BACKEND_STOP;
 		goto done_close;
 	}
 
 	ret = libusb_get_active_config_descriptor(list[found], &config);
 	if (ret) {
-		ERROR("Printer open failure (Could not fetch config descriptor)\n");
+		ERROR("Printer open failure (Could not fetch config descriptor) (%d)\n", ret);
+		ret = CUPS_BACKEND_STOP;
 		goto done_close;
 	}
 
@@ -958,7 +962,7 @@ newpage:
 	}
 
 	/* Read in data */
-	if (backend->read_parse(backend_ctx, data_fd)) {
+	if ((ret = backend->read_parse(backend_ctx, data_fd))) {
 		if (pages)
 			goto done_multiple;
 		else
@@ -981,7 +985,7 @@ done_multiple:
 
 	/* Done printing */
 	INFO("All printing done (%d pages * %d copies)\n", pages, copies);
-	ret = 0;
+	ret = CUPS_BACKEND_OK;
 
 done_claimed:
 	libusb_release_interface(dev, iface);
