@@ -136,7 +136,7 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 	int ret;
 
 	if (!ctx)
-		return 1;
+		return CUPS_BACKEND_CANCEL;
 
 	if (ctx->databuf) {
 		free(ctx->databuf);
@@ -147,11 +147,11 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
 	if (ret < 0 || ret != sizeof(ctx->hdr)) {
 		if (ret == 0)
-			return 1;
+			return CUPS_BACKEND_CANCEL;
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      ret, 0, (int)sizeof(ctx->hdr));
 		perror("ERROR: Read failed");
-		return ret;
+		return CUPS_BACKEND_CANCEL;
 	}
 
 	if (ctx->hdr.hdr[0] != 0x01 ||
@@ -159,14 +159,14 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 	    ctx->hdr.hdr[2] != 0x0a ||
 	    ctx->hdr.hdr[3] != 0x00) {
 		ERROR("Unrecognized data format!\n");
-		return(1);
+		return CUPS_BACKEND_CANCEL;
 	}
 
 	ctx->datalen = le16_to_cpu(ctx->hdr.rows) * le16_to_cpu(ctx->hdr.columns) * 3;
 	ctx->databuf = malloc(ctx->datalen);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return 2;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	{
@@ -178,14 +178,14 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 				ERROR("Read failed (%d/%d/%d)\n",
 				      ret, remain, ctx->datalen);
 				perror("ERROR: Read failed");
-				return ret;
+				return CUPS_BACKEND_CANCEL;
 			}
 			ptr += ret;
 			remain -= ret;
 		} while (remain);
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int kodak605_main_loop(void *vctx, int copies) {
@@ -200,7 +200,7 @@ static int kodak605_main_loop(void *vctx, int copies) {
 	int pending = 0;
 
 	if (!ctx)
-		return 1;
+		return CUPS_BACKEND_FAILED;
 
 	/* Printer handles generating copies.. */
 	if (ctx->hdr.copies < copies)
@@ -224,7 +224,7 @@ top:
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, CMDBUF_LEN)))
-		return ret;
+		return CUPS_BACKEND_FAILED;
 
 skip_query:
 	/* Read in the printer status */
@@ -235,13 +235,13 @@ skip_query:
 
 	if (num < 10) {
 		ERROR("Short read! (%d/%d)\n", num, 10);
-		return 4;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	if (num != 10 && num != 76 && num != 113) {
 		ERROR("Unexpected readback from printer (%d/%d from 0x%02x))\n",
 		      num, READBACK_LEN, ctx->endp_up);
-		return ret;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
@@ -286,7 +286,7 @@ skip_query:
 		INFO("Sending image header\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*)&ctx->hdr, sizeof(ctx->hdr))))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 		pending = 1;
 		state = S_SENT_HDR;
 		break;
@@ -300,7 +300,7 @@ skip_query:
 		INFO("Sending image data\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, ctx->datalen)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 
 		INFO("Image data sent\n");
 		sleep(1);  /* An experiment */
@@ -335,7 +335,7 @@ skip_query:
 		goto top;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int kodak605_get_status(struct kodak605_ctx *ctx)
@@ -541,7 +541,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.20",
+	.version = "0.21",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -581,19 +581,22 @@ struct dyesub_backend kodak605_backend = {
 
 -> 01 00 00 00
 <- [76 bytes -- status ]
--> 01 00 00 00
-<- [76 bytes -- status ]
-   01 00 00 00  00 00 02 00  42 00 30 00  00 00 30 00
-   00 00 13 00  00 00 75 00  00 00 30 00  00 00 5d 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 01 00  00 00 00 00
 
    01 00 00 00  00 00 02 00  42 00 30 00  00 00 30 00
    00 00 13 00  00 00 75 00  00 00 30 00  00 00 5d 00
    00 00 00 00  00 00 01 01  00 00 00 01  00 20 00 00
    00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
    00 00 00 00  00 00 01 00  00 00 00 00
+
+-> 01 00 00 00
+<- [76 bytes -- status ]
+
+   01 00 00 00  00 00 02 00  42 00 30 00  00 00 30 00
+   00 00 13 00  00 00 75 00  00 00 30 00  00 00 5d 00
+   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+   00 00 00 00  00 00 01 00  00 00 00 00
+
 
 -> 02 00 00 00
 <- [113 bytes -- supported media/sizes? Always seems to be identical ]
@@ -622,13 +625,6 @@ struct dyesub_backend kodak605_backend = {
    00 00 00 00  00 00 01 00  00 01 00 01  00 00 00 00
    00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
    00 00 00 00  00 00 01 00  00 00 00 00
-
-   01 00 00 00  00 00 01 00  42 00 31 00  00 00 31 00
-   00 00 14 00  00 00 77 00  00 00 31 00  00 00 5d 00
-   00 00 00 00  00 00 01 00  00 01 00 01  00 00 02 01
-   00 00 00 01  00 02 02 01  00 00 00 01  00 02 00 00
-   00 00 00 00  00 00 01 00  00 00 00 00
-
 
   Write tone curve data:
 

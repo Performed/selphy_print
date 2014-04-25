@@ -514,7 +514,7 @@ static int kodak6800_read_parse(void *vctx, int data_fd) {
 	int ret;
 
 	if (!ctx)
-		return 1;
+		return CUPS_BACKEND_FAILED;
 
 	if (ctx->databuf) {
 		free(ctx->databuf);
@@ -525,11 +525,11 @@ static int kodak6800_read_parse(void *vctx, int data_fd) {
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
 	if (ret < 0 || ret != sizeof(ctx->hdr)) {
 		if (ret == 0)
-			return 1;
-		ERROR("Read failed (%d/%d/%d)\n", 
+			return CUPS_BACKEND_CANCEL;
+		ERROR("Read failed (%d/%d/%d)\n",
 		      ret, 0, (int)sizeof(ctx->hdr));
 		perror("ERROR: Read failed");
-		return ret;
+		return CUPS_BACKEND_CANCEL;
 	}
 	if (ctx->hdr.hdr[0] != 0x03 ||
 	    ctx->hdr.hdr[1] != 0x1b ||
@@ -537,14 +537,14 @@ static int kodak6800_read_parse(void *vctx, int data_fd) {
 	    ctx->hdr.hdr[3] != 0x48 ||
 	    ctx->hdr.hdr[4] != 0x43) {
 		ERROR("Unrecognized data format!\n");
-		return(1);
+		return CUPS_BACKEND_CANCEL;
 	}
 
 	ctx->datalen = be16_to_cpu(ctx->hdr.rows) * be16_to_cpu(ctx->hdr.columns) * 3;
 	ctx->databuf = malloc(ctx->datalen);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return 2;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	{
@@ -556,14 +556,14 @@ static int kodak6800_read_parse(void *vctx, int data_fd) {
 				ERROR("Read failed (%d/%d/%d)\n", 
 				      ret, remain, ctx->datalen);
 				perror("ERROR: Read failed");
-				return ret;
+				return CUPS_BACKEND_CANCEL;
 			}
 			ptr += ret;
 			remain -= ret;
 		} while (remain);
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 #define READBACK_LEN 68
@@ -580,7 +580,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	int pending = 0;
 
 	if (!ctx)
-		return 1;
+		return CUPS_BACKEND_FAILED;
 
 #if 0
 	/* Printer handles generating copies.. */
@@ -614,24 +614,24 @@ top:
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, CMDBUF_LEN - 1)))
-		return ret;
+		return CUPS_BACKEND_FAILED;
 
 skip_query:
 	/* Read in the printer status */
 	ret = read_data(ctx->dev, ctx->endp_up,
 			rdbuf, READBACK_LEN, &num);
 	if (ret < 0)
-		return ret;
-	
+		return CUPS_BACKEND_FAILED;
+
 	if (num < 51) {
 		ERROR("Short read! (%d/%d)\n", num, 51);
-		return 4;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	if (num != 51 && num != 58 && num != 68) {
 		ERROR("Unexpected readback from printer (%d/%d from 0x%02x))\n",
 		      num, READBACK_LEN, ctx->endp_up);
-		return ret;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
@@ -641,7 +641,7 @@ skip_query:
 	}
 	last_state = state;
 
-	fflush(stderr);       
+	fflush(stderr);
 
 	pending = 0;
 
@@ -672,9 +672,9 @@ skip_query:
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     cmdbuf, CMDBUF_LEN -1)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 		pending = 1;
-		state = S_6850_READY_WAIT;	
+		state = S_6850_READY_WAIT;
 		break;
 	case S_6850_READY_WAIT: /* status response, with different header */
 		if (rdbuf[0] != 0x01 ||
@@ -697,7 +697,7 @@ skip_query:
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     cmdbuf, CMDBUF_LEN -1)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 		pending = 1;
 		state = S_STARTED;
 		break;
@@ -733,7 +733,7 @@ skip_query:
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     cmdbuf, CMDBUF_LEN)))
 			return ret;
-		pending = 1;
+		pending = CUPS_BACKEND_FAILED;
 		state = S_SENT_HDR;
 		break;
 	case S_SENT_HDR:
@@ -747,7 +747,7 @@ skip_query:
 		INFO("Sending image data\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down, 
 				     ctx->databuf, ctx->datalen)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 
 		INFO("Image data sent\n");
 		state = S_SENT_DATA;
@@ -780,13 +780,13 @@ skip_query:
 		goto top;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.34",
+	.version = "0.35",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
