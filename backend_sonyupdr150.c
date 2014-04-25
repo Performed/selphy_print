@@ -106,7 +106,7 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 	int len, run = 1;
 
 	if (!ctx)
-		return 1;
+		return CUPS_BACKEND_FAILED;
 
 	if (ctx->databuf) {
 		free(ctx->databuf);
@@ -117,7 +117,7 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return 2;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	while(run) {
@@ -125,7 +125,7 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		int keep = 0;
 		i = read(data_fd, ctx->databuf + ctx->datalen, 4);
 		if (i < 0)
-			return i;
+			return CUPS_BACKEND_CANCEL;
 		if (i == 0)
 			break;
 
@@ -173,7 +173,7 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		default:
 			if (len & 0xff000000) {
 				ERROR("Unknown block ID '%08x', aborting!\n", len);
-				return 1;
+				return CUPS_BACKEND_CANCEL;
 			} else {
 				/* Only keep these chunks */
 				if(dyesub_debug)
@@ -189,7 +189,7 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		while(len > 0) {
 			i = read(data_fd, ctx->databuf + ctx->datalen, len);
 			if (i < 0)
-				return i;
+				return CUPS_BACKEND_CANCEL;
 			if (i == 0)
 				break;
 
@@ -204,9 +204,9 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		}
 	}
 	if (!ctx->datalen)
-		return 1;
+		return CUPS_BACKEND_CANCEL;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int updr150_main_loop(void *vctx, int copies) {
@@ -214,7 +214,7 @@ static int updr150_main_loop(void *vctx, int copies) {
 	int i = 0, ret;
 
 	if (!ctx)
-		return 1;
+		return CUPS_BACKEND_FAILED;
 
 	/* Some models specify copies in the print job */
 	if (ctx->copies_offset) {
@@ -234,7 +234,7 @@ top:
 			DEBUG("Sending %u bytes to printer @ %i\n", len, i);
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf + i, len)))
-			return ret;
+			return CUPS_BACKEND_FAILED;
 
 		i += len;
 	}
@@ -249,12 +249,12 @@ top:
 		goto top;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10",
-	.version = "0.14",
+	.version = "0.15",
 	.uri_prefix = "sonyupdr150",
 	.init = updr150_init,
 	.attach = updr150_attach,
