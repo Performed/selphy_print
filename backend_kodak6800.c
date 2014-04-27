@@ -54,7 +54,7 @@ struct kodak6800_hdr {
 
 struct kodak68x0_status_readback {
 	uint8_t  hdr[2];   /* Always 01 02 */
-	uint8_t  sts;      /* 0x01 OR 0x03 */
+	uint8_t  sts;      /* 0x01 OR 0x03 -- media type? */
 	uint8_t  null0[3];
 	uint8_t  unkA;     /* 0x00 or 0x01 */
 	uint8_t  nullA;
@@ -89,7 +89,7 @@ struct kodak6800_printsize {
 struct kodak68x0_media_readback {
 	uint8_t  hdr;      /* Always 0x01 */
 	uint8_t  media;    /* Always 0x0b or 0x03 */
-	uint8_t  null0[5];
+	uint8_t  null[5];
 	uint8_t  count;    /* Always 0x04 (6800) or 0x06 (6850)? */
 	struct kodak6800_printsize sizes[];
 } __attribute__((packed));
@@ -654,7 +654,6 @@ skip_query:
 			break;
 		}
 
-		INFO("Printing started; Sending init sequence\n");
 		if (ctx->type == P_KODAK_6850)
 			state = S_6850_READY;
 		else
@@ -678,6 +677,7 @@ skip_query:
 		break;
 	case S_6850_READY_WAIT: /* status response, with different header */
 		if (rdbuf[0] != 0x01 ||
+		    rdbuf[1] != 0x01 ||
 		    rdbuf[2] != 0x43) {
 			state = S_6850_READY;
 			break;
@@ -701,15 +701,33 @@ skip_query:
 		pending = 1;
 		state = S_STARTED;
 		break;
-	case S_STARTED: /* Media response */
-		if (rdbuf[0] != 0x01 ||
-		    rdbuf[2] != 0x00)
-			break;
+	case S_STARTED: { /* Media response */
+		struct kodak68x0_media_readback *media = (struct kodak68x0_media_readback *) rdbuf;
+
+		/* Validate proper response */
+		if (media->hdr != 0x01 ||
+		    media->null[0] != 0x00) {
+			ERROR("Unexpected response from media query!\n");
+			return CUPS_BACKEND_STOP;
+		}
 
 		/* Appears to depend on media */
-		if (rdbuf[1] != 0x0b &&
-		    rdbuf[1] != 0x03)
-			break;
+		if (media->media != 0x0b &&
+		    media->media != 0x03) {
+			ERROR("Unrecognized media type %02x\n", media->media);
+			return CUPS_BACKEND_STOP;
+		}
+
+		/* Validate against supported media list */
+		for (num = 0 ; num < media->count; num++) {
+			if (media->sizes[num].height == ctx->hdr.rows &&
+			    media->sizes[num].width == ctx->hdr.columns)
+				break;
+		}
+		if (num == media->count) {
+			ERROR("Print size unsupported by media!\n");
+			return CUPS_BACKEND_HOLD;
+		}
 
 		memcpy(cmdbuf, &ctx->hdr, CMDBUF_LEN);
 
@@ -733,9 +751,10 @@ skip_query:
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     cmdbuf, CMDBUF_LEN)))
 			return ret;
-		pending = CUPS_BACKEND_FAILED;
+		pending = 1;
 		state = S_SENT_HDR;
 		break;
+	}
 	case S_SENT_HDR:
 		INFO("Waiting for printer to accept data\n");
 		if (rdbuf[0] != 0x01 ||
@@ -786,7 +805,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.35",
+	.version = "0.36",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
