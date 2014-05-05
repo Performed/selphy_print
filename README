@@ -42,6 +42,7 @@
    Olmec OP900
    ICI Imagedata OP900
    Mitsubishi CP-3800DW
+   Sony UP-DR10/DNP DS-SL10
 
  ***************************************************************************
 
@@ -166,9 +167,13 @@
 
      ES20, CP-220, CP530, CP600, CP810
 
-   NOT currently supported by libusb backend:  (USB PIDs unknown) 
+   NOT currently supported:  (USB PIDs unknown) 
 	
-     CP520, CP820, CP910
+     CP520
+
+   NOT currently supported:  (Unknown command stream)
+
+     CP820, CP910
 
    This backend does not support additional commands.
 
