@@ -275,10 +275,11 @@ struct dyesub_backend updr150_backend = {
    arguments.  The purpose of the commands is unknown, but they presumably
    instruct the driver to perform certain things.
 
-   If you treat these 4 bytes as a 32-bit little-endian number, if the most significant
-   four bits are bits are non-zero, the value is is to be interpreted as a driver
-   command.  If the most significant bits are zero, the value signifies that the following
-   N bytes of data should be sent to the printer as-is.
+   If you treat these 4 bytes as a 32-bit little-endian number, if the
+   most significant four bits are bits are non-zero, the value is is to
+   be interpreted as a driver command.  If the most significant bits are
+   zero, the value signifies that the following N bytes of data should be
+   sent to the printer as-is.
 
    Known driver "commands":
 
