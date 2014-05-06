@@ -148,7 +148,7 @@
       the P_XXX enumeration defined in backend_common.h. The '7' in this
       example corresponds to most Canon SELPHY CP models, and is what you
       would use if you were trying to get the backend to detect an
-      otherwise unrecognized SELPHY CP model (eg the CP520, CP820, or CP910).
+      otherwise unrecognized SELPHY CP model (eg the CP520).
       If you are able to successfuly print using this technique, please let
       us know so we can add the apppriate entry to the internal database.
 
@@ -171,7 +171,7 @@
 	
      CP520
 
-   NOT currently supported:  (Unknown command stream)
+   NOT supported:  (Printer does not need a backend)
 
      CP820, CP910
 
