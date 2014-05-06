@@ -62,9 +62,7 @@
 #define USB_PID_CANON_CP790 0x31E7
 #define USB_PID_CANON_CP800 0x3214
 #define USB_PID_CANON_CP810 0x3256
-#define USB_PID_CANON_CP820 820 // XXX
 #define USB_PID_CANON_CP900 0x3255
-#define USB_PID_CANON_CP910 910 // XXX
 #define USB_PID_CANON_ES1   0x3141
 #define USB_PID_CANON_ES2   0x3185
 #define USB_PID_CANON_ES20  0x3186
@@ -926,7 +924,7 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.83",
+	.version = "0.84",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
@@ -958,9 +956,7 @@ struct dyesub_backend canonselphy_backend = {
 	{ USB_VID_CANON, USB_PID_CANON_CP790, P_ES40_CP790, ""},
 	{ USB_VID_CANON, USB_PID_CANON_CP800, P_CP_XXX, ""},
 	{ USB_VID_CANON, USB_PID_CANON_CP810, P_CP_XXX, ""},
-	{ USB_VID_CANON, USB_PID_CANON_CP820, P_CP_XXX, ""},
 	{ USB_VID_CANON, USB_PID_CANON_CP900, P_CP_XXX, ""},
-	{ USB_VID_CANON, USB_PID_CANON_CP910, P_CP_XXX, ""},
 	{ USB_VID_CANON, USB_PID_CANON_ES1, P_ES1, ""},
 	{ USB_VID_CANON, USB_PID_CANON_ES2, P_ES2_20, ""},
 	{ USB_VID_CANON, USB_PID_CANON_ES20, P_ES2_20, ""},
@@ -1288,6 +1284,8 @@ struct dyesub_backend canonselphy_backend = {
   adding a 50x50mm sticker and 22x17.3mm ministickers, though I think the
   driver treats all of those as 'C' sizes for printing purposes.
 
+  Printer does *not* apparently require use of a spooler!
+
   32-byte header:
 
   0f 00 00 40 00 00 00 00  00 00 00 00 00 00 01 00
@@ -1309,8 +1307,8 @@ struct dyesub_backend canonselphy_backend = {
         05  (L)
         02  (C)
 
-  P == 7008800  == 2336256 * 3 + 32 (plane 108880/4.884% larger than CP) ie 425*256
-  L == 5087264  == 1695744 * 3 + 32 (plane 94144/5.878% larger than CP) ie 367.75*256
-  C == 2180384  == 726784 * 3 + 32  (plane 27904/3.991% larger than CP) ie 109*256
+  P == 7008800  == 2336256 * 3 + 32 (1872*1248)
+  L == 5087264  == 1695744 * 3 + 32 (1536*1104)
+  C == 2180384  == 726784 * 3 + 32  (1088*668)
 
 */
