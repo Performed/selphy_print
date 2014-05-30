@@ -54,23 +54,24 @@ struct kodak6800_hdr {
 
 struct kodak68x0_status_readback {
 	uint8_t  hdr[2];   /* Always 01 02 */
-	uint8_t  sts;      /* 0x01 OR 0x03 -- media type? */
+	uint8_t  sts;      /* 0x01, 0x02, OR 0x03 -- media type? */
 	uint8_t  null0[3];
 	uint8_t  unkA;     /* 0x00 or 0x01 */
 	uint8_t  nullA;
-	uint32_t ctr0;     /* Increments by 1 for each print. BE */
-	uint32_t ctr1;     /* Increments by 1 for each print. BE */
+	uint32_t ctr0;     /* Total Prints (BE) */
+	uint32_t ctr1;     /* Total Prints (BE) */
 	uint32_t ctr2;     /* Increments by 1 for each print (6850), unk (6800). BE */
 	uint32_t ctr3;     /* Increments by 2 for each print. BE */
 	uint8_t  nullB[3];
-	uint8_t  unkB;     /* 0x0e OR 0x55 (6850), 0x1a (6800) */
+	uint8_t  unkB;     /* 0x0e/0x55/0x00 (6850), 0x1a (6800) */
 	uint8_t  unkC[8];  /* Always 00 03 02 90 00 01 02 1d (6850)
+                                     00 03 02 8c 00 01 02 1c (6850)
 			             00 03 00 e8 00 01 00 83 (6800) */
-	uint8_t  unk1;     /* Moves from 0x03 -> 0x04 */
+	uint8_t  unk1;     /* Moves from 0x00? 0x03 -> 0x04 */
 	uint8_t  null1[2];
 	uint8_t  unk2;     /* Moves from 0x00 -> 0x01 */
 	uint8_t  null2;
-	uint8_t  unk3;     /* Moves from 0x01 -> 0x00 */
+	uint8_t  unk3;     /* Moves from 0x00? 0x01 -> 0x00 */
 	uint8_t  null4;
 	uint8_t  unk4;     /* 00 OR 01 */
 	uint8_t  null5[7];
@@ -162,7 +163,7 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 
 	if (ret < 0)
 		return ret;
-	if (ret < (int)sizeof(struct kodak68x0_media_readback)) {
+	if (num < (int)sizeof(struct kodak68x0_media_readback)) {
 		ERROR("Short read! (%d/%d)\n", num, (int) sizeof(struct kodak68x0_media_readback));
 		return 4;
 	}
@@ -430,7 +431,7 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "C:c:")) >= 0) {
+	while ((i = getopt(argc, argv, "C:c:m")) >= 0) {
 		switch(i) {
 		case 'c':
 			if (ctx) {
@@ -805,7 +806,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.36",
+	.version = "0.37",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
@@ -1110,5 +1111,12 @@ DEBUG: readback:
 00 00 00 09 00 02 90 44  00 00 00 55 00 03 02 90
 00 01 02 1d 00 00 00 00  00 00 00 00 00 00 00 00
 00 00 00 
+
+Seen on the 6850 with no media loaded:
+
+01 02 02 00 00 00 10 00  00 00 5d 1d 00 00 5d 1d 
+00 00 00 00 00 00 b7 cc  00 00 00 00 00 03 02 8c
+00 01 02 1c 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00
 
 */
