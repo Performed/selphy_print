@@ -43,7 +43,8 @@
 
 /* File header */
 struct kodak6800_hdr {
-	uint8_t  hdr[9];
+	uint8_t  hdr[9];   /* Always 03 1b 43 48 43 0a 00 04 00 [6850]
+	                             03 1b 43 48 43 0a 00 01 00 [6800] */
 	uint8_t  copies;
 	uint16_t columns;  /* BE */
 	uint16_t rows;     /* BE */
@@ -54,7 +55,7 @@ struct kodak6800_hdr {
 
 struct kodak68x0_status_readback {
 	uint8_t  hdr[2];   /* Always 01 02 */
-	uint8_t  sts;      /* 0x01, 0x02, OR 0x03 -- media type? */
+	uint8_t  sts;      /* 0x01 == ready, 0x02 == no media, 0x03 == not ready */
 	uint8_t  null0[3];
 	uint8_t  unkA;     /* 0x00 or 0x01 */
 	uint8_t  nullA;
@@ -63,17 +64,18 @@ struct kodak68x0_status_readback {
 	uint32_t ctr2;     /* Increments by 1 for each print (6850), unk (6800). BE */
 	uint32_t ctr3;     /* Increments by 2 for each print. BE */
 	uint8_t  nullB[3];
-	uint8_t  unkB;     /* 0x0e/0x55/0x00 (6850), 0x1a (6800) */
-	uint8_t  unkC[8];  /* Always 00 03 02 90 00 01 02 1d (6850)
-                                     00 03 02 8c 00 01 02 1c (6850)
-			             00 03 00 e8 00 01 00 83 (6800) */
+	uint8_t  donor;    /* Percentage, 0-100 */
+	uint8_t  unkC[2];  /* Always 00 03 */
+	uint16_t main_fw;  /* seen 652 and 656 (6850) */
+	uint8_t  unkD[2];  /* Always 00 01 */
+	uint16_t dsp_fw;   /* Seen 540 and 541 (6850) and 131 (6800) */
 	uint8_t  unk1;     /* Moves from 0x00? 0x03 -> 0x04 */
 	uint8_t  null1[2];
-	uint8_t  unk2;     /* Moves from 0x00 -> 0x01 */
+	uint8_t  unk2;     /* Seen 0x01, 0x00 */
 	uint8_t  null2;
-	uint8_t  unk3;     /* Moves from 0x00? 0x01 -> 0x00 */
+	uint8_t  unk3;     /* Seen 0x01, 0x00 */
 	uint8_t  null4;
-	uint8_t  unk4;     /* 00 OR 01 */
+	uint8_t  unk4;     /* Seen 0x01, 0x00 */
 	uint8_t  null5[7];
 } __attribute__((packed));
 
@@ -86,6 +88,8 @@ struct kodak6800_printsize {
 	uint8_t  code2;  /* 00, 01 seen.  ?Multicut? */
 	uint8_t  null[2];
 } __attribute__((packed));
+
+#define MAX_MEDIA_LEN 128
 
 struct kodak68x0_media_readback {
 	uint8_t  hdr;      /* Always 0x01 */
@@ -115,7 +119,6 @@ enum {
 	S_6850_READY,
 	S_6850_READY_WAIT,
 	S_READY,
-	S_STARTED,
 	S_SENT_HDR,
 	S_SENT_DATA,
 	S_FINISHED,
@@ -136,14 +139,13 @@ static void kodak68x0_dump_mediainfo(struct kodak68x0_media_readback *media)
 	DEBUG("\n");
 }
 
-static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
+static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx, struct kodak68x0_media_readback *media)
 {
 	uint8_t req[16];
-	uint8_t resp[128];
 	int ret, num;
 
 	memset(req, 0, sizeof(req));
-	memset(resp, 0, sizeof(resp));
+	memset(media, 0, sizeof(*media));
 
 	req[0] = 0x03;
 	req[1] = 0x1b;
@@ -159,18 +161,63 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 
 	/* Get response */
 	ret = read_data(ctx->dev, ctx->endp_up,
-			resp, sizeof(resp) - 1, &num);
+			(uint8_t*)media, MAX_MEDIA_LEN, &num);
 
 	if (ret < 0)
 		return ret;
-	if (num < (int)sizeof(struct kodak68x0_media_readback)) {
-		ERROR("Short read! (%d/%d)\n", num, (int) sizeof(struct kodak68x0_media_readback));
+	if (num < (int)sizeof(*media)) {
+		ERROR("Short read! (%d/%d)\n", num, (int) sizeof(*media));
 		return 4;
 	}
 
-	kodak68x0_dump_mediainfo((struct kodak68x0_media_readback*)resp);
 	return 0;
 }
+
+static void kodak68x0_dump_status(struct kodak68x0_status_readback *status)
+{
+	DEBUG("Total prints    : %d\n", be32_to_cpu(status->ctr0));
+	DEBUG("Media prints    : %d\n", be32_to_cpu(status->ctr2));
+	DEBUG("Main FW version : %d\n", be16_to_cpu(status->main_fw));
+	DEBUG("DSP FW version  : %d\n", be16_to_cpu(status->dsp_fw));
+	DEBUG("Donor           : %d%%\n", status->donor);
+	DEBUG("\n");
+}
+
+static int kodak6800_get_status(struct kodak6800_ctx *ctx,
+				struct kodak68x0_status_readback *status)
+{
+	uint8_t req[16];
+	int ret, num;
+
+	memset(req, 0, sizeof(req));
+	memset(status, 0, sizeof(*status));
+
+	req[0] = 0x03;
+	req[1] = 0x1b;
+	req[2] = 0x43;
+	req[3] = 0x48;
+	req[4] = 0x43;
+	req[5] = 0x03;
+
+	/* Send request */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     req, sizeof(req))))
+		return ret;
+
+	/* Get response */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*)status, sizeof(*status), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num < (int)sizeof(*status)) {
+		ERROR("Short read! (%d/%d)\n", num, (int) sizeof(*status));
+		return 4;
+	}
+
+	return 0;
+}
+
 
 #define UPDATE_SIZE 1536
 static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
@@ -421,6 +468,7 @@ static void kodak6800_cmdline(void)
 	DEBUG("\t\t[ -c filename ]  # Get tone curve\n");
 	DEBUG("\t\t[ -C filename ]  # Set tone curve\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
+	DEBUG("\t\t[ -s ]           # Query status\n");
 }
 
 static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
@@ -431,7 +479,7 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "C:c:m")) >= 0) {
+	while ((i = getopt(argc, argv, "C:c:ms")) >= 0) {
 		switch(i) {
 		case 'c':
 			if (ctx) {
@@ -447,9 +495,24 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 			return 1;
 		case 'm':
 			if (ctx) {
-				j = kodak6800_get_mediainfo(ctx);
+				uint8_t buf[MAX_MEDIA_LEN];
+				struct kodak68x0_media_readback *media = (struct kodak68x0_media_readback *)buf;
+				j = kodak6800_get_mediainfo(ctx, media);
+				if (!j)
+					kodak68x0_dump_mediainfo(media);
 				break;
 			}
+			return 1;
+		case 's':
+			if (ctx) {
+				struct kodak68x0_status_readback status;
+				j = kodak6800_get_status(ctx, &status);
+				if (!j)
+					kodak68x0_dump_status(&status);
+
+				break;
+			}
+
 			return 1;
 
 		default:
@@ -576,6 +639,9 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	uint8_t rdbuf2[READBACK_LEN];
 	uint8_t cmdbuf[CMDBUF_LEN];
 
+	uint8_t mediabuf[MAX_MEDIA_LEN];
+	struct kodak68x0_media_readback *media = (struct kodak68x0_media_readback*)mediabuf;
+
 	int last_state = -1, state = S_IDLE;
 	int num, ret;
 	int pending = 0;
@@ -594,6 +660,39 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		copies = ctx->hdr.copies;
 	ctx->hdr.copies = 1;
 #endif
+
+	/* Query loaded media */
+	INFO("Querying loaded media\n");
+	ret = kodak6800_get_mediainfo(ctx, media);
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	/* Validate proper response */
+	if (media->hdr != 0x01 ||
+	    media->null[0] != 0x00) {
+		ERROR("Unexpected response from media query!\n");
+		return CUPS_BACKEND_STOP;
+	}
+	
+	/* Appears to depend on media */
+	if (media->media != 0x0b &&
+	    media->media != 0x03) {
+		ERROR("Unrecognized media type %02x\n", media->media);
+		return CUPS_BACKEND_STOP;
+	}
+
+	/* Validate against supported media list */
+	for (num = 0 ; num < media->count; num++) {
+		if (media->sizes[num].height == ctx->hdr.rows &&
+		    media->sizes[num].width == ctx->hdr.columns)
+			break;
+	}
+	if (num == media->count) {
+		ERROR("Print size unsupported by media!\n");
+		return CUPS_BACKEND_HOLD;
+	}
+
+
 
 top:
 	if (state != last_state) {
@@ -629,7 +728,7 @@ skip_query:
 		return CUPS_BACKEND_FAILED;
 	}
 
-	if (num != 51 && num != 58 && num != 68) {
+	if (num != 51) {
 		ERROR("Unexpected readback from printer (%d/%d from 0x%02x))\n",
 		      num, READBACK_LEN, ctx->endp_up);
 		return CUPS_BACKEND_FAILED;
@@ -650,9 +749,16 @@ skip_query:
 	case S_IDLE: /* Status response */
 		INFO("Waiting for printer idle\n");
 		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x02 ||
-		    rdbuf[2] != 0x01) {
-			break;
+		    rdbuf[1] != 0x02) {
+			ERROR("Unexpected response from status query!\n");
+			return CUPS_BACKEND_FAILED;
+		}
+		if (rdbuf[2] == 0x02) {
+			ERROR("Printer is out of media!\n");
+			return CUPS_BACKEND_STOP;
+		} else if (rdbuf[2] == 0x03) {
+			ERROR("Printer is offline!\n");
+			return CUPS_BACKEND_STOP;
 		}
 
 		if (ctx->type == P_KODAK_6850)
@@ -678,58 +784,20 @@ skip_query:
 		break;
 	case S_6850_READY_WAIT: /* status response, with different header */
 		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x01 ||
 		    rdbuf[2] != 0x43) {
-			state = S_6850_READY;
-			break;
+			ERROR("Unexpected response from printer init!\n");
+			return CUPS_BACKEND_FAILED;
 		}
+#if 0
+		if (rdbuf[1] != 0x01) {
+			ERROR("Printer offline!\n");
+			return CUPS_BACKEND_STOP;
+		}
+#endif
 		state = S_READY;
 		break;
 	case S_READY:
-		INFO("Querying media \n");
-		/* Send media query */
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x03;
-		cmdbuf[1] = 0x1b;
-		cmdbuf[2] = 0x43;
-		cmdbuf[3] = 0x48;
-		cmdbuf[4] = 0x43;
-		cmdbuf[5] = 0x1a;
-
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     cmdbuf, CMDBUF_LEN -1)))
-			return CUPS_BACKEND_FAILED;
-		pending = 1;
-		state = S_STARTED;
-		break;
-	case S_STARTED: { /* Media response */
-		struct kodak68x0_media_readback *media = (struct kodak68x0_media_readback *) rdbuf;
-
-		/* Validate proper response */
-		if (media->hdr != 0x01 ||
-		    media->null[0] != 0x00) {
-			ERROR("Unexpected response from media query!\n");
-			return CUPS_BACKEND_STOP;
-		}
-
-		/* Appears to depend on media */
-		if (media->media != 0x0b &&
-		    media->media != 0x03) {
-			ERROR("Unrecognized media type %02x\n", media->media);
-			return CUPS_BACKEND_STOP;
-		}
-
-		/* Validate against supported media list */
-		for (num = 0 ; num < media->count; num++) {
-			if (media->sizes[num].height == ctx->hdr.rows &&
-			    media->sizes[num].width == ctx->hdr.columns)
-				break;
-		}
-		if (num == media->count) {
-			ERROR("Print size unsupported by media!\n");
-			return CUPS_BACKEND_HOLD;
-		}
-
+		/* Set up print job header */
 		memcpy(cmdbuf, &ctx->hdr, CMDBUF_LEN);
 
 		/* 6850 uses same spool format but different header gets sent */
@@ -742,8 +810,7 @@ skip_query:
 
 		/* If we're printing a 4x6 on 8x6 media... */
 		if (ctx->hdr.media == 0x00 &&
-		    rdbuf[11] == 0x09 &&
-		    rdbuf[12] == 0x82) {
+		    be16_to_cpu(media->sizes[0].width) == 0x0982) {
 			cmdbuf[14] = 0x06;
 			cmdbuf[16] = 0x01;
 		}
@@ -755,7 +822,6 @@ skip_query:
 		pending = 1;
 		state = S_SENT_HDR;
 		break;
-	}
 	case S_SENT_HDR:
 		INFO("Waiting for printer to accept data\n");
 		if (rdbuf[0] != 0x01 ||
@@ -806,7 +872,7 @@ skip_query:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.37",
+	.version = "0.38",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
@@ -981,6 +1047,11 @@ struct dyesub_backend kodak6800_backend = {
     00 01 02 1d 03 00 00 00  00 01 00 01 00 00 00 00
     00 00 00
 
+    01 00 43 48 43 4c 00 00  00 00 00 00 00 00 00 00
+    00 00 00 01 00 00 b7 d3  00 00 00 5c 00 03 02 8c
+    00 01 02 1c 00 00 00 00  00 01 00 01 00 00 00 00
+    00 00 00
+
 ->  03 1b 43 48 43 03 00 00  00 00 00 00 00 00 00 00  [status query]
 <-  [51 octets -- same as status query before ]
 
@@ -1117,6 +1188,13 @@ Seen on the 6850 with no media loaded:
 01 02 02 00 00 00 10 00  00 00 5d 1d 00 00 5d 1d 
 00 00 00 00 00 00 b7 cc  00 00 00 00 00 03 02 8c
 00 01 02 1c 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00
+
+Seen on 6850 with 6R media (6x8) while offline:
+
+01 02 03 00 00 00 03 00  00 00 5d 1f 00 00 5d 1f
+00 00 00 01 00 00 b7 d3  00 00 00 5c 00 03 02 8c
+00 01 02 1c 00 00 00 00  00 01 00 01 00 00 00 00
 00 00 00
 
 */
