@@ -69,7 +69,7 @@ struct kodak68x0_status_readback {
 	uint16_t main_fw;  /* seen 652 and 656 (6850) */
 	uint8_t  unkD[2];  /* Always 00 01 */
 	uint16_t dsp_fw;   /* Seen 540 and 541 (6850) and 131 (6800) */
-	uint8_t  unk1;     /* Moves from 0x00? 0x03 -> 0x04 */
+	uint8_t  unk1;     /* Seen 0x00, 0x01, 0x03, 0x04 */
 	uint8_t  null1[2];
 	uint8_t  unk2;     /* Seen 0x01, 0x00 */
 	uint8_t  null2;
@@ -177,6 +177,7 @@ static void kodak68x0_dump_status(struct kodak68x0_status_readback *status)
 {
 	DEBUG("Total prints    : %d\n", be32_to_cpu(status->ctr0));
 	DEBUG("Media prints    : %d\n", be32_to_cpu(status->ctr2));
+	DEBUG("Remaining prints: %d\n", 375 - be32_to_cpu(status->ctr2));
 	DEBUG("Main FW version : %d\n", be16_to_cpu(status->main_fw));
 	DEBUG("DSP FW version  : %d\n", be16_to_cpu(status->dsp_fw));
 	DEBUG("Donor           : %d%%\n", status->donor);
@@ -685,8 +686,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
-
-
+	INFO("Waiting for printer idle\n");
 top:
 	if (state != last_state) {
 		if (dyesub_debug)
@@ -727,20 +727,7 @@ skip_query:
 		return CUPS_BACKEND_FAILED;
 	}
 
-	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		memcpy(rdbuf2, rdbuf, READBACK_LEN);
-	} else if (state == last_state) {
-		sleep(1);
-	}
-	last_state = state;
-
-	fflush(stderr);
-
-	pending = 0;
-
-	switch (state) {
-	case S_IDLE: /* Status response */
-		INFO("Waiting for printer idle\n");
+	if (!pending) {
 		if (rdbuf[0] != 0x01 ||
 		    rdbuf[1] != 0x02) {
 			ERROR("Unexpected response from status query!\n");
@@ -753,7 +740,21 @@ skip_query:
 			ERROR("Printer is offline!\n");
 			return CUPS_BACKEND_STOP;
 		}
+	}
 
+	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
+		memcpy(rdbuf2, rdbuf, READBACK_LEN);
+	} else if (state == last_state) {
+		sleep(1);
+	}
+	last_state = state;
+
+	fflush(stderr);
+
+	pending = 0;
+
+	switch (state) {
+	case S_IDLE:
 		if (ctx->type == P_KODAK_6850)
 			state = S_6850_READY;
 		else
@@ -781,12 +782,11 @@ skip_query:
 			ERROR("Unexpected response from printer init!\n");
 			return CUPS_BACKEND_FAILED;
 		}
-#if 0
-		if (rdbuf[1] != 0x01) {
-			ERROR("Printer offline!\n");
-			return CUPS_BACKEND_STOP;
+		// XXX is this the media position, saying when we have a 4x6 left on an 8x6 blank?
+		if (rdbuf[1] != 0x01 || rdbuf[1] != 0x00) {
+			ERROR("Unexpected status code!\n");
+			return CUPS_BACKEND_FAILED;
 		}
-#endif
 		state = S_READY;
 		break;
 	case S_READY:
@@ -816,19 +816,11 @@ skip_query:
 		state = S_SENT_HDR;
 		break;
 	case S_SENT_HDR:
-		INFO("Waiting for printer to accept data\n");
-		if (rdbuf[0] != 0x01 ||
-		    rdbuf[1] != 0x02 ||
-		    rdbuf[2] != 0x01) {
-			break;
-		}
-
 		INFO("Sending image data\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down, 
 				     ctx->databuf, ctx->datalen)))
 			return CUPS_BACKEND_FAILED;
 
-		INFO("Image data sent\n");
 		state = S_SENT_DATA;
 		break;
 	case S_SENT_DATA:
