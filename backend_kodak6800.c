@@ -649,17 +649,10 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-#if 0
 	/* Printer handles generating copies.. */
 	if (ctx->hdr.copies < copies)
 		ctx->hdr.copies = copies;
 	copies = 1;
-#else
-	/* Driver handles generating copies */
-	if (ctx->hdr.copies > copies)
-		copies = ctx->hdr.copies;
-	ctx->hdr.copies = 1;
-#endif
 
 	/* Query loaded media */
 	INFO("Querying loaded media\n");
