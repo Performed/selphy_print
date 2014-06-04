@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.49"
+#define BACKEND_VERSION "0.50"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -180,7 +180,8 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 		goto done;
 	}
 
-	if (dyesub_debug > 1) {
+	if ((dyesub_debug > 1 && buflen < 4096) ||
+	    dyesub_debug > 2) {
 		int i;
 		DEBUG("<- ");
 		for (i = 0 ; i < *readlen; i++) {
@@ -208,7 +209,8 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 					   buf, len2,
 					   &num, 15000);
 
-		if (dyesub_debug > 1) {
+	if ((dyesub_debug > 1 && len < 4096) ||
+	    dyesub_debug > 2) {
 			int i;
 			DEBUG("-> ");
 			for (i = 0 ; i < num; i++) {
@@ -717,7 +719,7 @@ int main (int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "B:dDGhP:S:T:V:")) >= 0) {
+	while ((i = getopt(argc, argv, "B:d:DGhP:S:T:V:")) >= 0) {
 		switch(i) {
 		case 'B':
 			backend = find_backend(optarg);
