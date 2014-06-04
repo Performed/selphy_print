@@ -202,11 +202,16 @@
      Kodak 6800
      Kodak 6850
 
+   Development was sponsored by:
+
+        LiveLink Technology [ www.livelinktechnology.net ]
+
    Valid commands:
 
      -c filename        Query tone curve [1]
      -C filename        Set tone curve   [1]
      -m                 Query supported media
+     -s                 Query printer status (not fully decoded)
 
   Notes:
 
@@ -345,6 +350,7 @@
    Development was sponsored by:
 
         Marco Di Antonio and [ ilgruppodigitale.com ]
+        LiveLink Technology [ www.livelinktechnology.net ]
 
    This backend supports additional commands:
 

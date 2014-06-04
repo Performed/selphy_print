@@ -3,6 +3,10 @@
  *
  *   (c) 2013-2014 Solomon Peachy <pizza@shaftnet.org>
  *
+ *   Development of this backend was sponsored by:
+ *
+ *     LiveLink Technology [ www.livelinktechnology.net ]
+ *
  *   The latest version of this program can be found at:
  *
  *     http://git.shaftnet.org/cgit/selphy_print.git

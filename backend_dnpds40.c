@@ -5,7 +5,8 @@
  *
  *   Development of this backend was sponsored by:
  *
- *       Marco Di Antonio and [ ilgruppodigitale.com ]
+ *     Marco Di Antonio and [ ilgruppodigitale.com ]
+ *     LiveLink Technology [ www.livelinktechnology.net ]
  *
  *   The latest version of this program can be found at:
  *
