@@ -616,7 +616,7 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 		ERROR("Read failed (%d/%d/%d)\n", 
 		      i, 0, MAX_HEADER);
 		perror("ERROR: Read failed");
-		return CUPS_BACKEND_CANCEL;
+		return -1;
 	}
 
 	printer_type = parse_printjob(ctx->buffer, &ctx->bw_mode, &ctx->plane_len);
