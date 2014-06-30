@@ -904,6 +904,7 @@ top:
 	case S_PRINTER_CP900_FOOTER: {
 		uint32_t empty = 0;
 
+		INFO("Sending CP900 Footer\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down, 
 				     (uint8_t*)&empty, sizeof(empty))))
 			return CUPS_BACKEND_FAILED;
