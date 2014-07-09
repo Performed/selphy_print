@@ -61,7 +61,7 @@ struct kodak68x0_status_readback {
 	uint8_t  hdr[2];   /* Always 01 02 */
 	uint8_t  sts;      /* 0x01 == ready, 0x02 == no media, 0x03 == not ready */
 	uint8_t  null0[3];
-	uint8_t  unkA;     /* 0x00 or 0x01 */
+	uint8_t  unkA;     /* 0x00 or 0x01 or 0x10 */
 	uint8_t  nullA;
 	uint32_t ctr0;     /* Total Prints (BE) */
 	uint32_t ctr1;     /* Total Prints (BE) */
@@ -217,7 +217,13 @@ static int kodak6800_get_status(struct kodak6800_ctx *ctx,
 		return ret;
 	if (num < (int)sizeof(*status)) {
 		ERROR("Short read! (%d/%d)\n", num, (int) sizeof(*status));
-		return 4;
+		return CUPS_BACKEND_FAILED;
+	}
+
+	if (status->hdr[0] != 0x01 ||
+	    status->hdr[1] != 0x02) {
+		ERROR("Unexpected response from status query!\n");
+		return CUPS_BACKEND_FAILED;
 	}
 
 	return 0;
