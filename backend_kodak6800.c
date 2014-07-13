@@ -119,14 +119,6 @@ struct kodak6800_ctx {
 };
 #define READBACK_LEN 68
 
-/* Program states */
-enum {
-	S_IDLE = 0,
-	S_READY,
-	S_SENT_DATA,
-	S_FINISHED,
-};
-
 static void kodak68x0_dump_mediainfo(struct kodak68x0_media_readback *media)
 {
 	int i;
@@ -810,7 +802,7 @@ top:
 			return CUPS_BACKEND_FAILED;
 
 		if (status.sts1 != 0x01) {
-			// do nothing.
+			// do nothing, this is expected.
 		} else if (status.sts1 != 0x02) {
 			ERROR("Unknown status1 0x%02x\n", status.sts1);
 			return CUPS_BACKEND_FAILED;
