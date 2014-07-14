@@ -737,9 +737,11 @@ top:
 		if (kodak6800_get_status(ctx, &status))
 			return CUPS_BACKEND_FAILED;
 
-		if (status.sts1 == 0x01)
+		if (status.sts1 == 0x01) {
+			// do nothing, this is expected.
+			sleep(1);
 			continue;
-		else if (status.sts1 != 0x02) {
+		} else if (status.sts1 != 0x02) {
 			ERROR("Unknown status1 0x%02x\n", status.sts1);
 			return CUPS_BACKEND_FAILED;
 		}
@@ -756,7 +758,6 @@ top:
 		} else {
 			break;
 		}
-		sleep(1);
 	}
 
 	if (ctx->type == P_KODAK_6850) {
@@ -801,7 +802,7 @@ top:
 		if (kodak6800_get_status(ctx, &status))
 			return CUPS_BACKEND_FAILED;
 
-		if (status.sts1 != 0x01) {
+		if (status.sts1 == 0x01) {
 			// do nothing, this is expected.
 		} else if (status.sts1 != 0x02) {
 			ERROR("Unknown status1 0x%02x\n", status.sts1);
@@ -828,7 +829,7 @@ top:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.39",
+	.version = "0.40",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
