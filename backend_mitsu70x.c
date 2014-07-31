@@ -219,12 +219,6 @@ top:
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, 6)))
 		return CUPS_BACKEND_FAILED;
-	/* Send Status Query */
-	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmdbuf[0] = 0x1b;
-	cmdbuf[1] = 0x56;
-	cmdbuf[2] = 0x31;
-	cmdbuf[3] = 0x30;
 
 skip_query:
 	/* Read in the printer status */
@@ -271,18 +265,47 @@ skip_query:
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, 512)))
 			return CUPS_BACKEND_FAILED;
-
 		state = S_SENT_ATTN;
 	case S_SENT_ATTN:
+		INFO("Sending Unk sequence\n");
+
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmdbuf[0] = 0x1b;
+		cmdbuf[1] = 0x56;
+		cmdbuf[2] = 0x33;
+		cmdbuf[3] = 0x00;
+		cmdbuf[4] = 0x07;
+		cmdbuf[5] = 0x48;
+		cmdbuf[6] = 0x04;
+		cmdbuf[7] = 0xcc;
+		cmdbuf[8] = 0x00; // or 0x80??
+		cmdbuf[9] = 0x00;
+
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     cmdbuf, 10)))
+			return CUPS_BACKEND_FAILED;
+
+		/* Read in the printer status */
+		ret = read_data(ctx->dev, ctx->endp_up,
+				rdbuf, READBACK_LEN, &num);
+		if (ret < 0)
+			return CUPS_BACKEND_FAILED;
+
+		if (num != 6) {
+			ERROR("Short Read! (%d/%d)\n", num, 26);
+			return CUPS_BACKEND_FAILED;
+		}
+
 		INFO("Sending header sequence\n");
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf + 512, 512)))
 			return CUPS_BACKEND_FAILED;
-
+#if 0
 		state = S_SENT_HDR;
 		break;
 	case S_SENT_HDR:
+#endif
 		INFO("Sending data\n");
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -423,7 +446,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.17",
+	.version = "0.18",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -560,19 +583,28 @@ struct dyesub_backend mitsu70x_backend = {
 
    CP-D707DW:
 
-    e4 56 31 30 00 00 00 XX  YY ZZ 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00  00 00
+    e4 56 31 30 00 00 00 XX  YY ZZ 00 00 TT 00 00 00
+    00 00 00 00 WW 00 00 00  00 00
 
-    XX/YY/ZZ are unkown.  Observed values:
+    e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
+    00 00 00 00 80 00 00 00  00 00
 
-    00 00 00
-    40 80 a0
+    XX/YY/ZZ and WW/TT are unkown.  Observed values:
+
+    00 00 00   00/00
+    40 80 a0   80/0f
     80 80 a0
 
    CP-K60DW-S:  (only one readback observed so far)
 
     e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
     00 00 00 00 80 00 00 00  00 00
+
+   -> 1b 56 33 00 07 48 04 cc 00 00
+   -> 1b 56 33 00 07 48 04 cc 80 00
+   <- [ 6 byte payload ]
+
+    e4 56 33 00 00 00
 
    ** ** ** ** ** **
 
