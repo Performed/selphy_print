@@ -267,17 +267,15 @@ skip_query:
 			return CUPS_BACKEND_FAILED;
 		state = S_SENT_ATTN;
 	case S_SENT_ATTN:
-		INFO("Sending Unk sequence\n");
+		INFO("Sending Page setup sequence\n");
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		cmdbuf[0] = 0x1b;
 		cmdbuf[1] = 0x56;
 		cmdbuf[2] = 0x33;
 		cmdbuf[3] = 0x00;
-		cmdbuf[4] = 0x07;
-		cmdbuf[5] = 0x48;
-		cmdbuf[6] = 0x04;
-		cmdbuf[7] = 0xcc;
+		memcpy(cmdbuf + 4, ctx->databuf + 512 + 16, 2);
+		memcpy(cmdbuf + 6, ctx->databuf + 512 + 16 + 2, 2);
 		cmdbuf[8] = 0x00; // or 0x80??
 		cmdbuf[9] = 0x00;
 
@@ -446,7 +444,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.18",
+	.version = "0.19",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -589,19 +587,28 @@ struct dyesub_backend mitsu70x_backend = {
     e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
     00 00 00 00 80 00 00 00  00 00
 
-    XX/YY/ZZ and WW/TT are unkown.  Observed values:
+    XX/YY/ZZ and WW/TT are unknown.  Observed values:
 
     00 00 00   00/00
     40 80 a0   80/0f
     80 80 a0
 
-   CP-K60DW-S:  (only one readback observed so far)
+   CP-K60DW-S:
 
     e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
     00 00 00 00 80 00 00 00  00 00
 
-   -> 1b 56 33 00 07 48 04 cc 00 00
-   -> 1b 56 33 00 07 48 04 cc 80 00
+    e4 56 31 30 00 00 00 40  80 00 00 00 0f 00 00 00
+    00 00 00 00 80 00 00 00  00 00
+
+   Sent to start a print
+
+   -> 1b 56 33 00 XX XX YY YY UU 00
+
+    XX XX == columns
+    YY YY == rows
+    UU    == Unknown, seen 0x00 and 0x80
+
    <- [ 6 byte payload ]
 
     e4 56 33 00 00 00
