@@ -55,12 +55,26 @@ struct mitsu70x_ctx {
 enum {
 	S_IDLE = 0,
 	S_SENT_ATTN,
-	S_SENT_HDR,
+	S_SENT_HDR1,
+	S_SEND_HDR2,
 	S_SENT_DATA,
 	S_FINISHED,
 };
 
 #define READBACK_LEN 256
+
+/* Printer data structures */
+struct mitsu70x_status_deck {
+	uint8_t present; /* 0x80 for NOT present */
+	uint8_t unk[21];
+	uint16_t remain; /* BIG ENDIAN */
+	uint8_t unkb[40];
+};
+struct mitsu70x_status_resp {
+	uint8_t unk[128];
+	struct mitsu70x_status_deck lower;
+	struct mitsu70x_status_deck upper;
+};
 
 static void *mitsu70x_init(void)
 {
@@ -184,6 +198,34 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 #define CMDBUF_LEN 512
 #define READBACK_LEN 256
 
+static int mitsu70x_get_status(struct mitsu70x_ctx *ctx, struct mitsu70x_status_resp *resp)
+{
+	uint8_t cmdbuf[CMDBUF_LEN];
+	int num, ret;
+
+	/* Send Printer Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x32;
+	cmdbuf[3] = 0x30;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+	memset(resp, 0, sizeof(*resp));
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) resp, sizeof(*resp), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num != sizeof(*resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*resp));
+		return 4;
+	}
+
+	return 0;
+}
+
 static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
 
@@ -266,6 +308,7 @@ skip_query:
 				     ctx->databuf, 512)))
 			return CUPS_BACKEND_FAILED;
 		state = S_SENT_ATTN;
+		break;
 	case S_SENT_ATTN:
 		INFO("Sending Page setup sequence\n");
 
@@ -294,16 +337,26 @@ skip_query:
 			return CUPS_BACKEND_FAILED;
 		}
 
+		state = S_SENT_HDR1;
+		break;
+	case S_SENT_HDR1: {
+		struct mitsu70x_status_resp resp;
+		ret = mitsu70x_get_status(ctx, &resp);
+		if (ret < 0)
+			return CUPS_BACKEND_FAILED;
+
+		// XXX check resp for sanity?
+
+		state = S_SEND_HDR2;
+		break;
+	}
+	case S_SEND_HDR2:
 		INFO("Sending header sequence\n");
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf + 512, 512)))
 			return CUPS_BACKEND_FAILED;
-#if 0
-		state = S_SENT_HDR;
-		break;
-	case S_SENT_HDR:
-#endif
+
 		INFO("Sending data\n");
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -338,75 +391,48 @@ skip_query:
 	return CUPS_BACKEND_OK;
 }
 
-struct mitsu70x_status_deck {
-	uint8_t unk[64];
-	// unk[0]     0x80 for NOT PRESENT, 0x00 for present.
-	// unk[7-8]   0x01ff or 0x0200?  Changes; maybe status?
-	// unk[22-23] prints remaining, 16-bit BE
-
-};
-
-struct mitsu70x_status_resp {
-	uint8_t unk[128];
-	struct mitsu70x_status_deck lower;
-	struct mitsu70x_status_deck upper;
-};
-
-static int mitsu70x_get_status(struct mitsu70x_ctx *ctx)
+static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 {
-	uint8_t cmdbuf[CMDBUF_LEN];
-	struct mitsu70x_status_resp resp;
-	int num, ret;
-
-	/* Send Printer Query */
-	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmdbuf[0] = 0x1b;
-	cmdbuf[1] = 0x56;
-	cmdbuf[2] = 0x32;
-	cmdbuf[3] = 0x30;
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, 4)))
-		return ret;
-	memset(&resp, 0, sizeof(resp));
-	ret = read_data(ctx->dev, ctx->endp_up,
-			(uint8_t*) &resp, sizeof(resp), &num);
-
-	if (ret < 0)
-		return ret;
-	if (num != sizeof(resp)) {
-		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(resp));
-		return 4;
-	}
-
 	if (dyesub_debug) {
 		unsigned int i;
 
 		DEBUG("Status Dump:\n");
-		for (i = 0 ; i < sizeof(resp.unk) ; i++) {
-			DEBUG2("%02x ", resp.unk[i]);
+		for (i = 0 ; i < sizeof(resp->unk) ; i++) {
+			DEBUG2("%02x ", resp->unk[i]);
 		}
 		DEBUG2("\n");
 		DEBUG("Lower Deck:\n");
-		for (i = 0 ; i < sizeof(resp.lower.unk) ; i++) {
-			DEBUG2("%02x ", resp.lower.unk[i]);
+		for (i = 0 ; i < sizeof(resp->lower.unk) ; i++) {
+			DEBUG2("%02x ", resp->lower.unk[i]);
 		}
 		DEBUG2("\n");
 		DEBUG("Upper Deck:\n");
-		for (i = 0 ; i < sizeof(resp.upper.unk) ; i++) {
-			DEBUG2("%02x ", resp.upper.unk[i]);
+		for (i = 0 ; i < sizeof(resp->upper.unk) ; i++) {
+			DEBUG2("%02x ", resp->upper.unk[i]);
 		}
 		DEBUG2("\n");
 	}
-	if (resp.upper.unk[0] & 0x80) {  /* Not present */
-		INFO("Prints remaining:  %d\n", 
-		     (resp.lower.unk[22] << 8) | resp.lower.unk[23]);
+	if (resp->upper.present & 0x80) {  /* Not present */
+		INFO("Prints remaining:  %d\n",
+		     be16_to_cpu(resp->lower.remain));
 	} else {
 		INFO("Prints remaining:  Lower: %d Upper: %d\n",
-		     (resp.lower.unk[22] << 8) | resp.lower.unk[23],
-		     (resp.upper.unk[22] << 8) | resp.upper.unk[23]);
+		     be16_to_cpu(resp->lower.remain),
+		     be16_to_cpu(resp->upper.remain));
 	}
+}
 
-	return 0;
+static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
+{
+	struct mitsu70x_status_resp resp;
+	int ret;
+
+	ret = mitsu70x_get_status(ctx, &resp);
+
+	if (!ret)
+		mitsu70x_dump_status(&resp);
+
+	return ret;
 }
 
 static void mitsu70x_cmdline(void)
@@ -426,7 +452,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		case 's':
 			if (ctx) {
-				j = mitsu70x_get_status(ctx);
+				j = mitsu70x_query_status(ctx);
 				break;
 			}
 			return 1;
@@ -444,7 +470,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.19",
+	.version = "0.20",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -556,16 +582,34 @@ struct dyesub_backend mitsu70x_backend = {
     e4 56 32 30 0f 00 00 00  00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00  00 00 0a 80 00 00 00 00
     02 00 00 00 5e 00 04 87  43 00 50 00 4b 00 36 00
-    30 00 44 00 30 00 32 00  33 00 32 00 30 00 36 00
-    33 31 36 4b 33 31 d6 7a  33 31 35 41 33 31 ae 37
+    30 00 44 00 30 00+32 00 +33 00 32 00+30 00 36 00
+    33 31 36+4b 33 31 d6 7a  33 31 35 41 33 31 ae 37
     33 31 39 41 37 31 6a 36  33 31 38 44 33 31 1e 4a
     33 31 37 42 32 31 f4 19  44 55 4d 4d 59 40 00 00
     44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00
 
+     alt:
+
+    e4 56 32 30 0f 00 00 00  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00 0a 80 00 00 00 00
+    02 00 00 00 5e 00 04 87  43 00 50 00 4b 00 36 00
+    30 00 44 00 30 00+37 00 +39 00 32 00+31 00 30 00
+    33 31 36+4c 33 31+a4+0b  33 31 35 41 33 31 ae 37 
+    33 31 39 41 37 31 6a 36  33 31 38 44 33 31 1e 4a 
+    33 31 37 42 32 31 f4 19  44 55 4d 4d 59 40 00 00 
+    44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00
+
     LOWER DECK (K60)
 
-    00 00 00 00 00 00 02 09  3f 00 00 00 05 00 00 01
-    61 8f 00 00 01 40 NN NN  00 00 00 00 00 16 81 80  NN NN: prints remaining
+    00 00 00 00 00 00?02 09  3f 00 00 00?05 00 00 01
+    61 8f 00 00 01 40 NN NN  00 00 00 00 00?16 81 80  NN NN: prints remaining
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+
+     alt:
+
+    00 00 00 00 00 00?01 d2  39 00 00 00?07 00 00 00 
+    61 8f 00 00 01 40 NN MM  00 00 00 00 00?17 79 80
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
