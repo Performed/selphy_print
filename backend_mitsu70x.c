@@ -49,6 +49,7 @@ struct mitsu70x_ctx {
 
 	uint8_t *databuf;
 	int datalen;
+	int k60;
 };
 
 /* Program states */
@@ -90,12 +91,20 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu70x_ctx *ctx = vctx;
+	struct libusb_device *device;
+	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+
+	device = libusb_get_device(dev);
+	libusb_get_device_descriptor(device, &desc);
+
+	if (desc.idProduct == USB_PID_MITSU_K60)
+		ctx->k60 = 1;
 }
 
 
@@ -353,6 +362,20 @@ skip_query:
 	case S_SEND_HDR2:
 		INFO("Sending header sequence\n");
 
+		/* K60 may require fixups */
+		if (ctx->k60) {
+			/* K60 only has a lower deck */
+			ctx->databuf[512+32] = 1;
+
+			/* 4x6 prints on 6x8 media need multicut mode */
+			if (ctx->databuf[512+16] == 0x07 &&
+			    ctx->databuf[512+16+1] == 0x48 &&
+			    ctx->databuf[512+16+2] == 0x04 &&
+			    ctx->databuf[512+16+3] == 0xc2) {
+				ctx->databuf[512+48] = 1;
+			}
+		}
+
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf + 512, 512)))
 			return CUPS_BACKEND_FAILED;
@@ -470,7 +493,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.20",
+	.version = "0.21",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -628,9 +651,6 @@ struct dyesub_backend mitsu70x_backend = {
     e4 56 31 30 00 00 00 XX  YY ZZ 00 00 TT 00 00 00
     00 00 00 00 WW 00 00 00  00 00
 
-    e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
-    00 00 00 00 80 00 00 00  00 00
-
     XX/YY/ZZ and WW/TT are unknown.  Observed values:
 
     00 00 00   00/00
@@ -639,11 +659,13 @@ struct dyesub_backend mitsu70x_backend = {
 
    CP-K60DW-S:
 
-    e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
+    e4 56 31 30 00 00 00 XX  YY 00 00 00 0f 00 00 00
     00 00 00 00 80 00 00 00  00 00
 
-    e4 56 31 30 00 00 00 40  80 00 00 00 0f 00 00 00
-    00 00 00 00 80 00 00 00  00 00
+    XX/YY are unknown, observed values:
+
+    40/80
+    00/00
 
    Sent to start a print
 
