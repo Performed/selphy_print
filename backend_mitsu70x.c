@@ -122,18 +122,24 @@ static void mitsu70x_teardown(void *vctx) {
 struct mitsu70x_hdr {
 	uint32_t cmd;
 	uint8_t  zero0[12];
+
 	uint16_t cols;
 	uint16_t rows;
 	uint16_t lamcols;
 	uint16_t lamrows;
 	uint8_t  superfine;
 	uint8_t  zero1[7];
+
 	uint8_t  deck;
 	uint8_t  zero2[7];
 	uint8_t  zero3;
 	uint8_t  laminate;
 	uint8_t  zero4[6];
-	uint8_t  zero5[512-48];
+
+	uint8_t  multicut;
+	uint8_t  zero5[15];
+
+	uint8_t  zero6[448];
 };
 
 static int mitsu70x_read_parse(void *vctx, int data_fd) {
