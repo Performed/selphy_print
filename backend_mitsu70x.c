@@ -69,18 +69,41 @@ enum {
 struct mitsu70x_state {
 	uint32_t hdr;
 	uint8_t  data[22];
-};
+} __attribute__((packed));
 struct mitsu70x_status_deck {
 	uint8_t present; /* 0x80 for NOT present */
 	uint8_t unk[21];
 	uint16_t remain; /* BIG ENDIAN */
 	uint8_t unkb[40];
-};
+} __attribute__((packed));
 struct mitsu70x_status_resp {
 	uint8_t unk[128];
 	struct mitsu70x_status_deck lower;
 	struct mitsu70x_status_deck upper;
-};
+} __attribute__((packed));
+
+struct mitsu70x_hdr {
+	uint32_t cmd;
+	uint8_t  zero0[12];
+
+	uint16_t cols;
+	uint16_t rows;
+	uint16_t lamcols;
+	uint16_t lamrows;
+	uint8_t  superfine;
+	uint8_t  zero1[7];
+
+	uint8_t  deck;
+	uint8_t  zero2[7];
+	uint8_t  zero3;
+	uint8_t  laminate;
+	uint8_t  zero4[6];
+
+	uint8_t  multicut;
+	uint8_t  zero5[15];
+
+	uint8_t  zero6[448];
+} __attribute__((packed));
 
 #define CMDBUF_LEN 512
 #define READBACK_LEN 256
@@ -126,29 +149,6 @@ static void mitsu70x_teardown(void *vctx) {
 		free(ctx->databuf);
 	free(ctx);
 }
-
-struct mitsu70x_hdr {
-	uint32_t cmd;
-	uint8_t  zero0[12];
-
-	uint16_t cols;
-	uint16_t rows;
-	uint16_t lamcols;
-	uint16_t lamrows;
-	uint8_t  superfine;
-	uint8_t  zero1[7];
-
-	uint8_t  deck;
-	uint8_t  zero2[7];
-	uint8_t  zero3;
-	uint8_t  laminate;
-	uint8_t  zero4[6];
-
-	uint8_t  multicut;
-	uint8_t  zero5[15];
-
-	uint8_t  zero6[448];
-};
 
 static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	struct mitsu70x_ctx *ctx = vctx;
