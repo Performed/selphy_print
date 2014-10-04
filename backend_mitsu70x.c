@@ -453,6 +453,7 @@ top:
 static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 {
 	if (dyesub_debug) {
+		uint8_t *ptr;
 		unsigned int i;
 
 		DEBUG("Status Dump:\n");
@@ -461,13 +462,15 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 		}
 		DEBUG2("\n");
 		DEBUG("Lower Deck:\n");
-		for (i = 0 ; i < sizeof(resp->lower.unk) ; i++) {
-			DEBUG2("%02x ", resp->lower.unk[i]);
+		ptr = (uint8_t*) &resp->lower;
+		for (i = 0 ; i < sizeof(resp->lower) ; i++) {
+			DEBUG2("%02x ", *ptr++);
 		}
 		DEBUG2("\n");
+		ptr = (uint8_t*) &resp->upper;
 		DEBUG("Upper Deck:\n");
-		for (i = 0 ; i < sizeof(resp->upper.unk) ; i++) {
-			DEBUG2("%02x ", resp->upper.unk[i]);
+		for (i = 0 ; i < sizeof(resp->upper) ; i++) {
+			DEBUG2("%02x ", *ptr++);
 		}
 		DEBUG2("\n");
 	}
