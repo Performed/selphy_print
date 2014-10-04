@@ -49,6 +49,10 @@ struct mitsu70x_ctx {
 
 	uint8_t *databuf;
 	int datalen;
+
+	uint16_t rows;
+	uint16_t cols;
+
 	int k60;
 };
 
@@ -56,15 +60,16 @@ struct mitsu70x_ctx {
 enum {
 	S_IDLE = 0,
 	S_SENT_ATTN,
-	S_SENT_HDR1,
-	S_SEND_HDR2,
+	S_SENT_HDR,
 	S_SENT_DATA,
 	S_FINISHED,
 };
 
-#define READBACK_LEN 256
-
 /* Printer data structures */
+struct mitsu70x_state {
+	uint32_t hdr;
+	uint8_t  data[22];
+};
 struct mitsu70x_status_deck {
 	uint8_t present; /* 0x80 for NOT present */
 	uint8_t unk[21];
@@ -76,6 +81,9 @@ struct mitsu70x_status_resp {
 	struct mitsu70x_status_deck lower;
 	struct mitsu70x_status_deck upper;
 };
+
+#define CMDBUF_LEN 512
+#define READBACK_LEN 256
 
 static void *mitsu70x_init(void)
 {
@@ -177,7 +185,10 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	}
 
 	/* Work out printjob size */
-	remain = be16_to_cpu(mhdr->rows) * be16_to_cpu(mhdr->cols) * 2;
+	ctx->rows = mhdr->rows;
+	ctx->cols = mhdr->cols;
+
+	remain = be16_to_cpu(ctx->rows) * be16_to_cpu(ctx->cols) * 2;
 	remain = (remain + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 	remain *= 3;  /* One for each plane */
 
@@ -210,8 +221,84 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	return CUPS_BACKEND_OK;
 }
 
-#define CMDBUF_LEN 512
-#define READBACK_LEN 256
+static int mitsu70x_do_pagesetup(struct mitsu70x_ctx *ctx)
+{
+	uint8_t cmdbuf[CMDBUF_LEN];
+	uint8_t rdbuf[READBACK_LEN];
+
+	int num, ret;
+
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x33;
+	cmdbuf[3] = 0x00;
+	memcpy(cmdbuf + 4, &ctx->rows, 2);
+	memcpy(cmdbuf + 6, &ctx->cols, 2);
+	cmdbuf[8] = 0x00; // or 0x80??
+	cmdbuf[9] = 0x00;
+	
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 10)))
+		return CUPS_BACKEND_FAILED;
+	
+	/* Read in the printer status */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			rdbuf, READBACK_LEN, &num);
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+	
+	if (num != 6) {
+		ERROR("Short Read! (%d/%d)\n", num, 26);
+		return CUPS_BACKEND_FAILED;
+	}
+	
+	/* Make sure response is sane */
+	if (rdbuf[0] != 0x1b ||
+	    rdbuf[1] != 0x56 ||
+	    rdbuf[2] != 0x33 ||
+	    rdbuf[3] != 0x00 ||
+	    rdbuf[4] != 0x00) {
+		// XXX rdbuf[5] can be 0x01 or 0x00
+		ERROR("Unknown response from printer\n");
+		return CUPS_BACKEND_FAILED;
+	}
+	
+	return 0;
+}
+
+static int mitsu70x_get_state(struct mitsu70x_ctx *ctx, struct mitsu70x_state *resp)
+{
+	uint8_t cmdbuf[CMDBUF_LEN];
+	int num, ret;
+
+	/* Send Printer Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x31;
+	cmdbuf[3] = 0x30;
+	cmdbuf[4] = 0x00;
+	cmdbuf[5] = 0x00;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 6)))
+		return ret;
+
+	memset(resp, 0, sizeof(*resp));
+
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) resp, sizeof(*resp), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num != sizeof(*resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*resp));
+		return 4;
+	}
+
+	return 0;
+}
 
 static int mitsu70x_get_status(struct mitsu70x_ctx *ctx, struct mitsu70x_status_resp *resp)
 {
@@ -244,13 +331,10 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx, struct mitsu70x_status_
 static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
 
-	uint8_t rdbuf[READBACK_LEN];
-	uint8_t rdbuf2[READBACK_LEN];
-	uint8_t cmdbuf[CMDBUF_LEN];
+	struct mitsu70x_state rdbuf, rdbuf2;
 
 	int last_state = -1, state = S_IDLE;
-	int num, ret;
-	int pending = 0;
+	int ret;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -261,45 +345,12 @@ top:
 			DEBUG("last_state %d new %d\n", last_state, state);
 	}
 
-	if (pending)
-		goto skip_query;
-
-	/* Send Status Query */
-	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmdbuf[0] = 0x1b;
-	cmdbuf[1] = 0x56;
-	cmdbuf[2] = 0x31;
-	cmdbuf[3] = 0x30;
-	cmdbuf[4] = 0x00;
-	cmdbuf[5] = 0x00;
-
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, 6)))
+	ret = mitsu70x_get_state(ctx, &rdbuf);
+	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-skip_query:
-	/* Read in the printer status */
-	ret = read_data(ctx->dev, ctx->endp_up,
-			rdbuf, READBACK_LEN, &num);
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
-
-	if (num != 26) {
-		ERROR("Short Read! (%d/%d)\n", num, 26);
-		return CUPS_BACKEND_FAILED;
-	}
-
-	if (dyesub_debug) {
-		unsigned int i;
-		DEBUG("Printer Status Dump: ");
-		for (i = 0 ; i < 26 ; i++) {
-			DEBUG2("%02x ", rdbuf[i]);
-		}
-		DEBUG2("\n");
-	}
-
-	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		memcpy(rdbuf2, rdbuf, READBACK_LEN);
+	if (memcmp(&rdbuf, &rdbuf2, sizeof(rdbuf))) {
+		memcpy(&rdbuf2, &rdbuf, sizeof(rdbuf));
 	} else if (state == last_state) {
 		sleep(1);
 	}
@@ -307,65 +358,44 @@ skip_query:
 
 	fflush(stderr);
 
-	pending = 0;
-
 	switch (state) {
 	case S_IDLE:
+		/* XXX is this needed? */
 		INFO("Waiting for printer idle\n");
-		if (rdbuf[7] != 0x00 ||
-		    rdbuf[8] != 0x00 ||
-		    rdbuf[9] != 0x00) {
+		if (rdbuf.data[3] != 0x00 ||
+		    rdbuf.data[4] != 0x00 ||
+		    rdbuf.data[5] != 0x00) {
 			break;
 		}
-
 		INFO("Sending attention sequence\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, 512)))
 			return CUPS_BACKEND_FAILED;
+
 		state = S_SENT_ATTN;
 		break;
-	case S_SENT_ATTN:
-		INFO("Sending Page setup sequence\n");
-
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmdbuf[0] = 0x1b;
-		cmdbuf[1] = 0x56;
-		cmdbuf[2] = 0x33;
-		cmdbuf[3] = 0x00;
-		memcpy(cmdbuf + 4, ctx->databuf + 512 + 16, 2);
-		memcpy(cmdbuf + 6, ctx->databuf + 512 + 16 + 2, 2);
-		cmdbuf[8] = 0x00; // or 0x80??
-		cmdbuf[9] = 0x00;
-
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     cmdbuf, 10)))
-			return CUPS_BACKEND_FAILED;
-
-		/* Read in the printer status */
-		ret = read_data(ctx->dev, ctx->endp_up,
-				rdbuf, READBACK_LEN, &num);
+	case S_SENT_ATTN: {
+		struct mitsu70x_status_resp resp;
+		ret = mitsu70x_get_status(ctx, &resp);
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
 
-		if (num != 6) {
-			ERROR("Short Read! (%d/%d)\n", num, 26);
-			return CUPS_BACKEND_FAILED;
-		}
+		/* Yes, do it twice.. */
 
-		state = S_SENT_HDR1;
-		break;
-	case S_SENT_HDR1: {
-		struct mitsu70x_status_resp resp;
 		ret = mitsu70x_get_status(ctx, &resp);
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
 
 		// XXX check resp for sanity?
 
-		state = S_SEND_HDR2;
+		state = S_SENT_HDR;
 		break;
 	}
-	case S_SEND_HDR2:
+	case S_SENT_HDR:
+		INFO("Sending Page setup sequence\n");
+		if ((ret = mitsu70x_do_pagesetup(ctx)))
+			return ret;
+
 		INFO("Sending header sequence\n");
 
 		/* K60 may require fixups */
@@ -499,7 +529,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.21",
+	.version = "0.22",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -592,12 +622,31 @@ struct dyesub_backend mitsu70x_backend = {
     33 31 37 41 32 32 a3 82  44 55 4d 4d 59 40 00 00   317A22..DUMMY@..
     44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00   DUMMY@..........
 
+     alt:
+
+    e4 56 32 30 0f 00 00 00  00 00 00 00 00 00 00 00 
+    00 00 00 00 00 00 00 00  00 00 0a 00 80 00 00 00
+    44 00 00 00 5f 00 00 bd  43 00 50 00 44 00 37 00
+    30 00 44 00 30 00 37 00  38 00 33 00 39 00 38 00
+    33 31 36 56 31 31 06 4d  33 31 35 42 31 32 f5 e5
+    33 31 39 42 31 31 a3 fb  33 31 38 46 31 31 cc 65
+    33 31 37 42 32 31 f4 19  44 55 4d 4d 59 40 00 00
+    44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00 
+
     LOWER DECK
 
     00 00 00 00 00 00 02 04  3f 00 00 04 96 00 00 00
     ff 0f 01 00 00 c8 NN NN  00 00 00 00 05 28 75 80  NN NN: prints remaining
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+
+      alt:
+
+    00 00 00 0a 05 05 01 d5  38 00 00 00 14 00 00 00 
+    ff ff ff ff ff ff ff ff  ff ff 00 00 00 27 72 80
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+
 
     UPPER DECK
 
@@ -657,11 +706,19 @@ struct dyesub_backend mitsu70x_backend = {
     e4 56 31 30 00 00 00 XX  YY ZZ 00 00 TT 00 00 00
     00 00 00 00 WW 00 00 00  00 00
 
+    e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
+    00 0a 05 05 80 00 00 00  00 00
+
+    e4 56 31 30 00 00 00 40  80 90 10 00 0f 00 00 00 
+    00 0a 05 05 80 00 00 00  00 00
+
+
     XX/YY/ZZ and WW/TT are unknown.  Observed values:
 
     00 00 00   00/00
     40 80 a0   80/0f
     80 80 a0
+    40 80 90
 
    CP-K60DW-S:
 
@@ -683,7 +740,9 @@ struct dyesub_backend mitsu70x_backend = {
 
    <- [ 6 byte payload ]
 
-    e4 56 33 00 00 00
+    e4 56 33 00 00 XX
+    
+      XX can be 00 or 01.  Unknown.
 
    ** ** ** ** ** **
 
