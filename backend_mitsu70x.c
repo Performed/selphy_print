@@ -256,10 +256,7 @@ static int mitsu70x_do_pagesetup(struct mitsu70x_ctx *ctx)
 	/* Make sure response is sane */
 	if (rdbuf[0] != 0x1b ||
 	    rdbuf[1] != 0x56 ||
-	    rdbuf[2] != 0x33 ||
-	    rdbuf[3] != 0x00 ||
-	    rdbuf[4] != 0x00) {
-		// XXX rdbuf[5] can be 0x01 or 0x00
+	    rdbuf[2] != 0x33) {
 		ERROR("Unknown response from printer\n");
 		return CUPS_BACKEND_FAILED;
 	}
@@ -360,11 +357,8 @@ top:
 
 	switch (state) {
 	case S_IDLE:
-		/* XXX is this needed? */
 		INFO("Waiting for printer idle\n");
-		if (rdbuf.data[3] != 0x00 ||
-		    rdbuf.data[4] != 0x00 ||
-		    rdbuf.data[5] != 0x00) {
+		if (rdbuf.data[9] != 0x00) {
 			break;
 		}
 		INFO("Sending attention sequence\n");
@@ -532,7 +526,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.22",
+	.version = "0.23",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -709,19 +703,27 @@ struct dyesub_backend mitsu70x_backend = {
     e4 56 31 30 00 00 00 XX  YY ZZ 00 00 TT 00 00 00
     00 00 00 00 WW 00 00 00  00 00
 
-    e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
-    00 0a 05 05 80 00 00 00  00 00
-
-    e4 56 31 30 00 00 00 40  80 90 10 00 0f 00 00 00 
-    00 0a 05 05 80 00 00 00  00 00
-
-
     XX/YY/ZZ and WW/TT are unknown.  Observed values:
 
     00 00 00   00/00
     40 80 a0   80/0f
     80 80 a0
     40 80 90
+    40 80 00
+
+     also seen:
+
+    e4 56 31 30 00 00 00 00  00 00 00 00 0f 00 00 00
+    00 0a 05 05 80 00 00 00  00 00
+
+    e4 56 31 30 00 00 00 40  80 90 10 00 0f 00 00 00 
+    00 0a 05 05 80 00 00 00  00 00
+
+     print just submitted:
+
+    e4 56 31 30 00 00 00 00  40 20 00 00 00 8c 00 00 
+    00 00 00 00 80 00 00 00  00 00
+
 
    CP-K60DW-S:
 
@@ -746,6 +748,9 @@ struct dyesub_backend mitsu70x_backend = {
     e4 56 33 00 00 XX
     
       XX can be 00 or 01.  Unknown.
+      also seen:
+
+    e5 56 33 ff 01 01  (which appeared to work)
 
    ** ** ** ** ** **
 
