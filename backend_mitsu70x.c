@@ -254,7 +254,7 @@ static int mitsu70x_do_pagesetup(struct mitsu70x_ctx *ctx)
 	}
 	
 	/* Make sure response is sane */
-	if (rdbuf[0] != 0x1b ||
+	if (rdbuf[0] != 0xe4 ||
 	    rdbuf[1] != 0x56 ||
 	    rdbuf[2] != 0x33) {
 		ERROR("Unknown response from printer\n");
