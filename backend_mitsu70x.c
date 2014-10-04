@@ -358,9 +358,11 @@ top:
 	switch (state) {
 	case S_IDLE:
 		INFO("Waiting for printer idle\n");
+#if 0 // XXX no idea if this works..
 		if (rdbuf.data[9] != 0x00) {
 			break;
 		}
+#endif
 		INFO("Sending attention sequence\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, 512)))
@@ -526,7 +528,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.23",
+	.version = "0.24",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -719,10 +721,19 @@ struct dyesub_backend mitsu70x_backend = {
     e4 56 31 30 00 00 00 40  80 90 10 00 0f 00 00 00 
     00 0a 05 05 80 00 00 00  00 00
 
+    e4 56 31 30 00 00 00 00  40 80 00 00 00 ff 40 00 
+    00 00 00 00 80 00 00 00  00 00
+
      print just submitted:
 
     e4 56 31 30 00 00 00 00  40 20 00 00 00 8c 00 00 
     00 00 00 00 80 00 00 00  00 00
+
+     prints running...
+
+    e4 56 31 30 00 00 00 00  40 20 00 00 00 cf 00 20 
+    00 00 00 00 80 00 00 00  00 00
+
 
 
    CP-K60DW-S:
@@ -745,11 +756,8 @@ struct dyesub_backend mitsu70x_backend = {
 
    <- [ 6 byte payload ]
 
-    e4 56 33 00 00 XX
-    
-      XX can be 00 or 01.  Unknown.
-      also seen:
-
+    e4 56 33 00 00 00
+    e4 56 33 00 00 01
     e5 56 33 ff 01 01  (which appeared to work)
 
    ** ** ** ** ** **
