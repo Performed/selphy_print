@@ -43,7 +43,7 @@
 #include "backend_common.h"
 
 #define USB_VID_DNP       0x1343
-#define USB_PID_CITIZEN_CW-01 0x0002 // Maybe others?
+#define USB_PID_CITIZEN_CW01 0x0002 // Maybe others?
 #define USB_PID_DNP_DS40  0x0003 // Also Citizen CX
 #define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W
 #define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
@@ -1008,7 +1008,7 @@ struct dyesub_backend dnpds40_backend = {
 	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DSRX1, P_DNP_DS40, ""},
-	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-01, P_DNP_DS40, ""},
+	{ USB_VID_DNP, USB_PID_CITIZEN_CW01, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_OLMEC_OP900, P_DNP_DS40, ""},
