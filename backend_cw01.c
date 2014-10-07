@@ -414,35 +414,9 @@ top:
 		return CUPS_BACKEND_FAILED;
 
 	cw01_cleanup_string((char*)resp, len);
-	INFO("Vertical Resolution: '%s' dpi\n", (char*)resp + 3);
-	free(resp);
 
-	// XXX this may not be necessary?
-	/* Get Color Control Data Version */
-	cw01_build_cmd(&cmd, "TBL_RD", "Version", 0);
-
-	resp = cw01_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	cw01_cleanup_string((char*)resp, len);
-
-	INFO("Color Data Version: '%s'\n", (char*)resp);
-
-	free(resp);
-
-	// XXX ditto
-	/* Get Color Control Data Checksum */
-	cw01_build_cmd(&cmd, "MNT_RD", "CTRLD_CHKSUM", 0);
-
-	resp = cw01_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	cw01_cleanup_string((char*)resp, len);
-
-	INFO("Color Data Checksum: '%s'\n", (char*)resp);
-
+	// XXX check to see if it matches print DPI, and if not
+	// do a CWD load.  MAybe we should always do a CWD load?
 	free(resp);
 
 	/* Set print quantity */
@@ -809,34 +783,6 @@ static int cw01_get_counters(struct cw01_ctx *ctx)
 
 	free(resp);
 
-	// XXX ???
-	/* Generate command */
-	cw01_build_cmd(&cmd, "MNT_RD", "COUNTER_M", 0);
-
-	resp = cw01_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	cw01_cleanup_string((char*)resp, len);
-
-	INFO("M Counter: '%s'\n", (char*)resp+2);
-
-	free(resp);
-
-	// XXX ???
-	/* Generate command */
-	cw01_build_cmd(&cmd, "MNT_RD", "COUNTER_MATTE", 0);
-
-	resp = cw01_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	cw01_cleanup_string((char*)resp, len);
-
-	INFO("Matte Counter: '%s'\n", (char*)resp+4);
-
-	free(resp);
-
 	return CUPS_BACKEND_OK;
 }
 
@@ -888,7 +834,7 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend cw01_backend = {
 	.name = "Citizen CW-01",
-	.version = "0.02",
+	.version = "0.03",
 	.uri_prefix = "cw01",
 	.cmdline_usage = cw01_cmdline,
 	.cmdline_arg = cw01_cmdline_arg,
