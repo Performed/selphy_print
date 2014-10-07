@@ -38,8 +38,8 @@
   Work-in-progress printers (untested/partial support present)
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
-   Citizen CW-01/OP900/CW-02/OP900II
-   Olmec OP900
+   Citizen CW-01/CW-02
+   Olmec OP900/OP900II
    ICI Imagedata OP900
    Mitsubishi CP-3800DW
    Sony UP-DR10/DNP DS-SL10
@@ -342,7 +342,7 @@
  
    Work-in-progress printers: (USB PIDs unknown)
 
-    Citizen CW-01/OP900/CW-02/OP900II
+    Citizen CW-02/OP900II
     Olmec OP900
     ICI Imagedata OP900
     Mitsubishi CP-3800DW
@@ -363,5 +363,19 @@
      -N [ A | B | M ]   Reset Counter A/B/M
      -p num             Set 'P' counter to 'num'
      -s                 Query printer status
+
+ *************************************************************************** 
+  BACKEND=cw01
+
+   Work-in-progress printers:
+
+    Citizen CW-01
+
+   Work-in-progress printers: (USB PIDs unknown)
+
+    Olmec OP900
+    ICI Imagedata OP900
+
+   This backend does not support additional commands.
 
  *************************************************************************** 

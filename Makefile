@@ -8,7 +8,7 @@ CPPFLAGS = `pkg-config --cflags libusb-1.0`
 CUPS_BACKEND_DIR = /usr/lib/cups/backend
 CUPS_DATA_DIR = /usr/share/cups
 
-BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 canonselphy mitsu70x kodak605 dnpds40
+BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 canonselphy mitsu70x kodak605 dnpds40 cw01
 
 DEPS = backend_common.h
 
