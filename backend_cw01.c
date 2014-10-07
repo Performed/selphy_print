@@ -37,7 +37,7 @@
 
 #include "backend_common.h"
 
-#define USB_VID_CITIZEN       0x1343
+#define USB_VID_CITIZEN      0x1343
 #define USB_PID_CITIZEN_CW01 0x0002 // Maybe others?
 //#define USB_PID_OLMEC_OP900 XXXX
 
@@ -451,3 +451,36 @@ struct dyesub_backend cw01_backend = {
 	{ 0, 0, 0, ""}
 	}
 };
+
+/* 
+
+Basic spool file format:
+
+TT RR NN 00 XX XX XX XX  00 00 00 00              <- FILE header.
+
+  NN          : copies (0x01 or more)
+  RR          : resolution; 0 == 334 dpi, 1 == 600dpi
+  TT          : type 0x02 == 4x6, 0x01 == 5x3.5
+  XX XX XX XX : plane length (LE)
+                plane length * 3 + 12 == file length.
+
+Followed by three planes, each with this header:
+
+28 00 00 00 00 08 00 00  RR RR 00 00 01 00 08 00 
+00 00 00 00 00 00 00 00  5a 33 00 00 YY YY 00 00
+00 01 00 00 00 00 00 00
+
+  RR RR       : rows in LE format
+  YY YY       : 0x335a (334dpi) or 0x5c40 (600dpi)
+
+Followed by 1024 bytes of color tables:
+
+ ff ff ff 00 ... 00 00 00 00 
+
+1024+40 = 1064 bytes of header per plane.
+
+Always have 2048 columns of data.
+
+followed by (2048 * rows) bytes of data.
+
+*/
