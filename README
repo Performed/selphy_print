@@ -376,6 +376,14 @@
     Olmec OP900
     ICI Imagedata OP900
 
-   This backend does not support additional commands.
+   This backend supports additional commands:
+
+      cw01 [command [arg] ]
+
+   Valid commands:
+
+     -i                 Query printer information (resolution, etc)
+     -n                 Query printer counters
+     -s                 Query printer status
 
  *************************************************************************** 

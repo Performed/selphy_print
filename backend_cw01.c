@@ -119,6 +119,69 @@ static void cw01_cleanup_string(char *start, int len)
 	}
 }
 
+static char *cw01_media_types(char *str)
+{
+	char tmp[4];
+	int i;
+
+	memcpy(tmp, str + 4, 3);
+	tmp[3] = 0;
+
+	i = atoi(tmp);
+
+	switch (i) {
+	case 200: return "5x3.5 (L)";
+	case 210: return "5x7 (2L)";
+	case 300: return "6x4 (PC)";
+	case 310: return "6x8 (A5)";
+	case 400: return "6x9 (A5W)";
+	default:
+		break;
+	}
+
+	return "Unknown type";
+}
+
+static char *cw01_statuses(char *str)
+{
+	char tmp[6];
+	int i;
+	memcpy(tmp, str, 5);
+	tmp[5] = 0;
+
+	i = atoi(tmp);
+
+	switch (i) {
+	case 0:	return "Idle";
+	case 1:	return "Printing";
+	case 500: return "Cooling Print Head";
+	case 510: return "Cooling Paper Motor";
+	case 1000: return "Cover Open";
+	case 1010: return "No Scrap Box";
+	case 1100: return "Paper End";
+	case 1200: return "Ribbon End";
+	case 1300: return "Paper Jam";
+	case 1400: return "Ribbon Error";
+	case 1500: return "Paper Definition Error";
+	case 1600: return "Data Error";
+	case 2000: return "Head Voltage Error";
+	case 2100: return "Head Position Error";
+	case 2200: return "Power Supply Fan Error";
+	case 2300: return "Cutter Error";
+	case 2400: return "Pinch Roller Error";
+	case 2500: return "Abnormal Head Temperature";
+	case 2600: return "Abnormal Media Temperature";
+	case 2610: return "Abnormal Paper Motor Temperature";
+	case 2700: return "Ribbon Tension Error";
+	case 2800: return "RF-ID Module Error";
+	case 3000: return "System Error";
+	default:
+		break;
+	}
+
+	return "Unkown Error";
+}
+
 static int cw01_do_cmd(struct cw01_ctx *ctx,
 			  struct cw01_cmd *cmd,
 			  uint8_t *data, int len)
@@ -181,6 +244,35 @@ static uint8_t * cw01_resp_cmd(struct cw01_ctx *ctx,
 
 	*len = num;
 	return respbuf;
+}
+
+static int cw01_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+{
+	struct cw01_cmd cmd;
+	uint8_t *resp;
+	int len = 0;
+
+	struct cw01_ctx ctx = {
+		.dev = dev,
+		.endp_up = endp_up,
+		.endp_down = endp_down,
+	};
+
+	/* Get Serial Number */
+	cw01_build_cmd(&cmd, "INFO", "SERIAL_NUMBER", 0);
+
+	resp = cw01_resp_cmd(&ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	strncpy(buf, (char*)resp, buf_len);
+	buf[buf_len-1] = 0;
+
+	free(resp);
+
+	return CUPS_BACKEND_OK;
 }
 
 static void *cw01_init(void)
@@ -282,20 +374,36 @@ top:
 
 	if (resp) free(resp);
 
-	/* Query buffer state */
-	cw01_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
+	/* Query status */
+	cw01_build_cmd(&cmd, "STATUS", "", 0);
 	resp = cw01_resp_cmd(ctx, &cmd, &len);
 	if (!resp)
 		return CUPS_BACKEND_FAILED;
 	cw01_cleanup_string((char*)resp, len);
+
+	/* If we're not idle */
+	if (strcmp("00000", (char*)resp)) {
+		if (!strcmp("00001", (char*)resp)) {
+			free(resp);
+			/* Query buffer state */
+			cw01_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
+			resp = cw01_resp_cmd(ctx, &cmd, &len);
+			if (!resp)
+				return CUPS_BACKEND_FAILED;
+			cw01_cleanup_string((char*)resp, len);
 	
-	/* Check to see if we have sufficient buffers */
-	// XXX audit these rules...?
-	if (!strcmp("FBP00", (char*)resp) ||
-	    (ctx->hdr.res == DPI_600 && !strcmp("FBP01", (char*)resp))) {
-		INFO("Insufficient printer buffers, retrying...\n");
-		sleep(1);
-		goto top;
+			/* Check to see if we have sufficient buffers */
+			// XXX audit these rules...?
+			if (!strcmp("FBP00", (char*)resp) ||
+			    (ctx->hdr.res == DPI_600 && !strcmp("FBP01", (char*)resp))) {
+				INFO("Insufficient printer buffers, retrying...\n");
+				sleep(1);
+				goto top;
+			}
+		} 
+		ERROR("Printer Status: %s\n", cw01_statuses((char*)resp));
+		free(resp);
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	/* Get Vertical resolution */
@@ -308,6 +416,8 @@ top:
 	cw01_cleanup_string((char*)resp, len);
 	INFO("Vertical Resolution: '%s' dpi\n", (char*)resp + 3);
 	free(resp);
+
+	// XXX this may not be necessary?
 	/* Get Color Control Data Version */
 	cw01_build_cmd(&cmd, "TBL_RD", "Version", 0);
 
@@ -321,6 +431,7 @@ top:
 
 	free(resp);
 
+	// XXX ditto
 	/* Get Color Control Data Checksum */
 	cw01_build_cmd(&cmd, "MNT_RD", "CTRLD_CHKSUM", 0);
 
@@ -334,6 +445,7 @@ top:
 
 	free(resp);
 
+	/* Set print quantity */
 	cw01_build_cmd(&cmd, "CNTRL", "QTY", 0);
 	snprintf(buf, sizeof(buf), "%07d\r", copies);
 	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
@@ -435,16 +547,357 @@ top:
 	return CUPS_BACKEND_OK;
 }
 
+static int cw01_get_info(struct cw01_ctx *ctx)
+{
+	struct cw01_cmd cmd;
+	uint8_t *resp;
+	int len = 0;
+
+	/* Get Serial Number */
+	cw01_build_cmd(&cmd, "INFO", "SERIAL_NUMBER", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Serial Number: '%s'\n", (char*)resp);
+
+	free(resp);
+
+	/* Get Firmware Version */
+	cw01_build_cmd(&cmd, "INFO", "FVER", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Firmware Version: '%s'\n", (char*)resp);
+
+	free(resp);
+
+	/* Get Sensor Info */
+	cw01_build_cmd(&cmd, "INFO", "SENSOR", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Sensor Info: '%s'\n", (char*)resp);
+	// XXX parse this out. Each token is 'XXX-###' delimited by '; '
+
+	free(resp);
+
+	/* Get Qty of prints made on this media? */
+	cw01_build_cmd(&cmd, "INFO", "PQTY", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Prints Performed(?): '%s'\n", (char*)resp + 4);
+
+	free(resp);
+
+	/* Get Horizonal resolution */
+	cw01_build_cmd(&cmd, "INFO", "RESOLUTION_H", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Horizontal Resolution: '%s' dpi\n", (char*)resp + 3);
+
+	free(resp);
+
+	/* Get Vertical resolution */
+	cw01_build_cmd(&cmd, "INFO", "RESOLUTION_V", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Vertical Resolution: '%s' dpi\n", (char*)resp + 3);
+
+	free(resp);
+
+	/* Get Media Color offset */
+	cw01_build_cmd(&cmd, "INFO", "MCOLOR", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Media Color Offset: '%02x%02x%02x%02x'\n", *(resp+2), *(resp+3),
+	     *(resp+4), *(resp+5));
+
+	free(resp);
+
+	/* Get Media Lot */
+	cw01_build_cmd(&cmd, "INFO", "MLOT", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Media Lot Code: '%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x'\n", 
+	     *(resp+2), *(resp+3), *(resp+4), *(resp+5), *(resp+6), *(resp+7),
+	     *(resp+8), *(resp+9), *(resp+10), *(resp+11), *(resp+12), *(resp+13));
+
+	free(resp);
+
+	/* Get Media ID Set (?) */
+	cw01_build_cmd(&cmd, "MNT_RD", "MEDIA_ID_SET", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Media ID(?): '%s'\n", (char*)resp+4);
+
+	free(resp);
+
+	/* Get Color Control Data Version */
+	cw01_build_cmd(&cmd, "TBL_RD", "Version", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Color Data Version: '%s'\n", (char*)resp);
+
+	free(resp);
+
+	/* Get Color Control Data Checksum */
+	cw01_build_cmd(&cmd, "MNT_RD", "CTRLD_CHKSUM", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Color Data Checksum: '%s'\n", (char*)resp);
+
+	free(resp);
+
+	return CUPS_BACKEND_OK;
+}
+
+static int cw01_get_status(struct cw01_ctx *ctx)
+{
+	struct cw01_cmd cmd;
+	uint8_t *resp;
+	int len = 0;
+
+	/* Generate command */
+	cw01_build_cmd(&cmd, "STATUS", "", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Printer Status: %s => %s\n", (char*)resp, cw01_statuses((char*)resp));
+
+	free(resp);
+
+	/* Generate command */
+	cw01_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Free Buffers: '%s'\n", (char*)resp + 3);
+
+	free(resp);
+
+	/* Get Media Info */
+	cw01_build_cmd(&cmd, "INFO", "MEDIA", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Media Type: '%s'\n", cw01_media_types((char*)resp));
+
+	free(resp);
+
+	/* Get Media remaining */
+	cw01_build_cmd(&cmd, "INFO", "MQTY", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Prints Remaining: '%s'\n", (char*)resp + 4);
+
+	free(resp);
+
+	return 0;
+}
+
+static int cw01_get_counters(struct cw01_ctx *ctx)
+{
+	struct cw01_cmd cmd;
+	uint8_t *resp;
+	int len = 0;
+
+	/* Generate command */
+	cw01_build_cmd(&cmd, "MNT_RD", "COUNTER_LIFE", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Lifetime Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	/* Generate command */
+	cw01_build_cmd(&cmd, "MNT_RD", "COUNTER_A", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("A Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	/* Generate command */
+	cw01_build_cmd(&cmd, "MNT_RD", "COUNTER_B", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("B Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	// XXX ???
+	/* Generate command */
+	cw01_build_cmd(&cmd, "MNT_RD", "COUNTER_M", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("M Counter: '%s'\n", (char*)resp+2);
+
+	free(resp);
+
+	// XXX ???
+	/* Generate command */
+	cw01_build_cmd(&cmd, "MNT_RD", "COUNTER_MATTE", 0);
+
+	resp = cw01_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	cw01_cleanup_string((char*)resp, len);
+
+	INFO("Matte Counter: '%s'\n", (char*)resp+4);
+
+	free(resp);
+
+	return CUPS_BACKEND_OK;
+}
+
+static void cw01_cmdline(void)
+{
+	DEBUG("\t\t[ -i ]           # Query printer info\n");
+	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -n ]           # Query counters\n");
+}
+
+static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
+{
+	struct cw01_ctx *ctx = vctx;
+	int i, j = 0;
+
+	/* Reset arg parsing */
+	optind = 1;
+	opterr = 0;
+	while ((i = getopt(argc, argv, "ins")) >= 0) {
+		switch(i) {
+		case 'i':
+			if (ctx) {
+				j = cw01_get_info(ctx);
+				break;
+			}
+			return 1;
+		case 'n':
+			if (ctx) {
+				j = cw01_get_counters(ctx);
+				break;
+			}
+			return 1;
+		case 's':
+			if (ctx) {
+				j = cw01_get_status(ctx);
+				break;
+			}
+			return 1;
+		default:
+			break;  /* Ignore completely */
+		}
+
+		if (j) return j;
+	}
+
+	return 0;
+}
+
 /* Exported */
 struct dyesub_backend cw01_backend = {
 	.name = "Citizen CW-01",
-	.version = "0.01",
+	.version = "0.02",
 	.uri_prefix = "cw01",
+	.cmdline_usage = cw01_cmdline,
+	.cmdline_arg = cw01_cmdline_arg,
 	.init = cw01_init,
 	.attach = cw01_attach,
 	.teardown = cw01_teardown,
 	.read_parse = cw01_read_parse,
 	.main_loop = cw01_main_loop,
+	.query_serno = cw01_query_serno,
 	.devices = {
 	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, ""},
 //	{ USB_VID_CITIZEN, USB_PID_OLMEC_OP900, P_CITIZEN_CW01, ""},
