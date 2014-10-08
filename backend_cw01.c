@@ -441,7 +441,7 @@ top:
 	plane_hdr[4] = 0xab;
 	plane_hdr[10] = 0x40;
 	plane_hdr[11] = 0x04;
-	memcpy(ptr, plane_hdr + 14, SPOOL_PLANE_HDR_LEN);
+	memcpy(plane_hdr + 14, ptr, SPOOL_PLANE_HDR_LEN);
 
 	/******** Plane 1 */
 	cw01_build_cmd(&cmd, "IMAGE", "YPLANE", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
