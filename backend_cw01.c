@@ -362,7 +362,7 @@ static int cw01_main_loop(void *vctx, int copies) {
 	struct cw01_cmd cmd;
 	uint8_t *resp = NULL;
 	int len = 0;
-
+	uint32_t tmp;
 	uint8_t *ptr;
 	char buf[9];
 	uint8_t plane_hdr[PRINTER_PLANE_HDR_LEN];
@@ -433,12 +433,11 @@ top:
 	ptr = ctx->databuf;
 
 	/* Generate plane header (same for all planes) */
+	tmp = cpu_to_le32(ctx->hdr.plane_len);
 	memset(plane_hdr, 0, PRINTER_PLANE_HDR_LEN);
 	plane_hdr[0] = 0x42;
 	plane_hdr[1] = 0x4d;
-	plane_hdr[2] = 0x40;
-	plane_hdr[3] = 0x44;
-	plane_hdr[4] = 0xab;
+	memcpy(plane_hdr + 2, &tmp, sizeof(tmp));
 	plane_hdr[10] = 0x40;
 	plane_hdr[11] = 0x04;
 	memcpy(plane_hdr + 14, ptr, SPOOL_PLANE_HDR_LEN);
@@ -819,7 +818,7 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend cw01_backend = {
 	.name = "Citizen CW-01",
-	.version = "0.05",
+	.version = "0.06",
 	.uri_prefix = "cw01",
 	.cmdline_usage = cw01_cmdline,
 	.cmdline_arg = cw01_cmdline_arg,
