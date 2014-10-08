@@ -192,7 +192,7 @@ static int cw01_do_cmd(struct cw01_ctx *ctx,
 			     (uint8_t*)cmd, sizeof(*cmd))))
 		return ret;
 
-	if (data && len) 
+	if (data && len)
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     data, len)))
 			return ret;
@@ -200,9 +200,9 @@ static int cw01_do_cmd(struct cw01_ctx *ctx,
 	return CUPS_BACKEND_OK;
 }
 
-static uint8_t * cw01_resp_cmd(struct cw01_ctx *ctx,
-				  struct cw01_cmd *cmd,
-				  int *len)
+static uint8_t *cw01_resp_cmd(struct cw01_ctx *ctx,
+			      struct cw01_cmd *cmd,
+			      int *len)
 {
 	char tmp[9];
 	uint8_t *respbuf;
@@ -445,15 +445,9 @@ top:
 
 	/******** Plane 1 */
 	cw01_build_cmd(&cmd, "IMAGE", "YPLANE", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
-	snprintf(buf, sizeof(buf), "%08d", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
-	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
+	ret = cw01_do_cmd(ctx, &cmd, plane_hdr, PRINTER_PLANE_HDR_LEN);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
-
-	/* Send plane header */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     plane_hdr, PRINTER_PLANE_HDR_LEN)))
-			return CUPS_BACKEND_FAILED;
 
 	/* Send plane data */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -464,15 +458,9 @@ top:
 
 	/******** Plane 2 */
 	cw01_build_cmd(&cmd, "IMAGE", "MPLANE", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
-	snprintf(buf, sizeof(buf), "%08d", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
-	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
+	ret = cw01_do_cmd(ctx, &cmd, plane_hdr, PRINTER_PLANE_HDR_LEN);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
-
-	/* Send plane header */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     plane_hdr, PRINTER_PLANE_HDR_LEN)))
-			return CUPS_BACKEND_FAILED;
 
 	/* Send plane data */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -483,15 +471,9 @@ top:
 
 	/******** Plane 3 */
 	cw01_build_cmd(&cmd, "IMAGE", "CPLANE", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
-	snprintf(buf, sizeof(buf), "%08d", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
-	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
+	ret = cw01_do_cmd(ctx, &cmd, plane_hdr, PRINTER_PLANE_HDR_LEN);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
-
-	/* Send plane header */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     plane_hdr, PRINTER_PLANE_HDR_LEN)))
-			return CUPS_BACKEND_FAILED;
 
 	/* Send plane data */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
