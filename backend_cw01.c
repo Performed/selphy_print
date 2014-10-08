@@ -406,6 +406,7 @@ top:
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
+	free(resp);
 	/* Get Vertical resolution */
 	cw01_build_cmd(&cmd, "INFO", "RESOLUTION_V", 0);
 
@@ -417,7 +418,9 @@ top:
 
 	// XXX check to see if it matches print DPI, and if not
 	// do a CWD load.  MAybe we should always do a CWD load?
+
 	free(resp);
+	resp = NULL;
 
 	/* Set print quantity */
 	cw01_build_cmd(&cmd, "CNTRL", "QTY", 0);
@@ -834,7 +837,7 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend cw01_backend = {
 	.name = "Citizen CW-01",
-	.version = "0.03",
+	.version = "0.04",
 	.uri_prefix = "cw01",
 	.cmdline_usage = cw01_cmdline,
 	.cmdline_arg = cw01_cmdline_arg,
