@@ -423,7 +423,7 @@ top:
 	resp = NULL;
 
 	/* Set print quantity */
-	cw01_build_cmd(&cmd, "CNTRL", "QTY", 0);
+	cw01_build_cmd(&cmd, "CNTRL", "QTY", 8);
 	snprintf(buf, sizeof(buf), "%07d\r", copies);
 	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
 	if (ret)
@@ -444,7 +444,7 @@ top:
 	memcpy(ptr, plane_hdr + 14, SPOOL_PLANE_HDR_LEN);
 
 	/******** Plane 1 */
-	cw01_build_cmd(&cmd, "IMAGE", "YPLANE", 0);
+	cw01_build_cmd(&cmd, "IMAGE", "YPLANE", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
 	snprintf(buf, sizeof(buf), "%08d", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
 	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
 	if (ret)
@@ -463,7 +463,7 @@ top:
 	ptr += ctx->hdr.plane_len;
 
 	/******** Plane 2 */
-	cw01_build_cmd(&cmd, "IMAGE", "MPLANE", 0);
+	cw01_build_cmd(&cmd, "IMAGE", "MPLANE", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
 	snprintf(buf, sizeof(buf), "%08d", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
 	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
 	if (ret)
@@ -482,7 +482,7 @@ top:
 	ptr += ctx->hdr.plane_len;
 
 	/******** Plane 3 */
-	cw01_build_cmd(&cmd, "IMAGE", "CPLANE", 0);
+	cw01_build_cmd(&cmd, "IMAGE", "CPLANE", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
 	snprintf(buf, sizeof(buf), "%08d", ctx->hdr.plane_len - SPOOL_PLANE_HDR_LEN + PRINTER_PLANE_HDR_LEN);
 	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
 	if (ret)
