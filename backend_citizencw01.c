@@ -861,7 +861,7 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 struct dyesub_backend cw01_backend = {
 	.name = "Citizen CW-01",
 	.version = "0.07",
-	.uri_prefix = "cw01",
+	.uri_prefix = "citizencw01",
 	.cmdline_usage = cw01_cmdline,
 	.cmdline_arg = cw01_cmdline_arg,
 	.init = cw01_init,
