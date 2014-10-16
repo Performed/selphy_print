@@ -385,5 +385,6 @@
      -i                 Query printer information (resolution, etc)
      -n                 Query printer counters
      -s                 Query printer status
+     -N [ A | B ]       Reset Counter A/B
 
  *************************************************************************** 

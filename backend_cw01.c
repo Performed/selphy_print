@@ -130,11 +130,12 @@ static char *cw01_media_types(char *str)
 	i = atoi(tmp);
 
 	switch (i) {
-	case 200: return "5x3.5 (L)";
-	case 210: return "5x7 (2L)";
-	case 300: return "6x4 (PC)";
-	case 310: return "6x8 (A5)";
-	case 400: return "6x9 (A5W)";
+	case 100: return "UNK 100";
+	case 110: return "UNK 110";
+	case 200: return "?? 5x3.5 (L)";
+	case 210: return "?? 5x7 (2L)";
+	case 300: return "?? 6x4 (PC)";
+	case 400: return "?? 6x9 (A5W)";
 	default:
 		break;
 	}
@@ -416,8 +417,12 @@ top:
 
 	cw01_cleanup_string((char*)resp, len);
 
-	// XXX check to see if it matches print DPI, and if not
-	// do a CWD load.  MAybe we should always do a CWD load?
+#if 0
+	if (ctx->hdr.res == DPI_600 && strcmp("RV0334", *char*)resp) {
+		ERROR("600DPI prints not yet supported, need 600DPI CWD load");
+		return CUPS_BACKEND_CANCEL;
+	}
+#endif
 
 	free(resp);
 	resp = NULL;
@@ -429,11 +434,18 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
+	/* Cutter control.  ??? */
+	// cw01_build_cmd(&cmd, "CNTRL", "CUTTER", 8);
+	//snprintf(buf, sizeof(buf), "%08d", ???);
+	//ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);
+	//if (ret)
+	//	return CUPS_BACKEND_FAILED;
+
 	/* Start sending image data */
 	ptr = ctx->databuf;
 
 	/* Generate plane header (same for all planes) */
-	tmp = cpu_to_le32(ctx->hdr.plane_len);
+	tmp = cpu_to_le32(ctx->hdr.plane_len) + 24;
 	memset(plane_hdr, 0, PRINTER_PLANE_HDR_LEN);
 	plane_hdr[0] = 0x42;
 	plane_hdr[1] = 0x4d;
@@ -770,11 +782,32 @@ static int cw01_get_counters(struct cw01_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
+static int cw01_clear_counter(struct cw01_ctx *ctx, char counter)
+{
+	struct cw01_cmd cmd;
+	char msg[4];
+	int ret;
+
+	/* Generate command */
+	cw01_build_cmd(&cmd, "MNT_WT", "COUNTER_CLEAR", 4);
+	msg[0] = 'C';
+	msg[1] = counter;
+	msg[2] = 0x0d; /* ie carriage return, ASCII '\r' */
+	msg[3] = 0x00;
+
+	if ((ret = cw01_do_cmd(ctx, &cmd, (uint8_t*)msg, 4)))
+		return ret;
+
+	return 0;
+}
+
+
 static void cw01_cmdline(void)
 {
 	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -n ]           # Query counters\n");
+	DEBUG("\t\t[ -N A|B|M ]     # Clear counter A/B/M\n");
 }
 
 static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
@@ -785,7 +818,7 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "ins")) >= 0) {
+	while ((i = getopt(argc, argv, "inN:s")) >= 0) {
 		switch(i) {
 		case 'i':
 			if (ctx) {
@@ -796,6 +829,15 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 		case 'n':
 			if (ctx) {
 				j = cw01_get_counters(ctx);
+				break;
+			}
+			return 1;
+		case 'N':
+			if (optarg[0] != 'A' &&
+			    optarg[0] != 'B')
+				return CUPS_BACKEND_FAILED;
+			if (ctx) {
+				j = cw01_clear_counter(ctx, optarg[0]);
 				break;
 			}
 			return 1;
@@ -818,7 +860,7 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend cw01_backend = {
 	.name = "Citizen CW-01",
-	.version = "0.06",
+	.version = "0.07",
 	.uri_prefix = "cw01",
 	.cmdline_usage = cw01_cmdline,
 	.cmdline_arg = cw01_cmdline_arg,
