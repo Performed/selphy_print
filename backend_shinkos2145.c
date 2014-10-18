@@ -1769,6 +1769,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 /* Exported */
 #define USB_VID_SHINKO       0x10CE
+#define USB_PID_SHINKO_S1245 0x0007
 #define USB_PID_SHINKO_S2145 0x000E
 
 struct dyesub_backend shinkos2145_backend = {
@@ -1785,6 +1786,7 @@ struct dyesub_backend shinkos2145_backend = {
 	.query_serno = shinkos2145_query_serno,
 	.devices = {
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
+//	{ USB_VID_SHINKO, USB_PID_SHINKO_S1245, P_SHINKO_S1245, ""},
 	{ 0, 0, 0, ""}
 	}
 };
