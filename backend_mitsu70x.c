@@ -40,6 +40,8 @@
 #define USB_VID_MITSU       0x06D3
 #define USB_PID_MITSU_D70X  0x3B30
 #define USB_PID_MITSU_K60   0x3B31
+//#define USB_VID_KODAK       XXXXXX
+//#define USB_PID_KODAK305    XXXXXX
 
 /* Private data stucture */
 struct mitsu70x_ctx {
@@ -540,6 +542,7 @@ struct dyesub_backend mitsu70x_backend = {
 	.devices = {
 	{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_D70X, ""},
+//	{ USB_VID_KODAK, USB_PID_KODAK305, P_MITSU_D70X, ""},
 	{ 0, 0, 0, ""}
 	}
 };

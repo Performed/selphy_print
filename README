@@ -38,6 +38,7 @@
   Work-in-progress printers (untested/partial support present)
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
+   Kodak 305
    Citizen CW-01/CW-02
    Olmec OP900/OP900II
    ICI Imagedata OP900
@@ -315,14 +316,18 @@
  *************************************************************************** 
   BACKEND=mitsu70x
 
-   NOTE:  We are looking for someone to help test this backend, as it has
-          received no testing whatsoever.
-
-   Supported but untested printers:
+   Supported and tested printers:
 
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
+
+   Unsupported printers (bugs):
+
     Mitsubishi CP-K60DW-S
+
+   Unsupported printers:
+
+    Kodak 305
 
    Valid commands:
 
@@ -365,7 +370,7 @@
      -s                 Query printer status
 
  *************************************************************************** 
-  BACKEND=cw01
+  BACKEND=citizencw01
 
    Work-in-progress printers:
 
