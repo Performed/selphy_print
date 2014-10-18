@@ -34,16 +34,17 @@
    Sony UP-DR200
    DNP DS40/DS80/DS-RX1
    Citizen CX/CX-W/CY
+   Citizen CW-01
 
   Work-in-progress printers (untested/partial support present)
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
    Kodak 305
-   Citizen CW-01/CW-02
+   Citizen CW-02
    Olmec OP900/OP900II
    ICI Imagedata OP900
    Mitsubishi CP-3800DW
-   Sony UP-DR10/DNP DS-SL10
+   Sony UP-DR10 aka DNP DS-SL10
 
  ***************************************************************************
 
@@ -348,8 +349,6 @@
    Work-in-progress printers: (USB PIDs unknown)
 
     Citizen CW-02/OP900II
-    Olmec OP900
-    ICI Imagedata OP900
     Mitsubishi CP-3800DW
 
    Development was sponsored by:
