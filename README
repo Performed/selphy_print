@@ -45,6 +45,7 @@
    ICI Imagedata OP900
    Mitsubishi CP-3800DW
    Sony UP-DR10 aka DNP DS-SL10
+   Shinko CHC-S1245 (aka Sinfonia E1)
 
  ***************************************************************************
 
@@ -250,6 +251,10 @@
    Verified supported printers:
 
      Shinko CHC-S2145 (aka "Sinfonia S2")
+
+   Work-in-process printers:
+
+     Shinko CHC-S1245 (aka "Sinfonia E1")
 
    Development was sponsored by:
 

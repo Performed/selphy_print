@@ -52,19 +52,19 @@ enum {
 /* Structure of printjob header.  All fields are LITTLE ENDIAN */
 struct s2145_printjob_hdr {
 	uint32_t len1;   /* Fixed at 0x10 */
-	uint32_t model;  /* Fixed at '2145' (decimal) */
+	uint32_t model;  /* Fixed at '2145' or '1245' (decimal) */
 	uint32_t unk2;
 	uint32_t unk3;
 
 	uint32_t len2;   /* Fixed at 0x64 */
 	uint32_t unk5;
-	uint32_t media;
+	uint32_t media;  /* Fixed at 0x10 for 1245 */
 	uint32_t unk6;
 
-	uint32_t method;
-	uint32_t mode;
+	uint32_t method; /* Media type for 1245 */
+	uint32_t mode;   /* Matte or Glossy for 1245 */
 	uint32_t unk7;
-	uint32_t unk8;
+	uint32_t mattedepth;   /* 1245 only */
 
 	uint32_t unk9;
 	uint32_t columns;
@@ -98,6 +98,8 @@ struct shinkos2145_ctx {
 	uint8_t fast_return;
 
 	struct s2145_printjob_hdr hdr;
+
+	uint32_t model;
 
 	uint8_t *databuf;
 	int datalen;
@@ -1507,12 +1509,19 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	}
 
 	if (le32_to_cpu(ctx->hdr.len1) != 0x10 ||
-	    le32_to_cpu(ctx->hdr.model) != 2145 ||
 	    le32_to_cpu(ctx->hdr.len2) != 0x64 ||
 	    le32_to_cpu(ctx->hdr.dpi) != 300) {
 		ERROR("Unrecognized header data format!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
+
+	if (le32_to_cpu(ctx->hdr.model) != 2145 ||
+	    le32_to_cpu(ctx->hdr.model) != 1245) {
+	} else {
+		ERROR("Unrecognized printer (%d)!\n", le32_to_cpu(ctx->hdr.model));
+		return CUPS_BACKEND_CANCEL;
+	}
+	ctx->model = le32_to_cpu(ctx->hdr.model);
 
 	ctx->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
 	ctx->databuf = malloc(ctx->datalen);
@@ -1773,8 +1782,8 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 #define USB_PID_SHINKO_S2145 0x000E
 
 struct dyesub_backend shinkos2145_backend = {
-	.name = "Shinko/Sinfonia CHC-S2145 (S2)",
-	.version = "0.33",
+	.name = "Shinko/Sinfonia CHC-S2145/S1245",
+	.version = "0.34",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
@@ -1786,7 +1795,7 @@ struct dyesub_backend shinkos2145_backend = {
 	.query_serno = shinkos2145_query_serno,
 	.devices = {
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
-//	{ USB_VID_SHINKO, USB_PID_SHINKO_S1245, P_SHINKO_S1245, ""},
+	{ USB_VID_SHINKO, USB_PID_SHINKO_S1245, P_SHINKO_S2145, ""},
 	{ 0, 0, 0, ""}
 	}
 };
@@ -1801,6 +1810,25 @@ struct dyesub_backend shinkos2145_backend = {
    64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == Media Type
    MM 00 00 00 PP 00 00 00  00 00 00 00 00 00 00 00  PP = Print Mode, MM = Print Method
    00 00 00 00 WW WW 00 00  HH HH 00 00 XX 00 00 00  XX == Copies
+   00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
+   00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI, ie 300.
+   00 00 00 00 ce ff ff ff  00 00 00 00 00 00 00 00
+   00 00 00 00 
+
+   [[Packed RGB payload of WW*HH*3 bytes]]
+
+   04 03 02 01  [[ footer ]]
+
+ * CHC-S1245 data format
+
+  Spool file consists of an 116-byte header, followed by RGB-packed data,
+  followed by a 4-byte footer.  Header appears to consist of a series of
+  4-byte Little Endian words.
+
+   10 00 00 00 MM MM 00 00  00 00 00 00 01 00 00 00  MM == Model (ie 1245d)
+   64 00 00 00 00 00 00 00  10 00 00 00 00 00 00 00  
+   MM 00 00 00 PP 00 00 00  00 00 00 00 ZZ ZZ ZZ ZZ PP = Glossy/Matte, MM = Media Type, ZZ == matte intensity
+   00 00 00 00 WW WW 00 00  HH HH 00 00 XX 00 00 00  X == Copies
    00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
    00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI, ie 300.
    00 00 00 00 ce ff ff ff  00 00 00 00 00 00 00 00
