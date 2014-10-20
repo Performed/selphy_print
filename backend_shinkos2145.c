@@ -1516,8 +1516,8 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	}
 
 	if (le32_to_cpu(ctx->hdr.model) != 2145 ||
-	    le32_to_cpu(ctx->hdr.model) != 1245) ||
-	    le32_to_cpu(ctx->hdr.model) != 6145) ||
+	    le32_to_cpu(ctx->hdr.model) != 1245 ||
+	    le32_to_cpu(ctx->hdr.model) != 6145 ||
 	    le32_to_cpu(ctx->hdr.model) != 6245) {
 	} else {
 		ERROR("Unrecognized printer (%d)!\n", le32_to_cpu(ctx->hdr.model));
