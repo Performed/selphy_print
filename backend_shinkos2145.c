@@ -1876,7 +1876,7 @@ struct dyesub_backend shinkos2145_backend = {
   followed by a 4-byte footer.  Header appears to consist of a series of
   4-byte Little Endian words.
 
-   10 00 00 00 MM MM 00 00  HH 00 00 00 01 00 00 00  MM == Model (ie 6245d), HH == 0x02 (5x7 media), 0x03 (4x6 media)
+   10 00 00 00 MM MM 00 00  HH 00 00 00 01 00 00 00  MM == Model (ie 6145d), HH == 0x02 (5" media), 0x03 (6" media)
    64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == 0x08 5x5, 0x03 5x7, 0x07 2x6, 0x00 4x6, 0x06 6x6/6x6+6x2/6x8
    UU 00 00 00 ZZ 00 00 00  XX 00 00 00 00 00 00 00  XX == 0x00 default, 0x02 glossy, 0x03 matte, ZZ == 0x00 default, 0x01 == std qual; UU == 0x00 normal, 0x04 2x6*2, 0x05 6x6+2x6
    00 00 00 00 WW WW 00 00  HH HH 00 00 NN 00 00 00  WW/HH Width, Height (LE), NN == Copies
