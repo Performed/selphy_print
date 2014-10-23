@@ -140,7 +140,7 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 		case 0xffffffec:
 		case 0xffffffed:
 		case 0xfffffff4:
-		case 0xfffffff8;
+		case 0xfffffff8:
 		case 0xfffffff9:
 		case 0xfffffffa:
 		case 0xfffffffb:
