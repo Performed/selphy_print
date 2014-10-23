@@ -44,7 +44,7 @@
    Olmec OP900/OP900II
    ICI Imagedata OP900
    Mitsubishi CP-3800DW
-   Sony UP-DR10 aka DNP DS-SL10
+   Sony UP-CR10L (aka DNP DS-SL10)
    Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Shinko CHC-S6145 (aka Sinfonia CS2)
@@ -318,9 +318,9 @@
     Sony UP-DR150
     Sony UP-DR200
 
-  Unverified/untested, but should work:  (let us know, please!)
+  Unverified/untested, but should work:  (Need USB PIDs)
    
-   Sony UP-DR10
+   Sony UP-CR10L
    DNP DS-SL10
 
  This backend does not support additional commands.
