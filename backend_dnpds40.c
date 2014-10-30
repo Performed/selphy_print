@@ -521,7 +521,7 @@ top:
 			sleep(1);
 			goto top;
 		}
-		ERROR("Printer Status: %s\n", dnpds40_statuses((char*)resp));
+		ERROR("Printer Status: %s => %s\n", (char*)resp, dnpds40_statuses((char*)resp));
 		free(resp);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
