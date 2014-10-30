@@ -520,10 +520,11 @@ top:
 			INFO("Printer cooling, retrying...\n");
 			sleep(1);
 			goto top;
+		} else {
+			ERROR("Printer Status: %s => %s\n", (char*)resp, dnpds40_statuses((char*)resp));
+			free(resp);
+			return CUPS_BACKEND_RETRY_CURRENT;
 		}
-		ERROR("Printer Status: %s => %s\n", (char*)resp, dnpds40_statuses((char*)resp));
-		free(resp);
-		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	
 	/* Send the stream over as individual data chunks */
@@ -994,7 +995,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.32",
+	.version = "0.33",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
