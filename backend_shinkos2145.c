@@ -1484,18 +1484,12 @@ static void shinkos2145_teardown(void *vctx) {
 	free(ctx);
 }
 
-static int shinkos2145_read_parse(void *vctx, int data_fd) {
+static int shinkos2145_early_parse(void *vctx, int data_fd) {
 	struct shinkos2145_ctx *ctx = vctx;
-	int ret;
-	uint8_t tmpbuf[4];
+	int printer_type, ret;
 
 	if (!ctx)
-		return CUPS_BACKEND_FAILED;
-
-	if (ctx->databuf) {
-		free(ctx->databuf);
-		ctx->databuf = NULL;
-	}
+		return -1;
 
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
@@ -1515,15 +1509,41 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if (le32_to_cpu(ctx->hdr.model) != 2145 ||
-	    le32_to_cpu(ctx->hdr.model) != 1245 ||
-	    le32_to_cpu(ctx->hdr.model) != 6145 ||
-	    le32_to_cpu(ctx->hdr.model) != 6245) {
-	} else {
-		ERROR("Unrecognized printer (%d)!\n", le32_to_cpu(ctx->hdr.model));
-		return CUPS_BACKEND_CANCEL;
-	}
 	ctx->model = le32_to_cpu(ctx->hdr.model);
+
+	switch(ctx->model) {
+	case 2145:
+		printer_type = P_SHINKO_S2145;
+		break;
+	case 1245:
+		printer_type = P_SHINKO_S1245;
+		break;
+	case 6145:
+	case 6245:
+	default:
+		ERROR("Unrecognized printer (%d)!\n", le32_to_cpu(ctx->hdr.model));
+
+		return -1;
+	}
+
+	INFO("File intended for an S%d printer\n", printer_type);
+
+	return printer_type;
+}
+
+static int shinkos2145_read_parse(void *vctx, int data_fd) {
+	struct shinkos2145_ctx *ctx = vctx;
+	int ret;
+	uint8_t tmpbuf[4];
+
+	if (!ctx)
+		return CUPS_BACKEND_FAILED;
+
+	if (ctx->databuf) {
+		free(ctx->databuf);
+		ctx->databuf = NULL;
+	}
+
 
 	ctx->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
 	ctx->databuf = malloc(ctx->datalen);
@@ -1676,7 +1696,8 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 			print->mode = le32_to_cpu(ctx->hdr.mode);
 			print->method = le32_to_cpu(ctx->hdr.method);
 		} else {
-			// s1245, s6145, s6245 use different header fields, don't know mapping!
+			// S1245: unknown dust removal & matte intensity fields
+			// s6146, s6245 also use different fields
 			ERROR("Don't know how to initiate print on non-2145 models!\n");
 			return CUPS_BACKEND_FAILED;
 		}
@@ -1794,18 +1815,19 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S1245",
-	.version = "0.35",
+	.version = "0.36",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
 	.init = shinkos2145_init,
 	.attach = shinkos2145_attach,
 	.teardown = shinkos2145_teardown,
+	.early_parse = shinkos2145_early_parse,
 	.read_parse = shinkos2145_read_parse,
 	.main_loop = shinkos2145_main_loop,
 	.query_serno = shinkos2145_query_serno,
 	.devices = {
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S1245, P_SHINKO_S2145, ""},
+	{ USB_VID_SHINKO, USB_PID_SHINKO_S1245, P_SHINKO_S1245, ""},
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
 //	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S2145, ""},
 //	{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S2145, ""},
@@ -1820,8 +1842,8 @@ struct dyesub_backend shinkos2145_backend = {
   4-byte Little Endian words.
 
    10 00 00 00 MM MM 00 00  00 00 00 00 01 00 00 00  MM == Model (ie 2145d)
-   64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == Media Type
-   MM 00 00 00 PP 00 00 00  00 00 00 00 00 00 00 00  PP = Print Mode, MM = Print Method
+   64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == Media/Print Size
+   MM 00 00 00 PP 00 00 00  00 00 00 00 00 00 00 00  MM = Print Method (aka cut control), PP = Print Mode
    00 00 00 00 WW WW 00 00  HH HH 00 00 XX 00 00 00  XX == Copies
    00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
    00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI, ie 300.
@@ -1839,8 +1861,8 @@ struct dyesub_backend shinkos2145_backend = {
   4-byte Little Endian words.
 
    10 00 00 00 MM MM 00 00  00 00 00 00 01 00 00 00  MM == Model (ie 1245d)
-   64 00 00 00 00 00 00 00  10 00 00 00 00 00 00 00  
-   MM 00 00 00 PP 00 00 00  00 00 00 00 ZZ ZZ ZZ ZZ  PP = Glossy/Matte, MM = Media Type, ZZ == matte intensity
+   64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == Media Size (0x10 fixed)
+   MM 00 00 00 PP 00 00 00  00 00 00 00 ZZ ZZ ZZ ZZ  MM = Print Method (aka cut control), PP = Default/Glossy/Matte (0x01/0x03/0x05), ZZ == matte intensity (0x7fffffff for glossy, else 0x00000000 +- 25 for matte)
    VV 00 00 00 WW WW 00 00  HH HH 00 00 XX 00 00 00  VV == dust; 0x00 default, 0x01 off, 0x02 on, XX == Copies
    00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
    00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI, ie 300.
