@@ -44,16 +44,12 @@
 
 #define USB_VID_DNP       0x1343
 #define USB_PID_DNP_DS40  0x0003 // Also Citizen CX
-#define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W
+#define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W, and Mitsubishi CP-3800DW
 #define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
 
 //#define USB_PID_OLMEC_OP900 XXXX
-
-
 //#define USB_PID_CITIZEN_CW-02 XXXXX
 //#define USB_PID_CITIZEN_OP900II XXXXX
-//#define USB_VID_MITSU       0x06D3
-//#define USB_PID_MITSU_CP3800DW  XXXXX
 
 /* Private data stucture */
 struct dnpds40_ctx {
@@ -1011,7 +1007,6 @@ struct dyesub_backend dnpds40_backend = {
 
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS40, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_CP38000W, P_DNP_DS80, ""},
 	{ 0, 0, 0, ""}
 	}
 };

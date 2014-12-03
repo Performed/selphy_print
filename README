@@ -356,11 +356,14 @@
     Citizen CX
     Citizen CX-W
     Citizen CY
+
+   Theoretically supported printers:  (Untested)
+
+    Mitsubishi CP-3800DW
  
    Work-in-progress printers: (USB PIDs unknown)
 
     Citizen CW-02/OP900II
-    Mitsubishi CP-3800DW
 
    Development was sponsored by:
 
