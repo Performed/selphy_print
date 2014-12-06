@@ -125,6 +125,14 @@ struct kodak6800_ctx {
 };
 #define READBACK_LEN 68
 
+char *kodak68x0_error_codes(uint8_t code1, uint8_t code2)
+{
+	if (code1 == 0x80 && code2 == 0xd0)
+		return "Control Error";
+
+	return "Unknown Type";
+}
+
 static void kodak68x0_dump_mediainfo(struct kodak68x0_media_readback *media)
 {
 	int i;
@@ -190,8 +198,10 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx, struct kodak68x0_m
 
 static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_status_readback *status)
 {
-	if (status->errtype) {
-		DEBUG("Error code       : %d/%d # %d\n", status->errtype, status->errtype2, status->errcode);
+	if (status->errtype || status->errtype2 || status->errcode) {
+		DEBUG("Error code       : %s (%d/%d) # %d\n",
+		      kodak68x0_error_codes(status->errtype, status->errtype2),
+		      status->errtype, status->errtype2, status->errcode);
 	}
 	DEBUG("Total prints     : %d\n", be32_to_cpu(status->ctr0));
 	DEBUG("Media prints     : %d\n", be32_to_cpu(status->ctr2));
@@ -772,7 +782,8 @@ top:
 			return CUPS_BACKEND_FAILED;
 
 		if (status.errtype || status.errtype2 || status.errcode) {
-			ERROR("Printer error reported: %d/%d # %d\n",
+			kodak68x0_error_codes(status.errtype, status.errtype2),
+			ERROR("Printer error reported: %s (%d/%d) # %d\n",
 			      status.errtype, status.errtype2, status.errcode);
 			return CUPS_BACKEND_FAILED;
 		}
