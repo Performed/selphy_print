@@ -73,7 +73,7 @@ struct kodak68x0_status_readback {
 	uint8_t  errtype2; /* 0x00 none, 0xd0 "control" */
 	uint8_t  donor;    /* Percentage, 0-100 */
 	uint8_t  unkC[2];  /* Always 00 03 */
-	uint16_t main_fw;  /* seen 652, 656, 670 (6850) */
+	uint16_t main_fw;  /* seen 652, 656, 670 (6850) and 232 (6800) */
 	uint8_t  unkD[2];  /* Always 00 01 */
 	uint16_t dsp_fw;   /* Seen 540, 541, 560 (6850) and 131 (6800) */
 	uint8_t  unk1;     /* Seen 0x00, 0x01, 0x03, 0x04 */
@@ -130,7 +130,7 @@ char *kodak68x0_error_codes(uint8_t code1, uint8_t code2)
 	if (code1 == 0x80 && code2 == 0xd0)
 		return "Control Error";
 
-	return "Unknown Type";
+	return "Unknown Type (please report!)";
 }
 
 static void kodak68x0_dump_mediainfo(struct kodak68x0_media_readback *media)
