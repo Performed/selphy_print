@@ -782,8 +782,8 @@ top:
 			return CUPS_BACKEND_FAILED;
 
 		if (status.errtype || status.errtype2 || status.errcode) {
-			kodak68x0_error_codes(status.errtype, status.errtype2),
 			ERROR("Printer error reported: %s (%d/%d) # %d\n",
+			kodak68x0_error_codes(status.errtype, status.errtype2),
 			      status.errtype, status.errtype2, status.errcode);
 			return CUPS_BACKEND_FAILED;
 		}
