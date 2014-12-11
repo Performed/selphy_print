@@ -105,6 +105,7 @@ enum {
 	P_SONY_UPDR150,
 	P_SONY_UPCR10,
 	P_MITSU_D70X,
+	P_MITSU_9550,
 	P_DNP_DS40,
 	P_DNP_DS80,
 	P_CITIZEN_CW01,
@@ -154,6 +155,7 @@ extern struct dyesub_backend kodak1400_backend;
 extern struct dyesub_backend shinkos2145_backend;
 extern struct dyesub_backend canonselphy_backend;
 extern struct dyesub_backend mitsu70x_backend;
+extern struct dyesub_backend mitsu9550_backend;
 extern struct dyesub_backend dnpds40_backend;
 extern struct dyesub_backend cw01_backend;
 
