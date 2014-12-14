@@ -64,8 +64,10 @@ struct mitsu9550_hdr1 {
 } __attribute__((packed));
 
 struct mitsu9550_hdr2 {
-	uint8_t  cmd[4]; /* 1b 57 22 2e */
-	uint8_t  unk[28];
+	uint8_t  cmd[4]; /* 1b 57 21 2e */
+	uint8_t  unk[24];
+	uint16_t copies; /* BE, 1-580 */
+	uint8_t  null[2];
 	uint8_t  cut; /* 00 == normal, 83 == 2x6*2 */
 	uint8_t  unkb[6];
 	uint8_t  mode; /* 00 == normal, 80 == fine */
@@ -242,21 +244,24 @@ static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, struct mitsu9550_stat
 
 static int mitsu9550_main_loop(void *vctx, int copies) {
 	struct mitsu9550_ctx *ctx = vctx;
-
+	struct mitsu9550_hdr2 *hdr2;
+	
 	int ret;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
-
+	
+	/* This printer handles copies internally */
+	hdr2 = (struct mitsu9550_hdr2 *) (ctx->databuf + sizeof(struct mitsu9550_hdr1));
+	hdr2->copies = cpu_to_be16(copies);
+	
 top:
 
 	// query state, start streaming over chunks...?
 	// blablabla
 
-#if 0
         /* This printer handles copies internally */
 	copies = 1;
-#endif
 
 	/* Clean up */
 	if (terminate)
@@ -386,8 +391,8 @@ struct dyesub_backend mitsu9550_backend = {
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
    00 00 
 
-   1b 57 21 2e 00 80 00 22  08 03 00 00 00 00 00 00
-   00 00 00 00 00 00 00 00  00 00 00 00 00 01 00 00 :: YY 00 = normal, 80 = Fine
+   1b 57 21 2e 00 80 00 22  08 03 00 00 00 00 00 00 :: ZZ = num copies (>= 0x01)
+   00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY 00 = normal, 80 = Fine
    XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 00 00 :: XX 00 = normal, 83 = Cut 2x6
    00 01 
 
@@ -420,11 +425,9 @@ struct dyesub_backend mitsu9550_backend = {
 
    1b 50 46 00
 
-
   ~~~~ QUESTIONS:
 
-   * Lamination?
+   * Lamination control?
    * Other multi-cut modes (6x9 media, 4x6*2, 4.4x6*2, 3x6*3, 2x6*4)
-   * Printer-generated copies (the "first 01" in hdr2?)
 
  */
