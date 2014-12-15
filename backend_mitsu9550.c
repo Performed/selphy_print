@@ -308,6 +308,10 @@ static int mitsu9550_get_media(struct mitsu9550_ctx *ctx, struct mitsu9550_media
 static int mitsu9550_main_loop(void *vctx, int copies) {
 	struct mitsu9550_ctx *ctx = vctx;
 	struct mitsu9550_hdr2 *hdr2;
+	struct mitsu9550_cmd cmd;
+	uint8_t rdbuf[READBACK_LEN];
+
+	uint8_t *ptr;
 	
 	int ret;
 
@@ -317,12 +321,136 @@ static int mitsu9550_main_loop(void *vctx, int copies) {
 	/* This printer handles copies internally */
 	hdr2 = (struct mitsu9550_hdr2 *) (ctx->databuf + sizeof(struct mitsu9550_hdr1));
 	hdr2->copies = cpu_to_be16(copies);
+
+	ptr = ctx->databuf;
 	
 top:
+	if (ctx->is_s_variant) {
+		int num;
+		
+		/* Send "unknown 1" command */
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x53;
+		cmd.cmd[2] = 0xc5;
+		cmd.cmd[3] = 0x9d;
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+		
+		/* Send "unknown 2" command */
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x4b;
+		cmd.cmd[2] = 0x7f;
+		cmd.cmd[3] = 0x00;
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+		
+		ret = read_data(ctx->dev, ctx->endp_up,
+				rdbuf, READBACK_LEN, &num);
+		if (ret < 0)
+			return CUPS_BACKEND_FAILED;
+		// seen so far: eb 4b 7f 00  02 00 5e
+	}
 
-	// query state, start streaming over chunks...?
-	// blablabla
+	// media query (make sure it's compatible)
+	// status query
+	// status2 query
 
+
+	/* Now it's time for the acutal print job! */
+	
+	if (ctx->is_s_variant) {
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x44;
+
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, 4)))
+			return CUPS_BACKEND_FAILED;
+	}
+	// sts check
+
+	/* Send printjob headers from spool data */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr1))))
+		return CUPS_BACKEND_FAILED;
+	ptr += sizeof(struct mitsu9550_hdr1);
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr2))))
+		return CUPS_BACKEND_FAILED;
+	ptr += sizeof(struct mitsu9550_hdr2);
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr3))))
+		return CUPS_BACKEND_FAILED;
+	ptr += sizeof(struct mitsu9550_hdr3);
+	if (!ctx->is_s_variant) {
+		// XXX need to investigate what hdr4 is about
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr4))))
+			return CUPS_BACKEND_FAILED;		
+	}
+	ptr += sizeof(struct mitsu9550_hdr4);
+	
+	if (ctx->is_s_variant) {
+		/* Send "start data" command */
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x5a;
+		cmd.cmd[2] = 0x43;
+		cmd.cmd[3] = 0x00;
+		
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+	}
+	/* Send plane data */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
+		return CUPS_BACKEND_FAILED;
+	ptr += sizeof(struct mitsu9550_plane);
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, ctx->rows * ctx->cols)))
+		return CUPS_BACKEND_FAILED;
+	ptr += ctx->rows * ctx->cols;
+	
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
+		return CUPS_BACKEND_FAILED;
+	ptr += sizeof(struct mitsu9550_plane);
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, ctx->rows * ctx->cols)))
+		return CUPS_BACKEND_FAILED;
+	ptr += ctx->rows * ctx->cols;
+	
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
+		return CUPS_BACKEND_FAILED;
+	ptr += sizeof(struct mitsu9550_plane);
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, ctx->rows * ctx->cols)))
+		return CUPS_BACKEND_FAILED;
+	ptr += ctx->rows * ctx->cols;
+	
+	// sts check.
+	
+	if (ctx->is_s_variant) {
+		/* Send "end data" command */
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x50;
+		cmd.cmd[2] = 0x47;
+		cmd.cmd[3] = 0x00;			
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+	} else {
+		/* Send "end data" command from spool file */
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     ptr, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+		ptr += sizeof(cmd);
+	}
+	
+	// status loop, run until sts->SS is "ready" vs "busy"
+	
         /* This printer handles copies internally */
 	copies = 1;
 
