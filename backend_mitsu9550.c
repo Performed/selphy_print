@@ -100,15 +100,37 @@ struct mitsu9550_cmd {
 
 /* Printer data structures */
 struct mitsu9550_media {
-
+	uint8_t  hdr[2];  /* 24 2e */
+	uint8_t  unk[12];
+	uint8_t  type;
+	uint8_t  unka[13];
+	uint16_t max;  /* BE, prints per media */
+	uint8_t  unkb[2];
+	uint8_t  remain; /* BE, prints remaining */
+	uint8_t  unkc[14];
 } __attribute__((packed));
 
 struct mitsu9550_status {
-
+	uint8_t  hdr[2]; /* 30 2e */
+	uint8_t  null[4];
+	uint8_t  sts1;
+	uint8_t  nullb[2];
+	uint8_t  sts2;
+	uint8_t  nullc[6];
+	uint8_t  sts3;
+	uint8_t  sts4;
+	uint8_t  sts5;
+	uint8_t  nulld[25];
+	uint8_t  sts6;
+	uint8_t  sts7;
+	uint8_t  nulle[2];
 } __attribute__((packed));
 
 struct mitsu9550_status2 {
-
+	uint8_t  hdr[2]; /* 21 2e */
+	uint8_t  unk[40];
+	uint8_t  remain; /* BE, prints remaining */
+	uint8_t  unkb[4];
 } __attribute__((packed));
 
 #define CMDBUF_LEN   64
@@ -242,6 +264,35 @@ static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, struct mitsu9550_stat
 	return 0;
 }
 
+static int mitsu9550_get_media(struct mitsu9550_ctx *ctx, struct mitsu9550_media *resp)
+{
+	uint8_t cmdbuf[CMDBUF_LEN];
+	int num, ret;
+
+	/* Send Printer Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x24;
+	cmdbuf[3] = 0x30;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+	memset(resp, 0, sizeof(*resp));
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) resp, sizeof(*resp), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num != sizeof(*resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*resp));
+		return 4;
+	}
+
+	return 0;
+}
+
+
 static int mitsu9550_main_loop(void *vctx, int copies) {
 	struct mitsu9550_ctx *ctx = vctx;
 	struct mitsu9550_hdr2 *hdr2;
@@ -276,53 +327,44 @@ top:
 	return CUPS_BACKEND_OK;
 }
 
-static void mitsu9550_dump_status(struct mitsu9550_status *resp)
+static char *mitsu9550_media_types(uint8_t type)
 {
-	if (dyesub_debug) {
-#if 0
-		uint8_t *ptr;
-		unsigned int i;
-
-		DEBUG("Status Dump:\n");
-		for (i = 0 ; i < sizeof(resp->unk) ; i++) {
-			DEBUG2("%02x ", resp->unk[i]);
-		}
-		DEBUG2("\n");
-		DEBUG("Lower Deck:\n");
-		ptr = (uint8_t*) &resp->lower;
-		for (i = 0 ; i < sizeof(resp->lower) ; i++) {
-			DEBUG2("%02x ", *ptr++);
-		}
-		DEBUG2("\n");
-		ptr = (uint8_t*) &resp->upper;
-		DEBUG("Upper Deck:\n");
-		for (i = 0 ; i < sizeof(resp->upper) ; i++) {
-			DEBUG2("%02x ", *ptr++);
-		}
-		DEBUG2("\n");
-#endif
+	switch (type) {
+	case 0x01:
+		return "3.5x5";
+	case 0x02:
+		return "4x6";
+	case 0x03:
+		return "PC";
+	case 0x04:
+		return "5x7";
+	case 0x05:
+		return "6x9";
+	case 0x06:
+		return "V";
+	default:
+		return "Unknown";
 	}
-#if 0
-	if (resp->upper.present & 0x80) {  /* Not present */
-		INFO("Prints remaining:  %d\n",
-		     be16_to_cpu(resp->lower.remain));
-	} else {
-		INFO("Prints remaining:  Lower: %d Upper: %d\n",
-		     be16_to_cpu(resp->lower.remain),
-		     be16_to_cpu(resp->upper.remain));
-	}
-#endif
+	return NULL;
 }
 
-static int mitsu9550_query_status(struct mitsu9550_ctx *ctx)
+static void mitsu9550_dump_media(struct mitsu9550_media *resp)
 {
-	struct mitsu9550_status resp;
+	INFO("Media Type       : %02x (%s)\n",
+	     resp->type, mitsu9550_media_types(resp->type));
+	INFO("Prints remaining : %03d/%03d\n",
+	     be16_to_cpu(resp->remain), be16_to_cpu(resp->max));
+}
+
+static int mitsu9550_query_media(struct mitsu9550_ctx *ctx)
+{
+	struct mitsu9550_media resp;
 	int ret;
 
-	ret = mitsu9550_get_status(ctx, &resp);
+	ret = mitsu9550_get_media(ctx, &resp);
 
 	if (!ret)
-		mitsu9550_dump_status(&resp);
+		mitsu9550_dump_media(&resp);
 
 	return ret;
 }
@@ -377,7 +419,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 
 static void mitsu9550_cmdline(void)
 {
-	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -m ]           # Query media\n");
 }
 
 static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
@@ -388,11 +430,11 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "s")) >= 0) {
+	while ((i = getopt(argc, argv, "m")) >= 0) {
 		switch(i) {
  		case 's':
 			if (ctx) {
-				j = mitsu9550_query_status(ctx);
+				j = mitsu9550_query_media(ctx);
 				break;
 			}
 			return 1;
@@ -455,7 +497,7 @@ struct dyesub_backend mitsu9550_backend = {
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
    00 00  
 
-  ~~~~ Data follows:   Appears to be RGB (or BGR?)
+  ~~~~ Data follows:   Data is 8-bit BGR.
 
    1b 5a 54 00 00 00 00 00  07 14 04 d8  :: 0714 == row len, 04d8 == rows
                      ^^ ^^               :: 0000 == remaining rows
@@ -477,6 +519,157 @@ struct dyesub_backend mitsu9550_backend = {
   ~~~~ QUESTIONS:
 
    * Lamination control?
-   * Other multi-cut modes (6x9 media, 4x6*2, 4.4x6*2, 3x6*3, 2x6*4)
+   * Other multi-cut modes (on 6x9 media: 4x6*2, 4.4x6*2, 3x6*3, 2x6*4)
+
+ ***********************************************************************
+
+ * Mitsubishi ** CP-9550DW-S ** Communications Protocol:
+
+  [[ Unknown ]]
+
+ -> 1b 53 c5 9d
+
+  [[ Unknown ]]
+
+ -> 1b 4b 7f 00
+ <- eb 4b 8f 00 02 00 5e  [[ '02' seems to be a length ]] 
+
+  [[ Unknown ]]
+
+ -> 1b 53 00 00
+
+  Query Model & Serial number
+
+ -> 1b 72 6e 00
+ <- e4 82 6e 00 LL 39 00 35  00 35 00 30 00 5a 00 20
+    00 41 00 32 00 30 00 30  00 36 00 37 00
+
+     'LL' is length.  Data is returned in 16-bit unicode, LE.
+     Contents are model ('9550Z'), then space, then serialnum ('A20067')
+
+  Media Query
+
+ -> 1b 56 24 00
+ <- 24 2e 00 00 00 00 00 00  00 00 00 00 00 00 TT 00 :: TT = Type
+    00 00 00 00 00 00 00 00  00 00 00 00 MM MM 00 00 :: MM MM = Max prints
+    NN NN 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: NN NN = Remaining
+
+  Status Query
+ 
+ -> 1b 56 30 00
+ -> 30 2e 00 00 00 00 MM 00  00 NN 00 00 00 00 00 00 :: MM, NN
+    QQ RR SS 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ, RR, SS
+    00 00 00 00 00 00 00 00  00 00 00 00 TT UU 00 00 :: TT, UU 
+
+  Status Query B (not sure what to call this)
+
+ -> 1b 56 21 00
+ <- 21 2e 00 80 00 22 a8 0b  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00 00 QQ 00 00 00 00 :: QQ == Prints in job?
+    00 00 00 00 00 00 00 00  00 00 NN NN 0A 00 00 01 :: NN NN = Remaining media
+
+  [[ Unknown ]]
+
+ -> 1b 44
+
+  [[ Header 1 -- See above ]]
+
+ -> 1b 57 20 2e ....
+
+  [[ Header 2 -- See above ]]
+
+ -> 1b 57 21 2e ....
+
+  [[ Header 3 -- See above ]]
+
+ -> 1b 57 22 2e ....
+
+  [[ Unknown -- Start Data ? ]]
+
+ -> 1b 5a 43 00
+
+  [[ Plane header #1 (Blue) ]]
+
+ -> 1b 5a 54 00 00 00 00 00  XX XX YY YY :: XX XX == Columns, YY YY == Rows
+
+    Followed by image plane #1 (Blue), XXXX * YYYY bytes
+
+  [[ Plane header #2 (Green) ]]
+
+ -> 1b 5a 54 00 00 00 00 00  XX XX YY YY :: XX XX == Columns, YY YY == Rows
+
+    Followed by image plane #2 (Green), XXXX * YYYY bytes
+
+  [[ Plane header #3 (Red) ]]
+
+ -> 1b 5a 54 00 00 00 00 00  XX XX YY YY :: XX XX == Columns, YY YY == Rows
+
+    Followed by image plane #3 (Red), XXXX * YYYY bytes
+
+  [[ Unknown -- End Data aka START print? ]]
+
+ -> 1b 50 47 00
+
+  [[ At this point, loop status/status b/media queries until printer idle ]]
+
+    MM, NN, QQ RR SS, TT UU
+
+ <- 00  00  3e 00 00  8a 44  :: Idle.
+    00  00  7e 00 00  8a 44  :: Plane data submitted, pre "end data" cmd
+    00  00  7e 40 01  8a 44  :: "end data" sent
+    30  01  7e 40 01  8a 44
+    38  01  7e 40 01  8a 44
+    59  01  7e 40 01  8a 44
+    59  01  7e 40 00  8a 44
+    4d  01  7e 40 00  8a 44
+     [...]
+    43  01  7e 40 00  82 44
+     [...]
+    50  01  7e 40 00  80 44
+     [...]
+    31  01  7e 40 00  7d 44
+     [...]
+    00  00  3e 00 00  80 44
+
+  Also seen: 
+
+    00  00  3e 00 00  96 4b  :: Idle
+    00  00  be 00 00  96 4b  :: Data submitted, pre "start"
+    00  00  be 80 01  96 4b  :: print start sent
+    30  00  be 80 01  96 4c
+     [...]
+    30  03  be 80 01  89 4b
+    38  03  be 80 01  8a 4b
+    59  03  be 80 01  8b 4b
+     [...]
+    4d  03  be 80 01  89 4b
+     [...]
+    43  03  be 80 01  89 4b
+     [...]
+    50  03  be 80 01  82 4b
+     [...]
+    31  03  be 80 01  80 4b
+     [...]
+
+ Working theory of interpreting the status flags:
+
+  MM :: 00 is idle, else mechanical printer state.
+  NN :: Remaining prints, or 0x00 when idle.
+  QQ :: ?? 0x3e + 0x40 or 0x80 (see below)
+  RR :: ?? 0x00 is idle, 0x40 or 0x80 is "printing"?
+  SS :: ?? 0x00 means "ready for another print" but 0x01 is "busy"
+  TT :: ?? seen values between 0x7c through 0x96)
+  UU :: ?? seen values between 0x44 and 0x4c
+ 
+  *** 
+
+   Other printer commands seen:
+
+  [[ Set error policy ?? aka "header 4" ]]
+
+ -> 1b 57 26 2e 00 QQ 00 00  00 00 00 00 RR SS 00 00 :: QQ/RR 00 00 00
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::       20 01 00
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::       70 01 01
+    00 00
 
  */
