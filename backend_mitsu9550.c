@@ -94,8 +94,8 @@ struct mitsu9550_plane {
 	uint16_t rows;      /* BE */
 } __attribute__((packed));
 
-struct mitsu9550_footer {
-	uint8_t cmd[4]; /* 1b 50 46 00 */
+struct mitsu9550_cmd {
+	uint8_t cmd[4];
 } __attribute__((packed));
 
 /* Printer data structures */
@@ -188,7 +188,7 @@ static int mitsu9550_read_parse(void *vctx, int data_fd) {
 
 	remain = ctx->rows * ctx->cols + sizeof(struct mitsu9550_plane);
 	remain *= 3;
-	remain += sizeof(struct mitsu9550_hdr2) + sizeof(struct mitsu9550_hdr3)+ sizeof(struct mitsu9550_hdr4) + sizeof(struct mitsu9550_footer);
+	remain += sizeof(struct mitsu9550_hdr2) + sizeof(struct mitsu9550_hdr3)+ sizeof(struct mitsu9550_hdr4) + sizeof(struct mitsu9550_cmd);
 
 	/* Allocate buffer */
 	ctx->databuf = malloc(remain + sizeof(struct mitsu9550_hdr1));
@@ -327,6 +327,54 @@ static int mitsu9550_query_status(struct mitsu9550_ctx *ctx)
 	return ret;
 }
 
+static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+{
+	struct mitsu9550_cmd cmd;
+	uint8_t rdbuf[READBACK_LEN];
+	int ret, num, i;
+
+	cmd.cmd[0] = 0x1b;
+	cmd.cmd[1] = 0x72;
+	cmd.cmd[2] = 0x6e;
+	cmd.cmd[3] = 0x00;
+
+	if ((ret = send_data(dev, endp_down,
+                             (uint8_t*) &cmd, sizeof(cmd))))
+                return (ret < 0) ? ret : -99;
+
+	ret = read_data(dev, endp_up,
+			rdbuf, READBACK_LEN, &num);
+	
+	if (ret < 0)
+		return ret;
+
+	if ((unsigned int)num < sizeof(cmd)) /* Short read */
+		return -1;
+	
+	if (rdbuf[0] != 0xe4 ||
+	    rdbuf[1] != 0x72 ||
+	    rdbuf[2] != 0x6e ||
+	    rdbuf[3] != 0x00) /* Bad response */
+		return -2;
+
+	/* If response is truncated, handle it */
+	if ((unsigned int) num < sizeof(cmd) + rdbuf[4] + 1)
+		rdbuf[4] = num - sizeof(cmd) - 1;
+
+	/* model and serial number are encoded as 16-bit unicode, 
+	   little endian */
+	for (i = 5 ; i < rdbuf[4] ; i+= 2) {
+		if (rdbuf[i] != 0x20)
+			continue;
+		if (--buf_len)
+			break;
+		*buf++ = rdbuf[i];
+	}
+	*buf = 0; /* Null-terminate the returned string */
+	
+	return ret;
+}
+
 static void mitsu9550_cmdline(void)
 {
 	DEBUG("\t\t[ -s ]           # Query status\n");
@@ -370,6 +418,7 @@ struct dyesub_backend mitsu9550_backend = {
 	.teardown = mitsu9550_teardown,
 	.read_parse = mitsu9550_read_parse,
 	.main_loop = mitsu9550_main_loop,
+	.query_serno = mitsu9550_query_serno,
 	.devices = {
 	{ USB_VID_MITSU, USB_PID_MITSU_9550DZ, P_MITSU_9550, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, ""},
