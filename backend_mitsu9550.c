@@ -50,6 +50,8 @@ struct mitsu9550_ctx {
 	uint8_t *databuf;
 	int datalen;
 
+	int is_s_variant;
+	
 	uint16_t rows;
 	uint16_t cols;
 };
@@ -150,12 +152,22 @@ static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu9550_ctx *ctx = vctx;
+	struct libusb_device *device;
+	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+
+
+	device = libusb_get_device(dev);
+	libusb_get_device_descriptor(device, &desc);
+
+	if (desc.idProduct == USB_PID_MITSU_9550DS)
+		ctx->is_s_variant = 1;
+
 }
 
 
