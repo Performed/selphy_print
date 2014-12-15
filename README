@@ -39,6 +39,7 @@
   Work-in-progress printers (untested/partial support present)
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
+   Mitsubishi CP-D9550D/DW/DW-S/DZ/DZS
    Kodak 305
    Citizen CW-02
    Olmec OP900/OP900II
@@ -344,6 +345,18 @@
    Valid commands:
 
      -s                 Query printer status (Only partially decoded)
+
+ *************************************************************************** 
+  BACKEND=mitsu9550
+
+   Work-in-progress printers:
+
+    Mitsubishi CP-9550D/DW
+    Mitsubishi CP-9550DZ/DZS/DW-S
+
+   Valid commands:
+
+     -m                 Query printer media status
 
  *************************************************************************** 
   BACKEND=dnpds40
