@@ -669,7 +669,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 	for (i = 0 ; i < rdbuf[4] ; i+= 2) {
 		if (rdbuf[i + 5] != 0x20)
 			continue;
-		if (--buf_len)
+		if (--buf_len == 0)
 			break;
 		*buf++ = rdbuf[i + 5];
 	}
