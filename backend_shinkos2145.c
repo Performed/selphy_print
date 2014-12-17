@@ -1803,7 +1803,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 	strncpy(buf, (char*)resp->data, buf_len);
 	buf[buf_len-1] = 0; /* ensure it's null terminated */
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 /* Exported */

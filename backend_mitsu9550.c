@@ -643,22 +643,22 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 
 	if ((ret = send_data(dev, endp_down,
                              (uint8_t*) &cmd, sizeof(cmd))))
-                return (ret < 0) ? ret : -99;
+                return (ret < 0) ? ret : CUPS_BACKEND_FAILED;
 
 	ret = read_data(dev, endp_up,
 			rdbuf, READBACK_LEN, &num);
 	
 	if (ret < 0)
-		return ret;
+		return CUPS_BACKEND_FAILED;
 
 	if ((unsigned int)num < sizeof(cmd)) /* Short read */
-		return -1;
+		return CUPS_BACKEND_FAILED;
 	
 	if (rdbuf[0] != 0xe4 ||
 	    rdbuf[1] != 0x72 ||
 	    rdbuf[2] != 0x6e ||
 	    rdbuf[3] != 0x00) /* Bad response */
-		return -2;
+		return CUPS_BACKEND_FAILED;
 
 	/* If response is truncated, handle it */
 	if ((unsigned int) num < sizeof(cmd) + rdbuf[4] + 1)
