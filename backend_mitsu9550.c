@@ -273,7 +273,7 @@ static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int st
 			     (uint8_t*) &cmd, sizeof(cmd))))
 		return ret;
 	ret = read_data(ctx->dev, ctx->endp_up,
-			resp, sizeof(*resp), &num);
+			resp, READBACK_LEN, &num);
 
 	if (ret < 0)
 		return ret;
@@ -719,7 +719,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.1WIP",
+	.version = "0.2WIP",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
