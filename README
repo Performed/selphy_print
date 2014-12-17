@@ -357,6 +357,13 @@
    Valid commands:
 
      -m                 Query printer media status
+     -f                 Enable Fast return from prints          [1]
+
+    [1]  This terminates the backend as soon as the printer has acknowledged
+         the print job, without waiting for the print job to complete.
+         This can also be enabled by setting the 'FAST_RETURN' environment
+         variable.  This is the default behavior when using this backend
+	 with CUPS.
 
  *************************************************************************** 
   BACKEND=dnpds40

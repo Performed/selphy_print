@@ -51,6 +51,8 @@ struct mitsu9550_ctx {
 	int datalen;
 
 	int is_s_variant;
+
+	int fast_return;
 	
 	uint16_t rows;
 	uint16_t cols;
@@ -145,6 +147,10 @@ static void *mitsu9550_init(void)
 		return NULL;
 	memset(ctx, 0, sizeof(struct mitsu9550_ctx));
 
+        /* Use Fast return by default in CUPS mode */
+        if (getenv("DEVICE_URI") || getenv("FAST_RETURN"))
+                ctx->fast_return = 1;
+	
 	return ctx;
 }
 
@@ -363,7 +369,7 @@ top:
 		}
 	}
 
-	/* Now it's time for the acutal print job! */
+	/* Now it's time for the actual print job! */
 	
 	if (ctx->is_s_variant) {
 		cmd.cmd[0] = 0x1b;
@@ -553,12 +559,16 @@ top:
 		if (!sts->sts1) /* If printer transitions to idle */
 			break;
 
-		if (!sts->sts2) /* If no remaining prints */
+		if (ctx->fast_return && !sts->sts2) { /* No remaining prints */
+                        INFO("Fast return mode enabled.\n");
 			break;
-		
-		if (!sts->sts5) /* stop if we're ready for another job */
+                }
+
+		if (ctx->fast_return && !sts->sts5) { /* Ready for another job */
+			INFO("Fast return mode enabled.\n");
 			break;
-		
+		}
+
 		sleep(1);
 	}
 	
@@ -671,6 +681,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 static void mitsu9550_cmdline(void)
 {
 	DEBUG("\t\t[ -m ]           # Query media\n");
+	DEBUG("\t\t[ -f ]           # Enable fast return mode\n");
 }
 
 static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
@@ -681,11 +692,17 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "m")) >= 0) {
+	while ((i = getopt(argc, argv, "mf")) >= 0) {
 		switch(i) {
- 		case 's':
+ 		case 'm':
 			if (ctx) {
 				j = mitsu9550_query_media(ctx);
+				break;
+			}
+			return 1;
+		case 'f':
+			if (ctx) {
+				ctx->fast_return = 1;
 				break;
 			}
 			return 1;
@@ -918,9 +935,9 @@ struct dyesub_backend mitsu9550_backend = {
 
   [[ Set error policy ?? aka "header 4" ]]
 
- -> 1b 57 26 2e 00 QQ 00 00  00 00 00 00 RR SS 00 00 :: QQ/RR 00 00 00
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::       20 01 00
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::       70 01 01
+ -> 1b 57 26 2e 00 QQ 00 00  00 00 00 00 RR SS 00 00 :: QQ/RR 00 00 00 [9550S]
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::       20 01 00 [9550S w/ ignore failures on]
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::       70 01 01 [9550]
     00 00
 
  */
