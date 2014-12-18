@@ -110,7 +110,7 @@ struct mitsu9550_media {
 	uint8_t  unka[13];
 	uint16_t max;  /* BE, prints per media */
 	uint8_t  unkb[2];
-	uint8_t  remain; /* BE, prints remaining */
+	uint16_t remain; /* BE, prints remaining */
 	uint8_t  unkc[14];
 } __attribute__((packed));
 
@@ -719,7 +719,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.3WIP",
+	.version = "0.4WIP",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
