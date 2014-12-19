@@ -634,6 +634,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 {
 	struct mitsu9550_cmd cmd;
 	uint8_t rdbuf[READBACK_LEN];
+	uint8_t *ptr;
 	int ret, num, i;
 
 	cmd.cmd[0] = 0x1b;
@@ -665,13 +666,18 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 		rdbuf[4] = num - sizeof(cmd) - 1;
 
 	/* model and serial number are encoded as 16-bit unicode, 
-	   little endian */
-	for (i = 0 ; i < rdbuf[4] ; i+= 2) {
-		if (rdbuf[i + 5] != 0x20)
-			continue;
+	   little endian, separated by spaces. */
+	i = rdbuf[4];
+	ptr = rdbuf + 5;
+	while (i > 0) {
+		if (*ptr == 0x20)
+			goto next;
 		if (--buf_len == 0)
 			break;
-		*buf++ = rdbuf[i + 5];
+		*buf++ = *rdbuf;
+	next:
+		ptr += 2;
+		i -= 2;
 	}
 	*buf = 0; /* Null-terminate the returned string */
 	
@@ -719,7 +725,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.4WIP",
+	.version = "0.5WIP",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
