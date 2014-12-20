@@ -611,9 +611,9 @@ static char *mitsu9550_media_types(uint8_t type)
 
 static void mitsu9550_dump_media(struct mitsu9550_media *resp)
 {
-	INFO("Media Type       : %02x (%s)\n",
+	INFO("Media type       : %02x (%s)\n",
 	     resp->type, mitsu9550_media_types(resp->type));
-	INFO("Prints remaining : %03d/%03d\n",
+	INFO("Media remaining  : %03d/%03d\n",
 	     be16_to_cpu(resp->remain), be16_to_cpu(resp->max));
 }
 
