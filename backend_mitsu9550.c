@@ -118,8 +118,8 @@ struct mitsu9550_status {
 	uint8_t  hdr[2]; /* 30 2e */
 	uint8_t  null[4];
 	uint8_t  sts1; // MM
-	uint8_t  nullb[2];
-	uint8_t  sts2; // NN
+	uint8_t  nullb[1];
+	uint16_t copies; // NN
 	uint8_t  nullc[6];
 	uint8_t  sts3; // QQ
 	uint8_t  sts4; // RR
@@ -554,12 +554,12 @@ top:
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
 
-		INFO("%03d prints remaining\n", sts->sts2);
+		INFO("%03d copies remaining\n", be16_to_cpu(sts->copies));
 
 		if (!sts->sts1) /* If printer transitions to idle */
 			break;
 
-		if (ctx->fast_return && !sts->sts2) { /* No remaining prints */
+		if (ctx->fast_return && !be16_to_cpu(sts->copies)) { /* No remaining prints */
                         INFO("Fast return mode enabled.\n");
 			break;
                 }
@@ -617,6 +617,17 @@ static void mitsu9550_dump_media(struct mitsu9550_media *resp)
 	     be16_to_cpu(resp->remain), be16_to_cpu(resp->max));
 }
 
+static void mitsu9550_dump_status(struct mitsu9550_status *resp)
+{
+	INFO("Printer status    : %02x (%s)\n",
+	     resp->sts1, resp->sts1 ? "Printing": "Idle");
+	INFO("Pages remaining   : %03d\n",
+	     be16_to_cpu(resp->copies));
+	INFO("Other status      : %02x %02x %02x  %02x %02x\n",
+	     resp->sts3, resp->sts4, resp->sts5, resp->sts6, resp->sts7);
+	     
+}
+
 static int mitsu9550_query_media(struct mitsu9550_ctx *ctx)
 {
 	struct mitsu9550_media resp;
@@ -626,6 +637,19 @@ static int mitsu9550_query_media(struct mitsu9550_ctx *ctx)
 
 	if (!ret)
 		mitsu9550_dump_media(&resp);
+
+	return ret;
+}
+
+static int mitsu9550_query_status(struct mitsu9550_ctx *ctx)
+{
+	struct mitsu9550_status resp;
+	int ret;
+
+	ret = mitsu9550_get_status(ctx, (uint8_t*) &resp, 1, 0, 0);
+
+	if (!ret)
+		mitsu9550_dump_status(&resp);
 
 	return ret;
 }
@@ -687,6 +711,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 static void mitsu9550_cmdline(void)
 {
 	DEBUG("\t\t[ -m ]           # Query media\n");
+	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -f ]           # Enable fast return mode\n");
 }
 
@@ -698,7 +723,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "mf")) >= 0) {
+	while ((i = getopt(argc, argv, "mfs")) >= 0) {
 		switch(i) {
  		case 'm':
 			if (ctx) {
@@ -706,6 +731,13 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 				break;
 			}
 			return 1;
+		case 's':
+			if (ctx) {
+				j = mitsu9550_query_status(ctx);
+				break;
+			}
+			return 1;
+
 		case 'f':
 			if (ctx) {
 				ctx->fast_return = 1;
@@ -725,7 +757,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.5WIP",
+	.version = "0.6WIP",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -831,7 +863,7 @@ struct dyesub_backend mitsu9550_backend = {
   Status Query
  
  -> 1b 56 30 00
- -> 30 2e 00 00 00 00 MM 00  00 NN 00 00 00 00 00 00 :: MM, NN
+ -> 30 2e 00 00 00 00 MM 00  NN NN 00 00 00 00 00 00 :: MM, NN
     QQ RR SS 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ, RR, SS
     00 00 00 00 00 00 00 00  00 00 00 00 TT UU 00 00 :: TT, UU 
 
@@ -928,7 +960,7 @@ struct dyesub_backend mitsu9550_backend = {
  Working theory of interpreting the status flags:
 
   MM :: 00 is idle, else mechanical printer state.
-  NN :: Remaining prints, or 0x00 when idle.
+  NN :: Remaining prints in job, or 0x00 0x00 when idle.
   QQ :: ?? 0x3e + 0x40 or 0x80 (see below)
   RR :: ?? 0x00 is idle, 0x40 or 0x80 is "printing"?
   SS :: ?? 0x00 means "ready for another print" but 0x01 is "busy"
