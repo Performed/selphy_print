@@ -111,6 +111,9 @@
 # Kodak 605
 0x040a 0x402e blacklist
 
+# Kodak 305
+0x040a 0x404f blacklist
+
 # Shinko CHC-S2145 (aka Sinfonia S2)
 0x10ce 0x000e blacklist
 
