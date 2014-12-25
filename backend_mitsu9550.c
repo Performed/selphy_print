@@ -73,7 +73,7 @@ struct mitsu9550_hdr2 {
 	uint16_t copies; /* BE, 1-580 */
 	uint8_t  null[2];
 	uint8_t  cut; /* 00 == normal, 83 == 2x6*2 */
-	uint8_t  unkb[6];
+	uint8_t  unkb[5];
 	uint8_t  mode; /* 00 == normal, 80 == fine */
 	uint8_t  unkc[11];
 } __attribute__((packed));
@@ -167,13 +167,11 @@ static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
 
-
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
 
 	if (desc.idProduct == USB_PID_MITSU_9550DS)
 		ctx->is_s_variant = 1;
-
 }
 
 
@@ -676,7 +674,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
 
-	if ((unsigned int)num < sizeof(cmd)) /* Short read */
+	if ((unsigned int)num < sizeof(cmd) + 1) /* Short read */
 		return CUPS_BACKEND_FAILED;
 	
 	if (rdbuf[0] != 0xe4 ||
@@ -686,20 +684,19 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 		return CUPS_BACKEND_FAILED;
 
 	/* If response is truncated, handle it */
-	if ((unsigned int) num < sizeof(cmd) + rdbuf[4] + 1)
-		rdbuf[4] = num - sizeof(cmd) - 1;
+	num -= (sizeof(cmd) + 1);
+	if ((unsigned int) num != rdbuf[4])
+		WARNING("Short serno read! (%d vs %d)\r\n",
+			num, rdbuf[4]);
 
 	/* model and serial number are encoded as 16-bit unicode, 
 	   little endian, separated by spaces. */
-	i = rdbuf[4];
+	i = num;
 	ptr = rdbuf + 5;
-	while (i > 0) {
-		if (*ptr == 0x20)
-			goto next;
-		if (--buf_len == 0)
-			break;
-		*buf++ = *rdbuf;
-	next:
+	while (i > 0 && buf_len > 1) {
+		if (*ptr != 0x20)
+			*buf++ = *ptr;
+		buf_len--;
 		ptr += 2;
 		i -= 2;
 	}
@@ -757,7 +754,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.6WIP",
+	.version = "0.7WIP",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
