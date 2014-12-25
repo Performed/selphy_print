@@ -40,6 +40,7 @@
 
    Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
    Mitsubishi CP-D9550D/DW/DW-S/DZ/DZS
+   Mitsubish CP-D80DW
    Kodak 305
    Citizen CW-02
    Olmec OP900/OP900II
@@ -334,13 +335,17 @@
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
 
+   Unstested printers:
+
+    Kodak 305
+
    Unsupported printers (bugs):
 
     Mitsubishi CP-K60DW-S
 
-   Unsupported printers:
+   Unsupported printers (Unknown VID/PID):
 
-    Kodak 305
+    Mitsubishi CP-D80DW
 
    Valid commands:
 
