@@ -419,13 +419,14 @@ top:
 
 		/* K60 may require fixups */
 		if (ctx->k60) {
+			struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + 512);
 			/* K60 only has a lower deck */
-			ctx->databuf[512+32] = 1;
+			hdr->deck = 1;
 
 			/* 4x6 prints on 6x8 media need multicut mode */
 			if (ctx->cols == 0x0748 &&
 			    ctx->rows == 0x04c2)
-				ctx->databuf[512+48] = 1;
+				hdr->multicut = 1;
 		}
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -596,7 +597,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.27",
+	.version = "0.28",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
