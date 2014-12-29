@@ -192,15 +192,15 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	}
 
 	/* Work out printjob size */
-	ctx->rows = mhdr->rows;
-	ctx->cols = mhdr->cols;
+	ctx->cols = be16_to_cpu(mhdr->cols);
+	ctx->rows = be16_to_cpu(mhdr->rows);
 
-	remain = be16_to_cpu(ctx->rows) * be16_to_cpu(ctx->cols) * 2;
+	remain = ctx->rows * ctx->cols * 2;
 	remain = (remain + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 	remain *= 3;  /* One for each plane */
 
 	if (mhdr->laminate) {
-		i = be16_to_cpu(mhdr->lamrows) * be16_to_cpu(mhdr->lamcols) * 2;
+		i = be16_to_cpu(mhdr->lamcols) * be16_to_cpu(mhdr->lamrows) * 2;
 		i = (i + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 		remain += i;
 	}
@@ -233,6 +233,8 @@ static int mitsu70x_do_pagesetup(struct mitsu70x_ctx *ctx)
 	uint8_t cmdbuf[CMDBUF_LEN];
 	uint8_t rdbuf[READBACK_LEN];
 
+	uint16_t tmp;
+	
 	int num, ret;
 
 	memset(cmdbuf, 0, CMDBUF_LEN);
@@ -240,8 +242,10 @@ static int mitsu70x_do_pagesetup(struct mitsu70x_ctx *ctx)
 	cmdbuf[1] = 0x56;
 	cmdbuf[2] = 0x33;
 	cmdbuf[3] = 0x00;
-	memcpy(cmdbuf + 4, &ctx->rows, 2);
-	memcpy(cmdbuf + 6, &ctx->cols, 2);
+	tmp = cpu_to_be16(ctx->cols);
+	memcpy(cmdbuf + 4, &tmp, 2);
+	tmp = cpu_to_be16(ctx->rows);
+	memcpy(cmdbuf + 6, &tmp, 2);
 	cmdbuf[8] = 0x00; // or 0x80??
 	cmdbuf[9] = 0x00;
 	
@@ -407,12 +411,9 @@ top:
 			ctx->databuf[512+32] = 1;
 
 			/* 4x6 prints on 6x8 media need multicut mode */
-			if (ctx->databuf[512+16] == 0x07 &&
-			    ctx->databuf[512+16+1] == 0x48 &&
-			    ctx->databuf[512+16+2] == 0x04 &&
-			    ctx->databuf[512+16+3] == 0xc2) {
+			if (ctx->cols == 0x0748 &&
+			    ctx->rows == 0x04c2)
 				ctx->databuf[512+48] = 1;
-			}
 		}
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
