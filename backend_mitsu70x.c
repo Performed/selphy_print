@@ -139,6 +139,10 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 
 	if (desc.idProduct == USB_PID_MITSU_K60)
 		ctx->k60 = 1;
+
+	if (desc.idProduct == USB_PID_KODAK305)
+		ctx->k60 = 1;
+
 }
 
 
@@ -531,7 +535,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.25",
+	.version = "0.26",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
