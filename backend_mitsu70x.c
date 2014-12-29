@@ -421,9 +421,25 @@ top:
 
 		INFO("Sending data\n");
 
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ctx->databuf + 1024, ctx->datalen - 1024)))
-			return CUPS_BACKEND_FAILED;
+		if (ctx->k60) {
+			/* K60 and 305 need data sent in 256K chunks, but the first
+			   chunk needs to subtract the length of the 512-byte header */
+			int chunk = 256*1024 - 512;
+			int sent = 1024;
+			while (ctx->datalen > 0) {
+				if ((ret = send_data(ctx->dev, ctx->endp_down,
+						     ctx->databuf + sent, chunk)))
+					return CUPS_BACKEND_FAILED;
+				sent += chunk;
+				chunk = ctx->datalen - sent;
+				if (chunk > 256*1024)
+					chunk = 256*1024;
+			}
+		} else {
+			if ((ret = send_data(ctx->dev, ctx->endp_down,
+					     ctx->databuf + 1024, ctx->datalen - 1024)))
+				return CUPS_BACKEND_FAILED;
+		}
 
 		state = S_SENT_DATA;
 		break;
