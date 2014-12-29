@@ -513,7 +513,15 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 		DEBUG2("%c", be16_to_cpu(resp->serno[i]) & 0x7f);
 	}
 	DEBUG2("\n");
-
+	for (i = 0 ; i < 7 ; i++) {
+		char buf[7];
+		if (resp->vers[i].ver[5] == '@')  /* "DUMMY@" */
+			continue;
+		memcpy(buf, resp->vers[i].ver, 6);
+		buf[6] = 0;
+		INFO("Component #%d ID: %s (%02x%02x)",
+		     i, buf, resp->vers[i].unk[0], resp->vers[i].unk[1]);
+	}	
 	if (resp->upper.present & 0x80) {  /* Not present */
 		INFO("Prints remaining:  %d\n",
 		     be16_to_cpu(resp->lower.remain));
@@ -597,7 +605,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.28",
+	.version = "0.29",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
