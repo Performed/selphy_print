@@ -73,14 +73,26 @@ struct mitsu70x_state {
 	uint32_t hdr;
 	uint8_t  data[22];
 } __attribute__((packed));
+
 struct mitsu70x_status_deck {
-	uint8_t present; /* 0x80 for NOT present */
-	uint8_t unk[21];
+	uint8_t  present; /* 0x80 for NOT present, 0x00 otherwise */
+	uint8_t  unk[21];
 	uint16_t remain; /* BIG ENDIAN */
-	uint8_t unkb[40];
+	uint8_t  unkb[40];
 } __attribute__((packed));
+
+struct mitsu70x_status_ver {
+	char     ver[6];
+	uint8_t  unk[2];  /* checksum? */
+} __attribute__((packed));
+
 struct mitsu70x_status_resp {
-	uint8_t unk[128];
+	uint8_t  hdr[4];
+	uint8_t  unk[36];
+	int16_t  model[6]; /* LE, UTF-16 */
+	int16_t  serno[6]; /* LE, UTF-16 */
+	struct mitsu70x_status_ver vers[7];
+	uint8_t  null[8];
 	struct mitsu70x_status_deck lower;
 	struct mitsu70x_status_deck upper;
 } __attribute__((packed));
@@ -472,9 +484,9 @@ top:
 
 static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 {
+	unsigned int i;
 	if (dyesub_debug) {
 		uint8_t *ptr;
-		unsigned int i;
 
 		DEBUG("Status Dump:\n");
 		for (i = 0 ; i < sizeof(resp->unk) ; i++) {
@@ -494,6 +506,17 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 		}
 		DEBUG2("\n");
 	}
+	INFO("Model         : ");
+	for (i = 0 ; i < 6 ; i++) {
+		DEBUG2("%c", be16_to_cpu(resp->model[i]) & 0x7f);
+	}
+	DEBUG2("\n");
+	INFO("Serial Number : ");
+	for (i = 0 ; i < 6 ; i++) {
+		DEBUG2("%c", be16_to_cpu(resp->serno[i]) & 0x7f);
+	}
+	DEBUG2("\n");
+
 	if (resp->upper.present & 0x80) {  /* Not present */
 		INFO("Prints remaining:  %d\n",
 		     be16_to_cpu(resp->lower.remain));
@@ -516,6 +539,31 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 
 	return ret;
 }
+
+static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+{
+	int ret, i;
+	struct mitsu70x_status_resp resp;
+
+	struct mitsu70x_ctx ctx = {
+		.dev = dev,
+		.endp_up = endp_up,
+		.endp_down = endp_down,
+	};
+
+	ret = mitsu70x_get_status(&ctx, &resp);
+
+	if (buf_len > 6)  /* Will we ever have a buffer under 6 bytes? */
+		buf_len = 6;
+		
+	for (i = 0 ; i < buf_len ; i++) {
+		*buf++ = be16_to_cpu(resp.serno[i]) & 0x7f;
+	}
+	*buf = 0; /* Null-terminate the returned string */
+	
+	return ret;
+}
+
 
 static void mitsu70x_cmdline(void)
 {
@@ -552,7 +600,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.26",
+	.version = "0.27",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -561,6 +609,7 @@ struct dyesub_backend mitsu70x_backend = {
 	.teardown = mitsu70x_teardown,
 	.read_parse = mitsu70x_read_parse,
 	.main_loop = mitsu70x_main_loop,
+	.query_serno = mitsu70x_query_serno,
 	.devices = {
 	{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_D70X, ""},
@@ -570,7 +619,7 @@ struct dyesub_backend mitsu70x_backend = {
 	}
 };
 
-/* Mitsubish CP-D70x/CP-K60/CP-D80 data format 
+/* Mitsubish CP-D70DW/CP-D707DW/CP-K60DW-S/CP-D80DW/Kodak 305 data format 
 
    Spool file consists of two headers followed by three image planes
    and an optional lamination data plane.  All blocks are rounded up to
@@ -583,55 +632,35 @@ struct dyesub_backend mitsu70x_backend = {
    1b 45 57 55 00 00 00 00  00 00 00 00 00 00 00 00
    (padded by NULLs to a 512-byte boundary)
 
-   [[ D70x ]] Header 2:  (Header)  
+   Header 2:  (Header)
 
-   1b 5a 54 01 00 00 00 00  00 00 00 00 00 00 00 00
+   1b 5a 54 PP 00 00 00 00  00 00 00 00 00 00 00 00
    XX XX YY YY QQ QQ ZZ ZZ  SS 00 00 00 00 00 00 00
    UU 00 00 00 00 00 00 00  00 TT 00 00 00 00 00 00
    RR 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
 
    (padded by NULLs to a 512-byte boundary)
 
+   PP    == 0x01 on D70x/D80, 0x02 on K60/305
    XX XX == columns
    YY YY == rows
    QQ QQ == lamination columns (equal to XX XX)
    ZZ ZZ == lamination rows (YY YY + 12)
-   SS    == Print mode: 00 = Fine, 03 = SuperFine, 04 = UltraFine
+   SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80 only), 04 = UltraFine
             (Matte requires Superfine or Ultrafine)
-   UU    == 00 == Auto, 01 == Lower Deck, 02 == Upper Deck
-   TT    == 00 with no lamination, 02 with.
-   RR    == 00 (normal), 01 == (Double-cut 4x6), 05 == (double-cut 2x6)
+   UU    == 00 = Auto, 01 = Lower Deck (required for K60/305), 02 = Upper Deck
+   TT    == lamination: 00 glossy, 02 matte.
+   RR    == 00 (normal), 01 = (Double-cut 4x6), 05 = (double-cut 2x6)
    
-   [[ K60 ]] Header 2:  (Header) 
-
-   1b 5a 54 00 00 00 00 00  00 00 00 00 00 00 00 00
-   XX XX YY YY QQ QQ ZZ ZZ  SS 00 00 00 00 00 00 00
-   UU 00 00 00 00 00 00 00  00 TT 00 00 00 00 00 00
-   RR 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-
-   (padded by NULLs to a 512-byte boundary)
-
-   XX XX == columns
-   YY YY == rows
-   QQ QQ == lamination columns (equal to XX XX)
-   ZZ ZZ == lamination rows (usually YY YY + 12)
-   SS    == Print mode: 00 = Fine, 04 = UltraFine
-            (Matte requires Ultrafine)
-   UU    == 01 (Lower Deck)
-   TT    == 00 with no lamination, 02 with.
-   RR    == 00 (normal), 01 == (Double-cut 4x6), 05 == (double-cut 2x6)
-
    Data planes:
    16-bit data, rounded up to 512-byte block (XX * YY * 2 bytes)
    
-   Lamination plane: (only present if QQ + ZZ are nonzero)
+   Lamination plane: (only present if QQ and ZZ are nonzero)
    16-byte data, rounded up to 512-byte block (QQ * ZZ * 2 bytes)
-
-   Lamination appears to be these bytes, repeated:  28 6a  ab 58  6c 22
 
    ********************************************************************
 
-   Command format: (D707)
+   Command format:
 
    -> 1b 56 32 30
    <- [256 byte payload]
@@ -672,7 +701,6 @@ struct dyesub_backend mitsu70x_backend = {
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
-
     UPPER DECK
 
     00 00 00 00 00 00 01 ee  3d 00 00 06 39 00 00 00
@@ -712,7 +740,7 @@ struct dyesub_backend mitsu70x_backend = {
      alt:
 
     00 00 00 00 00 00?01 d2  39 00 00 00?07 00 00 00 
-    61 8f 00 00 01 40 NN MM  00 00 00 00 00?17 79 80
+    61 8f 00 00 01 40 NN NN  00 00 00 00 00?17 79 80
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
