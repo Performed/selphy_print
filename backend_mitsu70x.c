@@ -75,10 +75,14 @@ struct mitsu70x_state {
 } __attribute__((packed));
 
 struct mitsu70x_status_deck {
-	uint8_t  present; /* 0x80 for NOT present, 0x00 otherwise */
-	uint8_t  unk[21];
-	uint16_t remain; /* BIG ENDIAN */
-	uint8_t  unkb[40];
+	uint16_t present; /* 0x80 for NOT present, 0x00 otherwise */
+	uint16_t unk[9];
+	uint16_t capacity; /* media capacity */
+	uint16_t remain;   /* media remaining */
+	uint16_t unkb[2];
+	uint16_t prints; /* lifetime prints on deck? */
+	uint16_t unkc[1];
+	uint16_t blank[16]; /* All fields are 0x8000 */
 } __attribute__((packed));
 
 struct mitsu70x_status_ver {
@@ -173,7 +177,7 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	struct mitsu70x_ctx *ctx = vctx;
 	uint8_t hdr[1024];
 	int i, remain;
-	struct mitsu70x_hdr *mhdr = (struct mitsu70x_hdr*)(hdr + 512);
+	struct mitsu70x_hdr *mhdr = (struct mitsu70x_hdr*)(hdr + sizeof(struct mitsu70x_hdr));
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -388,7 +392,7 @@ top:
 #endif
 		INFO("Sending attention sequence\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ctx->databuf, 512)))
+				     ctx->databuf, sizeof(struct mitsu70x_hdr))))
 			return CUPS_BACKEND_FAILED;
 
 		state = S_SENT_ATTN;
@@ -419,7 +423,7 @@ top:
 
 		/* K60 may require fixups */
 		if (ctx->k60) {
-			struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + 512);
+			struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
 			/* K60 only has a lower deck */
 			hdr->deck = 1;
 
@@ -430,7 +434,8 @@ top:
 		}
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ctx->databuf + 512, 512)))
+				     ctx->databuf + sizeof(struct mitsu70x_hdr),
+				     sizeof(struct mitsu70x_hdr))))
 			return CUPS_BACKEND_FAILED;
 
 		INFO("Sending data\n");
@@ -438,7 +443,7 @@ top:
 		{
 			/* K60 and 305 need data sent in 256K chunks, but the first
 			   chunk needs to subtract the length of the 512-byte header */
-			int chunk = 256*1024 - 512;
+			int chunk = 256*1024 - sizeof(struct mitsu70x_hdr);
 			int sent = 1024;
 			while (ctx->datalen > 0) {
 				if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -522,13 +527,17 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 		INFO("Component #%d ID: %s (%02x%02x)",
 		     i, buf, resp->vers[i].unk[0], resp->vers[i].unk[1]);
 	}	
-	if (resp->upper.present & 0x80) {  /* Not present */
-		INFO("Prints remaining:  %d\n",
-		     be16_to_cpu(resp->lower.remain));
-	} else {
-		INFO("Prints remaining:  Lower: %d Upper: %d\n",
+	if (resp->upper.present) {  /* IOW, Not present */
+		INFO("Prints remaining:  %03d/%03d\n",
 		     be16_to_cpu(resp->lower.remain),
-		     be16_to_cpu(resp->upper.remain));
+		     be16_to_cpu(resp->lower.capacity));
+	} else {
+		INFO("Prints remaining:  Lower: %03d/%03d\n"
+		     "                   Upper: %03d/%03d\n",
+		     be16_to_cpu(resp->lower.remain),
+		     be16_to_cpu(resp->lower.capacity),
+		     be16_to_cpu(resp->upper.remain),
+		     be16_to_cpu(resp->upper.capacity));
 	}
 }
 
@@ -605,7 +614,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.29",
+	.version = "0.30",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -670,7 +679,7 @@ struct dyesub_backend mitsu70x_backend = {
    -> 1b 56 32 30
    <- [256 byte payload]
 
-   CP-D707DW:
+    PRINTER STATUS
 
     e4 56 32 30 00 00 00 00  00 00 00 00 00 00 00 00   .V20............
     00 00 00 00 00 00 00 00  00 00 00 80 00 00 00 00   ................
@@ -681,75 +690,28 @@ struct dyesub_backend mitsu70x_backend = {
     33 31 37 41 32 32 a3 82  44 55 4d 4d 59 40 00 00   317A22..DUMMY@..
     44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00   DUMMY@..........
 
-     alt:
+    LOWER DECK STATUS
 
-    e4 56 32 30 0f 00 00 00  00 00 00 00 00 00 00 00 
-    00 00 00 00 00 00 00 00  00 00 0a 00 80 00 00 00
-    44 00 00 00 5f 00 00 bd  43 00 50 00 44 00 37 00
-    30 00 44 00 30 00 37 00  38 00 33 00 39 00 38 00
-    33 31 36 56 31 31 06 4d  33 31 35 42 31 32 f5 e5
-    33 31 39 42 31 31 a3 fb  33 31 38 46 31 31 cc 65
-    33 31 37 42 32 31 f4 19  44 55 4d 4d 59 40 00 00
-    44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00 
-
-    LOWER DECK
-
-    00 00 00 00 00 00 02 04  3f 00 00 04 96 00 00 00
-    ff 0f 01 00 00 c8 NN NN  00 00 00 00 05 28 75 80  NN NN: prints remaining
+    00 00 00 00 00 00 02 04  3f 00 00 04 96 00 00 00  MM MM: media capacity
+    ff 0f 01 00 MM MM NN NN  00 00 00 00 05 28 75 80  NN NN: prints remaining
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
-      alt:
+      alt (some sort of error state)
 
     00 00 00 0a 05 05 01 d5  38 00 00 00 14 00 00 00 
     ff ff ff ff ff ff ff ff  ff ff 00 00 00 27 72 80
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
-    UPPER DECK
+    UPPER DECK STATUS (if present)  
 
-    00 00 00 00 00 00 01 ee  3d 00 00 06 39 00 00 00
-    ff 02 00 00 01 90 NN NN  00 00 00 00 06 67 78 00  NN NN: prints remaining
-    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
-    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
-
-   CP-K60DW-S:
-
-    e4 56 32 30 0f 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00  00 00 0a 80 00 00 00 00
-    02 00 00 00 5e 00 04 87  43 00 50 00 4b 00 36 00
-    30 00 44 00 30 00+32 00 +33 00 32 00+30 00 36 00
-    33 31 36+4b 33 31 d6 7a  33 31 35 41 33 31 ae 37
-    33 31 39 41 37 31 6a 36  33 31 38 44 33 31 1e 4a
-    33 31 37 42 32 31 f4 19  44 55 4d 4d 59 40 00 00
-    44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00
-
-     alt:
-
-    e4 56 32 30 0f 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00  00 00 0a 80 00 00 00 00
-    02 00 00 00 5e 00 04 87  43 00 50 00 4b 00 36 00
-    30 00 44 00 30 00+37 00 +39 00 32 00+31 00 30 00
-    33 31 36+4c 33 31+a4+0b  33 31 35 41 33 31 ae 37 
-    33 31 39 41 37 31 6a 36  33 31 38 44 33 31 1e 4a 
-    33 31 37 42 32 31 f4 19  44 55 4d 4d 59 40 00 00 
-    44 55 4d 4d 59 40 00 00  00 00 00 00 00 00 00 00
-
-    LOWER DECK (K60)
-
-    00 00 00 00 00 00?02 09  3f 00 00 00?05 00 00 01
-    61 8f 00 00 01 40 NN NN  00 00 00 00 00?16 81 80  NN NN: prints remaining
-    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
+    XX XX 00 00 00 00 01 ee  3d 00 00 06 39 00 00 00  MM MM: media capacity
+    ff 02 00 00 MM MM NN NN  00 00 00 00 06 67 78 00  NN NN: prints remaining
+    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00  XX XX: 0x80 00 if no deck
     80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
 
-     alt:
-
-    00 00 00 00 00 00?01 d2  39 00 00 00?07 00 00 00 
-    61 8f 00 00 01 40 NN NN  00 00 00 00 00?17 79 80
-    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
-    80 00 80 00 80 00 80 00  80 00 80 00 80 00 80 00
-
-    UPPER DECK (K60 -- No upper deck present)
+     alt (no deck present)
 
     80 00 00 00 00 00 00 ff  ff 00 00 00 00 00 00 00
     ff ff ff ff ff ff ff ff  ff ff 00 00 00 00 80 00
@@ -825,5 +787,31 @@ struct dyesub_backend mitsu70x_backend = {
    and in between each of the chunks sent to the printer.  There doesn't
    appear to be any particular intelligence in the protocol, but it didn't
    work when the raw dump was submitted as-is.
+
+   ** ** ** ** ** **
+
+Various deck status dumps:
+
+0080   00 00 00 00 00 00 01 d2  39 00 00 00 07 00 00 00  ........9.......
+0090   61 8f 00 00 01 40 01 36  00 00 00 00 00 17 79 80  a....@.6......y.
+
+0080   00 00 00 00 00 00 01 c6  39 00 00 00 08 00 00 00  ........9.......
+0090   61 8f 00 00 01 40 01 35  00 00 00 00 00 18 79 80  a....@.5......y.
+
+0080   00 00 00 00 00 00 02 19  50 00 00 00 19 00 00 01  ........P.......
+0090   6c 8f 00 00 01 40 01 22  00 00 00 00 00 27 83 80  l....@.".....'..
+
+0080   00 00 00 00 00 00 02 00  3e 00 00 04 96 00 00 00  ........>.......
+0090   ff 0f 01 00 00 c8 00 52  00 00 00 00 05 28 75 80  .......R.....(u.
+
+00c0   00 00 00 00 00 00 01 f3  3d 00 00 06 39 00 00 00  ........=...9...
+00d0   ff 02 00 00 01 90 00 c3  00 00 00 00 06 67 78 00  .............gx.
+
+0080   00 00 00 00 00 00 01 d0  38 00 00 03 70 00 00 00  ........8...p...
+0090   ff 02 00 00 01 90 00 1e  01 00 00 00 03 83 72 80  ..............r.
+
+0080   00 00 00 00 00 00 01 d6  39 00 00 00 20 00 00 00  ........9... ...
+0090   ff 02 00 00 01 90 01 7c  01 00 00 00 00 33 72 80  .......|.....3r.
+
 
  */
