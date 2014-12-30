@@ -813,5 +813,9 @@ Various deck status dumps:
 0080   00 00 00 00 00 00 01 d6  39 00 00 00 20 00 00 00  ........9... ...
 0090   ff 02 00 00 01 90 01 7c  01 00 00 00 00 33 72 80  .......|.....3r.
 
+       00 00 00 0a 05 05 01 d5  38 00 00 00 14 00 00 00 
+       ff ff ff ff ff ff ff ff  ff ff 00 00 00 27 72 80   ?? Error ??
 
+       80 00 00 00 00 00 00 ff  ff 00 00 00 00 00 00 00
+       ff ff ff ff ff ff ff ff  ff ff 00 00 00 00 80 00   NO DECK PRESENT
  */
