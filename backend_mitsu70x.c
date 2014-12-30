@@ -510,12 +510,12 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 	}
 	INFO("Model         : ");
 	for (i = 0 ; i < 6 ; i++) {
-		DEBUG2("%c", be16_to_cpu(resp->model[i]) & 0x7f);
+		DEBUG2("%c", le16_to_cpu(resp->model[i]) & 0x7f);
 	}
 	DEBUG2("\n");
 	INFO("Serial Number : ");
 	for (i = 0 ; i < 6 ; i++) {
-		DEBUG2("%c", be16_to_cpu(resp->serno[i]) & 0x7f);
+		DEBUG2("%c", le16_to_cpu(resp->serno[i]) & 0x7f);
 	}
 	DEBUG2("\n");
 	for (i = 0 ; i < 7 ; i++) {
@@ -524,7 +524,7 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 			continue;
 		memcpy(buf, resp->vers[i].ver, 6);
 		buf[6] = 0;
-		INFO("Component #%d ID: %s (%02x%02x)",
+		INFO("Component #%d ID: %s (%02x%02x)\n",
 		     i, buf, resp->vers[i].unk[0], resp->vers[i].unk[1]);
 	}	
 	if (resp->upper.present) {  /* IOW, Not present */
@@ -571,7 +571,7 @@ static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_u
 		buf_len = 6;
 		
 	for (i = 0 ; i < buf_len ; i++) {
-		*buf++ = be16_to_cpu(resp.serno[i]) & 0x7f;
+		*buf++ = le16_to_cpu(resp.serno[i]) & 0x7f;
 	}
 	*buf = 0; /* Null-terminate the returned string */
 	
@@ -614,7 +614,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.30",
+	.version = "0.31",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
