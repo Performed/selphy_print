@@ -186,8 +186,10 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 
 		DEBUG("<- ");
 		while(i > 0) {
-			if (i % 16 == 0 && i != *readlen)
-				DEBUG2("\n   ");
+			if (i % 16 == 0 && i != *readlen) {
+				DEBUG2("\n");
+				DEBUG("   ");
+			}
 			DEBUG2("%02x ", *(buf+i));
 			i--;
 		}
@@ -219,8 +221,10 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 
 			DEBUG("-> ");
 			while(i > 0) {
-				if (i % 16 == 0 && i != num)
-					DEBUG2("\n   ");
+				if (i % 16 == 0 && i != num) {
+					DEBUG2("\n");
+					DEBUG("   ");
+				}
 				DEBUG2("%02x ", *(buf+i));
 				i--;
 			}
