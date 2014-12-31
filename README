@@ -335,13 +335,10 @@
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
 
-   Unstested printers:
-
-    Kodak 305
-
-   Unsupported printers (bugs):
+   Work-in-progress printers (bugs):
 
     Mitsubishi CP-K60DW-S
+    Kodak 305
 
    Unsupported printers (Unknown VID/PID):
 
