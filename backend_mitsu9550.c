@@ -1,7 +1,7 @@
 /*
  *   Mitsubishi CP-9550DW[-S] Photo Printer CUPS backend
  *
- *   (c) 2014 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2014-2015 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *

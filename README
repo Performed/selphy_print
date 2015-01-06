@@ -2,7 +2,7 @@
 
   Unified Gutenprint/CUPS backend for various Dye-Sublimation photo printers
 
-  Copyright (c) 2007-2014 Solomon Peachy <pizza@shaftnet.org>
+  Copyright (c) 2007-2015 Solomon Peachy <pizza@shaftnet.org>
 
   This free software comes with ABSOLUTELY NO WARRANTY! 
   Licensed under the GNU GPL, see the 'COPYING' file for more details.
@@ -36,11 +36,10 @@
    Citizen CX/CX-W/CY
    Citizen CW-01
 
-  Work-in-progress printers (untested/partial support present)
+  Work-in-progress Printers:
 
-   Mitsubishi CP-D70DW, CP-D707DW and CP-K60DW
+   Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
    Mitsubishi CP-D9550D/DW/DW-S/DZ/DZS
-   Mitsubish CP-D80DW
    Kodak 305
    Citizen CW-02
    Olmec OP900/OP900II
@@ -264,7 +263,7 @@
      Shinko CHC-S6145 (aka "Sinfonia CS2")
      Shinko CHC-S6145-5A (aka "Sinfonia CS2-c")
 
-   Development was sponsored by:
+   Development was initially sponsored by:
 
         LiveLink Technology [ www.livelinktechnology.net ]
 
