@@ -62,8 +62,8 @@ struct mitsu9550_ctx {
 struct mitsu9550_hdr1 {
 	uint8_t  cmd[4]; /* 1b 57 20 2e */
 	uint8_t  unk[10]; 
-	uint16_t rows; /* BE */
 	uint16_t cols; /* BE */
+	uint16_t rows; /* BE */
 	uint8_t  null[32];
 } __attribute__((packed));
 
@@ -754,7 +754,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.7WIP",
+	.version = "0.8WIP",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
