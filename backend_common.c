@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.51"
+#define BACKEND_VERSION "0.52"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -180,6 +180,10 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 		goto done;
 	}
 
+	if (dyesub_debug) {
+		DEBUG("Received %d bytes from printer\n", *readlen);
+	}
+	
 	if ((dyesub_debug > 1 && buflen < 4096) ||
 	    dyesub_debug > 2) {
 		int i = *readlen;
@@ -190,7 +194,7 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 				DEBUG2("\n");
 				DEBUG("   ");
 			}
-			DEBUG2("%02x ", *(buf+i));
+			DEBUG2("%02x ", buf[*readlen-i]);
 			i--;
 		}
 		DEBUG2("\n");
@@ -225,7 +229,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 					DEBUG2("\n");
 					DEBUG("   ");
 				}
-				DEBUG2("%02x ", *(buf+i));
+				DEBUG2("%02x ", buf[num-i]);
 				i--;
 			}
 			DEBUG2("\n");
