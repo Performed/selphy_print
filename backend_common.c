@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.52"
+#define BACKEND_VERSION "0.53"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -190,7 +190,8 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 
 		DEBUG("<- ");
 		while(i > 0) {
-			if (i % 16 == 0 && i != *readlen) {
+			if ((*readlen-i) != 0 &&
+			    (*readlen-i) % 16 == 0) {
 				DEBUG2("\n");
 				DEBUG("   ");
 			}
@@ -225,7 +226,8 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 
 			DEBUG("-> ");
 			while(i > 0) {
-				if (i % 16 == 0 && i != num) {
+				if ((num-i) != 0 &&
+				    (num-i) % 16 == 0) {
 					DEBUG2("\n");
 					DEBUG("   ");
 				}
