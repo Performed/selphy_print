@@ -133,7 +133,7 @@ struct mitsu9550_status {
 struct mitsu9550_status2 {
 	uint8_t  hdr[2]; /* 21 2e */
 	uint8_t  unk[40];
-	uint8_t  remain; /* BE, prints remaining */
+	uint8_t  remain; /* BE, media remaining */
 	uint8_t  unkb[4];
 } __attribute__((packed));
 
@@ -502,11 +502,11 @@ top:
 		
 		/* Make sure we're ready to proceed */
 		if (sts->sts5 != 0) {
-			ERROR("Unexpected response\n");
+			ERROR("Unexpected response (sts5 %02x)\n", sts->sts5);
 			return CUPS_BACKEND_FAILED;
 		}
-		if (sts->sts3 & 0xc0) {
-			ERROR("Unexpected response\n");
+		if (!(sts->sts3 & 0xc0)) {
+			ERROR("Unexpected response (sts3 %02x)\n", sts->sts3);
 			return CUPS_BACKEND_FAILED;
 		}
 	}
@@ -754,7 +754,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.8WIP",
+	.version = "0.9WIP",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
