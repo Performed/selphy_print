@@ -35,11 +35,11 @@
    DNP DS40/DS80/DS-RX1
    Citizen CX/CX-W/CY
    Citizen CW-01
+   Mitsubishi CP-9550D/DW/DW-S/DZ/DZ-S
 
   Work-in-progress Printers:
 
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
-   Mitsubishi CP-D9550D/DW/DW-S/DZ/DZS
    Kodak 305
    Citizen CW-02
    Olmec OP900/OP900II
@@ -350,10 +350,13 @@
  *************************************************************************** 
   BACKEND=mitsu9550
 
+   Supported and tested printers:
+
+    Mitsubishi CP-9550DZ/DZS/DW-S
+
    Work-in-progress printers:
 
     Mitsubishi CP-9550D/DW
-    Mitsubishi CP-9550DZ/DZS/DW-S
 
    Valid commands:
 
