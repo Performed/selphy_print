@@ -193,9 +193,12 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 			if (i == 0)
 				break;
 
-			if (ctx->type == P_SONY_UPCR10 &&
+			if (ctx->databuf[ctx->datalen] == 0x1b &&
 			    ctx->databuf[ctx->datalen + 1] == 0xee) {
-				ctx->copies_offset = ctx->datalen + 8;
+				if (ctx->type == P_SONY_UPCR10)
+					ctx->copies_offset = ctx->datalen + 8;
+				else
+					ctx->copies_offset = ctx->datalen + 12;
 			}
 
 			if (keep)
@@ -254,7 +257,7 @@ top:
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10",
-	.version = "0.16",
+	.version = "0.17",
 	.uri_prefix = "sonyupdr150",
 	.init = updr150_init,
 	.attach = updr150_attach,
