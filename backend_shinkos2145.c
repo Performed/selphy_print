@@ -1812,6 +1812,8 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 #define USB_PID_SHINKO_S2145 0x000E
 #define USB_PID_SHINKO_S6145 XXXXXX
 #define USB_PID_SHINKO_S6245 XXXXXX
+//#define USB_VID_CIAAT        xxxxxx
+//#define USB_PID_CIAAT_BRAVA21 xxxxx
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S1245",
@@ -1831,6 +1833,7 @@ struct dyesub_backend shinkos2145_backend = {
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
 //	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S2145, ""},
 //	{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S2145, ""},
+//	{ USB_VID_CIAAT, USB_PID_CIAAT_BRAVA21, P_SHINKO_S2145, ""},
 	{ 0, 0, 0, ""}
 	}
 };
@@ -1910,5 +1913,30 @@ struct dyesub_backend shinkos2145_backend = {
    [[Packed RGB payload of WW*HH*3 bytes]]
 
    04 03 02 01  [[ footer ]]
+
+ * CIAAT Brava 21 data format  
+
+   This printer is supposed to be a variant of the S6145, but uses a 
+   different spool format -- but seems to use the same command language.
+
+   01 40 12 00  01 NN 00 YY  YY XX XX TT  00 00 00 00  00 00 01 MM  QQ 00
+
+    NN == copies
+    YY YY == Columns (LE)
+    XX XX == Rows (LE)
+    MM == Overcoat (02 = glossy, 03 = matte, 01 = none)
+    QQ == Multicut (00 = normal, 01 = none, 02 = 2*4x6, 
+                    04 = 2*2x6, 80 = 4x6-notrim)
+    TT == Type (00 = 4x6, 03 = 5x7, 06 = 8x6, 07 = 2x6)
+
+    1844*2434  8x6
+    1844*2492  4x6*2
+    1548*2140  5x7
+    1844*1240  4x6 (and 2x6*2)
+    1844*1210  4x6-notrim (WTF?)
+    1844*634   2x6
+
+
+   [[ Followed by XX*YY*3 bytes of image data, RGB ]]
 
 */
