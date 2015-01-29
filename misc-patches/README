@@ -1,0 +1,9 @@
+Here you will find patches against Gutenprint that enables multicut support
+for every model that I'm aware of.
+
+This code is not mainlined, and isn't likely to be in its current state.
+
+If you are going to patch gutenprint and compile it yourself, I highly 
+recommend using the latest code out of CVS, available here:
+
+	http://sourceforge.net/p/gimp-print/code/
