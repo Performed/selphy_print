@@ -7,3 +7,6 @@ If you are going to patch gutenprint and compile it yourself, I highly
 recommend using the latest code out of CVS, available here:
 
 	http://sourceforge.net/p/gimp-print/code/
+
+After you install the patched gutenprint release, you *must* remove and 
+re-create your printer queue.
