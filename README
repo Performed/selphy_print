@@ -319,7 +319,9 @@
 
      Shinko CHC-S1245 (aka "Sinfonia E1")
 
-  This backend does not support additional commands.
+   Valid commands:
+
+     -s                 Query printer status
 
  *************************************************************************** 
   BACKEND=sonyupdr150

@@ -165,7 +165,7 @@ struct shinkos1245_resp_status {
 		uint32_t cutter;    /* BE */
 		uint8_t  reserved;
 		uint8_t  ver_boot;
-		uint8_t  ver_usb;
+		uint8_t  ver_ctrl;
 		uint8_t  control_flag; // 0x00 == epson, 0x01 == cypress
 	} counters;
 	struct {
@@ -202,6 +202,8 @@ enum {
 	STATE_STATUS1_ERROR = 2,
 	STATE_STATUS1_WAIT = 3,
 };
+
+#define STATE_STANDBY_STATUS2 0x0
 
 enum {
 	WAIT_STATUS2_INIT = 0,
@@ -300,18 +302,20 @@ struct shinkos1245_cmd_getmedia {
 	uint8_t pad[10]; 
 } __attribute__((packed));
 
+struct shinkos1245_mediadesc {
+	uint8_t  code;  /* Fixed at 0x10 */
+	uint16_t columns; /* BE */
+	uint16_t rows;    /* BE */
+	uint8_t  type;       /* MEDIA_TYPE_* */
+	uint8_t  print_type; /* aka "print method" in the spool file */
+	uint8_t  reserved[3];
+} __attribute__((packed));
+
 struct shinkos1245_resp_media {
 	uint8_t  code;
 	uint8_t  reserved[5];
-	uint8_t  count;  /* 1-5 */
-	struct {
-		uint8_t  code;  /* Fixed at 0x10 */
-		uint16_t columns; /* BE */
-		uint16_t rows;    /* BE */
-	        uint8_t  type;       /* MEDIA_TYPE_* */
-		uint8_t  print_type; /* aka "print method" in the spool file */
-		uint8_t  reserved[3];
-	} media[5];
+	uint8_t  count;  /* 1-5? */
+	struct shinkos1245_mediadesc data[5];
 } __attribute__((packed));
 
 enum {
@@ -348,7 +352,7 @@ struct shinkos1245_cmd_reset {
 } __attribute__((packed));
 
 /* Tone curve manipulation -- returns Status */
-struct shinkos1245_cmd_ttone {
+struct shinkos1245_cmd_tone {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1];   /* 0xc0 */
 	uint8_t tone[4];  /* 0x54 0x4f 0x4e 0x45 */
@@ -414,9 +418,193 @@ struct shinkos1245_resp_matte {
 
 #define MATTE_MODE_MATTE 0x00
 
+/* Basic printer I/O stuffs */
+static void shinkos1245_fill_hdr(struct shinkos1245_cmd_hdr *hdr)
+{
+	hdr->prefix = 0x03;
+	hdr->hdr[0] = 0x1b;
+	hdr->hdr[1] = 0x43;
+	hdr->hdr[2] = 0x48;
+	hdr->hdr[3] = 0x43;
+       
+}
+
+static int shinkos1245_do_cmd(struct shinkos1245_ctx *ctx,
+			      void *cmd, int cmd_len,
+			      void *resp, int resp_len,
+			      int *actual_len)
+{
+	int ret;
+	
+	/* Write command */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmd, cmd_len)))
+		return (ret < 0) ? ret : -99;
+	
+	/* Read response */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			resp, resp_len, actual_len);
+	if (ret < 0)
+		return ret;
+	if (*actual_len < resp_len) {
+		ERROR("Short read! (%d/%d))\n", *actual_len, resp_len);
+		return -99;
+	}
+
+	return ret;
+}
+
+static int shinkos1245_get_status(struct shinkos1245_ctx *ctx,
+				  struct shinkos1245_resp_status *resp)
+{
+	struct shinkos1245_cmd_getstatus cmd;
+	int ret, num;
+	
+	shinkos1245_fill_hdr(&cmd.hdr);
+	cmd.cmd[0] = 0x03;
+	memset(cmd.pad, 0, sizeof(cmd.pad));
+
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				resp, sizeof(*resp), &num);
+	if (ret < 0) {
+		ERROR("Failed to execute GET_STATUS command\n");
+		return ret;
+	}
+	if (resp->code != CMD_CODE_OK) {
+		ERROR("Bad return code on GET_STATUS (%02x)\n",
+		      resp->code);
+		return -99;
+	}
+	    
+	return 0;
+}
+
+static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
+{
+	char *detail;	
+	switch (sts->print_status) {
+	case STATUS_PRINTING:
+		detail = "Printing";
+		break;
+	case STATUS_IDLE:
+		detail = "Idle";
+		break;
+	default:
+		detail = "Unknown";
+		break;
+	}
+	INFO("Printer Status:  %s\n", detail);
+
+	switch(sts->state.status1) {
+	case STATE_STATUS1_STANDBY:
+		INFO("Printer State:  Standby\n");
+		break;
+	case STATE_STATUS1_WAIT:
+		switch(sts->state.status2) {
+		case WAIT_STATUS2_INIT:
+			detail = "Initializing";
+			break;
+		case WAIT_STATUS2_RIBBON:
+			detail = "Ribbon Winding";
+			break;
+		case WAIT_STATUS2_THERMAL:
+			detail = "Cooling Down";
+			break;
+		case WAIT_STATUS2_OPERATING:
+			detail = "Operating section busy";
+			break;
+		case WAIT_STATUS2_BUSY:
+			detail = "In progress";
+			break;
+		default:
+			detail = "Unknown";
+			break;
+		}
+		INFO("Printer State:  Wait (%s)\n", detail);
+		break;
+	case STATE_STATUS1_ERROR:
+		switch (sts->state.status2) {
+		case ERROR_STATUS2_CTRL_CIRCUIT:
+			detail = "Control Circuit";
+			break;
+		case ERROR_STATUS2_MECHANISM_CTRL:
+			detail = "Mechanism Control";
+			break;
+		case ERROR_STATUS2_SENSOR:
+			detail = "Sensor";
+			break;
+		case ERROR_STATUS2_COVER_OPEN:
+			detail = "Cover Open";
+			break;
+		case ERROR_STATUS2_TEMP_SENSOR:
+			detail = "Temperature Sensor";
+			break;
+		case ERROR_STATUS2_PAPER_JAM:
+			detail = "Paper Jam";
+			break;
+		case ERROR_STATUS2_PAPER_EMPTY:
+			detail = "Paper Empty";
+			break;
+		case ERROR_STATUS2_RIBBON_ERR:
+			detail = "Ribbon Error";
+			break;
+		default:
+			detail = "Unknown";
+		}
+		INFO("Printer State:  Error (%s - %02x)\n", detail,
+		     sts->state.error);
+		break;
+	default:
+		WARNING("Printer State:  Unknown (%02x/%08x/%02x)\n", sts->state.status1, sts->state.status2, sts->state.error);
+		break;
+	}
+	INFO("Counters:\n");
+	INFO("\tLifetime     :  %d\n", be32_to_cpu(sts->counters.lifetime));
+	INFO("\tThermal Head :  %d\n", be32_to_cpu(sts->counters.maint));
+	INFO("\tMedia        :  %d\n", be32_to_cpu(sts->counters.media));
+	INFO("\tCutter       :  %d\n", be32_to_cpu(sts->counters.cutter));
+
+	INFO("Versions:\n");
+	INFO("\tUSB Boot    : %d\n", sts->counters.ver_boot);
+	INFO("\tUSB Control : %d\n", sts->counters.ver_ctrl);
+	INFO("\tMain Boot   : %d\n", be16_to_cpu(sts->versions.main_boot));
+	INFO("\tMain Control: %d\n", be16_to_cpu(sts->versions.main_control));
+	INFO("\tDSP Boot    : %d\n", be16_to_cpu(sts->versions.dsp_boot));
+	INFO("\tDSP Control : %d\n", be16_to_cpu(sts->versions.dsp_control));
+
+//	INFO("USB TypeFlag: %02x\n", sts->counters.control_flag);
+
+	INFO("Bank 1 ID: %d\n", sts->counters2.bank1_id);
+	INFO("\tPrints:  %d/%d (%d complete)\n",
+	     sts->counters2.bank1_remain, sts->counters2.bank1_spec,
+	     sts->counters2.bank1_complete);
+	INFO("Bank 2 ID: %d\n", sts->counters2.bank2_id);	
+	INFO("\tPrints:  %d/%d (%d complete)\n",
+	     sts->counters2.bank2_remain, sts->counters2.bank2_spec,
+	     sts->counters2.bank2_complete);
+
+	switch (sts->curve_status) {
+	case CURVE_TABLE_STATUS_INITIAL:
+		detail = "Initial/Default";
+		break;
+	case CURVE_TABLE_STATUS_USERSET:
+		detail = "User Stored";
+		break;
+	case CURVE_TABLE_STATUS_CURRENT:
+		detail = "Current";
+		break;
+	default:
+		detail = "Unknown";
+		break;
+	}
+	INFO("Tone Curve Status: %s\n", detail);
+}
+
+/* Driver API */
 
 static void shinkos1245_cmdline(void)
 {
+	DEBUG("\t\t[ -s ]           # Query status\n");	
 }
 
 int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
@@ -427,9 +615,18 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "")) >= 0) {
+	while ((i = getopt(argc, argv, "s")) >= 0) {
 		switch(i) {
-		default:
+		case 's':
+			if (ctx) {
+				struct shinkos1245_resp_status sts;
+				j = shinkos1245_get_status(ctx, &sts);
+				if (!j)
+					shinkos1245_dump_status(&sts);
+				break;
+			} 
+			return 1;
+		default:			
 			break;  /* Ignore completely */
 		}
 
