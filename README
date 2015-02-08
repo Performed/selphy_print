@@ -259,7 +259,6 @@
 
    Work-in-process printers:
 
-     Shinko CHC-S1245 (aka "Sinfonia E1")
      Shinko CHC-S6245 (aka "Sinfonia CE1")
      Shinko CHC-S6145 (aka "Sinfonia CS2")
      Shinko CHC-S6145-5A (aka "Sinfonia CS2-c")
@@ -314,6 +313,15 @@
     [4]  Default printer tone curve is a linear 'val << 3'
 
  *************************************************************************** 
+  BACKEND=shinkos1245
+
+   Work-in-process printers:
+
+     Shinko CHC-S1245 (aka "Sinfonia E1")
+
+  This backend does not support additional commands.
+
+ *************************************************************************** 
   BACKEND=sonyupdr150
 
    Verified supported printers:
@@ -326,7 +334,7 @@
    Sony UP-CR10L
    DNP DS-SL10
 
- This backend does not support additional commands.
+  This backend does not support additional commands.
 
  *************************************************************************** 
   BACKEND=mitsu70x

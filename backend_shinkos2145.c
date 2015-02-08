@@ -58,13 +58,13 @@ struct s2145_printjob_hdr {
 
 	uint32_t len2;   /* Fixed at 0x64 */
 	uint32_t unk5;
-	uint32_t media;  /* Fixed at 0x10 for 1245 */
+	uint32_t media;
 	uint32_t unk6;
 
-	uint32_t method; /* Method for 2145, Media type for 1245, 0x00 for 6245, multicut for 6145 */
-	uint32_t mode;   /* Mode for 2145, Matte/Glossy for 1245, 0x00 for 6245, quality for 6145 */
+	uint32_t method; /* Method for 2145, 0x00 for 6245, multicut for 6145 */
+	uint32_t mode;   /* Mode for 2145, 0x00 for 6245, quality for 6145 */
 	uint32_t oc_mode;   /* 6145/6245 only, Matte/Glossy/None */
-	uint32_t mattedepth;   /* 1245 only */
+	uint32_t unk8;
 
 	uint32_t unk9;
 	uint32_t columns;
@@ -1516,8 +1516,6 @@ static int shinkos2145_early_parse(void *vctx, int data_fd) {
 		printer_type = P_SHINKO_S2145;
 		break;
 	case 1245:
-		printer_type = P_SHINKO_S1245;
-		break;
 	case 6145:
 	case 6245:
 	default:
@@ -1808,15 +1806,14 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 /* Exported */
 #define USB_VID_SHINKO       0x10CE
-#define USB_PID_SHINKO_S1245 0x0007
 #define USB_PID_SHINKO_S2145 0x000E
-#define USB_PID_SHINKO_S6145 XXXXXX
-#define USB_PID_SHINKO_S6245 XXXXXX
+#define USB_PID_SHINKO_S6145 0x0019
+#define USB_PID_SHINKO_S6245 0x001D
 //#define USB_VID_CIAAT        xxxxxx
 //#define USB_PID_CIAAT_BRAVA21 xxxxx
 
 struct dyesub_backend shinkos2145_backend = {
-	.name = "Shinko/Sinfonia CHC-S2145/S1245",
+	.name = "Shinko/Sinfonia CHC-S2145",
 	.version = "0.37",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
@@ -1829,7 +1826,6 @@ struct dyesub_backend shinkos2145_backend = {
 	.main_loop = shinkos2145_main_loop,
 	.query_serno = shinkos2145_query_serno,
 	.devices = {
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S1245, P_SHINKO_S1245, ""},
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
 //	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S2145, ""},
 //	{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S2145, ""},
@@ -1848,25 +1844,6 @@ struct dyesub_backend shinkos2145_backend = {
    64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == Media/Print Size
    MM 00 00 00 PP 00 00 00  00 00 00 00 00 00 00 00  MM = Print Method (aka cut control), PP = Print Mode
    00 00 00 00 WW WW 00 00  HH HH 00 00 XX 00 00 00  XX == Copies
-   00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
-   00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI, ie 300.
-   00 00 00 00 ce ff ff ff  00 00 00 00 00 00 00 00
-   00 00 00 00 
-
-   [[Packed RGB payload of WW*HH*3 bytes]]
-
-   04 03 02 01  [[ footer ]]
-
- * CHC-S1245 data format
-
-  Spool file consists of an 116-byte header, followed by RGB-packed data,
-  followed by a 4-byte footer.  Header appears to consist of a series of
-  4-byte Little Endian words.
-
-   10 00 00 00 MM MM 00 00  00 00 00 00 01 00 00 00  MM == Model (ie 1245d)
-   64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == Media Size (0x10 fixed)
-   MM 00 00 00 PP 00 00 00  00 00 00 00 ZZ ZZ ZZ ZZ  MM = Print Method (aka cut control), PP = Default/Glossy/Matte (0x01/0x03/0x05), ZZ == matte intensity (0x7fffffff for glossy, else 0x00000000 +- 25 for matte)
-   VV 00 00 00 WW WW 00 00  HH HH 00 00 XX 00 00 00  VV == dust; 0x00 default, 0x01 off, 0x02 on, XX == Copies
    00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
    00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI, ie 300.
    00 00 00 00 ce ff ff ff  00 00 00 00 00 00 00 00
