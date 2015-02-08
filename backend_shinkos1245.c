@@ -103,6 +103,169 @@ struct shinkos1245_ctx {
 	int datalen;
 };
 
+/* Printer data structures */
+struct shinkos1245_cmd_hdr {
+	uint8_t prefix; /* 0x03 */
+	uint8_t hdr[4]; /* 0x1b 0x43 0x48 0x43 */
+} __attribute__((packed));
+
+struct shinkos1245_cmd_getid {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1]; /* 0x12 */
+	uint8_t pad[11];
+} __attribute__((packed));
+
+struct shinkos1245_resp_getid {
+	uint8_t id;       /* 0x00 */
+	uint8_t data[23]; /* padded with 0x20 (space) */
+	uint8_t reserved[8];
+} __attribute__((packed));
+
+struct shinkos1245_cmd_setid {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[2];   /* 0x0a 0x22 */
+	uint8_t id;       /* 0x00 */
+	uint8_t data[23]; /* pad with 0x20 (space) */
+} __attribute__((packed));
+
+struct shinkos1245_cmd_print {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t  cmd[2];   /* 0x0a 0x00 */
+	uint8_t  id;       /* 1-255 */
+	uint8_t  count[2]; /* # Copies in BCD, 1-9999 */
+	uint16_t columns;  /* Fixed at 2448 */
+	uint16_t rows;
+	uint8_t  media;    /* Fixed at 0x10 */
+	uint8_t  mode;     /* dust removal and lamination mode */
+	uint8_t  combo;   
+} __attribute__((packed));
+
+struct shinkos1245_cmd_getstatus {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1];   /* 0x03 */
+	uint8_t pad[10]; 
+} __attribute__((packed));
+
+struct shinkos1245_resp_status {
+	uint8_t  code;
+	uint8_t  print_status;
+	uint8_t  printer_status[6];
+	struct {
+		uint32_t lifetime;  /* BE */
+		uint32_t maint;     /* BE */
+		uint32_t media;     /* BE */
+		uint32_t cutter;    /* BE */
+		uint8_t  reserved;
+		uint8_t  ver_boot;
+		uint8_t  ver_usb;
+		uint8_t  control_flag;
+	} counters;
+	struct {
+		uint16_t main_boot;
+		uint16_t main_control;
+		uint16_t dsp_boot;
+		uint16_t dsp_control;		
+	} versions;
+	struct {
+		uint8_t  bank1_id;
+		uint8_t  bank2_id;
+		uint16_t bank1_remain;   /* BE */
+		uint16_t bank1_complete; /* BE */
+		uint16_t bank1_spec;     /* BE */
+		uint16_t bank2_remain;   /* BE */
+		uint16_t bank2_complete; /* BE */
+		uint16_t bank2_spec;     /* BE */		
+	} counters2;
+	uint8_t curve_status;
+} __attribute__((packed));
+
+struct shinkos1245_cmd_getmedia {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1];   /* 0x1a/0x2a/0x3a for A/B/C */
+	uint8_t pad[10]; 
+} __attribute__((packed));
+
+struct shinkos1245_resp_media {
+	uint8_t  code;
+	uint8_t  reserved[5];
+	uint8_t  count;  /* 1-5 */
+	struct {
+		uint8_t  code;
+		uint16_t columns; /* BE */
+		uint16_t rows;    /* BE */
+	        uint8_t  type;
+		uint8_t  set_type;
+		uint8_t  reserved[3];
+	} media[5];
+} __attribute__((packed));
+
+struct shinkos1245_cmd_canceljob {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1];   /* 0x13 */
+	uint8_t id;       /* 1-255 */
+	uint8_t pad[9];
+} __attribute__((packed));
+
+struct shinkos1245_cmd_reset {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1];   /* 0xc0 */
+	uint8_t pad[10];
+} __attribute__((packed));
+
+struct shinkos1245_cmd_ttone {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1];   /* 0xc0 */
+	uint8_t tone[4];  /* 0x54 0x4f 0x4e 0x45 */
+	uint8_t cmd2[1];  /* 0x72/0x77/0x65/0x20 for read/write/end/data */
+	union {
+		struct {
+			uint8_t tone_table;
+			uint8_t param_table;
+			uint8_t pad[3];
+		} read_write;
+		struct {
+			uint8_t pad[5];
+		} end_data;
+	};
+} __attribute__((packed));
+
+struct shinkos1245_cmd_getmodel {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1];   /* 0x02 */
+	uint8_t pad[10];
+} __attribute__((packed));
+
+struct shinkos1245_resp_getmodel {
+	uint8_t vendor_id[4];
+	uint8_t product_id[4];
+	uint8_t strings[40];
+} __attribute__((packed));
+
+
+struct shinkos1245_cmd_getmatte {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1]; /* 0x20 */
+	uint8_t mode;   /* Fixed at 0x00 */	
+	uint8_t pad[9];
+} __attribute__((packed));
+
+struct shinkos1245_cmd_setmatte {
+	struct shinkos1245_cmd_hdr hdr;
+	uint8_t cmd[1]; /* 0x21 */
+	uint8_t mode;   /* Fixed at 0x00 */
+	 int8_t level;  /* -25->+25 */		
+	uint8_t pad[8];
+} __attribute__((packed));
+
+struct shinkos1245_resp_matte {
+	uint8_t code;
+	uint8_t mode;
+	uint8_t level;
+	uint8_t reserved[3];
+} __attribute__((packed));
+
+
+
 static void shinkos1245_cmdline(void)
 {
 }
