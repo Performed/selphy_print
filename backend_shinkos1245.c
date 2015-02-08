@@ -109,6 +109,7 @@ struct shinkos1245_cmd_hdr {
 	uint8_t hdr[4]; /* 0x1b 0x43 0x48 0x43 */
 } __attribute__((packed));
 
+/* Get Printer ID */
 struct shinkos1245_cmd_getid {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1]; /* 0x12 */
@@ -121,6 +122,7 @@ struct shinkos1245_resp_getid {
 	uint8_t reserved[8];
 } __attribute__((packed));
 
+/* Set Printer ID -- Returns Status */
 struct shinkos1245_cmd_setid {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[2];   /* 0x0a 0x22 */
@@ -128,6 +130,7 @@ struct shinkos1245_cmd_setid {
 	uint8_t data[23]; /* pad with 0x20 (space) */
 } __attribute__((packed));
 
+/* Print -- Returns Status */
 struct shinkos1245_cmd_print {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t  cmd[2];   /* 0x0a 0x00 */
@@ -137,9 +140,10 @@ struct shinkos1245_cmd_print {
 	uint16_t rows;
 	uint8_t  media;    /* Fixed at 0x10 */
 	uint8_t  mode;     /* dust removal and lamination mode */
-	uint8_t  combo;   
+	uint8_t  combo;    /* aka "print method" in the spool file */
 } __attribute__((packed));
 
+/* Get Status */
 struct shinkos1245_cmd_getstatus {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1];   /* 0x03 */
@@ -149,7 +153,11 @@ struct shinkos1245_cmd_getstatus {
 struct shinkos1245_resp_status {
 	uint8_t  code;
 	uint8_t  print_status;
-	uint8_t  printer_status[6];
+	struct {
+		uint8_t  status1;
+		uint32_t status2; /* LE */
+		uint8_t  error;
+	} state;
 	struct {
 		uint32_t lifetime;  /* BE */
 		uint32_t maint;     /* BE */
@@ -158,7 +166,7 @@ struct shinkos1245_resp_status {
 		uint8_t  reserved;
 		uint8_t  ver_boot;
 		uint8_t  ver_usb;
-		uint8_t  control_flag;
+		uint8_t  control_flag; // 0x00 == epson, 0x01 == cypress
 	} counters;
 	struct {
 		uint16_t main_boot;
@@ -179,6 +187,113 @@ struct shinkos1245_resp_status {
 	uint8_t curve_status;
 } __attribute__((packed));
 
+enum {
+	CMD_CODE_OK = 1,
+	CMD_CODE_BAD = 2,
+};
+
+enum {
+	STATUS_PRINTING = 1,
+	STATUS_IDLE = 2,
+};
+
+enum {
+	STATE_STATUS1_STANDBY = 1,
+	STATE_STATUS1_ERROR = 2,
+	STATE_STATUS1_WAIT = 3,
+};
+
+enum {
+	WAIT_STATUS2_INIT = 0,
+	WAIT_STATUS2_RIBBON = 1,
+	WAIT_STATUS2_THERMAL = 2,
+	WAIT_STATUS2_OPERATING = 3,
+	WAIT_STATUS2_BUSY = 4,		
+};
+
+#define ERROR_STATUS2_CTRL_CIRCUIT   (1<<31)
+#define ERROR_STATUS2_MECHANISM_CTRL (1<<30)
+#define ERROR_STATUS2_SENSOR         (1<<13)
+#define ERROR_STATUS2_COVER_OPEN     (1<<12)
+#define ERROR_STATUS2_TEMP_SENSOR    (1<<9)
+#define ERROR_STATUS2_PAPER_JAM      (1<<8)
+#define ERROR_STATUS2_PAPER_EMPTY    (1<<6)
+#define ERROR_STATUS2_RIBBON_ERR     (1<<4)
+
+enum {
+	CTRL_CIR_ERROR_EEPROM1  = 0x01,
+	CTRL_CIR_ERROR_EEPROM2  = 0x02,
+	CTRL_CIR_ERROR_DSP      = 0x04,
+	CTRL_CIR_ERROR_CRC_MAIN = 0x06,
+	CTRL_CIR_ERROR_DL_MAIN  = 0x07,
+	CTRL_CIR_ERROR_CRC_DSP  = 0x08,
+	CTRL_CIR_ERROR_DL_DSP   = 0x09,
+	CTRL_CIR_ERROR_ASIC     = 0x0a,
+	CTRL_CIR_ERROR_DRAM     = 0x0b,
+	CTRL_CIR_ERROR_DSPCOMM  = 0x29,
+};
+
+enum {
+	MECH_ERROR_HEAD_UP            = 0x01,
+	MECH_ERROR_HEAD_DOWN          = 0x02,
+	MECH_ERROR_MAIN_PINCH_UP      = 0x03,
+	MECH_ERROR_MAIN_PINCH_DOWN    = 0x04,
+	MECH_ERROR_SUB_PINCH_UP       = 0x05,
+	MECH_ERROR_SUB_PINCH_DOWN     = 0x06,
+	MECH_ERROR_FEEDIN_PINCH_UP    = 0x07,
+	MECH_ERROR_FEEDIN_PINCH_DOWN  = 0x08,
+	MECH_ERROR_FEEDOUT_PINCH_UP   = 0x09,
+	MECH_ERROR_FEEDOUT_PINCH_DOWN = 0x0a,
+	MECH_ERROR_CUTTER_LR          = 0x0b,
+	MECH_ERROR_CUTTER_RL          = 0x0c,
+};
+
+enum {
+	SENSOR_ERROR_CUTTER           = 0x05,
+	SENSOR_ERROR_HEAD_DOWN        = 0x09,
+	SENSOR_ERROR_HEAD_UP          = 0x0a,
+	SENSOR_ERROR_MAIN_PINCH_DOWN  = 0x0b,
+	SENSOR_ERROR_MAIN_PINCH_UP    = 0x0c,
+	SENSOR_ERROR_FEED_PINCH_DOWN  = 0x0d,
+	SENSOR_ERROR_FEED_PINCH_UP    = 0x0e,
+	SENSOR_ERROR_EXIT_PINCH_DOWN  = 0x0f,
+	SENSOR_ERROR_EXIT_PINCH_UP    = 0x10,
+	SENSOR_ERROR_LEFT_CUTTER      = 0x11,
+	SENSOR_ERROR_RIGHT_CUTTER     = 0x12,
+	SENSOR_ERROR_CENTER_CUTTER    = 0x13,
+	SENSOR_ERROR_UPPER_CUTTER     = 0x14,
+	SENSOR_ERROR_PAPER_FEED_COVER = 0x15,
+};	
+
+enum {
+	TEMP_SENSOR_ERROR_HEAD_HIGH = 0x01,
+	TEMP_SENSOR_ERROR_HEAD_LOW  = 0x02,
+	TEMP_SENSOR_ERROR_ENV_HIGH  = 0x03,
+	TEMP_SENSOR_ERROR_ENV_LOW   = 0x04,
+};
+
+enum {
+	COVER_OPEN_ERROR_UPPER = 0x01,
+	COVER_OPEN_ERROR_LOWER = 0x02,
+};
+
+enum {
+	PAPER_EMPTY_ERROR = 0x00,
+};
+
+enum {
+	RIBBON_ERROR = 0x00,
+};
+
+enum {
+	CURVE_TABLE_STATUS_INITIAL = 0x00,
+	CURVE_TABLE_STATUS_USERSET = 0x01,
+	CURVE_TABLE_STATUS_CURRENT = 0x02,
+};
+
+// XXX Paper jam has 0x01 -> 0xff as error codes
+
+/* Query media info */
 struct shinkos1245_cmd_getmedia {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1];   /* 0x1a/0x2a/0x3a for A/B/C */
@@ -190,15 +305,34 @@ struct shinkos1245_resp_media {
 	uint8_t  reserved[5];
 	uint8_t  count;  /* 1-5 */
 	struct {
-		uint8_t  code;
+		uint8_t  code;  /* Fixed at 0x10 */
 		uint16_t columns; /* BE */
 		uint16_t rows;    /* BE */
-	        uint8_t  type;
-		uint8_t  set_type;
+	        uint8_t  type;       /* MEDIA_TYPE_* */
+		uint8_t  print_type; /* aka "print method" in the spool file */
 		uint8_t  reserved[3];
 	} media[5];
 } __attribute__((packed));
 
+enum {
+	MEDIA_TYPE_UNKNOWN = 0x00,
+	MEDIA_TYPE_PAPER = 0x01,
+};
+
+enum {
+	PRINT_TYPE_STANDARD = 0x00,
+	PRINT_TYPE_8x5_2up  = 0x01,
+	PRINT_TYPE_8x4_2up  = 0x02,
+	PRINT_TYPE_8x6_8x4  = 0x03,
+	PRINT_TYPE_8x5      = 0x04,
+	PRINT_TYPE_8x4      = 0x05,
+	PRINT_TYPE_8x6      = 0x06,
+	PRINT_TYPE_8x6_2up  = 0x07,
+	PRINT_TYPE_8x4_3up  = 0x08,
+	PRINT_TYPE_8x8      = 0x09,
+};
+
+/* Cancel Job -- returns Status */
 struct shinkos1245_cmd_canceljob {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1];   /* 0x13 */
@@ -206,12 +340,14 @@ struct shinkos1245_cmd_canceljob {
 	uint8_t pad[9];
 } __attribute__((packed));
 
+/* Reset printer -- returns Status */
 struct shinkos1245_cmd_reset {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1];   /* 0xc0 */
 	uint8_t pad[10];
 } __attribute__((packed));
 
+/* Tone curve manipulation -- returns Status */
 struct shinkos1245_cmd_ttone {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1];   /* 0xc0 */
@@ -229,6 +365,17 @@ struct shinkos1245_cmd_ttone {
 	};
 } __attribute__((packed));
 
+enum {
+	TONE_TABLE_STANDARD = 0,
+	TONE_TABLE_USER = 1,
+	TONE_TABLE_CURRENT = 2,
+};
+enum {
+	PARAM_TABLE_STANDARD = 1,
+	PARAM_TABLE_FINE = 2,
+};
+   
+/* Query Model information */
 struct shinkos1245_cmd_getmodel {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1];   /* 0x02 */
@@ -242,6 +389,7 @@ struct shinkos1245_resp_getmodel {
 } __attribute__((packed));
 
 
+/* Query and Set Matte info, returns a Matte response */
 struct shinkos1245_cmd_getmatte {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1]; /* 0x20 */
@@ -264,6 +412,7 @@ struct shinkos1245_resp_matte {
 	uint8_t reserved[3];
 } __attribute__((packed));
 
+#define MATTE_MODE_MATTE 0x00
 
 
 static void shinkos1245_cmdline(void)
