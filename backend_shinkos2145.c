@@ -1599,12 +1599,6 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 	struct s2145_status_resp *sts = (struct s2145_status_resp *) rdbuf; 
 	struct s2145_mediainfo_resp *media = (struct s2145_mediainfo_resp *) rdbuf;
 
- top:
-	if (state != last_state) {
-		if (dyesub_debug)
-			DEBUG("last_state %d new %d\n", last_state, state);
-	}
-
 	/* Send Media Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
 	cmd->cmd = cpu_to_le16(S2145_CMD_MEDIAINFO);
@@ -1633,6 +1627,12 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
+ top:
+	if (state != last_state) {
+		if (dyesub_debug)
+			DEBUG("last_state %d new %d\n", last_state, state);
+	}
+
 	/* Send Status Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
 	cmd->cmd = cpu_to_le16(S2145_CMD_STATUS);
@@ -1651,13 +1651,13 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 
 		INFO("Printer Status: 0x%02x (%s)\n", 
 		     sts->hdr.status, status_str(sts->hdr.status));
-		if (sts->hdr.error == ERROR_PRINTER) {
-			ERROR("Printer Reported Error: 0x%02x.0x%02x (%s)\n",
-			      sts->hdr.printer_major, sts->hdr.printer_minor,
-			      error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
-		}
+		if (sts->hdr.result != RESULT_SUCCESS)
+			goto printer_error;		
+		if (sts->hdr.error == ERROR_PRINTER)
+			goto printer_error;
 	} else if (state == last_state) {
 		sleep(1);
+		goto top;
 	}
 	last_state = state;
 
@@ -1666,12 +1666,6 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 	switch (state) {
 	case S_IDLE:
 		INFO("Waiting for printer idle\n");
-		/* Basic error handling */
-		if (sts->hdr.result != RESULT_SUCCESS)
-			goto printer_error;
-		if (sts->hdr.error != ERROR_NONE)
-			goto printer_error;
-
 		/* If either bank is free, continue */
 		if (sts->bank1_status == BANK_STATUS_FREE || 
 		    sts->bank2_status == BANK_STATUS_FREE) 
@@ -1694,8 +1688,7 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 			print->mode = le32_to_cpu(ctx->hdr.mode);
 			print->method = le32_to_cpu(ctx->hdr.method);
 		} else {
-			// S1245: unknown dust removal & matte intensity fields
-			// s6146, s6245 also use different fields
+			// s6145, s6245 use different fields
 			ERROR("Don't know how to initiate print on non-2145 models!\n");
 			return CUPS_BACKEND_FAILED;
 		}
@@ -1726,15 +1719,13 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 		state = S_PRINTER_SENT_DATA;
 		break;
 	case S_PRINTER_SENT_DATA:
-		if (sts->hdr.result != RESULT_SUCCESS)
-			goto printer_error;
 		if (ctx->fast_return) {
 			INFO("Fast return mode enabled.\n");
 			state = S_FINISHED;
-		}
-		else if (sts->hdr.status == STATUS_READY ||
-		    sts->hdr.status == STATUS_FINISHED)
+		} else if (sts->hdr.status == STATUS_READY ||
+			   sts->hdr.status == STATUS_FINISHED) {
 			state = S_FINISHED;
+		}
 		break;
 	default:
 		break;
@@ -1814,7 +1805,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145",
-	.version = "0.37",
+	.version = "0.38",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
