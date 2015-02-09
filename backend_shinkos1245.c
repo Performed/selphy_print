@@ -497,11 +497,11 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 		ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
 					 &resp, sizeof(resp), &num);
 		if (ret < 0) {
-			ERROR("Failed to execute GET_STATUS command\n");
+			ERROR("Failed to execute GET_MEDIA command\n");
 			return ret;
 		}
 		if (resp.code != CMD_CODE_OK) {
-			ERROR("Bad return code on GET_STATUS (%02x)\n",
+			ERROR("Bad return code on GET_MEDIA (%02x)\n",
 			      resp.code);
 			return -99;
 		}
@@ -522,6 +522,60 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 	return 0;
 }
 
+static int shinkos1245_get_printerid(struct shinkos1245_ctx *ctx,
+				     struct shinkos1245_resp_getid *resp)
+{
+	struct shinkos1245_cmd_getstatus cmd;
+	int ret, num;
+	
+	shinkos1245_fill_hdr(&cmd.hdr);
+	cmd.cmd[0] = 0x12;
+	memset(cmd.pad, 0, sizeof(cmd.pad));
+
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				resp, sizeof(*resp), &num);
+	if (ret < 0) {
+		ERROR("Failed to execute GET_PRINTERID command\n");
+		return ret;
+	}
+	    
+	return 0;
+}
+
+static int shinkos1245_set_printerid(struct shinkos1245_ctx *ctx,
+				     char *id)
+{
+	struct shinkos1245_cmd_setid cmd;
+	struct shinkos1245_resp_status sts;
+	
+	int ret, num;
+	int i;
+	
+	shinkos1245_fill_hdr(&cmd.hdr);
+	cmd.cmd[0] = 0x0a;
+	cmd.cmd[1] = 0x22;
+
+	for (i = 0 ; i < (int)sizeof(cmd.data) ; i++) {
+		if (*id)
+			cmd.data[i] = (uint8_t) *id;
+		else
+			cmd.data[i] = ' ';
+	}
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				 &sts, sizeof(sts), &num);
+	if (ret < 0) {
+		ERROR("Failed to execute SET_PRINTERID command\n");
+		return ret;
+	}
+	if (sts.code != CMD_CODE_OK) {
+		ERROR("Bad return code on SET_PRINTERID command\n");
+		return -99;
+	}
+	return 0;
+}
+
+
+/* Structure dumps */
 static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 {
 	char *detail;	
@@ -663,8 +717,11 @@ static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
 
 static void shinkos1245_cmdline(void)
 {
+	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -u ]           # Query user string\n");
+	DEBUG("\t\t[ -U sometext ]  # Set user string\n");	
 }
 
 int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
@@ -675,25 +732,47 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "ms")) >= 0) {
+	while ((i = getopt(argc, argv, "fmsuU:")) >= 0) {
 		switch(i) {
+		case 'f':
+			if (!ctx)
+				return 1;
+			ctx->fast_return = 1;
+			break;
 		case 'm':
-			if (ctx) {
-				j = shinkos1245_get_media(ctx);
-				if (!j)
-					shinkos1245_dump_media(ctx->medias, ctx->num_medias);
-				break;
-			} 
-			return 1;			
-		case 's':
-			if (ctx) {
-				struct shinkos1245_resp_status sts;
-				j = shinkos1245_get_status(ctx, &sts);
-				if (!j)
-					shinkos1245_dump_status(&sts);
-				break;
-			} 
-			return 1;
+			if (!ctx)
+				return 1;			
+			j = shinkos1245_get_media(ctx);
+			if (!j)
+				shinkos1245_dump_media(ctx->medias, ctx->num_medias);
+			break;
+		case 's': {
+			if (!ctx)
+				return 1;			
+			struct shinkos1245_resp_status sts;
+			j = shinkos1245_get_status(ctx, &sts);
+			if (!j)
+				shinkos1245_dump_status(&sts);
+			break;
+		}
+		case 'u': {
+			if (!ctx)
+				return 1;			
+			struct shinkos1245_resp_getid resp;
+			j = shinkos1245_get_printerid(ctx, &resp);
+			if (!j) {
+				char buffer[sizeof(resp.data)+1];
+				memcpy(buffer, resp.data, sizeof(resp.data));
+				buffer[sizeof(resp.data)] = 0;
+				INFO("Printer ID: %02x '%s'\n", resp.id, buffer);
+			}
+			break;
+		}
+		case 'U':
+			if (!ctx)
+				return 1;			
+			j = shinkos1245_set_printerid(ctx, optarg);
+			break;
 		default:			
 			break;  /* Ignore completely */
 		}
@@ -927,8 +1006,28 @@ printer_error:
 
 static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
 {
+	struct shinkos1245_resp_getid resp;
+	int i;
+	
+	struct shinkos1245_ctx ctx = {
+		.dev = dev,
+		.endp_up = endp_up,
+		.endp_down = endp_down,
+	};
 
-	buf[buf_len-1] = 0; /* ensure it's null terminated */
+	i = shinkos1245_get_printerid(&ctx, &resp);
+	if (i < 0)
+		return CUPS_BACKEND_FAILED;
+
+	for (i = 0 ; i < (int) sizeof(resp.data) && i < buf_len; i++) {
+		buf[i] = resp.data[i];
+	}
+
+	/* Ensure null-termination */	
+	if (i < buf_len)
+		buf[i] = 0;
+	else
+		buf[buf_len-1] = 0;
 
 	return CUPS_BACKEND_OK;
 }
