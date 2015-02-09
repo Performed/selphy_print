@@ -322,6 +322,7 @@
    Valid commands:
 
      -s                 Query printer status
+     -m                 Query media information
 
  *************************************************************************** 
   BACKEND=sonyupdr150

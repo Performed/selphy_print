@@ -41,14 +41,6 @@
 
 #include "backend_common.h"
 
-
-enum {
-	S_IDLE = 0,
-	S_PRINTER_READY_CMD,
-	S_PRINTER_SENT_DATA,
-	S_FINISHED,
-};
-
 /* Structure of printjob header.  All fields are LITTLE ENDIAN */
 struct s1245_printjob_hdr {
 	uint32_t len1;   /* Fixed at 0x10 */
@@ -88,20 +80,6 @@ struct s1245_printjob_hdr {
 
 	uint32_t unk21;  /* Null */
 } __attribute__((packed));
-
-/* Private data stucture */
-struct shinkos1245_ctx {
-	struct libusb_device_handle *dev;
-	uint8_t endp_up;
-	uint8_t endp_down;
-	uint8_t jobid;
-	uint8_t fast_return;
-
-	struct s1245_printjob_hdr hdr;
-
-	uint8_t *databuf;
-	int datalen;
-};
 
 /* Printer data structures */
 struct shinkos1245_cmd_hdr {
@@ -418,6 +396,31 @@ struct shinkos1245_resp_matte {
 
 #define MATTE_MODE_MATTE 0x00
 
+/* Private data stucture */
+struct shinkos1245_ctx {
+	struct libusb_device_handle *dev;
+	uint8_t endp_up;
+	uint8_t endp_down;
+	uint8_t jobid;
+	uint8_t fast_return;
+
+	struct s1245_printjob_hdr hdr;
+
+	struct shinkos1245_mediadesc medias[15];
+	int num_medias;
+	
+	uint8_t *databuf;
+	int datalen;
+};
+
+enum {
+	S_IDLE = 0,
+	S_PRINTER_READY_CMD,
+	S_PRINTER_SENT_DATA,
+	S_FINISHED,
+};
+
+
 /* Basic printer I/O stuffs */
 static void shinkos1245_fill_hdr(struct shinkos1245_cmd_hdr *hdr)
 {
@@ -476,6 +479,46 @@ static int shinkos1245_get_status(struct shinkos1245_ctx *ctx,
 		return -99;
 	}
 	    
+	return 0;
+}
+
+static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
+{
+	struct shinkos1245_cmd_getmedia cmd;
+	struct shinkos1245_resp_media resp;
+	int i, j;
+	int ret, num;
+
+	shinkos1245_fill_hdr(&cmd.hdr);
+	memset(cmd.pad, 0, sizeof(cmd.pad));	
+	for (i = 1 ; i <= 3 ; i++) {
+		cmd.cmd[0] = 0x0a || (i << 4);
+
+		ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+					 &resp, sizeof(resp), &num);
+		if (ret < 0) {
+			ERROR("Failed to execute GET_STATUS command\n");
+			return ret;
+		}
+		if (resp.code != CMD_CODE_OK) {
+			ERROR("Bad return code on GET_STATUS (%02x)\n",
+			      resp.code);
+			return -99;
+		}
+
+		/* Store media info */
+		for (j = 0; j < resp.count ; j++) {
+			ctx->medias[ctx->num_medias].code = resp.data[j].code;
+			ctx->medias[ctx->num_medias].columns = be16_to_cpu(resp.data[j].columns);
+			ctx->medias[ctx->num_medias].rows = be16_to_cpu(resp.data[j].rows);
+			ctx->medias[ctx->num_medias].type = resp.data[j].type;
+			ctx->medias[ctx->num_medias].print_type = resp.data[j].print_type;
+			ctx->num_medias++;
+		}
+		
+		if (resp.count < 5)
+			break;
+	}   
 	return 0;
 }
 
@@ -600,11 +643,28 @@ static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 	INFO("Tone Curve Status: %s\n", detail);
 }
 
+static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
+				   int count)
+{
+	int i;
+	
+	INFO("Supported print sizes: %d\n", count);
+
+	for (i = 0 ; i < count ; i++) {
+		INFO("\t %02x: %04d*%04d (%02x/%02d)\n",
+		     medias[i].print_type,
+		     medias[i].columns,
+		     medias[i].rows,
+		     medias[i].code, medias[i].type);
+	}
+}
+
 /* Driver API */
 
 static void shinkos1245_cmdline(void)
 {
-	DEBUG("\t\t[ -s ]           # Query status\n");	
+	DEBUG("\t\t[ -m ]           # Query media\n");
+	DEBUG("\t\t[ -s ]           # Query status\n");
 }
 
 int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
@@ -615,8 +675,16 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "s")) >= 0) {
+	while ((i = getopt(argc, argv, "ms")) >= 0) {
 		switch(i) {
+		case 'm':
+			if (ctx) {
+				j = shinkos1245_get_media(ctx);
+				if (!j)
+					shinkos1245_dump_media(ctx->medias, ctx->num_medias);
+				break;
+			} 
+			return 1;			
 		case 's':
 			if (ctx) {
 				struct shinkos1245_resp_status sts;
@@ -705,13 +773,23 @@ static int shinkos1245_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;
 	} 
 
+	/* Finish byteswapping */
+	ctx->hdr.media = le32_to_cpu(ctx->hdr.media);
+	ctx->hdr.method = le32_to_cpu(ctx->hdr.method);
+	ctx->hdr.mode = le32_to_cpu(ctx->hdr.mode);
+	ctx->hdr.mattedepth = le32_to_cpu(ctx->hdr.mattedepth);	
+	ctx->hdr.dust = le32_to_cpu(ctx->hdr.dust);
+	ctx->hdr.columns = le32_to_cpu(ctx->hdr.columns);
+	ctx->hdr.rows = le32_to_cpu(ctx->hdr.rows);
+	ctx->hdr.copies = le32_to_cpu(ctx->hdr.copies);
+	
 	/* Allocate space */
 	if (ctx->databuf) {
 		free(ctx->databuf);
 		ctx->databuf = NULL;
 	}
 
-	ctx->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
+	ctx->datalen = ctx->hdr.rows * ctx->hdr.columns * 3;
 	ctx->databuf = malloc(ctx->datalen);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
@@ -755,7 +833,95 @@ static int shinkos1245_read_parse(void *vctx, int data_fd) {
 
 static int shinkos1245_main_loop(void *vctx, int copies) {
 	struct shinkos1245_ctx *ctx = vctx;
+	int i, last_state = -1, state = S_IDLE;
+	struct shinkos1245_resp_status status1, status2;
+	
+	// XXX query printer info
 
+	/* Query Media information if necessary */
+	if (!ctx->num_medias)
+		shinkos1245_get_media(ctx);
+	if (!ctx->num_medias) {
+		ERROR("Media Query Error\n");
+		return CUPS_BACKEND_FAILED;
+	}
+	/* Make sure print size is supported */
+	for (i = 0 ; i < ctx->num_medias ; i++) {
+		if (ctx->hdr.media != ctx->medias[i].code)
+			break;
+		if (ctx->hdr.method != ctx->medias[i].print_type)
+			break;
+		if (ctx->hdr.rows != ctx->medias[i].rows)
+			break;
+		if (ctx->hdr.columns != ctx->medias[i].columns)
+			break;
+	}
+	if (i == ctx->num_medias) {
+		ERROR("Unsupported print type\n");
+		return CUPS_BACKEND_HOLD;
+	}
+
+top:
+	if (state != last_state) {
+		if (dyesub_debug)
+			DEBUG("last_state %d new %d\n", last_state, state);
+	}	
+
+	/* Send status query */
+	i = shinkos1245_get_status(ctx, &status1);
+	if (i < 0)
+		return CUPS_BACKEND_FAILED;
+
+	if (memcmp(&status1, &status2, sizeof(status1))) {
+		memcpy(&status2, &status1, sizeof(status1));
+		// status changed, check for errors and whatnot
+	} else if (state == last_state) {
+		sleep(1);
+		goto top;
+	}
+	
+	last_state = state;
+
+	fflush(stderr);
+	
+	switch (state) {
+	case S_IDLE:
+		// check to see if printer has free bank, if so, continue
+		break;
+	case S_PRINTER_READY_CMD:
+		// issue a print command, send over data.
+		break;
+	case S_PRINTER_SENT_DATA:
+		if (ctx->fast_return) {
+			INFO("Fast return mode enabled.\n");
+			state = S_FINISHED;
+		}
+		// check for completion
+		break;
+	default:
+		break;
+	}
+
+	if (state != S_FINISHED)
+		goto top;
+	
+	/* This printer handles copies internally */
+	copies = 1;
+
+	/* Clean up */
+	if (terminate)
+		copies = 1;
+	
+	INFO("Print complete (%d copies remaining)\n", copies - 1);
+
+	if (copies && --copies) {
+		state = S_IDLE;
+		goto top;
+	}
+
+	return CUPS_BACKEND_OK;
+
+printer_error:
 	return CUPS_BACKEND_FAILED;
 }
 
