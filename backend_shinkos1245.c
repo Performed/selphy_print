@@ -574,6 +574,30 @@ static int shinkos1245_set_printerid(struct shinkos1245_ctx *ctx,
 	return 0;
 }
 
+static int shinkos1245_canceljob(struct shinkos1245_ctx *ctx,
+				 int id)
+{
+	struct shinkos1245_cmd_canceljob cmd;
+	struct shinkos1245_resp_status sts;
+	
+	int ret, num;
+	
+	shinkos1245_fill_hdr(&cmd.hdr);
+	cmd.cmd[0] = 0x13;
+	cmd.id = id;
+
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				 &sts, sizeof(sts), &num);
+	if (ret < 0) {
+		ERROR("Failed to execute CANCELJOB command\n");
+		return ret;
+	}
+	if (sts.code != CMD_CODE_OK) {
+		ERROR("Bad return code on CANCELJOB command\n");
+		return -99;
+	}
+	return 0;
+}
 
 /* Structure dumps */
 static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
@@ -721,7 +745,8 @@ static void shinkos1245_cmdline(void)
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -u ]           # Query user string\n");
-	DEBUG("\t\t[ -U sometext ]  # Set user string\n");	
+	DEBUG("\t\t[ -U sometext ]  # Set user string\n");
+	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");	
 }
 
 int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
@@ -732,7 +757,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "fmsuU:")) >= 0) {
+	while ((i = getopt(argc, argv, "fmsuU:X:")) >= 0) {
 		switch(i) {
 		case 'f':
 			if (!ctx)
@@ -772,6 +797,11 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 			if (!ctx)
 				return 1;			
 			j = shinkos1245_set_printerid(ctx, optarg);
+			break;
+		case 'X':
+			if (!ctx)
+				return 1;
+			j = shinkos1245_canceljob(ctx, atoi(optarg));
 			break;
 		default:			
 			break;  /* Ignore completely */

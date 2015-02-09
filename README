@@ -326,13 +326,18 @@
      -m                 Query media information
      -u                 Query user string
      -U somestring      Set user string to 'somestring'
+     -X id              Cancel print job 'id'                   [2]
 
-[1]  This terminates the backend as soon as the printer has acknowledged
+    [1]  This terminates the backend as soon as the printer has acknowledged
          the print job, without waiting for the print job to complete.
          This can also be enabled by setting the 'FAST_RETURN' environment
          variable.  This is the default behavior when using this backend
 	 with CUPS.
-
+	 
+    [2]  Job ID is the Internal Job ID (reported via status)
+    	   This cancels a multi-copy print job.
+	   To see which jobs are active/pending, see the output of the
+	   '-s' command, specifically the 'Bank' output.
  *************************************************************************** 
   BACKEND=sonyupdr150
 
