@@ -113,7 +113,7 @@ struct shinkos1245_cmd_print {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t  cmd[2];   /* 0x0a 0x00 */
 	uint8_t  id;       /* 1-255 */
-	uint8_t  count[2]; /* # Copies in BCD, 1-9999 */
+	uint16_t count;    /* # Copies in BCD, 1-9999 */
 	uint16_t columns;  /* Fixed at 2448 */
 	uint16_t rows;
 	uint8_t  media;    /* Fixed at 0x10 */
@@ -940,9 +940,30 @@ static int shinkos1245_read_parse(void *vctx, int data_fd) {
 	return CUPS_BACKEND_OK;
 }
 
+static uint16_t uint16_to_packed_bcd(uint16_t val)
+{
+	uint16_t bcd;
+	uint16_t i;
+
+	/* Handle from 0-9999 */
+	i = val % 10;
+	bcd = i;
+	val /= 10;
+	i = val % 10;
+	bcd |= (i << 4);
+	val /= 10;
+	i = val % 10;
+	bcd |= (i << 8);
+	val /= 10;	
+	i = val % 10;
+	bcd |= (i << 12);
+	
+	return bcd;
+}
+
 static int shinkos1245_main_loop(void *vctx, int copies) {
 	struct shinkos1245_ctx *ctx = vctx;
-	int i, last_state = -1, state = S_IDLE;
+	int i, num, last_state = -1, state = S_IDLE;
 	struct shinkos1245_resp_status status1, status2;
 	
 	// XXX query printer info
@@ -995,17 +1016,57 @@ top:
 	
 	switch (state) {
 	case S_IDLE:
-		// check to see if printer has free bank, if so, continue
+		INFO("Waiting for printer idle\n");		
+		if (status1.state.status1 == STATE_STATUS1_STANDBY &&
+		    status1.print_status == STATUS_IDLE) {
+			state = S_PRINTER_READY_CMD;
+			break;
+		}
+		// if we're printing, check to see if printer has
+		// a free bank.  ??
 		break;
-	case S_PRINTER_READY_CMD:
-		// issue a print command, send over data.
+	case S_PRINTER_READY_CMD: {
+		struct shinkos1245_cmd_print cmd;
+		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
+		
+		shinkos1245_fill_hdr(&cmd.hdr);
+		cmd.cmd[0] = 0x0a;
+		cmd.cmd[1] = 0x00;
+
+		cmd.id = ctx->jobid;
+		cmd.count = cpu_to_be16(uint16_to_packed_bcd(copies));
+		cmd.columns = cpu_to_be16(ctx->hdr.columns);		
+		cmd.rows = cpu_to_be16(ctx->hdr.rows);
+		cmd.media = ctx->hdr.media;
+		cmd.mode = (ctx->hdr.mode & 0x3f) || ((ctx->hdr.dust & 0x3) << 6);
+		cmd.combo = ctx->hdr.method;
+
+		/* Issue print commmand */
+		i = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				       &status1, sizeof(status1),
+				       &num);
+		if (i < 0)
+			goto printer_error;
+		if (status1.code != CMD_CODE_OK)
+			goto printer_error;
+
+		/* Send over data */
+		INFO("Sending image data to printer\n");
+		if ((i = send_data(ctx->dev, ctx->endp_down,
+				     ctx->databuf, ctx->datalen)))
+			return CUPS_BACKEND_FAILED;
+
+		INFO("Waiting for printer to acknowledge completion\n");
+		sleep(1);
+		state = S_PRINTER_SENT_DATA;
 		break;
+	}
 	case S_PRINTER_SENT_DATA:
 		if (ctx->fast_return) {
 			INFO("Fast return mode enabled.\n");
 			state = S_FINISHED;
 		}
-		// check for completion
+		// check for completion?
 		break;
 	default:
 		break;
@@ -1031,6 +1092,7 @@ top:
 	return CUPS_BACKEND_OK;
 
 printer_error:
+	// XXX dump the error..
 	return CUPS_BACKEND_FAILED;
 }
 
