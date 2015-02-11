@@ -133,7 +133,7 @@ struct shinkos1245_resp_status {
 	uint8_t  print_status;
 	struct {
 		uint8_t  status1;
-		uint32_t status2; /* LE */
+		uint32_t status2; /* BE */
 		uint8_t  error;
 	} state;
 	struct {
@@ -600,9 +600,154 @@ static int shinkos1245_canceljob(struct shinkos1245_ctx *ctx,
 }
 
 /* Structure dumps */
+static char *shinkos1245_status_str(struct shinkos1245_resp_status *resp)
+{
+	switch(resp->state.status1) {
+	case STATE_STATUS1_STANDBY:
+		return "Standby (Ready)";
+	case STATE_STATUS1_WAIT:
+		switch (resp->state.status2) {
+		case WAIT_STATUS2_INIT:
+			return "Wait (Initializing)";
+		case WAIT_STATUS2_RIBBON:
+			return "Wait (Ribbon Winding)";
+		case WAIT_STATUS2_THERMAL:
+			return "Wait (Thermal Protection)";
+		case WAIT_STATUS2_OPERATING:
+			return "Wait (Operating)";
+		case WAIT_STATUS2_BUSY:
+			return "Wait (Busy)";
+		default:
+			return "Wait (Unknown)";
+		}
+	case STATE_STATUS1_ERROR:
+		switch (resp->state.status2) {
+		case ERROR_STATUS2_CTRL_CIRCUIT:
+			switch (resp->state.error) {
+			case CTRL_CIR_ERROR_EEPROM1:
+				return "Error (EEPROM1)";
+			case CTRL_CIR_ERROR_EEPROM2:
+				return "Error (EEPROM2)";
+			case CTRL_CIR_ERROR_DSP:
+				return "Error (DSP)";
+			case CTRL_CIR_ERROR_CRC_MAIN:
+				return "Error (Main CRC)";
+			case CTRL_CIR_ERROR_DL_MAIN:
+				return "Error (Main Download)";
+			case CTRL_CIR_ERROR_CRC_DSP:
+				return "Error (DSP CRC)";
+			case CTRL_CIR_ERROR_DL_DSP:
+				return "Error (DSP Download)";
+			case CTRL_CIR_ERROR_ASIC:
+				return "Error (ASIC)";
+			case CTRL_CIR_ERROR_DRAM:
+				return "Error (DRAM)";
+			case CTRL_CIR_ERROR_DSPCOMM:
+				return "Error (DSP Communincation)";
+			default:
+				return "Error (Unknown Circuit)";
+			}
+		case ERROR_STATUS2_MECHANISM_CTRL:
+			switch (resp->state.error) {
+			case MECH_ERROR_HEAD_UP:
+				return "Error (Head Up Mechanism)";
+			case MECH_ERROR_HEAD_DOWN:
+				return "Error (Head Down Mechanism)";
+			case MECH_ERROR_MAIN_PINCH_UP:
+				return "Error (Main Pinch Up Mechanism)";
+			case MECH_ERROR_MAIN_PINCH_DOWN:
+				return "Error (Main Pinch Down Mechanism)";
+			case MECH_ERROR_SUB_PINCH_UP:
+				return "Error (Sub Pinch Up Mechanism)";
+			case MECH_ERROR_SUB_PINCH_DOWN:
+				return "Error (Sub Pinch Down Mechanism)";
+			case MECH_ERROR_FEEDIN_PINCH_UP:
+				return "Error (Feed-in Pinch Up Mechanism)";
+			case MECH_ERROR_FEEDIN_PINCH_DOWN:
+				return "Error (Feed-in Pinch Down Mechanism)";
+			case MECH_ERROR_FEEDOUT_PINCH_UP:
+				return "Error (Feed-out Pinch Up Mechanism)";
+			case MECH_ERROR_FEEDOUT_PINCH_DOWN:
+				return "Error (Feed-out Pinch Down Mechanism)";
+			case MECH_ERROR_CUTTER_LR:
+				return "Error (Left->Right Cutter)";
+			case MECH_ERROR_CUTTER_RL:
+				return "Error (Right->Left Cutter)";
+			default:
+				return "Error (Unknown Mechanism)";
+			}
+		case ERROR_STATUS2_SENSOR:
+			switch (resp->state.error) {
+			case SENSOR_ERROR_CUTTER:
+				return "Error (Cutter Sensor)";
+			case SENSOR_ERROR_HEAD_DOWN:
+				return "Error (Head Down Sensor)";
+			case SENSOR_ERROR_HEAD_UP:
+				return "Error (Head Up Sensor)";
+			case SENSOR_ERROR_MAIN_PINCH_DOWN:
+				return "Error (Main Pinch Down Sensor)";
+			case SENSOR_ERROR_MAIN_PINCH_UP:
+				return "Error (Main Pinch Up Sensor)";
+			case SENSOR_ERROR_FEED_PINCH_DOWN:
+				return "Error (Feed Pinch Down Sensor)";
+			case SENSOR_ERROR_FEED_PINCH_UP:
+				return "Error (Feed Pinch Up Sensor)";
+			case SENSOR_ERROR_EXIT_PINCH_DOWN:
+				return "Error (Exit Pinch Up Sensor)";
+			case SENSOR_ERROR_EXIT_PINCH_UP:
+				return "Error (Exit Pinch Up Sensor)";
+			case SENSOR_ERROR_LEFT_CUTTER:
+				return "Error (Left Cutter Sensor)";
+			case SENSOR_ERROR_RIGHT_CUTTER:
+				return "Error (Right Cutter Sensor)";
+			case SENSOR_ERROR_CENTER_CUTTER:
+				return "Error (Center Cutter Sensor)";
+			case SENSOR_ERROR_UPPER_CUTTER:
+				return "Error (Upper Cutter Sensor)";
+			case SENSOR_ERROR_PAPER_FEED_COVER:
+				return "Error (Paper Feed Cover)";
+			default:
+				return "Error (Unknown Sensor)";
+			}
+		case ERROR_STATUS2_COVER_OPEN:
+			switch (resp->state.error) {
+			case COVER_OPEN_ERROR_UPPER:
+				return "Error (Upper Cover Open)";
+			case COVER_OPEN_ERROR_LOWER:
+				return "Error (Lower Cover Open)";
+			default:
+				return "Error (Unknown Cover Open)";
+			}
+		case ERROR_STATUS2_TEMP_SENSOR:
+			switch (resp->state.error) {
+			case TEMP_SENSOR_ERROR_HEAD_HIGH:
+				return "Error (Head Temperature High)";
+			case TEMP_SENSOR_ERROR_HEAD_LOW:
+				return "Error (Head Temperature Low)";
+			case TEMP_SENSOR_ERROR_ENV_HIGH:
+				return "Error (Environmental Temperature High)";
+			case TEMP_SENSOR_ERROR_ENV_LOW:
+				return "Error (Environmental Temperature Low)";
+			default:
+				return "Error (Unknown Temperature)";
+			}
+		case ERROR_STATUS2_PAPER_JAM:
+			return "Error (Paper Jam)";
+		case ERROR_STATUS2_PAPER_EMPTY:
+			return "Error (Paper Empty)";
+		case ERROR_STATUS2_RIBBON_ERR:
+			return "Error (Ribbon)";
+		default:
+			return "Error (Unknown)";
+		}
+	default:
+		return "Unknown!";
+	}
+}
+
 static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 {
-	char *detail;	
+	char *detail;
 	switch (sts->print_status) {
 	case STATUS_PRINTING:
 		detail = "Printing";
@@ -616,69 +761,12 @@ static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 	}
 	INFO("Printer Status:  %s\n", detail);
 
-	switch(sts->state.status1) {
-	case STATE_STATUS1_STANDBY:
-		INFO("Printer State:  Standby\n");
-		break;
-	case STATE_STATUS1_WAIT:
-		switch(sts->state.status2) {
-		case WAIT_STATUS2_INIT:
-			detail = "Initializing";
-			break;
-		case WAIT_STATUS2_RIBBON:
-			detail = "Ribbon Winding";
-			break;
-		case WAIT_STATUS2_THERMAL:
-			detail = "Cooling Down";
-			break;
-		case WAIT_STATUS2_OPERATING:
-			detail = "Operating section busy";
-			break;
-		case WAIT_STATUS2_BUSY:
-			detail = "In progress";
-			break;
-		default:
-			detail = "Unknown";
-			break;
-		}
-		INFO("Printer State:  Wait (%s)\n", detail);
-		break;
-	case STATE_STATUS1_ERROR:
-		switch (sts->state.status2) {
-		case ERROR_STATUS2_CTRL_CIRCUIT:
-			detail = "Control Circuit";
-			break;
-		case ERROR_STATUS2_MECHANISM_CTRL:
-			detail = "Mechanism Control";
-			break;
-		case ERROR_STATUS2_SENSOR:
-			detail = "Sensor";
-			break;
-		case ERROR_STATUS2_COVER_OPEN:
-			detail = "Cover Open";
-			break;
-		case ERROR_STATUS2_TEMP_SENSOR:
-			detail = "Temperature Sensor";
-			break;
-		case ERROR_STATUS2_PAPER_JAM:
-			detail = "Paper Jam";
-			break;
-		case ERROR_STATUS2_PAPER_EMPTY:
-			detail = "Paper Empty";
-			break;
-		case ERROR_STATUS2_RIBBON_ERR:
-			detail = "Ribbon Error";
-			break;
-		default:
-			detail = "Unknown";
-		}
-		INFO("Printer State:  Error (%s - %02x)\n", detail,
-		     sts->state.error);
-		break;
-	default:
-		WARNING("Printer State:  Unknown (%02x/%08x/%02x)\n", sts->state.status1, sts->state.status2, sts->state.error);
-		break;
-	}
+	/* Byteswap */
+	sts->state.status2 = be32_to_cpu(sts->state.status2);
+
+	INFO("Printer State: %s # %02x %08x %02x\n",
+	     shinkos1245_status_str(sts),
+	     sts->state.status1, sts->state.status2, sts->state.error);
 	INFO("Counters:\n");
 	INFO("\tLifetime     :  %d\n", be32_to_cpu(sts->counters.lifetime));
 	INFO("\tThermal Head :  %d\n", be32_to_cpu(sts->counters.maint));
@@ -1009,6 +1097,10 @@ top:
 		sleep(1);
 		goto top;
 	}
+
+	/* Make sure we're not in an error state */
+	if (status1.state.status1 == STATE_STATUS1_ERROR)
+		goto printer_error;
 	
 	last_state = state;
 
@@ -1016,14 +1108,28 @@ top:
 	
 	switch (state) {
 	case S_IDLE:
-		INFO("Waiting for printer idle\n");		
-		if (status1.state.status1 == STATE_STATUS1_STANDBY &&
-		    status1.print_status == STATUS_IDLE) {
+		INFO("Waiting for printer idle\n");
+		
+		if (status1.state.status1 == STATE_STATUS1_STANDBY) {
 			state = S_PRINTER_READY_CMD;
 			break;
 		}
-		// if we're printing, check to see if printer has
-		// a free bank.  ??
+
+		if (status1.print_status == STATUS_IDLE) {
+			state = S_PRINTER_READY_CMD;
+			break;
+		}
+
+		// XXX what about STATUS_WAIT ?
+		// XXX see if printer has an empty bank?
+
+		/* If the printer is "busy" check to see if there's any
+		   open memory banks so we can queue the next print */
+		if (!status1.counters2.bank1_remain ||
+		    status1.counters2.bank2_remain) {
+			state = S_PRINTER_READY_CMD;			
+			break;
+		}
 		break;
 	case S_PRINTER_READY_CMD: {
 		struct shinkos1245_cmd_print cmd;
@@ -1047,7 +1153,19 @@ top:
 				       &num);
 		if (i < 0)
 			goto printer_error;
-		if (status1.code != CMD_CODE_OK)
+		
+		/* Check for buffer full state, and wait if we're full */
+		if (status1.code != CMD_CODE_OK) {
+			if (status1.print_status == STATUS_PRINTING) {
+				sleep(1);
+				break;
+			} else {
+				goto printer_error;
+			}			
+		}
+		
+		/* Check for error states */
+		if (status1.state.status1 == STATE_STATUS1_ERROR)
 			goto printer_error;
 
 		/* Send over data */
@@ -1066,7 +1184,10 @@ top:
 			INFO("Fast return mode enabled.\n");
 			state = S_FINISHED;
 		}
-		// check for completion?
+		/* Check for completion */
+		if (status1.print_status == STATUS_IDLE)
+			state = S_FINISHED;
+
 		break;
 	default:
 		break;
@@ -1092,7 +1213,13 @@ top:
 	return CUPS_BACKEND_OK;
 
 printer_error:
-	// XXX dump the error..
+	/* Byteswap */
+	status1.state.status2 = be32_to_cpu(status1.state.status2);
+
+	ERROR("Printer Error: %s # %02x %08x %02x\n",
+	      shinkos1245_status_str(&status1),
+	      status1.state.status1, status1.state.status2, status1.state.error);
+
 	return CUPS_BACKEND_FAILED;
 }
 
