@@ -393,7 +393,7 @@ struct shinkos1245_cmd_setmatte {
 struct shinkos1245_resp_matte {
 	uint8_t code;
 	uint8_t mode;
-	uint8_t level;
+	 int8_t level;
 	uint8_t reserved[3];
 } __attribute__((packed));
 
@@ -630,6 +630,34 @@ static int shinkos1245_set_matte(struct shinkos1245_ctx *ctx,
 	ERROR("Bad return code (%02x) on SET_MATTE command\n", sts.code);	
 	return -99;
 }
+
+static int shinkos1245_get_matte(struct shinkos1245_ctx *ctx,
+				 int *intensity)
+{
+	struct shinkos1245_cmd_getmatte cmd;
+	struct shinkos1245_resp_matte sts;
+	
+	int ret, num;
+	
+	shinkos1245_fill_hdr(&cmd.hdr);
+	cmd.cmd[0] = 0x20;
+	cmd.mode = MATTE_MODE_MATTE;
+
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				 &sts, sizeof(sts), &num);
+	if (ret < 0) {
+		ERROR("Failed to execute GET_MATTE command\n");
+		return ret;
+	}
+	if (sts.code != CMD_CODE_OK) {
+		ERROR("Bad return code (%02x) on GET_MATTE command\n", sts.code);
+		return -99;
+	}
+	*intensity = sts.level;
+	
+	return 0;
+}
+
 
 /* Structure dumps */
 static char *shinkos1245_status_str(struct shinkos1245_resp_status *resp)
@@ -1404,14 +1432,20 @@ top:
 
 		/* Set matte intensity */
 		if (ctx->hdr.mattedepth != 0x7fffffff) {
-			i = shinkos1245_set_matte(ctx, ctx->hdr.mattedepth);
+			int current;
+			i = shinkos1245_get_matte(ctx, &current);
 			if (i < 0)
 				goto printer_error;
-			if (i > 0) {
-				/* We can't set the matte depth if we're printing */
-				state = S_IDLE;
-				sleep(1);
-				break;
+			if (current != ctx->hdr.mattedepth) {
+				i = shinkos1245_set_matte(ctx, ctx->hdr.mattedepth);
+				if (i < 0)
+					goto printer_error;
+				if (i > 0) {
+					/* We can't set the matte depth if we're printing */
+					state = S_IDLE;
+					sleep(1);
+					break;
+				}
 			}
 		}
 
