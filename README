@@ -327,6 +327,11 @@
      -u                 Query user string
      -U somestring      Set user string to 'somestring'
      -X id              Cancel print job 'id'                   [2]
+     -F                 Tone curve commands affect FINE table
+     -c filename        Query User tone curve from flash        [3]
+     -C filename        Store User tone curve in flash          [3]
+     -l filename        Query Current tone curve from RAM       [3]
+     -L filename        Store Current tone curve in RAM         [3]
 
     [1]  This terminates the backend as soon as the printer has acknowledged
          the print job, without waiting for the print job to complete.
@@ -338,6 +343,13 @@
     	   This cancels a multi-copy print job.
 	   To see which jobs are active/pending, see the output of the
 	   '-s' command, specifically the 'Bank' output.
+
+    [3]  Format of tone curve file:
+
+	 256 entries each of Yellow, Magenta, Cyan mappings:
+	 Values are unsigned 16-bit big endian, between 0 and 16383
+	 (ie only 14 bits used)
+
  *************************************************************************** 
   BACKEND=sonyupdr150
 

@@ -356,6 +356,9 @@ enum {
 	PARAM_TABLE_STANDARD = 1,
 	PARAM_TABLE_FINE = 2,
 };
+
+#define TONE_CURVE_SIZE 1536
+#define TONE_CURVE_DATA_BLOCK_SIZE 64
    
 /* Query Model information */
 struct shinkos1245_cmd_getmodel {
@@ -411,6 +414,7 @@ struct shinkos1245_ctx {
 	
 	uint8_t *databuf;
 	int datalen;
+	int tonecurve;
 };
 
 enum {
@@ -825,6 +829,209 @@ static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
 	}
 }
 
+static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char *fname)
+{
+	int ret, num, remaining;
+	uint8_t *data, *ptr;
+	
+	struct shinkos1245_cmd_tone cmd;
+	struct shinkos1245_resp_status resp;
+	
+	INFO("Dump %d/%d Tone Curve to '%s'\n", type, table, fname); // XXX
+	
+	/* Issue a tone_read_start */
+	shinkos1245_fill_hdr(&cmd.hdr);
+	cmd.cmd[0] = 0x0c;
+	cmd.tone[0] = 0x54;
+	cmd.tone[1] = 0x4f;
+	cmd.tone[2] = 0x4e;
+	cmd.tone[3] = 0x45;
+	cmd.cmd2[1] = 0x72;
+	cmd.read_write.tone_table = type;
+	cmd.read_write.param_table = table;
+
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				&resp, sizeof(resp), &num);
+
+	if (ret < 0) {
+		ERROR("Failed to execute TONE_READ command\n");
+		return ret;
+	}
+	if (resp.code != CMD_CODE_OK) {
+		ERROR("Bad return code on TONE_READ (%02x)\n",
+		      resp.code);
+		return -99;
+	}
+
+	/* Get the data out */
+	remaining = TONE_CURVE_SIZE;	
+	data = malloc(remaining);
+	if (!data) {
+		ERROR("Out of memory!\n");
+		return -11;
+	}
+	ptr = data;
+	
+	while(remaining) {		
+		/* Issue a tone_data message */
+		cmd.cmd2[1] = 0x20;
+
+		ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+					 &resp, sizeof(resp), &num);
+
+		if (ret < 0) {
+			ERROR("Failed to execute TONE_DATA command\n");
+			return ret;
+		}
+		if (resp.code != CMD_CODE_OK) {
+			ERROR("Bad return code on TONE_DATA (%02x)\n",
+			      resp.code);
+			return -99;
+		}
+
+		/* And read back 64-bytes of data */
+		ret = read_data(ctx->dev, ctx->endp_up,
+				ptr, TONE_CURVE_DATA_BLOCK_SIZE, &num);
+		if (num != TONE_CURVE_DATA_BLOCK_SIZE)
+			return -99;
+		if (ret < 0)
+			return ret;
+		ptr += num;
+	}
+	
+	/* Issue a tone_end */
+	cmd.cmd2[1] = 0x65;
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				&resp, sizeof(resp), &num);
+
+	if (ret < 0) {
+		ERROR("Failed to execute TONE_END command\n");
+		return ret;
+	}
+	if (resp.code != CMD_CODE_OK) {
+		ERROR("Bad return code on TONE_END (%02x)\n",
+		      resp.code);
+		return -99;
+	}
+
+	/* Open file and write it out */
+	{
+		int tc_fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+		if (tc_fd < 0) {
+			return tc_fd;
+		}
+
+		ret = write(tc_fd, data, TONE_CURVE_SIZE);
+		if (ret < 0)
+			return ret;
+		close(tc_fd);
+	}
+	free(data);
+	
+	return 0;
+}
+
+static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char *fname)
+{
+	int ret, num, remaining;
+	uint8_t *data, *ptr;
+	
+	struct shinkos1245_cmd_tone cmd;
+	struct shinkos1245_resp_status resp;
+
+	INFO("Read %d/%d Tone Curve from '%s'\n", type, table, fname); // XXX
+
+	/* Allocate space */
+	remaining = TONE_CURVE_SIZE;	
+	data = malloc(remaining);
+	if (!data) {
+		ERROR("Out of memory!\n");
+		return -11;
+	}
+	ptr = data;
+	
+	/* Open file and read it in */
+	{
+		int tc_fd = open(fname, O_RDONLY);
+		if (tc_fd < 0) {
+			return tc_fd;
+		}
+
+		ret = read(tc_fd, data, TONE_CURVE_SIZE);
+		if (ret < 0)
+			return ret;
+		close(tc_fd);
+	}
+
+	/* Issue a tone_write_start */
+	shinkos1245_fill_hdr(&cmd.hdr);
+	cmd.cmd[0] = 0x0c;
+	cmd.tone[0] = 0x54;
+	cmd.tone[1] = 0x4f;
+	cmd.tone[2] = 0x4e;
+	cmd.tone[3] = 0x45;
+	cmd.cmd2[1] = 0x77;
+	cmd.read_write.tone_table = type;
+	cmd.read_write.param_table = table;
+
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				&resp, sizeof(resp), &num);
+
+	if (ret < 0) {
+		ERROR("Failed to execute TONE_WRITE command\n");
+		return ret;
+	}
+	if (resp.code != CMD_CODE_OK) {
+		ERROR("Bad return code on TONE_WRITE (%02x)\n",
+		      resp.code);
+		return -99;
+	}
+	
+	while(remaining) {		
+		/* Issue a tone_data message */
+		cmd.cmd2[1] = 0x20;
+
+		ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+					 &resp, sizeof(resp), &num);
+
+		if (ret < 0) {
+			ERROR("Failed to execute TONE_DATA command\n");
+			return ret;
+		}
+		if (resp.code != CMD_CODE_OK) {
+			ERROR("Bad return code on TONE_DATA (%02x)\n",
+			      resp.code);
+			return -99;
+		}
+
+		/* Write 64-bytes of data */
+		ret = send_data(ctx->dev, ctx->endp_up,
+				ptr, TONE_CURVE_DATA_BLOCK_SIZE);
+		if (ret < 0)
+			return ret;
+		ptr += num;
+	}
+	free(data);
+	
+	/* Issue a tone_end */
+	cmd.cmd2[1] = 0x65;
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				&resp, sizeof(resp), &num);
+
+	if (ret < 0) {
+		ERROR("Failed to execute TONE_END command\n");
+		return ret;
+	}
+	if (resp.code != CMD_CODE_OK) {
+		ERROR("Bad return code on TONE_END (%02x)\n",
+		      resp.code);
+		return -99;
+	}
+
+	return 0;
+}
+
+
 /* Driver API */
 
 static void shinkos1245_cmdline(void)
@@ -834,7 +1041,12 @@ static void shinkos1245_cmdline(void)
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -u ]           # Query user string\n");
 	DEBUG("\t\t[ -U sometext ]  # Set user string\n");
-	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");	
+	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");
+	DEBUG("\t\t[ -F ]           # Tone curve refers to FINE mode\n");
+	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
+	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
+	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
+	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");	
 }
 
 int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
@@ -845,8 +1057,34 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "fmsuU:X:")) >= 0) {
+	while ((i = getopt(argc, argv, "c:C:l:L:FfmsuU:X:")) >= 0) {
 		switch(i) {
+		case 'F':
+			if (!ctx)
+				return 1;
+			ctx->tonecurve = PARAM_TABLE_FINE;
+			break;
+		case 'c':
+			if (!ctx)
+				return 1;
+			
+			j = get_tonecurve(ctx, TONE_TABLE_USER, ctx->tonecurve, optarg);
+			break;
+		case 'C':
+			if (!ctx)
+				return 1;
+			j = set_tonecurve(ctx, TONE_TABLE_USER, ctx->tonecurve, optarg);
+			break;
+		case 'l':
+			if (!ctx)
+				return 1;
+			j = get_tonecurve(ctx, TONE_TABLE_CURRENT, ctx->tonecurve, optarg);
+			break;
+		case 'L':
+			if (!ctx)
+				return 1;
+			j = set_tonecurve(ctx, TONE_TABLE_CURRENT, ctx->tonecurve, optarg);
+			break;
 		case 'f':
 			if (!ctx)
 				return 1;
@@ -912,6 +1150,8 @@ static void *shinkos1245_init(void)
 	if (getenv("DEVICE_URI") || getenv("FAST_RETURN"))
 		ctx->fast_return = 1;
 
+	ctx->tonecurve = PARAM_TABLE_STANDARD;
+	
 	return ctx;
 }
 
@@ -1257,7 +1497,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.01WIP",
+	.version = "0.02WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
