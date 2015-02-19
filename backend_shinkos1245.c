@@ -602,11 +602,12 @@ static int shinkos1245_canceljob(struct shinkos1245_ctx *ctx,
 	}
 	return 0;
 }
+
 static int shinkos1245_set_matte(struct shinkos1245_ctx *ctx,
 				 int intensity)
 {
 	struct shinkos1245_cmd_setmatte cmd;
-	struct shinkos1245_resp_status sts;
+	struct shinkos1245_resp_matte sts;
 	
 	int ret, num;
 	
@@ -618,15 +619,16 @@ static int shinkos1245_set_matte(struct shinkos1245_ctx *ctx,
 	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
 				 &sts, sizeof(sts), &num);
 	if (ret < 0) {
-		ERROR("Failed to execute CANCELJOB command\n");
+		ERROR("Failed to execute SET_MATTE command\n");
 		return ret;
 	}
-	if (sts.code != CMD_CODE_OK) {
-		ERROR("Bad return code on CANCELJOB command\n");
-		return -99;
-	}
+	if (sts.code == CMD_CODE_OK)
+		return 0;
+	if (sts.code == CMD_CODE_BAD)
+		return 1;
 
-	return 0;
+	ERROR("Bad return code (%02x) on SET_MATTE command\n", sts.code);	
+	return -99;
 }
 
 /* Structure dumps */
@@ -1399,14 +1401,21 @@ top:
 		break;
 	case S_PRINTER_READY_CMD: {
 		struct shinkos1245_cmd_print cmd;
-		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
 
 		/* Set matte intensity */
 		if (ctx->hdr.mattedepth != 0x7fffffff) {
 			i = shinkos1245_set_matte(ctx, ctx->hdr.mattedepth);
 			if (i < 0)
 				goto printer_error;
+			if (i > 0) {
+				/* We can't set the matte depth if we're printing */
+				state = S_IDLE;
+				sleep(1);
+				break;
+			}
 		}
+
+		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
 		
 		shinkos1245_fill_hdr(&cmd.hdr);
 		cmd.cmd[0] = 0x0a;
