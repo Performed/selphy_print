@@ -1515,7 +1515,6 @@ static int shinkos2145_early_parse(void *vctx, int data_fd) {
 	case 2145:
 		printer_type = P_SHINKO_S2145;
 		break;
-	case 1245:
 	case 6145:
 	case 6245:
 	default:
