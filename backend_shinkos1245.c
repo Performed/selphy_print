@@ -805,6 +805,41 @@ static char *shinkos1245_status_str(struct shinkos1245_resp_status *resp)
 	}
 }
 
+static char* shinkos1245_tonecurves(int type, int table)
+{
+	switch (type) {
+	case TONE_TABLE_STANDARD:
+		switch (table) {
+		case PARAM_TABLE_STANDARD:
+			return "Standard/Standard";
+		case PARAM_TABLE_FINE:
+			return "Standard/Fine";
+		default:
+			return "Standard/Unknown";
+		}
+	case TONE_TABLE_USER:
+		switch (table) {
+		case PARAM_TABLE_STANDARD:
+			return "User/Standard";
+		case PARAM_TABLE_FINE:
+			return "User/Fine";
+		default:
+			return "User/Unknown";
+		}
+	case TONE_TABLE_CURRENT:
+		switch (table) {
+		case PARAM_TABLE_STANDARD:
+			return "Current/Standard";
+		case PARAM_TABLE_FINE:
+			return "Current/Fine";
+		default:
+			return "Current/Unknown";
+		}
+	default:
+		return "Unknown";
+	}
+}
+
 static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 {
 	char *detail;
@@ -893,7 +928,7 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	struct shinkos1245_cmd_tone cmd;
 	struct shinkos1245_resp_status resp;
 	
-	INFO("Dump %d/%d Tone Curve to '%s'\n", type, table, fname); // XXX
+	INFO("Dump %s Tone Curve to '%s'\n", shinkos1245_tonecurves(type, table), fname);
 	
 	/* Issue a tone_read_start */
 	shinkos1245_fill_hdr(&cmd.hdr);
