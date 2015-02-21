@@ -3,9 +3,7 @@
  *
  *   (c) 2013-2015 Solomon Peachy <pizza@shaftnet.org>
  *
- *   Development of this backend was sponsored by:
- *
- *     LiveLink Technology [ www.livelinktechnology.net ]
+ *   Low-level documentation was provided by Sinfonia, Inc.  Thank you!
  *
  *   The latest version of this program can be found at:
  *
