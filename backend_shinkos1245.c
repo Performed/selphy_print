@@ -1294,21 +1294,21 @@ static int shinkos1245_read_parse(void *vctx, int data_fd) {
 
 	ctx->hdr.model = le32_to_cpu(ctx->hdr.model);
 
-	switch(ctx->hdr.model != 1245) {
+	if(ctx->hdr.model != 1245) {
 		ERROR("Unrecognized printer (%d)!\n", ctx->hdr.model);
 		return CUPS_BACKEND_CANCEL;
-	} 
+	}
 
 	/* Finish byteswapping */
 	ctx->hdr.media = le32_to_cpu(ctx->hdr.media);
 	ctx->hdr.method = le32_to_cpu(ctx->hdr.method);
 	ctx->hdr.mode = le32_to_cpu(ctx->hdr.mode);
-	ctx->hdr.mattedepth = le32_to_cpu(ctx->hdr.mattedepth);	
+	ctx->hdr.mattedepth = le32_to_cpu(ctx->hdr.mattedepth);
 	ctx->hdr.dust = le32_to_cpu(ctx->hdr.dust);
 	ctx->hdr.columns = le32_to_cpu(ctx->hdr.columns);
 	ctx->hdr.rows = le32_to_cpu(ctx->hdr.rows);
 	ctx->hdr.copies = le32_to_cpu(ctx->hdr.copies);
-	
+
 	/* Allocate space */
 	if (ctx->databuf) {
 		free(ctx->databuf);
