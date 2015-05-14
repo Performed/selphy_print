@@ -50,7 +50,7 @@ struct s1245_printjob_hdr {
 	uint32_t unk5;   /* Null */
 	uint32_t media;  /* Fixed at 0x10 */
 	uint32_t unk6;   /* Null */
-	
+
 	uint32_t method; /* Print Method */
 	uint32_t mode;   /* Print Mode */
 	uint32_t unk7;   /* Null */
@@ -148,7 +148,7 @@ struct shinkos1245_resp_status {
 		uint16_t main_boot;
 		uint16_t main_control;
 		uint16_t dsp_boot;
-		uint16_t dsp_control;		
+		uint16_t dsp_control;
 	} versions;
 	struct {
 		uint8_t  bank1_id;
@@ -158,7 +158,7 @@ struct shinkos1245_resp_status {
 		uint16_t bank1_spec;     /* BE */
 		uint16_t bank2_remain;   /* BE */
 		uint16_t bank2_complete; /* BE */
-		uint16_t bank2_spec;     /* BE */		
+		uint16_t bank2_spec;     /* BE */
 	} counters2;
 	uint8_t curve_status;
 } __attribute__((packed));
@@ -186,7 +186,7 @@ enum {
 	WAIT_STATUS2_RIBBON = 1,
 	WAIT_STATUS2_THERMAL = 2,
 	WAIT_STATUS2_OPERATING = 3,
-	WAIT_STATUS2_BUSY = 4,		
+	WAIT_STATUS2_BUSY = 4,
 };
 
 #define ERROR_STATUS2_CTRL_CIRCUIT   (1<<31)
@@ -241,7 +241,7 @@ enum {
 	SENSOR_ERROR_CENTER_CUTTER    = 0x13,
 	SENSOR_ERROR_UPPER_CUTTER     = 0x14,
 	SENSOR_ERROR_PAPER_FEED_COVER = 0x15,
-};	
+};
 
 enum {
 	TEMP_SENSOR_ERROR_HEAD_HIGH = 0x01,
@@ -275,7 +275,7 @@ enum {
 struct shinkos1245_cmd_getmedia {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1];   /* 0x1a/0x2a/0x3a for A/B/C */
-	uint8_t pad[10]; 
+	uint8_t pad[10];
 } __attribute__((packed));
 
 struct shinkos1245_mediadesc {
@@ -376,7 +376,7 @@ struct shinkos1245_resp_getmodel {
 struct shinkos1245_cmd_getmatte {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1]; /* 0x20 */
-	uint8_t mode;   /* Fixed at 0x00 */	
+	uint8_t mode;   /* Fixed at 0x00 */
 	uint8_t pad[9];
 } __attribute__((packed));
 
@@ -384,7 +384,7 @@ struct shinkos1245_cmd_setmatte {
 	struct shinkos1245_cmd_hdr hdr;
 	uint8_t cmd[1]; /* 0x21 */
 	uint8_t mode;   /* Fixed at 0x00 */
-	 int8_t level;  /* -25->+25 */		
+	 int8_t level;  /* -25->+25 */
 	uint8_t pad[8];
 } __attribute__((packed));
 
@@ -409,7 +409,7 @@ struct shinkos1245_ctx {
 
 	struct shinkos1245_mediadesc medias[15];
 	int num_medias;
-	
+
 	uint8_t *databuf;
 	int datalen;
 	int tonecurve;
@@ -431,7 +431,6 @@ static void shinkos1245_fill_hdr(struct shinkos1245_cmd_hdr *hdr)
 	hdr->hdr[1] = 0x43;
 	hdr->hdr[2] = 0x48;
 	hdr->hdr[3] = 0x43;
-       
 }
 
 static int shinkos1245_do_cmd(struct shinkos1245_ctx *ctx,
@@ -440,12 +439,12 @@ static int shinkos1245_do_cmd(struct shinkos1245_ctx *ctx,
 			      int *actual_len)
 {
 	int ret;
-	
+
 	/* Write command */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmd, cmd_len)))
 		return (ret < 0) ? ret : -99;
-	
+
 	/* Read response */
 	ret = read_data(ctx->dev, ctx->endp_up,
 			resp, resp_len, actual_len);
@@ -464,7 +463,7 @@ static int shinkos1245_get_status(struct shinkos1245_ctx *ctx,
 {
 	struct shinkos1245_cmd_getstatus cmd;
 	int ret, num;
-	
+
 	shinkos1245_fill_hdr(&cmd.hdr);
 	cmd.cmd[0] = 0x03;
 	memset(cmd.pad, 0, sizeof(cmd.pad));
@@ -480,7 +479,7 @@ static int shinkos1245_get_status(struct shinkos1245_ctx *ctx,
 		      resp->code);
 		return -99;
 	}
-	    
+
 	return 0;
 }
 
@@ -492,7 +491,7 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 	int ret, num;
 
 	shinkos1245_fill_hdr(&cmd.hdr);
-	memset(cmd.pad, 0, sizeof(cmd.pad));	
+	memset(cmd.pad, 0, sizeof(cmd.pad));
 	for (i = 1 ; i <= 3 ; i++) {
 		cmd.cmd[0] = 0x0a || (i << 4);
 
@@ -517,10 +516,10 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 			ctx->medias[ctx->num_medias].print_type = resp.data[j].print_type;
 			ctx->num_medias++;
 		}
-		
+
 		if (resp.count < 5)
 			break;
-	}   
+	}
 	return 0;
 }
 
@@ -529,7 +528,7 @@ static int shinkos1245_get_printerid(struct shinkos1245_ctx *ctx,
 {
 	struct shinkos1245_cmd_getstatus cmd;
 	int ret, num;
-	
+
 	shinkos1245_fill_hdr(&cmd.hdr);
 	cmd.cmd[0] = 0x12;
 	memset(cmd.pad, 0, sizeof(cmd.pad));
@@ -540,7 +539,7 @@ static int shinkos1245_get_printerid(struct shinkos1245_ctx *ctx,
 		ERROR("Failed to execute GET_PRINTERID command\n");
 		return ret;
 	}
-	    
+
 	return 0;
 }
 
@@ -549,10 +548,10 @@ static int shinkos1245_set_printerid(struct shinkos1245_ctx *ctx,
 {
 	struct shinkos1245_cmd_setid cmd;
 	struct shinkos1245_resp_status sts;
-	
+
 	int ret, num;
 	int i;
-	
+
 	shinkos1245_fill_hdr(&cmd.hdr);
 	cmd.cmd[0] = 0x0a;
 	cmd.cmd[1] = 0x22;
@@ -581,9 +580,9 @@ static int shinkos1245_canceljob(struct shinkos1245_ctx *ctx,
 {
 	struct shinkos1245_cmd_canceljob cmd;
 	struct shinkos1245_resp_status sts;
-	
+
 	int ret, num;
-	
+
 	shinkos1245_fill_hdr(&cmd.hdr);
 	cmd.cmd[0] = 0x13;
 	cmd.id = id;
@@ -606,9 +605,9 @@ static int shinkos1245_set_matte(struct shinkos1245_ctx *ctx,
 {
 	struct shinkos1245_cmd_setmatte cmd;
 	struct shinkos1245_resp_matte sts;
-	
+
 	int ret, num;
-	
+
 	shinkos1245_fill_hdr(&cmd.hdr);
 	cmd.cmd[0] = 0x21;
 	cmd.mode = MATTE_MODE_MATTE;
@@ -634,9 +633,9 @@ static int shinkos1245_get_matte(struct shinkos1245_ctx *ctx,
 {
 	struct shinkos1245_cmd_getmatte cmd;
 	struct shinkos1245_resp_matte sts;
-	
+
 	int ret, num;
-	
+
 	shinkos1245_fill_hdr(&cmd.hdr);
 	cmd.cmd[0] = 0x20;
 	cmd.mode = MATTE_MODE_MATTE;
@@ -652,7 +651,7 @@ static int shinkos1245_get_matte(struct shinkos1245_ctx *ctx,
 		return -99;
 	}
 	*intensity = sts.level;
-	
+
 	return 0;
 }
 
@@ -880,7 +879,7 @@ static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 	INFO("\tPrints:  %d/%d (%d complete)\n",
 	     sts->counters2.bank1_remain, sts->counters2.bank1_spec,
 	     sts->counters2.bank1_complete);
-	INFO("Bank 2 ID: %d\n", sts->counters2.bank2_id);	
+	INFO("Bank 2 ID: %d\n", sts->counters2.bank2_id);
 	INFO("\tPrints:  %d/%d (%d complete)\n",
 	     sts->counters2.bank2_remain, sts->counters2.bank2_spec,
 	     sts->counters2.bank2_complete);
@@ -906,7 +905,7 @@ static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
 				   int count)
 {
 	int i;
-	
+
 	INFO("Supported print sizes: %d\n", count);
 
 	for (i = 0 ; i < count ; i++) {
@@ -922,12 +921,12 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 {
 	int ret, num, remaining;
 	uint8_t *data, *ptr;
-	
+
 	struct shinkos1245_cmd_tone cmd;
 	struct shinkos1245_resp_status resp;
-	
+
 	INFO("Dump %s Tone Curve to '%s'\n", shinkos1245_tonecurves(type, table), fname);
-	
+
 	/* Issue a tone_read_start */
 	shinkos1245_fill_hdr(&cmd.hdr);
 	cmd.cmd[0] = 0x0c;
@@ -953,15 +952,15 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	}
 
 	/* Get the data out */
-	remaining = TONE_CURVE_SIZE;	
+	remaining = TONE_CURVE_SIZE;
 	data = malloc(remaining);
 	if (!data) {
 		ERROR("Out of memory!\n");
 		return -11;
 	}
 	ptr = data;
-	
-	while(remaining) {		
+
+	while(remaining) {
 		/* Issue a tone_data message */
 		cmd.cmd2[1] = 0x20;
 
@@ -987,7 +986,7 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 			return ret;
 		ptr += num;
 	}
-	
+
 	/* Issue a tone_end */
 	cmd.cmd2[1] = 0x65;
 	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
@@ -1016,7 +1015,7 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 		close(tc_fd);
 	}
 	free(data);
-	
+
 	return 0;
 }
 
@@ -1024,21 +1023,21 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 {
 	int ret, num, remaining;
 	uint8_t *data, *ptr;
-	
+
 	struct shinkos1245_cmd_tone cmd;
 	struct shinkos1245_resp_status resp;
 
 	INFO("Read %d/%d Tone Curve from '%s'\n", type, table, fname); // XXX
 
 	/* Allocate space */
-	remaining = TONE_CURVE_SIZE;	
+	remaining = TONE_CURVE_SIZE;
 	data = malloc(remaining);
 	if (!data) {
 		ERROR("Out of memory!\n");
 		return -11;
 	}
 	ptr = data;
-	
+
 	/* Open file and read it in */
 	{
 		int tc_fd = open(fname, O_RDONLY);
@@ -1075,8 +1074,8 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 		      resp.code);
 		return -99;
 	}
-	
-	while(remaining) {		
+
+	while(remaining) {
 		/* Issue a tone_data message */
 		cmd.cmd2[1] = 0x20;
 
@@ -1101,7 +1100,7 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 		ptr += num;
 	}
 	free(data);
-	
+
 	/* Issue a tone_end */
 	cmd.cmd2[1] = 0x65;
 	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
@@ -1135,7 +1134,7 @@ static void shinkos1245_cmdline(void)
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
 	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
 	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
-	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");	
+	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");
 }
 
 int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
@@ -1156,7 +1155,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 		case 'c':
 			if (!ctx)
 				return 1;
-			
+
 			j = get_tonecurve(ctx, TONE_TABLE_USER, ctx->tonecurve, optarg);
 			break;
 		case 'C':
@@ -1181,14 +1180,14 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 'm':
 			if (!ctx)
-				return 1;			
+				return 1;
 			j = shinkos1245_get_media(ctx);
 			if (!j)
 				shinkos1245_dump_media(ctx->medias, ctx->num_medias);
 			break;
 		case 's': {
 			if (!ctx)
-				return 1;			
+				return 1;
 			struct shinkos1245_resp_status sts;
 			j = shinkos1245_get_status(ctx, &sts);
 			if (!j)
@@ -1197,7 +1196,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 		}
 		case 'u': {
 			if (!ctx)
-				return 1;			
+				return 1;
 			struct shinkos1245_resp_getid resp;
 			j = shinkos1245_get_printerid(ctx, &resp);
 			if (!j) {
@@ -1210,7 +1209,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 		}
 		case 'U':
 			if (!ctx)
-				return 1;			
+				return 1;
 			j = shinkos1245_set_printerid(ctx, optarg);
 			break;
 		case 'X':
@@ -1218,7 +1217,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 				return 1;
 			j = shinkos1245_canceljob(ctx, atoi(optarg));
 			break;
-		default:			
+		default:
 			break;  /* Ignore completely */
 		}
 
@@ -1240,7 +1239,7 @@ static void *shinkos1245_init(void)
 		ctx->fast_return = 1;
 
 	ctx->tonecurve = PARAM_TABLE_STANDARD;
-	
+
 	return ctx;
 }
 
@@ -1341,7 +1340,7 @@ static int shinkos1245_read_parse(void *vctx, int data_fd) {
 	/* Make sure footer is sane too */
 	ret = read(data_fd, tmpbuf, 4);
 	if (ret != 4) {
-		ERROR("Read failed (%d/%d/%d)\n", 
+		ERROR("Read failed (%d/%d/%d)\n",
 		      ret, 4, 4);
 		perror("ERROR: Read failed");
 		return ret;
@@ -1371,10 +1370,10 @@ static uint16_t uint16_to_packed_bcd(uint16_t val)
 	val /= 10;
 	i = val % 10;
 	bcd |= (i << 8);
-	val /= 10;	
+	val /= 10;
 	i = val % 10;
 	bcd |= (i << 12);
-	
+
 	return bcd;
 }
 
@@ -1382,7 +1381,7 @@ static int shinkos1245_main_loop(void *vctx, int copies) {
 	struct shinkos1245_ctx *ctx = vctx;
 	int i, num, last_state = -1, state = S_IDLE;
 	struct shinkos1245_resp_status status1, status2;
-	
+
 	// XXX query printer info
 
 	/* Query Media information if necessary */
@@ -1412,7 +1411,7 @@ top:
 	if (state != last_state) {
 		if (dyesub_debug)
 			DEBUG("last_state %d new %d\n", last_state, state);
-	}	
+	}
 
 	/* Send status query */
 	i = shinkos1245_get_status(ctx, &status1);
@@ -1430,15 +1429,15 @@ top:
 	/* Make sure we're not in an error state */
 	if (status1.state.status1 == STATE_STATUS1_ERROR)
 		goto printer_error;
-	
+
 	last_state = state;
 
 	fflush(stderr);
-	
+
 	switch (state) {
 	case S_IDLE:
 		INFO("Waiting for printer idle\n");
-		
+
 		if (status1.state.status1 == STATE_STATUS1_STANDBY) {
 			state = S_PRINTER_READY_CMD;
 			break;
@@ -1456,7 +1455,7 @@ top:
 		   open memory banks so we can queue the next print */
 		if (!status1.counters2.bank1_remain ||
 		    status1.counters2.bank2_remain) {
-			state = S_PRINTER_READY_CMD;			
+			state = S_PRINTER_READY_CMD;
 			break;
 		}
 		break;
@@ -1483,14 +1482,14 @@ top:
 		}
 
 		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
-		
+
 		shinkos1245_fill_hdr(&cmd.hdr);
 		cmd.cmd[0] = 0x0a;
 		cmd.cmd[1] = 0x00;
 
 		cmd.id = ctx->jobid;
 		cmd.count = cpu_to_be16(uint16_to_packed_bcd(copies));
-		cmd.columns = cpu_to_be16(ctx->hdr.columns);		
+		cmd.columns = cpu_to_be16(ctx->hdr.columns);
 		cmd.rows = cpu_to_be16(ctx->hdr.rows);
 		cmd.media = ctx->hdr.media;
 		cmd.mode = (ctx->hdr.mode & 0x3f) || ((ctx->hdr.dust & 0x3) << 6);
@@ -1502,7 +1501,7 @@ top:
 				       &num);
 		if (i < 0)
 			goto printer_error;
-		
+
 		/* Check for buffer full state, and wait if we're full */
 		if (status1.code != CMD_CODE_OK) {
 			if (status1.print_status == STATUS_PRINTING) {
@@ -1510,9 +1509,9 @@ top:
 				break;
 			} else {
 				goto printer_error;
-			}			
+			}
 		}
-		
+
 		/* Check for error states */
 		if (status1.state.status1 == STATE_STATUS1_ERROR)
 			goto printer_error;
@@ -1544,14 +1543,14 @@ top:
 
 	if (state != S_FINISHED)
 		goto top;
-	
+
 	/* This printer handles copies internally */
 	copies = 1;
 
 	/* Clean up */
 	if (terminate)
 		copies = 1;
-	
+
 	INFO("Print complete (%d copies remaining)\n", copies - 1);
 
 	if (copies && --copies) {
@@ -1576,7 +1575,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 {
 	struct shinkos1245_resp_getid resp;
 	int i;
-	
+
 	struct shinkos1245_ctx ctx = {
 		.dev = dev,
 		.endp_up = endp_up,
@@ -1591,7 +1590,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 		buf[i] = resp.data[i];
 	}
 
-	/* Ensure null-termination */	
+	/* Ensure null-termination */
 	if (i < buf_len)
 		buf[i] = 0;
 	else
@@ -1635,7 +1634,7 @@ struct dyesub_backend shinkos1245_backend = {
    00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
    00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI, ie 300.
    00 00 00 00 ce ff ff ff  00 00 00 00 00 00 00 00
-   00 00 00 00 
+   00 00 00 00
 
    [[Packed RGB payload of WW*HH*3 bytes]]
 
