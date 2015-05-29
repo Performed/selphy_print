@@ -233,8 +233,6 @@ top:
 
 		i += sizeof(uint32_t);
 
-		if (dyesub_debug)
-			DEBUG("Sending %u bytes to printer @ %i\n", len, i);
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf + i, len)))
 			return CUPS_BACKEND_FAILED;
