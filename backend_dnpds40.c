@@ -60,7 +60,8 @@ struct dnpds40_ctx {
 	int type;
 
 	int buf_needed;
-	uint32_t last_matte;
+	int last_matte;
+	uint32_t multicut;
 
 	uint8_t *qty_offset;
 
@@ -123,6 +124,10 @@ static char *dnpds40_media_types(char *str)
 	tmp[3] = 0;
 
 	i = atoi(tmp);
+
+	/* Subtract out the "mark" type */
+	if (i & 1)
+		i--;
 
 	switch (i) {
 	case 200: return "5x3.5 (L)";
@@ -280,6 +285,7 @@ static void *dnpds40_init(void)
 	memset(ctx, 0, sizeof(struct dnpds40_ctx));
 
 	ctx->type = P_ANY;
+	ctx->last_matte = -1;
 
 	return ctx;
 }
@@ -454,20 +460,22 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		}
 	}
 
-	/* If we are missing a multicut command, we can't parse this job
-	   so we must assume worst case size needing both buffers! */
 	if (!multicut)
-		ctx->buf_needed = 2;
+		/* If we are missing a multicut command, we can't parse this
+		   job properly. */
+		return CUPS_BACKEND_CANCEL;
+
+	ctx->multicut = multicut;
 
 	/* Special case: switching to matte or back needs both buffers */
-	if (matte != ctx->last_matte)
+	if ((int)matte != ctx->last_matte)
 		ctx->buf_needed = 2;
 
 	DEBUG("dpi %u matte %u(%u) mcut %u bufs %d\n",
 	      dpi, matte, ctx->last_matte, multicut, ctx->buf_needed);
 
 	/* Track if our last print was matte */
-	ctx->last_matte = matte;
+	ctx->last_matte = (int)matte;
 
 	if (!ctx->datalen)
 		return CUPS_BACKEND_CANCEL;
@@ -496,6 +504,84 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		// XXX should we set/reset BUFFCNTRL?
 		// XXX should we verify we have sufficient media for prints?
 	}
+
+	/* Query Media Info */
+	dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	/* Sanity-check media type vs loaded media */
+	{
+		char tmp[4];
+		int i;
+
+		memcpy(tmp, resp + 4, 3);
+		tmp[3] = 0;
+
+		i = atoi(tmp);
+
+		/* Subtract out the "mark" type */
+		if (i & 1)
+			i--;
+
+		switch(i) {
+		case 200: //"5x3.5 (L)"
+			if (ctx->multicut != 1) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 210: //"5x7 (2L)"
+			if (ctx->multicut != 1 && ctx->multicut != 3) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 300: //"6x4 (PC)"
+			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 5) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 310: //"6x8 (A5)"
+			if (ctx->multicut != 4 && ctx->multicut != 5) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 400: //"6x9 (A5W)"
+			if (ctx->multicut != 5) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 500: //"8x10"
+			if (ctx->multicut < 6 ||
+			    ctx->multicut == 7 || ctx->multicut == 15 ||
+			    ctx->multicut >= 18 ) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+		case 510: //"8x12"
+			if (ctx->multicut < 6 || ctx->multicut > 21) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		default:
+			ERROR("Unknown media (%d)!\n", i);
+			return CUPS_BACKEND_CANCEL;
+		}
+	}
+
+	// XXX check firmware version and a few other things
+	// eg RX1 doesn't handle 6x9 media/prints, only DS80 handles 8" prints
+	// 2x6 on RX1 requires FW1.10 or newer
+	// 2x6 on DS40 requires FW1.40 or newer
 
 top:
 
@@ -530,9 +616,15 @@ top:
 			}
 		} else if (!strcmp("00500", (char*)resp) ||
 			   !strcmp("00510", (char*)resp)) {
-			INFO("Printer cooling, retrying...\n");
+			INFO("Printer cooling down...\n");
 			sleep(1);
 			goto top;
+		} else if (!strcmp("01500", (char*)resp)) {
+			ERROR("Paper definition error, aborting job\n");
+			return CUPS_BACKEND_CANCEL;
+		} else if (!strcmp("01600", (char*)resp)) {
+			ERROR("Data error, aborting job\n");
+			return CUPS_BACKEND_CANCEL;
 		} else {
 			ERROR("Printer Status: %s => %s\n", (char*)resp, dnpds40_statuses((char*)resp));
 			free(resp);
@@ -1008,7 +1100,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.34",
+	.version = "0.35",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
