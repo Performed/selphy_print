@@ -784,10 +784,12 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Media Lot Code: '%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x'\n", 
-	     *(resp+2), *(resp+3), *(resp+4), *(resp+5), *(resp+6), *(resp+7),
-	     *(resp+8), *(resp+9), *(resp+10), *(resp+11), *(resp+12), *(resp+13));
-
+	INFO("Media Lot Code: ");
+	/* 16-byte data in a 20-byte response */
+	for (len = 0 ; len < 16 ; len++) {
+		DEBUG2("%02x", *(resp+len+2));
+	}
+	DEBUG2("\n");
 	free(resp);
 
 	/* Get Media ID Set (?) */
