@@ -61,7 +61,9 @@ struct dnpds40_ctx {
 
 	int buf_needed;
 	int last_matte;
+
 	uint32_t multicut;
+	int matte;
 
 	uint8_t *qty_offset;
 
@@ -466,16 +468,11 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;
 
 	ctx->multicut = multicut;
+	ctx->matte = (int)matte;
 
-	/* Special case: switching to matte or back needs both buffers */
-	if ((int)matte != ctx->last_matte)
-		ctx->buf_needed = 2;
+	DEBUG("dpi %u matte %u mcut %u bufs %d\n",
+	      dpi, matte, multicut, ctx->buf_needed);
 
-	DEBUG("dpi %u matte %u(%u) mcut %u bufs %d\n",
-	      dpi, matte, ctx->last_matte, multicut, ctx->buf_needed);
-
-	/* Track if our last print was matte */
-	ctx->last_matte = (int)matte;
 
 	if (!ctx->datalen)
 		return CUPS_BACKEND_CANCEL;
@@ -495,15 +492,6 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
-
-	/* Parse job to figure out quantity offset. */
-	if (copies > 1 && ctx->qty_offset) {
-		snprintf(buf, sizeof(buf), "%07d\r", copies);
-		memcpy(ctx->qty_offset, buf, 8);
-
-		// XXX should we set/reset BUFFCNTRL?
-		// XXX should we verify we have sufficient media for prints?
-	}
 
 	/* Query Media Info */
 	dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
@@ -582,6 +570,30 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	// eg RX1 doesn't handle 6x9 media/prints, only DS80 handles 8" prints
 	// 2x6 on RX1 requires FW1.10 or newer
 	// 2x6 on DS40 requires FW1.40 or newer
+	// all matte-related features require FW1.30 on DS40/DS80
+	// BUFFCNTRL requires FW1.30 on DS40/DS80
+
+	/* Parse job to figure out quantity offset. */
+	if (copies > 1 && ctx->qty_offset) {
+		snprintf(buf, sizeof(buf), "%07d\r", copies);
+		memcpy(ctx->qty_offset, buf, 8);
+
+		/* Enable job resumption on correctable errors */
+		dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
+		snprintf(buf, sizeof(buf), "%08d", 1);
+		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+			return CUPS_BACKEND_FAILED;
+
+		copies = 1;
+	}
+
+	// XXX should we verify we have sufficient media for prints?
+
+	/* Check our current job's lamination vs previous job. */
+	// XXX load last_matte from a status file
+	if (ctx->matte != ctx->last_matte)
+		ctx->buf_needed = 2; /* Switching needs both buffers */
+	ctx->last_matte = ctx->matte; // XXX write to status file
 
 top:
 
@@ -597,7 +609,7 @@ top:
 	/* If we're not idle */
 	if (strcmp("00000", (char*)resp)) {
 		if (!strcmp("00001", (char*)resp)) {
-			int buf;
+			int bufs;
 
 			free(resp);
 			/* Query buffer state */
@@ -608,9 +620,9 @@ top:
 			dnpds40_cleanup_string((char*)resp, len);
 
 			/* Check to see if we have sufficient buffers */
-			buf = atoi(((char*)resp)+3);
-			if (buf < ctx->buf_needed) {
-				INFO("Insufficient printer buffers (%d vs %d), retrying...\n", buf, ctx->buf_needed);
+			bufs = atoi(((char*)resp)+3);
+			if (bufs < ctx->buf_needed) {
+				INFO("Insufficient printer buffers (%d vs %d), retrying...\n", bufs, ctx->buf_needed);
 				sleep(1);
 				goto top;
 			}
@@ -648,10 +660,6 @@ top:
 
 		ptr += i;
 	}
-	
-	/* This printer handles copies internally */
-	if (ctx->qty_offset)
-		copies = 1;
 
 	/* Clean up */
 	if (terminate)
@@ -1100,7 +1108,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.35",
+	.version = "0.36",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
