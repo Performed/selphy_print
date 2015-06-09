@@ -441,6 +441,11 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		ctx->datalen += sizeof(struct dnpds40_cmd) + j;
 	}
 
+	if (!multicut) {
+		ERROR("Print job missing a MULTICUT command, can't parse properly!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
 	/* Figure out the number of buffers we need. Most only need one. */
 	ctx->buf_needed = 1;
 
@@ -452,7 +457,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 				      multicut == 15 || // 8x6*2
 				      multicut == 7)) // 8x12
 				ctx->buf_needed = 2;
-		} else { /* DS40/CX/CY/etc */
+		} else { /* DS40/RX1/CX/CY/etc */
 			if (multicut == 4 ||  // 6x8
 			    multicut == 5 ||  // 6x9
 			    multicut == 12)   // 6x4*2
@@ -462,17 +467,11 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		}
 	}
 
-	if (!multicut)
-		/* If we are missing a multicut command, we can't parse this
-		   job properly. */
-		return CUPS_BACKEND_CANCEL;
-
 	ctx->multicut = multicut;
 	ctx->matte = (int)matte;
 
 	DEBUG("dpi %u matte %u mcut %u bufs %d\n",
 	      dpi, matte, multicut, ctx->buf_needed);
-
 
 	if (!ctx->datalen)
 		return CUPS_BACKEND_CANCEL;
