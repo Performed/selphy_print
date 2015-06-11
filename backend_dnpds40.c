@@ -449,7 +449,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	}
 
 	if (!multicut) {
-		ERROR("Print job missing a MULTICUT command, can't parse properly!\n");
+		ERROR("Missing or illegal MULTICUT command, can't parse properly!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
