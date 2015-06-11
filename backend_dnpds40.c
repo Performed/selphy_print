@@ -68,6 +68,7 @@ struct dnpds40_ctx {
 	int matte;
 
 	uint8_t *qty_offset;
+	uint8_t *buffctrl_offset;
 
 	uint8_t *databuf;
 	int datalen;
@@ -295,7 +296,7 @@ static void *dnpds40_init(void)
 }
 
 static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
-			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct dnpds40_ctx *ctx = vctx;
 	struct libusb_device *device;
@@ -366,6 +367,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	matte = 0;
 	dpi = 0;
 	multicut = 0;
+	ctx->buffctrl_offset = ctx->qty_offset = 0;
 
 	while (run) {
 		int remain, i, j;
@@ -406,6 +408,9 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		/* Check for some offsets */
 		if(!memcmp("CNTRL QTY", ctx->databuf + ctx->datalen+2, 9)) {
 			ctx->qty_offset = ctx->databuf + ctx->datalen + 32;
+		}
+		if(!memcmp("CNTRL BUFFCNTRL", ctx->databuf + ctx->datalen+2, 15)) {
+			ctx->buffctrl_offset = ctx->databuf + ctx->datalen + 32;
 		}
 		if(!memcmp("CNTRL OVERCOAT", ctx->databuf + ctx->datalen+2, 14)) {
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
@@ -575,21 +580,30 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	// all matte-related features require FW1.30 on DS40/DS80
 	// BUFFCNTRL requires FW1.30 on DS40/DS80
 
-	/* Parse job to figure out quantity offset. */
-	if (copies > 1 && ctx->qty_offset) {
+	/* Update quantity offset with count */
+	if (copies > 1) {
+		// XXX should we verify we have sufficient media for prints?
 		snprintf(buf, sizeof(buf), "%07d\r", copies);
-		memcpy(ctx->qty_offset, buf, 8);
-
-		/* Enable job resumption on correctable errors */
-		dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
-		snprintf(buf, sizeof(buf), "%08d", 1);
-		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
-			return CUPS_BACKEND_FAILED;
+		if (ctx->qty_offset) {
+			memcpy(ctx->qty_offset, buf, 8);
+		} else {
+			dnpds40_build_cmd(&cmd, "CNTRL", "QTY", 8);
+			if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+				return CUPS_BACKEND_FAILED;
+		}
 
 		copies = 1;
 	}
 
-	// XXX should we verify we have sufficient media for prints?
+	/* Enable job resumption on correctable errors */
+	snprintf(buf, sizeof(buf), "%08d", 1);
+	if (ctx->buffctrl_offset) {
+		memcpy(ctx->qty_offset, buf, 8);
+	} else {
+		dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
+		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+			return CUPS_BACKEND_FAILED;
+	}
 
 	/* Check our current job's lamination vs previous job. */
 	// XXX load last_matte from a status file
@@ -1118,7 +1132,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.37",
+	.version = "0.38",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
