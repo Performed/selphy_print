@@ -47,6 +47,8 @@
 #define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W, and Mitsubishi CP-3800DW
 #define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
 
+//#define USB_PID_DNP_DS620 XXXX
+//#define USB_PID_DNP_DS80DX XXXX
 //#define USB_PID_OLMEC_OP900 XXXX
 //#define USB_PID_CITIZEN_CW-02 XXXXX
 //#define USB_PID_CITIZEN_OP900II XXXXX
@@ -569,6 +571,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	// eg RX1 doesn't handle 6x9 media/prints, only DS80 handles 8" prints
 	// 2x6 on RX1 requires FW1.10 or newer
 	// 2x6 on DS40 requires FW1.40 or newer
+	// 6x9 on DS620 requires FW??? or newer
 	// all matte-related features require FW1.30 on DS40/DS80
 	// BUFFCNTRL requires FW1.30 on DS40/DS80
 
@@ -715,9 +718,15 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		return CUPS_BACKEND_FAILED;
 
 	dnpds40_cleanup_string((char*)resp, len);
-
-	INFO("Sensor Info: '%s'\n", (char*)resp);
-	// XXX parse this out. Each token is 'XXX-###' delimited by '; '
+	INFO("Sensor Info:\n");
+	{
+		char *tmp;
+		tmp = strtok((char*)resp, "; ");
+		do {
+			// XXX parse the components?
+			INFO("  %s\n", tmp);
+		} while ((tmp = strtok(NULL, "; ")) != NULL);
+	}
 
 	free(resp);
 
@@ -1109,7 +1118,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.36",
+	.version = "0.37",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -1123,7 +1132,8 @@ struct dyesub_backend dnpds40_backend = {
 	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DSRX1, P_DNP_DS40, ""},
-
+//	{ USB_VID_DNP, USB_PID_DNP_DS80DX, P_DNP_DS80, ""},
+//	{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS40, ""},	
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS40, ""},
 	{ 0, 0, 0, ""}

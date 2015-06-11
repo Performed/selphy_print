@@ -429,6 +429,8 @@
    Work-in-progress printers: (USB PIDs unknown)
 
     Citizen CW-02/OP900II
+    DNP DS80DX
+    DNP DS620
 
    Development was sponsored by:
 
@@ -446,6 +448,10 @@
      -N [ A | B | M ]   Reset Counter A/B/M
      -p num             Set 'P' counter to 'num'
      -s                 Query printer status
+
+   Notes:
+
+     * DS40, DS80, CX, and CX-W printers require firmware 1.30 or newer
 
  *************************************************************************** 
   BACKEND=citizencw01
