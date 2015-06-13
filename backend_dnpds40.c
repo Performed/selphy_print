@@ -64,8 +64,16 @@ struct dnpds40_ctx {
 	int buf_needed;
 	int last_matte;
 
+	int ver_major;
+	int ver_minor;
+
 	uint32_t multicut;
 	int matte;
+	int cutter;
+
+	int supports_6x9;
+	int supports_2x6;
+	int supports_matte;
 
 	uint8_t *qty_offset;
 	uint8_t *buffctrl_offset;
@@ -311,12 +319,68 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
 
-	/* Map out device type */
-	if (desc.idProduct == USB_PID_DNP_DS40)
-		ctx->type = P_DNP_DS40;
-	else
-		ctx->type = P_DNP_DS80;
+	/* Get Firmware Version */
+	{
+		struct dnpds40_cmd cmd;
+		uint8_t *resp;
+		int len = 0;
+		dnpds40_build_cmd(&cmd, "INFO", "FVER", 0);
 
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (resp) {
+			char *ptr;
+			dnpds40_cleanup_string((char*)resp, len);
+
+			/* Parse version */
+			ptr = strtok((char*)resp, " .");
+			ptr = strtok(NULL, ".");
+			ctx->ver_major = atoi(ptr);
+			ptr = strtok(NULL, ".");
+			ctx->ver_minor = atoi(ptr);
+			free(resp);
+		}
+	}
+
+	/* Per-printer options */
+	switch (desc.idProduct) {
+	case USB_PID_DNP_DS40:
+		ctx->type = P_DNP_DS40;
+		ctx->supports_6x9 = 1;
+		if (ctx->ver_major >= 1 &&
+		    ctx->ver_minor >= 30)
+			ctx->supports_matte = 1;
+		if (ctx->ver_major >= 1 &&
+		    ctx->ver_major >= 40)
+			ctx->supports_2x6 = 1;
+		break;
+	case USB_PID_DNP_DS80:
+		ctx->type = P_DNP_DS80;
+		if (ctx->ver_major >= 1 &&
+		    ctx->ver_minor >= 30)
+			ctx->supports_matte = 1;
+		break;
+	case USB_PID_DNP_DSRX1:
+		ctx->type = P_DNP_DSRX1;
+		ctx->supports_matte = 1;
+		if (ctx->ver_major >= 1 &&
+		    ctx->ver_major >= 10)
+			ctx->supports_2x6 = 1;
+		break;
+#if 0
+	case USB_PID_DNP_DS620:
+		ctx->type = P_DNP_DS620;
+		ctx->supports_matte = 1;
+		ctx->supports_2x6 = 1;
+		// XXX no idea what the version needs to be
+		if (ctx->ver_major >= 1 &&
+		    ctx->ver_major >= 10)
+			ctx->supports_2x6 = 1;
+		break;
+#endif
+	default:
+		ERROR("Unknown USB PID...\n");
+		return;
+	}
 }
 
 static void dnpds40_teardown(void *vctx) {
@@ -337,7 +401,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	int run = 1;
 	char buf[9] = { 0 };
 
-	uint32_t matte, multicut, dpi;
+	uint32_t matte, multicut, dpi, cutter;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -367,6 +431,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	matte = 0;
 	dpi = 0;
 	multicut = 0;
+	cutter = 0;
 	ctx->buffctrl_offset = ctx->qty_offset = 0;
 
 	while (run) {
@@ -409,12 +474,30 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		if(!memcmp("CNTRL QTY", ctx->databuf + ctx->datalen+2, 9)) {
 			ctx->qty_offset = ctx->databuf + ctx->datalen + 32;
 		}
+		if(!memcmp("CNTRL CUTTER", ctx->databuf + ctx->datalen+2, 12)) {
+			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
+			cutter = atoi(buf);
+		}
 		if(!memcmp("CNTRL BUFFCNTRL", ctx->databuf + ctx->datalen+2, 15)) {
-			ctx->buffctrl_offset = ctx->databuf + ctx->datalen + 32;
+			/* If the printer doesn't support matte, it doesn't
+			   support buffcntrl.  strip it from the stream */
+			if (ctx->supports_matte) {
+				ctx->buffctrl_offset = ctx->databuf + ctx->datalen + 32;
+			} else {
+				WARNING("Printer FW does not support BUFFCNTRL, please update\n");
+				continue;
+			}
 		}
 		if(!memcmp("CNTRL OVERCOAT", ctx->databuf + ctx->datalen+2, 14)) {
-			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
-			matte = atoi(buf);
+			/* If the printer doesn't support matte, it doesn't
+			   support buffcntrl.  strip it from the stream */
+			if (ctx->supports_matte) {
+				memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
+				matte = atoi(buf);
+			} else {
+				WARNING("Printer FW does not support matte prints, please update\n");
+				continue;
+			}
 		}
 		if(!memcmp("CNTRL MULTICUT", ctx->databuf + ctx->datalen+2, 14)) {
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
@@ -497,9 +580,10 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 
 	ctx->multicut = multicut;
 	ctx->matte = (int)matte;
+	ctx->cutter = cutter;
 
-	DEBUG("dpi %u matte %u mcut %u bufs %d\n",
-	      dpi, matte, multicut, ctx->buf_needed);
+	DEBUG("dpi %u matte %u mcut %u cutter %d, bufs %d\n",
+	      dpi, matte, multicut, cutter, ctx->buf_needed);
 
 	return CUPS_BACKEND_OK;
 }
@@ -554,22 +638,25 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			}
 			break;
 		case 300: //"6x4 (PC)"
+			if (ctx->multicut != 2) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+			// XXX don't forget 2x6*2
+			break;
+		case 310: //"6x8 (A5)"
+			if (ctx->multicut != 2 && ctx->multicut != 4) {
+				ERROR("Incorrect media for job loaded (%d)\n", i);
+				return CUPS_BACKEND_CANCEL;
+			}
+			// XXX don't forget 2x6*2, 2x6*4
+			break;
+		case 400: //"6x9 (A5W)"
 			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 5) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
-			break;
-		case 310: //"6x8 (A5)"
-			if (ctx->multicut != 4 && ctx->multicut != 5) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
-				return CUPS_BACKEND_CANCEL;
-			}
-			break;
-		case 400: //"6x9 (A5W)"
-			if (ctx->multicut != 5) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
-				return CUPS_BACKEND_CANCEL;
-			}
+			// XXX don't forget 2x6*2, 2x6*4
 			break;
 		case 500: //"8x10"
 			if (ctx->multicut < 6 ||
@@ -590,13 +677,27 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		}
 	}
 
-	// XXX check firmware version and a few other things
-	// eg RX1 doesn't handle 6x9 media/prints, only DS80 handles 8" prints
-	// 2x6 on RX1 requires FW1.10 or newer
-	// 2x6 on DS40 requires FW1.40 or newer
-	// 6x9 on DS620 requires FW??? or newer
-	// all matte-related features require FW1.30 on DS40/DS80
-	// BUFFCNTRL requires FW1.30 on DS40/DS80
+	/* Additional santity checks */
+	if (ctx->multicut == 5 && !ctx->supports_6x9) {
+		ERROR("Printer does not support 6x9 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if (ctx->cutter == 120) {
+		if (!ctx->supports_2x6) {
+			ERROR("Printer does not support 2x6 prints, aborting!\n");
+			return CUPS_BACKEND_CANCEL;
+		}
+		if (ctx->multicut != 2 && ctx->multicut != 4) {
+			ERROR("Printer only supports 2-inch cuts on 4x6 or 8x6 jobs!");
+			return CUPS_BACKEND_CANCEL;
+		}
+	}
+
+	if (ctx->matte && !ctx->supports_matte) {
+		ERROR("Printer FW does not support matte operation, please update!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
 
 	/* Update quantity offset with count */
 	if (copies > 1) {
@@ -614,13 +715,15 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	}
 
 	/* Enable job resumption on correctable errors */
-	snprintf(buf, sizeof(buf), "%08d", 1);
-	if (ctx->buffctrl_offset) {
-		memcpy(ctx->qty_offset, buf, 8);
-	} else {
-		dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
-		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
-			return CUPS_BACKEND_FAILED;
+	if (ctx->supports_matte) {
+		snprintf(buf, sizeof(buf), "%08d", 1);
+		if (ctx->buffctrl_offset) {
+			memcpy(ctx->qty_offset, buf, 8);
+		} else {
+			dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
+			if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+				return CUPS_BACKEND_FAILED;
+		}
 	}
 
 	/* Check our current job's lamination vs previous job. */
@@ -1018,31 +1121,33 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-	/* Generate command */
-	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_M", 0);
+	if (ctx->supports_matte) {
+		/* Generate command */
+		dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_M", 0);
 
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
 
-	dnpds40_cleanup_string((char*)resp, len);
+		dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("M Counter: '%s'\n", (char*)resp+2);
+		INFO("M Counter: '%s'\n", (char*)resp+2);
 
-	free(resp);
+		free(resp);
 
-	/* Generate command */
-	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_MATTE", 0);
+		/* Generate command */
+		dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_MATTE", 0);
 
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
 
-	dnpds40_cleanup_string((char*)resp, len);
+		dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Matte Counter: '%s'\n", (char*)resp+4);
+		INFO("Matte Counter: '%s'\n", (char*)resp+4);
 
-	free(resp);
+		free(resp);
+	}
 
 	return CUPS_BACKEND_OK;
 }
@@ -1121,6 +1226,10 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 			    optarg[0] != 'M')
 				return CUPS_BACKEND_FAILED;
 			if (ctx) {
+				if (!ctx->supports_matte) {
+					ERROR("Printer FW does not support matte functions, please update!\n");
+					return CUPS_BACKEND_FAILED;
+				}
 				j = dnpds40_clear_counter(ctx, optarg[0]);
 				break;
 			}
@@ -1149,8 +1258,8 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
-	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.39",
+	.name = "DNP DS40/DS80/DSRX1/DS620",
+	.version = "0.40",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
