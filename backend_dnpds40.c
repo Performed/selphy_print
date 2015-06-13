@@ -448,6 +448,9 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		ctx->datalen += sizeof(struct dnpds40_cmd) + j;
 	}
 
+	if (!ctx->datalen)
+		return CUPS_BACKEND_CANCEL;	
+	
 	/* Figure out the number of buffers we need. Most only need one. */
 	if (multicut) {
 		ctx->buf_needed = 1;
@@ -482,9 +485,6 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 
 	DEBUG("dpi %u matte %u mcut %u bufs %d\n",
 	      dpi, matte, multicut, ctx->buf_needed);
-
-	if (!ctx->datalen)
-		return CUPS_BACKEND_CANCEL;
 
 	return CUPS_BACKEND_OK;
 }
