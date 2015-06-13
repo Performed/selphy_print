@@ -448,30 +448,33 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		ctx->datalen += sizeof(struct dnpds40_cmd) + j;
 	}
 
-	if (!multicut) {
-		ERROR("Missing or illegal MULTICUT command, can't parse properly!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
 	/* Figure out the number of buffers we need. Most only need one. */
-	ctx->buf_needed = 1;
+	if (multicut) {
+		ctx->buf_needed = 1;
 
-	if (dpi == 600) {
-		if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
-			if (matte && (multicut == 21 || // A4 length
-				      multicut == 20 || // 8x4*3
-				      multicut == 19 || // 8x8+8x4
-				      multicut == 15 || // 8x6*2
-				      multicut == 7)) // 8x12
-				ctx->buf_needed = 2;
-		} else { /* DS40/RX1/CX/CY/etc */
-			if (multicut == 4 ||  // 6x8
-			    multicut == 5 ||  // 6x9
-			    multicut == 12)   // 6x4*2
-				ctx->buf_needed = 2;
-			else if (matte && multicut == 3) // 5x7
-				ctx->buf_needed = 2;
+		if (dpi == 600) {
+			if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
+				if (matte && (multicut == 21 || // A4 length
+					      multicut == 20 || // 8x4*3
+					      multicut == 19 || // 8x8+8x4
+					      multicut == 15 || // 8x6*2
+					      multicut == 7)) // 8x12
+					ctx->buf_needed = 2;
+			} else { /* DS40/RX1/CX/CY/etc */
+				if (multicut == 4 ||  // 6x8
+				    multicut == 5 ||  // 6x9
+				    multicut == 12)   // 6x4*2
+					ctx->buf_needed = 2;
+				else if (matte && multicut == 3) // 5x7
+					ctx->buf_needed = 2;
+			}
 		}
+	} else {
+		WARNING("Missing or illegal MULTICUT command, can't validate print job against loaded media!\n");
+		if (dpi == 300)
+			ctx->buf_needed = 1;
+		else
+			ctx->buf_needed = 2;
 	}
 
 	ctx->multicut = multicut;
@@ -509,7 +512,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	dnpds40_cleanup_string((char*)resp, len);
 
 	/* Sanity-check media type vs loaded media */
-	{
+	if (ctx->multicut) {
 		char tmp[4];
 		int i;
 
@@ -1132,7 +1135,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1",
-	.version = "0.38",
+	.version = "0.39",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
