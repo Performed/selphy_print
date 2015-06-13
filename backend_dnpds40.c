@@ -421,12 +421,13 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			multicut = atoi(buf);
 		}
 		if(!memcmp("IMAGE YPLANE", ctx->databuf + ctx->datalen + 2, 12)) {
-			uint32_t x_ppm; /* Pixels Per Meter */
+			uint32_t y_ppm; /* Pixels Per Meter */
 
-			memcpy(&x_ppm, ctx->databuf + ctx->datalen + 32 + 42, sizeof(x_ppm));
-			x_ppm = le32_to_cpu(x_ppm);
+			/* Validate vertical resolution */
+			memcpy(&y_ppm, ctx->databuf + ctx->datalen + 32 + 42, sizeof(y_ppm));
+			y_ppm = le32_to_cpu(y_ppm);
 
-			switch (x_ppm) {
+			switch (y_ppm) {
 			case 11808:
 				dpi = 300;
 				break;
@@ -434,9 +435,23 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 				dpi = 600;
 				break;
 			default:
-				WARNING("Unrecognized resolution (%d ppm), assuming 300dpi\n", x_ppm);
-				dpi = 300;
-				break;
+				ERROR("Unrecognized printjob resolution (%d ppm)\n", y_ppm);
+				return CUPS_BACKEND_CANCEL;
+			}
+
+			/* Validate horizontal size */
+			memcpy(&y_ppm, ctx->databuf + ctx->datalen + 32 + 18, sizeof(y_ppm));
+			y_ppm = le32_to_cpu(y_ppm);
+			if (ctx->type == P_DNP_DS80) {
+				if (y_ppm != 2560) {
+					ERROR("Incorrect horizontal resolution (%d), aborting!\n", y_ppm);
+					return CUPS_BACKEND_CANCEL;
+				}
+			} else {
+				if (y_ppm != 1920) {
+					ERROR("Incorrect horizontal resolution (%d), aborting!\n", y_ppm);
+					return CUPS_BACKEND_CANCEL;
+				}				
 			}
 		}
 
