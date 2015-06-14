@@ -73,6 +73,7 @@ struct dnpds40_ctx {
 
 	int supports_6x9;
 	int supports_2x6;
+	int supports_3x5x2;
 	int supports_matte;
 
 	uint8_t *qty_offset;
@@ -352,6 +353,9 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		if (ctx->ver_major >= 1 &&
 		    ctx->ver_major >= 40)
 			ctx->supports_2x6 = 1;
+		if (ctx->ver_major >= 1 &&
+		    ctx->ver_major >= 50)
+			ctx->supports_3x5x2 = 1;
 		break;
 	case USB_PID_DNP_DS80:
 		ctx->type = P_DNP_DS80;
@@ -371,6 +375,9 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->type = P_DNP_DS620;
 		ctx->supports_matte = 1;
 		ctx->supports_2x6 = 1;
+		if (ctx->ver_major >= 0 &&
+		    ctx->ver_major >= 30)
+			ctx->supports_3x5x2 = 1;
 		// XXX no idea what the version needs to be
 		if (ctx->ver_major >= 1 &&
 		    ctx->ver_major >= 10)
@@ -632,7 +639,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			}
 			break;
 		case 210: //"5x7 (2L)"
-			if (ctx->multicut != 1 && ctx->multicut != 3) {
+			if (ctx->multicut != 1 && ctx->multicut != 3 && ctx->multicut != 22) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -642,21 +649,18 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
-			// XXX don't forget 2x6*2
 			break;
 		case 310: //"6x8 (A5)"
 			if (ctx->multicut != 2 && ctx->multicut != 4) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
-			// XXX don't forget 2x6*2, 2x6*4
 			break;
 		case 400: //"6x9 (A5W)"
 			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 5) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
-			// XXX don't forget 2x6*2, 2x6*4
 			break;
 		case 500: //"8x10"
 			if (ctx->multicut < 6 ||
@@ -683,12 +687,18 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	if (ctx->multicut == 22 && !ctx->supports_3x5x2) {
+		ERROR("Printer does not support 3.5x5*2 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
 	if (ctx->cutter == 120) {
-		if (!ctx->supports_2x6) {
-			ERROR("Printer does not support 2x6 prints, aborting!\n");
-			return CUPS_BACKEND_CANCEL;
-		}
-		if (ctx->multicut != 2 && ctx->multicut != 4) {
+		if (ctx->multicut == 2 || ctx->multicut == 4) {
+			if (!ctx->supports_2x6) {
+				ERROR("Printer does not support 2x6 prints, aborting!\n");
+				return CUPS_BACKEND_CANCEL;
+			}
+		} else {
 			ERROR("Printer only supports 2-inch cuts on 4x6 or 8x6 jobs!");
 			return CUPS_BACKEND_CANCEL;
 		}
@@ -1259,7 +1269,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.40",
+	.version = "0.41",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
