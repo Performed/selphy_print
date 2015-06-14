@@ -1000,31 +1000,111 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-	/* Get Color Control Data Version */
-	dnpds40_build_cmd(&cmd, "TBL_RD", "Version", 0);
+	if (ctx->type == P_DNP_DS620) {
+		/* Loop through control data versions and checksums */
 
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
+		/* 300 DPI */
+		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD300_Version", 0);
 
-	dnpds40_cleanup_string((char*)resp, len);
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
 
-	INFO("Color Data Version: '%s'\n", (char*)resp);
+		dnpds40_cleanup_string((char*)resp, len);
 
-	free(resp);
+		INFO("300 DPI Color Data Version: '%s' ", (char*)resp);
 
-	/* Get Color Control Data Checksum */
-	dnpds40_build_cmd(&cmd, "MNT_RD", "CTRLD_CHKSUM", 0);
+		free(resp);
 
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
+		dnpds40_build_cmd(&cmd, "MNT_RD", "CWD300_Chedksum", 0);
 
-	dnpds40_cleanup_string((char*)resp, len);
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
 
-	INFO("Color Data Checksum: '%s'\n", (char*)resp);
+		dnpds40_cleanup_string((char*)resp, len);
 
-	free(resp);
+		INFO("Checksum: '%s'\n", (char*)resp);
+
+		free(resp);
+
+		/* 600 DPI */
+		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD600_Version", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("600 DPI Color Data Version: '%s' ", (char*)resp);
+
+		free(resp);
+
+		dnpds40_build_cmd(&cmd, "MNT_RD", "CWD600_Chedksum", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Checksum: '%s'\n", (char*)resp);
+
+		free(resp);
+
+		/* "Low Speed" */
+		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD610_Version", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Low Speed Color Data Version: '%s' ", (char*)resp);
+
+		free(resp);
+
+		dnpds40_build_cmd(&cmd, "MNT_RD", "CWD610_Chedksum", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Checksum: '%s'\n", (char*)resp);
+
+		free(resp);
+
+	} else {
+		/* Get Color Control Data Version */
+		dnpds40_build_cmd(&cmd, "TBL_RD", "Version", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Color Data Version: '%s'\n", (char*)resp);
+
+		free(resp);
+
+		/* Get Color Control Data Checksum */
+		dnpds40_build_cmd(&cmd, "MNT_RD", "CTRLD_CHKSUM", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Color Data Checksum: '%s'\n", (char*)resp);
+
+		free(resp);
+	}
 
 	return CUPS_BACKEND_OK;
 }
