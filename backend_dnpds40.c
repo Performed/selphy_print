@@ -701,25 +701,52 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		}
 	}
 
-	/* See if we can rewind to save media */
-	if (can_rewind && ctx->supports_rewind &&
-	    (ctx->multicut == 1 || ctx->multicut == 2)) {
-		int i;
+	/* Verify we have sufficient media for prints */
+	{
+		int i = 0;
 
-		/* Get Media remaining */
-		dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
+		/* See if we can rewind to save media */
+		if (can_rewind && ctx->supports_rewind &&
+		    (ctx->multicut == 1 || ctx->multicut == 2)) {
 
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-		if (!resp)
-			return CUPS_BACKEND_FAILED;
+			/* Get Media remaining */
+			dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
 
-		dnpds40_cleanup_string((char*)resp, len);
-		i = atoi((char*)resp);
+			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+			if (!resp)
+				return CUPS_BACKEND_FAILED;
 
-		/* If the count is odd, we can rewind. */
-		if (i & 1) {
-			snprintf(buf, sizeof(buf), "%08d", ctx->multicut + 400);
-			memcpy(ctx->multicut_offset, buf, 8);
+			dnpds40_cleanup_string((char*)resp, len);
+			i = atoi((char*)resp);
+			free(resp);
+
+			/* If the count is odd, we can rewind. */
+			if (i & 1) {
+				snprintf(buf, sizeof(buf), "%08d", ctx->multicut + 400);
+				memcpy(ctx->multicut_offset, buf, 8);
+			}
+		}
+
+		/* If we didn't succeed with RQTY, try MQTY */
+		if (i == 0) {
+			dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
+
+			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+			if (!resp)
+				return CUPS_BACKEND_FAILED;
+
+			dnpds40_cleanup_string((char*)resp, len);
+
+			i = atoi((char*)resp);
+			free(resp);
+		}
+
+		if (i < 1) {
+			ERROR("Printer out of media, please correct!\n");
+			return CUPS_BACKEND_STOP;
+		}
+		if (i < copies) {
+			WARNING("Printer does not have sufficient remaining media to complete job..\n");
 		}
 	}
 
@@ -753,7 +780,6 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 
 	/* Update quantity offset with count */
 	if (copies > 1) {
-		// XXX should we verify we have sufficient media for prints?
 		snprintf(buf, sizeof(buf), "%07d\r", copies);
 		if (ctx->qty_offset) {
 			memcpy(ctx->qty_offset, buf, 8);
@@ -1447,7 +1473,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.42",
+	.version = "0.43",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
