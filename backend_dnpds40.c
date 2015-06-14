@@ -75,9 +75,13 @@ struct dnpds40_ctx {
 	int supports_2x6;
 	int supports_3x5x2;
 	int supports_matte;
+	int supports_fullcut;
+	int supports_rewind;
+	int supports_standby;
 
 	uint8_t *qty_offset;
 	uint8_t *buffctrl_offset;
+	uint8_t *multicut_offset;
 
 	uint8_t *databuf;
 	int datalen;
@@ -356,6 +360,9 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		if (ctx->ver_major >= 1 &&
 		    ctx->ver_major >= 50)
 			ctx->supports_3x5x2 = 1;
+		if (ctx->ver_major >= 1 &&
+		    ctx->ver_major >= 51)
+			ctx->supports_fullcut = 1;
 		break;
 	case USB_PID_DNP_DS80:
 		ctx->type = P_DNP_DS80;
@@ -375,6 +382,9 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->type = P_DNP_DS620;
 		ctx->supports_matte = 1;
 		ctx->supports_2x6 = 1;
+		ctx->supports_fullcut = 1;
+		ctx->supports_rewind = 1;
+		ctx->supports_standby = 1;
 		if (ctx->ver_major >= 0 &&
 		    ctx->ver_major >= 30)
 			ctx->supports_3x5x2 = 1;
@@ -439,7 +449,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	dpi = 0;
 	multicut = 0;
 	cutter = 0;
-	ctx->buffctrl_offset = ctx->qty_offset = 0;
+	ctx->buffctrl_offset = ctx->qty_offset = ctx->multicut_offset = 0;
 
 	while (run) {
 		int remain, i, j;
@@ -507,8 +517,15 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			}
 		}
 		if(!memcmp("CNTRL MULTICUT", ctx->databuf + ctx->datalen+2, 14)) {
+			ctx->multicut_offset = ctx->databuf + ctx->datalen + 32;
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
 			multicut = atoi(buf);
+		}
+		if(!memcmp("CNTRL FULL_CUTTER_SET", ctx->databuf + ctx->datalen+2, 21)) {
+			if (!ctx->supports_fullcut) {
+				WARNING("Printer FW does not support cutter control, please update!\n");
+				continue;
+			}
 		}
 		if(!memcmp("IMAGE YPLANE", ctx->databuf + ctx->datalen + 2, 12)) {
 			uint32_t y_ppm; /* Pixels Per Meter */
@@ -601,26 +618,26 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	struct dnpds40_cmd cmd;
 	uint8_t *resp = NULL;
 	int len = 0;
-
+	int can_rewind;
 	uint8_t *ptr;
 	char buf[9];
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	/* Query Media Info */
-	dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
 	/* Sanity-check media type vs loaded media */
 	if (ctx->multicut) {
 		char tmp[4];
 		int i;
+
+		/* Query Media Info */
+		dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
 
 		memcpy(tmp, resp + 4, 3);
 		tmp[3] = 0;
@@ -639,6 +656,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			}
 			break;
 		case 210: //"5x7 (2L)"
+			can_rewind = 1;
 			if (ctx->multicut != 1 && ctx->multicut != 3 && ctx->multicut != 22) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
@@ -651,12 +669,14 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			}
 			break;
 		case 310: //"6x8 (A5)"
+			can_rewind = 1;
 			if (ctx->multicut != 2 && ctx->multicut != 4) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 400: //"6x9 (A5W)"
+			can_rewind = 1;
 			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 5) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
@@ -678,6 +698,28 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		default:
 			ERROR("Unknown media (%d)!\n", i);
 			return CUPS_BACKEND_CANCEL;
+		}
+	}
+
+	/* See if we can rewind to save media */
+	if (can_rewind && ctx->supports_rewind &&
+	    (ctx->multicut == 1 || ctx->multicut == 2)) {
+		int i;
+
+		/* Get Media remaining */
+		dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+		i = atoi((char*)resp);
+
+		/* If the count is odd, we can rewind. */
+		if (i & 1) {
+			snprintf(buf, sizeof(buf), "%08d", ctx->multicut + 400);
+			memcpy(ctx->multicut_offset, buf, 8);
 		}
 	}
 
@@ -1070,6 +1112,21 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
+	if (ctx->supports_rewind) {
+		/* Get Media remaining */
+		dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("L/PC Prints Remaining: '%s'\n", (char*)resp + 4);
+
+		free(resp);
+	}
+
 	return 0;
 }
 
@@ -1269,7 +1326,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.41",
+	.version = "0.42",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
