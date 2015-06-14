@@ -1170,9 +1170,9 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		INFO("Report Serial Number in USB descriptor: '%s'\n", (char*)resp);
 
-		free(resp);		
+		free(resp);
 	}
-	
+
 	return CUPS_BACKEND_OK;
 }
 
