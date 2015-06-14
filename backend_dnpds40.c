@@ -1106,6 +1106,47 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		free(resp);
 	}
 
+	if (ctx->type == P_DNP_DS620) {
+		/* Get Standby stuff */
+		dnpds40_build_cmd(&cmd, "MNT_RD", "STANDBY_TIME", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Standby Transition time: '%s' minutes\n", (char*)resp);
+
+		free(resp);
+
+		/* Get Media End Keep */
+		dnpds40_build_cmd(&cmd, "MNT_RD", "END_KEEP_MODE", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Media End kept across power cycles: '%s'\n", (char*)resp);
+
+		free(resp);
+
+		/* Get USB serial descriptor status */
+		dnpds40_build_cmd(&cmd, "MNT_RD", "USB_ISERI_SET", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Report Serial Number in USB descriptor: '%s'\n", (char*)resp);
+
+		free(resp);		
+	}
+	
 	return CUPS_BACKEND_OK;
 }
 
