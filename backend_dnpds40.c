@@ -578,7 +578,9 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		ctx->buf_needed = 1;
 
 		if (dpi == 600) {
-			if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
+			if (ctx->type == P_DNP_DS620) {
+				ctx->buf_needed = 1;
+			} else if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
 				if (matte && (multicut == 21 || // A4 length
 					      multicut == 20 || // 8x4*3
 					      multicut == 19 || // 8x8+8x4
@@ -657,7 +659,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			break;
 		case 210: //"5x7 (2L)"
 			can_rewind = 1;
-			if (ctx->multicut != 1 && ctx->multicut != 3 && ctx->multicut != 22) {
+			if (ctx->multicut != 1 && ctx->multicut != 3 && ctx->multicut != 22 && ctx->multicut != 29) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -670,14 +672,14 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			break;
 		case 310: //"6x8 (A5)"
 			can_rewind = 1;
-			if (ctx->multicut != 2 && ctx->multicut != 4) {
+			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 27) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 400: //"6x9 (A5W)"
 			can_rewind = 1;
-			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 5) {
+			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 5 && ctx->multicut != 27) {
 				ERROR("Incorrect media for job loaded (%d)\n", i);
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -751,6 +753,11 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	}
 
 	/* Additional santity checks */
+	if ((ctx->multicut == 27 || ctx->multicut == 29) && ctx->type != P_DNP_DS620) {
+		ERROR("Printer does not support 6x6 or 5x5 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
 	if (ctx->multicut == 5 && !ctx->supports_6x9) {
 		ERROR("Printer does not support 6x9 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
