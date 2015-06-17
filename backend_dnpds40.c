@@ -48,7 +48,8 @@
 #define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
 
 //#define USB_PID_DNP_DS620 XXXX
-//#define USB_PID_DNP_DS80DX XXXX
+//#define USB_PID_DNP_DS80D XXXX
+
 //#define USB_PID_OLMEC_OP900 XXXX
 //#define USB_PID_CITIZEN_CW-02 XXXXX
 //#define USB_PID_CITIZEN_OP900II XXXXX
@@ -388,9 +389,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		if (ctx->ver_major >= 0 &&
 		    ctx->ver_major >= 30)
 			ctx->supports_3x5x2 = 1;
-		// XXX no idea what the version needs to be
-		if (ctx->ver_major >= 1 &&
-		    ctx->ver_major >= 10)
+		if (ctx->ver_major >= 0 &&
+		    ctx->ver_major >= 40) // XXX FIXME.
 			ctx->supports_2x6 = 1;
 		break;
 #endif
@@ -1502,9 +1502,9 @@ struct dyesub_backend dnpds40_backend = {
 	.devices = {
 	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
-	{ USB_VID_DNP, USB_PID_DNP_DSRX1, P_DNP_DS40, ""},
-//	{ USB_VID_DNP, USB_PID_DNP_DS80DX, P_DNP_DS80, ""},
-//	{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS40, ""},	
+	{ USB_VID_DNP, USB_PID_DNP_DSRX1, P_DNP_DSRX1, ""},
+//	{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, ""},
+//	{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS40, ""},
 	{ 0, 0, 0, ""}
