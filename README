@@ -449,11 +449,13 @@
      -N [ A | B | M ]   Reset Counter A/B/M
      -p num             Set 'P' counter to 'num'
      -s                 Query printer status
-
+     -S num		Specify standby delay (1-99 minutes, 0 disables)
+			
    Notes:
 
      * Certian printer features may require updating the printer
        firmware.
+     * Only DNP-DS620 supports standby mode
 
  *************************************************************************** 
   BACKEND=citizencw01

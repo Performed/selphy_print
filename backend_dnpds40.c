@@ -1405,6 +1405,22 @@ static int dnpds40_clear_counter(struct dnpds40_ctx *ctx, char counter)
 	return 0;
 }
 
+static int dnpds620_standby_mode(struct dnpds40_ctx *ctx, int delay)
+{
+	struct dnpds40_cmd cmd;
+	char msg[9];
+	int ret;
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_WT", "STANDBY_TIME", 8);
+	snprintf(msg, sizeof(msg), "%08d", delay);
+
+	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 8)))
+		return ret;
+
+	return 0;
+}
+
 static int dnpds40_set_counter_p(struct dnpds40_ctx *ctx, char *arg)
 {
 	struct dnpds40_cmd cmd;
@@ -1429,6 +1445,7 @@ static void dnpds40_cmdline(void)
 	DEBUG("\t\t[ -n ]           # Query counters\n");
 	DEBUG("\t\t[ -N A|B|M ]     # Clear counter A/B/M\n");
 	DEBUG("\t\t[ -p num ]       # Set counter P\n");
+	DEBUG("\t\t[ -S num ]       # Set standby time (1-99 minutes, 0 disables)\n");	
 
 }
 
@@ -1440,7 +1457,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "inN:p:s")) >= 0) {
+	while ((i = getopt(argc, argv, "inN:p:sS:")) >= 0) {
 		switch(i) {
 		case 'i':
 			if (ctx) {
@@ -1480,6 +1497,21 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 				break;
 			}
 			return 1;
+		case 'S':
+			if (ctx) {
+				int time = atoi(optarg);
+				if (!ctx->supports_standby) {
+					ERROR("Printer does not support standby\n");
+					j = -1;
+					break;
+				}
+				if (time < 0 || time > 99) {
+					ERROR("Value out of range (0-99)");
+					j = -1;
+					break;
+				}
+				j = dnpds620_standby_mode(ctx, time);
+			}
 		default:
 			break;  /* Ignore completely */
 		}
@@ -1493,7 +1525,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.44",
+	.version = "0.45",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
