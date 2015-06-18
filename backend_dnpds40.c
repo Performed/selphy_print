@@ -996,7 +996,8 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-	/* Get Qty of prints made on this media? */
+#if 0
+	/* Get remaining print quantity? */
 	dnpds40_build_cmd(&cmd, "INFO", "PQTY", 0);
 
 	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
@@ -1008,6 +1009,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	INFO("Prints Performed(?): '%s'\n", (char*)resp + 4);
 
 	free(resp);
+#endif
 
 	/* Get Horizonal resolution */
 	dnpds40_build_cmd(&cmd, "INFO", "RESOLUTION_H", 0);
