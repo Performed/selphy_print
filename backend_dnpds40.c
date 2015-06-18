@@ -50,7 +50,6 @@
 //#define USB_PID_DNP_DS620 XXXX
 //#define USB_PID_DNP_DS80D XXXX
 
-//#define USB_PID_OLMEC_OP900 XXXX
 //#define USB_PID_CITIZEN_CW-02 XXXXX
 //#define USB_PID_CITIZEN_OP900II XXXXX
 
@@ -61,6 +60,9 @@ struct dnpds40_ctx {
 	uint8_t endp_down;
 
 	int type;
+
+	char *serno;
+	char *version;
 
 	int buf_needed;
 	int last_matte;
@@ -326,8 +328,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
 
-	/* Get Firmware Version */
 	{
+		/* Get Firmware Version */
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
 		int len = 0;
@@ -337,6 +339,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		if (resp) {
 			char *ptr;
 			dnpds40_cleanup_string((char*)resp, len);
+			ctx->version = (char*) resp;
 
 			/* Parse version */
 			ptr = strtok((char*)resp, " .");
@@ -344,9 +347,33 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->ver_major = atoi(ptr);
 			ptr = strtok(NULL, ".");
 			ctx->ver_minor = atoi(ptr);
-			free(resp);
+
+			/* Do NOT free resp! */
+		}
+
+		/* Get Serial Number */
+		dnpds40_build_cmd(&cmd, "INFO", "SERIAL_NUMBER", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (resp) {
+			dnpds40_cleanup_string((char*)resp, len);
+			ctx->serno = (char*) resp;
+			/* Do NOT free resp! */
 		}
 	}
+
+#ifdef DNP_ONLY
+	/* Only allow DNP printers to work. Rebadged versions should not. */
+
+	{ /* Validate USB Vendor String is "Dai Nippon Printing" */
+		char buf[256];
+		buf[0] = 0;
+		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
+		sanitize_string(buf);
+		if (strncmp(buf, "Dai", 3))
+			return 0;
+	}
+#endif
 
 	/* Per-printer options */
 	switch (desc.idProduct) {
@@ -409,6 +436,10 @@ static void dnpds40_teardown(void *vctx) {
 
 	if (ctx->databuf)
 		free(ctx->databuf);
+	if (ctx->serno)
+		free(ctx->serno);
+	if (ctx->version)
+		free(ctx->version);
 	free(ctx);
 }
 
@@ -817,11 +848,37 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		}
 	}
 
+#ifdef MATTE_STATE
 	/* Check our current job's lamination vs previous job. */
-	// XXX load last_matte from a status file
+	{
+		/* Load last matte status from file */
+		char buf[64];
+		FILE *f;
+		snprintf(buf, sizeof(buf), "/tmp/%s-last", ctx->serno);
+		f = fopen(buf, "r");
+		if (f) {
+			fscanf(f, "%d", &ctx->last_matte);
+			fclose(f);
+		}
+	}
+#endif
 	if (ctx->matte != ctx->last_matte)
 		ctx->buf_needed = 2; /* Switching needs both buffers */
-	ctx->last_matte = ctx->matte; // XXX write to status file
+
+	ctx->last_matte = ctx->matte;
+#ifdef MATTE_STATE
+	{
+		/* Store last matte status into file */
+		char buf[64];
+		FILE *f;
+		snprintf(buf, sizeof(buf), "/tmp/%s-last", ctx->serno);
+		f = fopen(buf, "w");
+		if (f) {
+			fprintf(f, "%08d", ctx->last_matte);
+			fclose(f);
+		}
+	}
+#endif
 
 top:
 
@@ -913,31 +970,11 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	uint8_t *resp;
 	int len = 0;
 
-	/* Get Serial Number */
-	dnpds40_build_cmd(&cmd, "INFO", "SERIAL_NUMBER", 0);
+	/* Serial number already queried */
+	INFO("Serial Number: '%s'\n", ctx->serno);
 
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
-	INFO("Serial Number: '%s'\n", (char*)resp);
-
-	free(resp);
-
-	/* Get Firmware Version */
-	dnpds40_build_cmd(&cmd, "INFO", "FVER", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
-	INFO("Firmware Version: '%s'\n", (char*)resp);
-
-	free(resp);
+	/* Firmware version already queried */
+	INFO("Firmware Version: '%s'\n", ctx->version);
 
 	/* Get Sensor Info */
 	dnpds40_build_cmd(&cmd, "INFO", "SENSOR", 0);
@@ -1525,7 +1562,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.45",
+	.version = "0.46",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
