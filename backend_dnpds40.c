@@ -177,6 +177,7 @@ static char *dnpds40_statuses(char *str)
 	case 1:	return "Printing";
 	case 500: return "Cooling Print Head";
 	case 510: return "Cooling Paper Motor";
+	case 900: return "Standby Mode";
 	case 1000: return "Cover Open";
 	case 1010: return "No Scrap Box";
 	case 1100: return "Paper End";
