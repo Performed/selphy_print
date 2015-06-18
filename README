@@ -41,7 +41,7 @@
 
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
    Kodak 305
-   Citizen CW-02
+   Citizen CW-02, and CX2
    Olmec OP900/OP900II
    ICI Imagedata OP900
    Mitsubishi CP-3800DW
@@ -429,10 +429,11 @@
    Work-in-progress printers: (USB PIDs unknown)
 
     Citizen CW-02/OP900II
+    Citizen CX2 (?)
     DNP DS80DX
     DNP DS620
 
-   Development was sponsored by:
+   Development was initially sponsored by:
 
         Marco Di Antonio
         LiveLink Technology [ www.livelinktechnology.net ]
@@ -451,7 +452,8 @@
 
    Notes:
 
-     * DS40, DS80, CX, and CX-W printers require firmware 1.30 or newer
+     * Certian printer features may require updating the printer
+       firmware.
 
  *************************************************************************** 
   BACKEND=citizencw01
