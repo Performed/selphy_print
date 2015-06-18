@@ -858,6 +858,9 @@ top:
 			INFO("Printer cooling down...\n");
 			sleep(1);
 			goto top;
+		} else if (!strcmp("00900", (char*)resp)) {
+			INFO("Waking printer up from standby...\n");
+			// XXX do someting here?
 		} else if (!strcmp("01500", (char*)resp)) {
 			ERROR("Paper definition error, aborting job\n");
 			return CUPS_BACKEND_CANCEL;
