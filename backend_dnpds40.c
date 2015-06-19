@@ -42,12 +42,14 @@
 
 #include "backend_common.h"
 
-#define USB_VID_DNP       0x1343
+#define USB_VID_CITIZEN   0x1343
 #define USB_PID_DNP_DS40  0x0003 // Also Citizen CX
 #define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W, and Mitsubishi CP-3800DW
 #define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
 
-//#define USB_PID_DNP_DS620 XXXX
+#define USB_VID_DNP       0x1452
+#define USB_PID_DNP_DS620 0x8b01
+
 //#define USB_PID_DNP_DS80D XXXX
 
 //#define USB_PID_CITIZEN_CW-02 XXXXX
@@ -406,7 +408,6 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		    ctx->ver_major >= 10)
 			ctx->supports_2x6 = 1;
 		break;
-#if 0
 	case USB_PID_DNP_DS620:
 		ctx->type = P_DNP_DS620;
 		ctx->supports_matte = 1;
@@ -421,7 +422,6 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		    ctx->ver_major >= 40) // XXX FIXME.
 			ctx->supports_2x6 = 1;
 		break;
-#endif
 	default:
 		ERROR("Unknown USB PID...\n");
 		return;
@@ -1564,7 +1564,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.46",
+	.version = "0.47",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -1575,10 +1575,10 @@ struct dyesub_backend dnpds40_backend = {
 	.main_loop = dnpds40_main_loop,
 	.query_serno = dnpds40_query_serno,
 	.devices = {
-	{ USB_VID_DNP, USB_PID_DNP_DS40, P_DNP_DS40, ""},
-	{ USB_VID_DNP, USB_PID_DNP_DS80, P_DNP_DS80, ""},
-	{ USB_VID_DNP, USB_PID_DNP_DSRX1, P_DNP_DSRX1, ""},
-//	{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, ""},
+	{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, ""},
+	{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, ""},
+	{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, ""},
+	{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, ""},
 //	{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS40, ""},
