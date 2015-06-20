@@ -341,7 +341,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		if (resp) {
 			char *ptr;
 			dnpds40_cleanup_string((char*)resp, len);
-			ctx->version = (char*) resp;
+			ctx->version = strdup((char*) resp);
 
 			/* Parse version */
 			ptr = strtok((char*)resp, " .");
@@ -349,8 +349,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->ver_major = atoi(ptr);
 			ptr = strtok(NULL, ".");
 			ctx->ver_minor = atoi(ptr);
-
-			/* Do NOT free resp! */
+			free(resp);
 		}
 
 		/* Get Serial Number */
@@ -386,13 +385,13 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		    ctx->ver_minor >= 30)
 			ctx->supports_matte = 1;
 		if (ctx->ver_major >= 1 &&
-		    ctx->ver_major >= 40)
+		    ctx->ver_minor >= 40)
 			ctx->supports_2x6 = 1;
 		if (ctx->ver_major >= 1 &&
-		    ctx->ver_major >= 50)
+		    ctx->ver_minor >= 50)
 			ctx->supports_3x5x2 = 1;
 		if (ctx->ver_major >= 1 &&
-		    ctx->ver_major >= 51)
+		    ctx->ver_minor >= 51)
 			ctx->supports_fullcut = 1;
 		break;
 	case USB_PID_DNP_DS80:
@@ -405,7 +404,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->type = P_DNP_DSRX1;
 		ctx->supports_matte = 1;
 		if (ctx->ver_major >= 1 &&
-		    ctx->ver_major >= 10)
+		    ctx->ver_minor >= 10)
 			ctx->supports_2x6 = 1;
 		break;
 	case USB_PID_DNP_DS620:
@@ -416,10 +415,10 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->supports_rewind = 1;
 		ctx->supports_standby = 1;
 		if (ctx->ver_major >= 0 &&
-		    ctx->ver_major >= 30)
+		    ctx->ver_minor >= 30)
 			ctx->supports_3x5x2 = 1;
 		if (ctx->ver_major >= 0 &&
-		    ctx->ver_major >= 40) // XXX FIXME.
+		    ctx->ver_minor >= 40) // XXX FIXME.
 			ctx->supports_2x6 = 1;
 		break;
 	default:
@@ -548,7 +547,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 				continue;
 			}
 		}
-		if(!memcmp("CNTRL MULTICUT", ctx->databuf + ctx->datalen+2, 14)) {
+		if(!memcmp("IMAGE MULTICUT", ctx->databuf + ctx->datalen+2, 14)) {
 			ctx->multicut_offset = ctx->databuf + ctx->datalen + 32;
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
 			multicut = atoi(buf);
@@ -746,13 +745,13 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			/* Get Media remaining */
 			dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
 
+			if (resp) free(resp);
 			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 			if (!resp)
 				return CUPS_BACKEND_FAILED;
 
 			dnpds40_cleanup_string((char*)resp, len);
 			i = atoi((char*)resp);
-			free(resp);
 
 			/* If the count is odd, we can rewind. */
 			if (i & 1) {
@@ -765,19 +764,19 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		if (i == 0) {
 			dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
 
+			if (resp) free(resp);
 			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 			if (!resp)
 				return CUPS_BACKEND_FAILED;
 
 			dnpds40_cleanup_string((char*)resp, len);
 
-			i = atoi((char*)resp);
+			i = atoi((char*)resp+4);
 
 			/* For some reason all but the DS620 report 50 too high */
 			if (ctx->type != P_DNP_DS620)
 				i -= 50;
 
-			free(resp);
 		}
 
 		if (i < 1) {
@@ -995,21 +994,6 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	}
 
 	free(resp);
-
-#if 0
-	/* Get remaining print quantity? */
-	dnpds40_build_cmd(&cmd, "INFO", "PQTY", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
-	INFO("Prints Performed(?): '%s'\n", (char*)resp + 4);
-
-	free(resp);
-#endif
 
 	/* Get Horizonal resolution */
 	dnpds40_build_cmd(&cmd, "INFO", "RESOLUTION_H", 0);
@@ -1247,6 +1231,19 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	dnpds40_cleanup_string((char*)resp, len);
 
 	INFO("Printer Status: %s => %s\n", (char*)resp, dnpds40_statuses((char*)resp));
+
+	free(resp);
+
+	/* Get remaining print quantity */
+	dnpds40_build_cmd(&cmd, "INFO", "PQTY", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	INFO("Prints remaining in job: '%s'\n", (char*)resp + 4);
 
 	free(resp);
 
@@ -1564,7 +1561,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.47",
+	.version = "0.48",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
