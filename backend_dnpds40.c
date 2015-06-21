@@ -412,14 +412,14 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->supports_matte = 1;
 		ctx->supports_2x6 = 1;
 		ctx->supports_fullcut = 1;
-		ctx->supports_rewind = 1;
+		ctx->supports_rewind = 1;  // XXX DS620 only, 620A does not.
 		ctx->supports_standby = 1;
 		if (ctx->ver_major >= 0 &&
 		    ctx->ver_minor >= 30)
 			ctx->supports_3x5x2 = 1;
-		if (ctx->ver_major >= 0 &&
-		    ctx->ver_minor >= 40) // XXX FIXME.
-			ctx->supports_2x6 = 1;
+		if (ctx->ver_major >= 1 &&
+		    ctx->ver_minor >= 10)
+			ctx->supports_6x9 = 1;
 		break;
 	default:
 		ERROR("Unknown USB PID...\n");
@@ -1081,7 +1081,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		free(resp);
 
-		dnpds40_build_cmd(&cmd, "MNT_RD", "CWD300_Chedksum", 0);
+		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD300_Checksum", 0);
 
 		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 		if (!resp)
@@ -1106,7 +1106,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		free(resp);
 
-		dnpds40_build_cmd(&cmd, "MNT_RD", "CWD600_Chedksum", 0);
+		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD600_Checksum", 0);
 
 		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 		if (!resp)
@@ -1131,7 +1131,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		free(resp);
 
-		dnpds40_build_cmd(&cmd, "MNT_RD", "CWD610_Chedksum", 0);
+		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD610_Checksum", 0);
 
 		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 		if (!resp)
