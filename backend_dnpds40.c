@@ -83,6 +83,7 @@ struct dnpds40_ctx {
 	int supports_fullcut;
 	int supports_rewind;
 	int supports_standby;
+	int supports_6x4_5;
 
 	uint8_t *qty_offset;
 	uint8_t *buffctrl_offset;
@@ -314,6 +315,10 @@ static void *dnpds40_init(void)
 	return ctx;
 }
 
+#define FW_VER_CHECK(__major, __minor) \
+	((ctx->ver_major > (__major)) || \
+	 (ctx->ver_major == (__major) && ctx->ver_minor >= (__minor)))
+
 static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
@@ -381,30 +386,24 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 	case USB_PID_DNP_DS40:
 		ctx->type = P_DNP_DS40;
 		ctx->supports_6x9 = 1;
-		if (ctx->ver_major >= 1 &&
-		    ctx->ver_minor >= 30)
+		if (FW_VER_CHECK(1,30))
 			ctx->supports_matte = 1;
-		if (ctx->ver_major >= 1 &&
-		    ctx->ver_minor >= 40)
+		if (FW_VER_CHECK(1,40))
 			ctx->supports_2x6 = 1;
-		if (ctx->ver_major >= 1 &&
-		    ctx->ver_minor >= 50)
+		if (FW_VER_CHECK(1,50))
 			ctx->supports_3x5x2 = 1;
-		if (ctx->ver_major >= 1 &&
-		    ctx->ver_minor >= 51)
+		if (FW_VER_CHECK(1,51))
 			ctx->supports_fullcut = 1;
 		break;
 	case USB_PID_DNP_DS80:
 		ctx->type = P_DNP_DS80;
-		if (ctx->ver_major >= 1 &&
-		    ctx->ver_minor >= 30)
+		if (FW_VER_CHECK(1,30))
 			ctx->supports_matte = 1;
 		break;
 	case USB_PID_DNP_DSRX1:
 		ctx->type = P_DNP_DSRX1;
 		ctx->supports_matte = 1;
-		if (ctx->ver_major >= 1 &&
-		    ctx->ver_minor >= 10)
+		if (FW_VER_CHECK(1,10))
 			ctx->supports_2x6 = 1;
 		break;
 	case USB_PID_DNP_DS620:
@@ -414,12 +413,10 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->supports_fullcut = 1;
 		ctx->supports_rewind = 1;  // XXX DS620 only, 620A does not.
 		ctx->supports_standby = 1;
-		if (ctx->ver_major >= 0 &&
-		    ctx->ver_minor >= 30)
+		if (FW_VER_CHECK(0,30))
 			ctx->supports_3x5x2 = 1;
-		if (ctx->ver_major >= 1 &&
-		    ctx->ver_minor >= 10)
-			ctx->supports_6x9 = 1;
+		if (FW_VER_CHECK(1,10))
+			ctx->supports_6x9 = ctx->supports_6x4_5 = 1;
 		break;
 	default:
 		ERROR("Unknown USB PID...\n");
@@ -610,7 +607,11 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 
 		if (dpi == 600) {
 			if (ctx->type == P_DNP_DS620) {
-				ctx->buf_needed = 1;
+				if (multicut == 5 || // 6x9
+				    multicut == 31)   // 6x4.5*2
+					ctx->buf_needed = 2;
+				else
+					ctx->buf_needed = 1;
 			} else if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
 				if (matte && (multicut == 21 || // A4 length
 					      multicut == 20 || // 8x4*3
@@ -684,52 +685,55 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		switch(i) {
 		case 200: //"5x3.5 (L)"
 			if (ctx->multicut != 1) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 210: //"5x7 (2L)"
 			can_rewind = 1;
-			if (ctx->multicut != 1 && ctx->multicut != 3 && ctx->multicut != 22 && ctx->multicut != 29) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
+			if (ctx->multicut != 1 && ctx->multicut != 3 &&
+			    ctx->multicut != 22 && ctx->multicut != 29) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 300: //"6x4 (PC)"
 			if (ctx->multicut != 2) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 310: //"6x8 (A5)"
 			can_rewind = 1;
-			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 27) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
+			if (ctx->multicut != 2 && ctx->multicut != 4 &&
+			    ctx->multicut != 27) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 400: //"6x9 (A5W)"
 			can_rewind = 1;
-			if (ctx->multicut != 2 && ctx->multicut != 4 && ctx->multicut != 5 && ctx->multicut != 27) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
+			if (ctx->multicut != 2 && ctx->multicut != 4 &&
+			    ctx->multicut != 5 && ctx->multicut != 27 &&
+			    ctx->multicut != 30 && ctx->multicut != 31) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 500: //"8x10"
-			if (ctx->multicut < 6 ||
-			    ctx->multicut == 7 || ctx->multicut == 15 ||
-			    ctx->multicut >= 18 ) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
+			if (ctx->multicut < 6 || ctx->multicut == 7 ||
+			    ctx->multicut == 15 || ctx->multicut >= 18 ) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 		case 510: //"8x12"
 			if (ctx->multicut < 6 || ctx->multicut > 21) {
-				ERROR("Incorrect media for job loaded (%d)\n", i);
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		default:
-			ERROR("Unknown media (%d)!\n", i);
+			ERROR("Unknown media (%d vs %d)!\n", i, ctx->multicut);
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
@@ -776,7 +780,6 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			/* For some reason all but the DS620 report 50 too high */
 			if (ctx->type != P_DNP_DS620)
 				i -= 50;
-
 		}
 
 		if (i < 1) {
@@ -789,8 +792,15 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	}
 
 	/* Additional santity checks */
-	if ((ctx->multicut == 27 || ctx->multicut == 29) && ctx->type != P_DNP_DS620) {
+	if ((ctx->multicut == 27 || ctx->multicut == 29) &&
+	    ctx->type != P_DNP_DS620) {
 		ERROR("Printer does not support 6x6 or 5x5 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if ((ctx->multicut == 30 || ctx->multicut == 31) &&
+	    !ctx->supports_6x4_5) {
+		ERROR("Printer does not support 6x4.5 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -811,7 +821,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 				return CUPS_BACKEND_CANCEL;
 			}
 		} else {
-			ERROR("Printer only supports 2-inch cuts on 4x6 or 8x6 jobs!");
+			ERROR("Printer only supports 2-inch cuts on 4x6, 8x6, or 9x6 jobs!");
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
@@ -861,8 +871,8 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		}
 	}
 #endif
-	if (ctx->matte != ctx->last_matte)
-		ctx->buf_needed = 2; /* Switching needs both buffers */
+//	if (ctx->matte != ctx->last_matte)
+//		ctx->buf_needed = 2; /* Switching needs both buffers */
 
 	ctx->last_matte = ctx->matte;
 #ifdef MATTE_STATE
@@ -1317,6 +1327,21 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	if (ctx->supports_rewind) {
 		/* Get Media remaining */
+		dnpds40_build_cmd(&cmd, "INFO", "MQTY_DEFAULT", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		len = atoi((char*)resp+4);
+
+		INFO("Total prints on media: '%d'\n", len);
+
+		free(resp);
+
+		/* Get Media remaining */
 		dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
 
 		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
@@ -1561,7 +1586,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.48",
+	.version = "0.49",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
