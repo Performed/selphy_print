@@ -778,7 +778,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 			i = atoi((char*)resp+4);
 
 			/* For some reason all but the DS620 report 50 too high */
-			if (ctx->type != P_DNP_DS620)
+			if (ctx->type != P_DNP_DS620 && i > 0)
 				i -= 50;
 		}
 
@@ -1335,7 +1335,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	dnpds40_cleanup_string((char*)resp, len);
 
 	len = atoi((char*)resp+4);
-	if (ctx->type != P_DNP_DS620)
+	if (ctx->type != P_DNP_DS620 && len > 0)
 		len -= 50;
 
 	INFO("Prints Remaining: '%d'\n", len);
