@@ -1308,6 +1308,23 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
+	if (ctx->supports_rewind) {
+		/* Get Media remaining */
+		dnpds40_build_cmd(&cmd, "INFO", "MQTY_DEFAULT", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		len = atoi((char*)resp+4);
+
+		INFO("Total prints on media: '%d'\n", len);
+
+		free(resp);
+	}
+
 	/* Get Media remaining */
 	dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
 
@@ -1326,21 +1343,6 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	free(resp);
 
 	if (ctx->supports_rewind) {
-		/* Get Media remaining */
-		dnpds40_build_cmd(&cmd, "INFO", "MQTY_DEFAULT", 0);
-
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-		if (!resp)
-			return CUPS_BACKEND_FAILED;
-
-		dnpds40_cleanup_string((char*)resp, len);
-
-		len = atoi((char*)resp+4);
-
-		INFO("Total prints on media: '%d'\n", len);
-
-		free(resp);
-
 		/* Get Media remaining */
 		dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
 
