@@ -632,10 +632,8 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		if (dpi == 600) {
 			if (ctx->type == P_DNP_DS620) {
 				if (ctx->multicut == 5 || // 6x9
-				    ctx->multicut == 31)   // 6x4.5*2
+				    ctx->multicut == 31)  // 6x4.5*2
 					ctx->buf_needed = 2;
-				else
-					ctx->buf_needed = 1;
 			} else if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
 				if (matte && (ctx->multicut == 21 || // A4 length
 					      ctx->multicut == 20 || // 8x4*3
@@ -643,7 +641,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 					      ctx->multicut == 15 || // 8x6*2
 					      ctx->multicut == 7)) // 8x12
 					ctx->buf_needed = 2;
-			} else { /* DS40/RX1/CX/CY/etc */
+			} else { /* DS40/CX/RX1/CY/etc */
 				if (ctx->multicut == 4 ||  // 6x8
 				    ctx->multicut == 5 ||  // 6x9
 				    ctx->multicut == 12)   // 6x4*2
