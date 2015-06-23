@@ -145,21 +145,9 @@ static void dnpds40_cleanup_string(char *start, int len)
 	}
 }
 
-static char *dnpds40_media_types(char *str)
+static char *dnpds40_media_types(int media)
 {
-	char tmp[4];
-	int i;
-
-	memcpy(tmp, str + 4, 3);
-	tmp[3] = 0;
-
-	i = atoi(tmp);
-
-	/* Subtract out the "mark" type */
-	if (i & 1)
-		i--;
-
-	switch (i) {
+	switch (media) {
 	case 200: return "5x3.5 (L)";
 	case 210: return "5x7 (2L)";
 	case 300: return "6x4 (PC)";
@@ -1277,43 +1265,8 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-	/* Get Media Info */
-	dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
-	INFO("Media Type: '%s'\n", dnpds40_media_types((char*)resp));
-
-#if 0
-	switch (*(resp+3)) {
-	case '1':
-		INFO("   Stickier paper\n");
-		break;
-	case '0':
-		INFO("   Standard paper\n");
-		break;
-	default:
-		INFO("   Unknown paper(%c)\n", *(resp+4));
-		break;
-	}
-	switch (*(resp+6)) {
-	case '1':
-		INFO("   With mark\n");
-		break;
-	case '0':
-		INFO("   Without mark\n");
-		break;
-	default:
-		INFO("   Unknown mark(%c)\n", *(resp+7));
-		break;
-	}
-#endif
-
-	free(resp);
+	/* Report media */
+	INFO("Media Type: '%s'\n", dnpds40_media_types(ctx->media));
 
 	if (ctx->supports_rewind) {
 		/* Get Media remaining */
@@ -1327,7 +1280,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 		len = atoi((char*)resp+4);
 
-		INFO("Total prints on media: '%d'\n", len);
+		INFO("Prints Available on New Media: '%d'\n", len);
 
 		free(resp);
 	}
@@ -1345,7 +1298,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	if (ctx->type != P_DNP_DS620 && len > 0)
 		len -= 50;
 
-	INFO("Prints Remaining: '%d'\n", len);
+	INFO("Prints Remaining on Media: '%d'\n", len);
 
 	free(resp);
 
@@ -1359,7 +1312,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("L/PC Prints Remaining: '%s'\n", (char*)resp + 4);
+		INFO("L/PC Prints Remaining on Media: '%s'\n", (char*)resp + 4);
 
 		free(resp);
 	}
