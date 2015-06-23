@@ -150,8 +150,11 @@
 # DNP DS40 + Citizen CX
 0x1343 0x0003 blacklist
 
-# DNP DS80 + Citizen CX-W
+# DNP DS80 + Citizen CX-W + Mitsubishi CP3800
 0x1343 0x0004 blacklist
 
 # DNP DS-RX1 + Citizen CY
 0x1343 0x0005 blacklist
+
+# DNP DS620
+0x1452 0x8b01 blacklist
