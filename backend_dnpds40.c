@@ -71,10 +71,12 @@ struct dnpds40_ctx {
 
 	int ver_major;
 	int ver_minor;
+	int media;
 
 	uint32_t multicut;
 	int matte;
 	int cutter;
+	int can_rewind;
 
 	int supports_6x9;
 	int supports_2x6;
@@ -340,6 +342,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
 		int len = 0;
+
 		dnpds40_build_cmd(&cmd, "INFO", "FVER", 0);
 
 		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
@@ -365,6 +368,27 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			dnpds40_cleanup_string((char*)resp, len);
 			ctx->serno = (char*) resp;
 			/* Do NOT free resp! */
+		}
+
+		/* Query Media Info */
+		dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (resp) {
+			char tmp[4];
+
+			dnpds40_cleanup_string((char*)resp, len);
+
+			memcpy(tmp, resp + 4, 3);
+			tmp[3] = 0;
+
+			ctx->media = atoi(tmp);
+
+			/* Subtract out the "mark" type */
+			if (ctx->media & 1)
+				ctx->media--;
+
+			free(resp);
 		}
 	}
 
@@ -446,7 +470,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	int run = 1;
 	char buf[9] = { 0 };
 
-	uint32_t matte, multicut, dpi, cutter;
+	uint32_t matte, dpi, cutter;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -475,8 +499,8 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	/* Clear everything out */
 	matte = 0;
 	dpi = 0;
-	multicut = 0;
 	cutter = 0;
+	ctx->multicut = 0;
 	ctx->buffctrl_offset = ctx->qty_offset = ctx->multicut_offset = 0;
 
 	while (run) {
@@ -547,7 +571,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		if(!memcmp("IMAGE MULTICUT", ctx->databuf + ctx->datalen+2, 14)) {
 			ctx->multicut_offset = ctx->databuf + ctx->datalen + 32;
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
-			multicut = atoi(buf);
+			ctx->multicut = atoi(buf);
 		}
 		if(!memcmp("CNTRL FULL_CUTTER_SET", ctx->databuf + ctx->datalen+2, 21)) {
 			if (!ctx->supports_fullcut) {
@@ -602,29 +626,29 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;	
 	
 	/* Figure out the number of buffers we need. Most only need one. */
-	if (multicut) {
+	if (ctx->multicut) {
 		ctx->buf_needed = 1;
 
 		if (dpi == 600) {
 			if (ctx->type == P_DNP_DS620) {
-				if (multicut == 5 || // 6x9
-				    multicut == 31)   // 6x4.5*2
+				if (ctx->multicut == 5 || // 6x9
+				    ctx->multicut == 31)   // 6x4.5*2
 					ctx->buf_needed = 2;
 				else
 					ctx->buf_needed = 1;
 			} else if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
-				if (matte && (multicut == 21 || // A4 length
-					      multicut == 20 || // 8x4*3
-					      multicut == 19 || // 8x8+8x4
-					      multicut == 15 || // 8x6*2
-					      multicut == 7)) // 8x12
+				if (matte && (ctx->multicut == 21 || // A4 length
+					      ctx->multicut == 20 || // 8x4*3
+					      ctx->multicut == 19 || // 8x8+8x4
+					      ctx->multicut == 15 || // 8x6*2
+					      ctx->multicut == 7)) // 8x12
 					ctx->buf_needed = 2;
 			} else { /* DS40/RX1/CX/CY/etc */
-				if (multicut == 4 ||  // 6x8
-				    multicut == 5 ||  // 6x9
-				    multicut == 12)   // 6x4*2
+				if (ctx->multicut == 4 ||  // 6x8
+				    ctx->multicut == 5 ||  // 6x9
+				    ctx->multicut == 12)   // 6x4*2
 					ctx->buf_needed = 2;
-				else if (matte && multicut == 3) // 5x7
+				else if (matte && ctx->multicut == 3) // 5x7
 					ctx->buf_needed = 2;
 			}
 		}
@@ -636,12 +660,110 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			ctx->buf_needed = 2;
 	}
 
-	ctx->multicut = multicut;
 	ctx->matte = (int)matte;
 	ctx->cutter = cutter;
+	ctx->can_rewind = 0;
 
 	DEBUG("dpi %u matte %u mcut %u cutter %d, bufs %d\n",
-	      dpi, matte, multicut, cutter, ctx->buf_needed);
+	      dpi, matte, ctx->multicut, cutter, ctx->buf_needed);
+
+	/* Sanity-check printjob type vs loaded media */
+	if (ctx->multicut) {
+		switch(ctx->media) {
+		case 200: //"5x3.5 (L)"
+			if (ctx->multicut != 1) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 210: //"5x7 (2L)"
+			ctx->can_rewind = 1;
+			if (ctx->multicut != 1 && ctx->multicut != 3 &&
+			    ctx->multicut != 22 && ctx->multicut != 29) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 300: //"6x4 (PC)"
+			if (ctx->multicut != 2) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 310: //"6x8 (A5)"
+			ctx->can_rewind = 1;
+			if (ctx->multicut != 2 && ctx->multicut != 4 &&
+			    ctx->multicut != 27) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 400: //"6x9 (A5W)"
+			ctx->can_rewind = 1;
+			if (ctx->multicut != 2 && ctx->multicut != 4 &&
+			    ctx->multicut != 5 && ctx->multicut != 27 &&
+			    ctx->multicut != 30 && ctx->multicut != 31) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 500: //"8x10"
+			if (ctx->multicut < 6 || ctx->multicut == 7 ||
+			    ctx->multicut == 15 || ctx->multicut >= 18 ) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
+				return CUPS_BACKEND_CANCEL;
+			}
+		case 510: //"8x12"
+			if (ctx->multicut < 6 || ctx->multicut > 21) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		default:
+			ERROR("Unknown media (%d vs %d)!\n", ctx->media, ctx->multicut);
+			return CUPS_BACKEND_CANCEL;
+		}
+	}
+
+	/* Additional santity checks */
+	if ((ctx->multicut == 27 || ctx->multicut == 29) &&
+	    ctx->type != P_DNP_DS620) {
+		ERROR("Printer does not support 6x6 or 5x5 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if ((ctx->multicut == 30 || ctx->multicut == 31) &&
+	    !ctx->supports_6x4_5) {
+		ERROR("Printer does not support 6x4.5 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if (ctx->multicut == 5 && !ctx->supports_6x9) {
+		ERROR("Printer does not support 6x9 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if (ctx->multicut == 22 && !ctx->supports_3x5x2) {
+		ERROR("Printer does not support 3.5x5*2 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if (ctx->cutter == 120) {
+		if (ctx->multicut == 2 || ctx->multicut == 4) {
+			if (!ctx->supports_2x6) {
+				ERROR("Printer does not support 2x6 prints, aborting!\n");
+				return CUPS_BACKEND_CANCEL;
+			}
+		} else {
+			ERROR("Printer only supports 2-inch cuts on 4x6 or 8x6 jobs!");
+			return CUPS_BACKEND_CANCEL;
+		}
+	}
+
+	if (ctx->matte && !ctx->supports_matte) {
+		ERROR("Printer FW does not support matte operation, please update!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
 
 	return CUPS_BACKEND_OK;
 }
@@ -652,98 +774,18 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	struct dnpds40_cmd cmd;
 	uint8_t *resp = NULL;
 	int len = 0;
-	int can_rewind;
 	uint8_t *ptr;
 	char buf[9];
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	/* Sanity-check media type vs loaded media */
-	if (ctx->multicut) {
-		char tmp[4];
-		int i;
-
-		/* Query Media Info */
-		dnpds40_build_cmd(&cmd, "INFO", "MEDIA", 0);
-
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-		if (!resp)
-			return CUPS_BACKEND_FAILED;
-
-		dnpds40_cleanup_string((char*)resp, len);
-
-		memcpy(tmp, resp + 4, 3);
-		tmp[3] = 0;
-
-		i = atoi(tmp);
-
-		/* Subtract out the "mark" type */
-		if (i & 1)
-			i--;
-
-		switch(i) {
-		case 200: //"5x3.5 (L)"
-			if (ctx->multicut != 1) {
-				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
-				return CUPS_BACKEND_CANCEL;
-			}
-			break;
-		case 210: //"5x7 (2L)"
-			can_rewind = 1;
-			if (ctx->multicut != 1 && ctx->multicut != 3 &&
-			    ctx->multicut != 22 && ctx->multicut != 29) {
-				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
-				return CUPS_BACKEND_CANCEL;
-			}
-			break;
-		case 300: //"6x4 (PC)"
-			if (ctx->multicut != 2) {
-				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
-				return CUPS_BACKEND_CANCEL;
-			}
-			break;
-		case 310: //"6x8 (A5)"
-			can_rewind = 1;
-			if (ctx->multicut != 2 && ctx->multicut != 4 &&
-			    ctx->multicut != 27) {
-				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
-				return CUPS_BACKEND_CANCEL;
-			}
-			break;
-		case 400: //"6x9 (A5W)"
-			can_rewind = 1;
-			if (ctx->multicut != 2 && ctx->multicut != 4 &&
-			    ctx->multicut != 5 && ctx->multicut != 27 &&
-			    ctx->multicut != 30 && ctx->multicut != 31) {
-				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
-				return CUPS_BACKEND_CANCEL;
-			}
-			break;
-		case 500: //"8x10"
-			if (ctx->multicut < 6 || ctx->multicut == 7 ||
-			    ctx->multicut == 15 || ctx->multicut >= 18 ) {
-				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
-				return CUPS_BACKEND_CANCEL;
-			}
-		case 510: //"8x12"
-			if (ctx->multicut < 6 || ctx->multicut > 21) {
-				ERROR("Incorrect media for job loaded (%d vs %d)\n", i, ctx->multicut);
-				return CUPS_BACKEND_CANCEL;
-			}
-			break;
-		default:
-			ERROR("Unknown media (%d vs %d)!\n", i, ctx->multicut);
-			return CUPS_BACKEND_CANCEL;
-		}
-	}
-
 	/* Verify we have sufficient media for prints */
 	{
 		int i = 0;
 
 		/* See if we can rewind to save media */
-		if (can_rewind && ctx->supports_rewind &&
+		if (ctx->can_rewind && ctx->supports_rewind &&
 		    (ctx->multicut == 1 || ctx->multicut == 2)) {
 
 			/* Get Media remaining */
@@ -789,46 +831,6 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		if (i < copies) {
 			WARNING("Printer does not have sufficient remaining media to complete job..\n");
 		}
-	}
-
-	/* Additional santity checks */
-	if ((ctx->multicut == 27 || ctx->multicut == 29) &&
-	    ctx->type != P_DNP_DS620) {
-		ERROR("Printer does not support 6x6 or 5x5 prints, aborting!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if ((ctx->multicut == 30 || ctx->multicut == 31) &&
-	    !ctx->supports_6x4_5) {
-		ERROR("Printer does not support 6x4.5 prints, aborting!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (ctx->multicut == 5 && !ctx->supports_6x9) {
-		ERROR("Printer does not support 6x9 prints, aborting!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (ctx->multicut == 22 && !ctx->supports_3x5x2) {
-		ERROR("Printer does not support 3.5x5*2 prints, aborting!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (ctx->cutter == 120) {
-		if (ctx->multicut == 2 || ctx->multicut == 4) {
-			if (!ctx->supports_2x6) {
-				ERROR("Printer does not support 2x6 prints, aborting!\n");
-				return CUPS_BACKEND_CANCEL;
-			}
-		} else {
-			ERROR("Printer only supports 2-inch cuts on 4x6, 8x6, or 9x6 jobs!");
-			return CUPS_BACKEND_CANCEL;
-		}
-	}
-
-	if (ctx->matte && !ctx->supports_matte) {
-		ERROR("Printer FW does not support matte operation, please update!\n");
-		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* Update quantity offset with count */
@@ -1588,7 +1590,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.49",
+	.version = "0.50",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
