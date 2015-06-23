@@ -162,16 +162,9 @@ static char *dnpds40_media_types(int media)
 	return "Unknown type";
 }
 
-static char *dnpds40_statuses(char *str)
+static char *dnpds40_statuses(int status)
 {
-	char tmp[6];
-	int i;
-	memcpy(tmp, str, 5);
-	tmp[5] = 0;
-
-	i = atoi(tmp);
-
-	switch (i) {
+	switch (status) {
 	case 0:	return "Idle";
 	case 1:	return "Printing";
 	case 500: return "Cooling Print Head";
@@ -766,6 +759,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	int len = 0;
 	uint8_t *ptr;
 	char buf[9];
+	int status;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -894,46 +888,61 @@ top:
 	if (!resp)
 		return CUPS_BACKEND_FAILED;
 	dnpds40_cleanup_string((char*)resp, len);
+	status = atoi((char*)resp);
+	free(resp);
 
-	/* If we're not idle */
-	if (strcmp("00000", (char*)resp)) {
-		if (!strcmp("00001", (char*)resp)) {
-			int bufs;
+	/* Figure out what's going on */
+	switch(status) {
+	case 0:	/* Idle; we can continue! */
+		break;
+	case 1: /* Printing */
+	{
+		int bufs;
 
-			free(resp);
-			/* Query buffer state */
-			dnpds40_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
-			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-			if (!resp)
-				return CUPS_BACKEND_FAILED;
-			dnpds40_cleanup_string((char*)resp, len);
+		/* Query buffer state */
+		dnpds40_build_cmd(&cmd, "INFO", "FREE_PBUFFER", 0);
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 
-			/* Check to see if we have sufficient buffers */
-			bufs = atoi(((char*)resp)+3);
-			if (bufs < ctx->buf_needed) {
-				INFO("Insufficient printer buffers (%d vs %d), retrying...\n", bufs, ctx->buf_needed);
-				sleep(1);
-				goto top;
-			}
-		} else if (!strcmp("00500", (char*)resp) ||
-			   !strcmp("00510", (char*)resp)) {
-			INFO("Printer cooling down...\n");
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+		/* Check to see if we have sufficient buffers */
+		bufs = atoi(((char*)resp)+3);
+		if (bufs < ctx->buf_needed) {
+			INFO("Insufficient printer buffers (%d vs %d), retrying...\n", bufs, ctx->buf_needed);
 			sleep(1);
 			goto top;
-		} else if (!strcmp("00900", (char*)resp)) {
-			INFO("Waking printer up from standby...\n");
-			// XXX do someting here?
-		} else if (!strcmp("01500", (char*)resp)) {
-			ERROR("Paper definition error, aborting job\n");
-			return CUPS_BACKEND_CANCEL;
-		} else if (!strcmp("01600", (char*)resp)) {
-			ERROR("Data error, aborting job\n");
-			return CUPS_BACKEND_CANCEL;
-		} else {
-			ERROR("Printer Status: %s => %s\n", (char*)resp, dnpds40_statuses((char*)resp));
-			free(resp);
-			return CUPS_BACKEND_RETRY_CURRENT;
 		}
+		break;
+	}
+	case 500: /* Cooling print head */
+	case 510: /* Cooling paper motor */
+		INFO("Printer cooling down...\n");
+		sleep(1);
+		goto top;
+	case 900:
+		INFO("Waking printer up from standby...\n");
+		// XXX do someting here?
+		break;
+	case 1000: /* Cover open */
+	case 1010: /* No Scrap Box */
+	case 1100: /* Paper End */
+	case 1200: /* Ribbon End */
+	case 1300: /* Paper Jam */
+	case 1400: /* Ribbon Error */
+		WARNING("Printer not ready: %s, please correct...\n", dnpds40_statuses(status));
+		sleep(1);
+		goto top;
+	case 1500: /* Paper definition error */
+		ERROR("Paper definition error, aborting job\n");
+		return CUPS_BACKEND_CANCEL;
+	case 1600: /* Data error */
+		ERROR("Data error, aborting job\n");
+		return CUPS_BACKEND_CANCEL;
+	default:
+		ERROR("Fatal Printer Error: %d => %s, halting queue!\n", status, dnpds40_statuses(status));
+		return CUPS_BACKEND_HOLD;
 	}
 	
 	/* Send the stream over as individual data chunks */
@@ -962,8 +971,6 @@ top:
 	if (copies && --copies) {
 		goto top;
 	}
-
-	if (resp) free(resp);
 
 	return CUPS_BACKEND_OK;
 }
@@ -1234,8 +1241,9 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 		return CUPS_BACKEND_FAILED;
 
 	dnpds40_cleanup_string((char*)resp, len);
+	len = atoi((char*)resp);
 
-	INFO("Printer Status: %s => %s\n", (char*)resp, dnpds40_statuses((char*)resp));
+	INFO("Printer Status: %d => %s\n", len, dnpds40_statuses(len));
 
 	free(resp);
 
@@ -1548,7 +1556,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.50",
+	.version = "0.51",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
