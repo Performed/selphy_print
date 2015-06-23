@@ -448,7 +448,7 @@ static void dnpds40_teardown(void *vctx) {
 	free(ctx);
 }
 
-#define MAX_PRINTJOB_LEN (((2448*7536+1024+54))*3+1024) /* Worst-case */
+#define MAX_PRINTJOB_LEN (((2560*7536+1024+54))*3+1024) /* Worst-case */
 
 static int dnpds40_read_parse(void *vctx, int data_fd) {
 	struct dnpds40_ctx *ctx = vctx;
@@ -515,8 +515,10 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		while (remain > 0) {
 			i = read(data_fd, ctx->databuf + ctx->datalen + sizeof(struct dnpds40_cmd), 
 				 remain);
-			if (i < 0)
+			if (i < 0) {
+				ERROR("Data Read Error: %d (%d/%d @%d)\n", i, remain, j, ctx->datalen);
 				return i;
+			}
 			if (i == 0)
 				return 1;
 			ctx->datalen += i;
