@@ -30,6 +30,10 @@
  *
  */
 
+//#define MATTE_STATE
+//#define DNP_ONLY
+#define MATTE_GLOSSY_2BUF
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -871,8 +875,11 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		}
 	}
 #endif
-//	if (ctx->matte != ctx->last_matte)
-//		ctx->buf_needed = 2; /* Switching needs both buffers */
+
+#ifdef MATTE_GLOSSY_2BUF
+	if (ctx->matte != ctx->last_matte)
+		ctx->buf_needed = 2; /* Switching needs both buffers */
+#endif
 
 	ctx->last_matte = ctx->matte;
 #ifdef MATTE_STATE
