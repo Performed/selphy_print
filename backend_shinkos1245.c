@@ -955,7 +955,7 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	remaining = TONE_CURVE_SIZE;
 	data = malloc(remaining);
 	if (!data) {
-		ERROR("Out of memory!\n");
+		ERROR("Memory Allocation Failure!\n");
 		return -11;
 	}
 	ptr = data;
@@ -1033,7 +1033,7 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	remaining = TONE_CURVE_SIZE;
 	data = malloc(remaining);
 	if (!data) {
-		ERROR("Out of memory!\n");
+		ERROR("Memory Allocation Failure!\n");
 		return -11;
 	}
 	ptr = data;
@@ -1230,8 +1230,10 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 static void *shinkos1245_init(void)
 {
 	struct shinkos1245_ctx *ctx = malloc(sizeof(struct shinkos1245_ctx));
-	if (!ctx)
+	if (!ctx) {
+		ERROR("Memory Allocation Failure!\n");
 		return NULL;
+	}
 	memset(ctx, 0, sizeof(struct shinkos1245_ctx));
 
 	/* Use Fast return by default in CUPS mode */

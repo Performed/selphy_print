@@ -130,8 +130,10 @@ struct mitsu70x_hdr {
 static void *mitsu70x_init(void)
 {
 	struct mitsu70x_ctx *ctx = malloc(sizeof(struct mitsu70x_ctx));
-	if (!ctx)
+	if (!ctx) {
+		ERROR("Memory Allocation Failure!\n");
 		return NULL;
+	}
 	memset(ctx, 0, sizeof(struct mitsu70x_ctx));
 
 	return ctx;

@@ -241,6 +241,10 @@ static uint8_t * dnpds40_resp_cmd(struct dnpds40_ctx *ctx,
 
 	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
 	respbuf = malloc(i);
+	if (!respbuf) {
+		ERROR("Memory allocation failure (%d bytes)!\n", i);
+		return NULL;
+	}
 
 	/* Read in the actual response */
 	ret = read_data(ctx->dev, ctx->endp_up,
@@ -292,8 +296,10 @@ static int dnpds40_query_serno(struct libusb_device_handle *dev, uint8_t endp_up
 static void *dnpds40_init(void)
 {
 	struct dnpds40_ctx *ctx = malloc(sizeof(struct dnpds40_ctx));
-	if (!ctx)
+	if (!ctx) {
+		ERROR("Memory allocation failure (%d bytes)!\n", (int)sizeof(struct dnpds40_ctx));
 		return NULL;
+	}
 	memset(ctx, 0, sizeof(struct dnpds40_ctx));
 
 	ctx->type = P_ANY;

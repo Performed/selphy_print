@@ -1158,6 +1158,10 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 	resp->total_size = le16_to_cpu(resp->total_size);
 
 	data = malloc(resp->total_size * 2);
+	if (!data) {
+		ERROR("Memory allocation failure! (%d bytes)\n",
+		      resp->total_size * 2);
+	}
 
 	i = 0;
 	while (i < resp->total_size) {
@@ -1207,6 +1211,11 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 	INFO("Set %s Tone Curve from '%s'\n", update_targets(target), fname);
 
 	uint16_t *data = malloc(UPDATE_SIZE);
+
+	if (!data) {
+		ERROR("Memory allocation failure! (%d bytes)\n",
+		      UPDATE_SIZE);
+	}
 
 	/* Read in file */
 	int tc_fd = open(fname, O_RDONLY);
@@ -1401,8 +1410,12 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 static void *shinkos2145_init(void)
 {
 	struct shinkos2145_ctx *ctx = malloc(sizeof(struct shinkos2145_ctx));
-	if (!ctx)
+	if (!ctx) {
+		ERROR("Memory allocation failure! (%d bytes)\n",
+		      (int)sizeof(struct shinkos2145_ctx));
+		
 		return NULL;
+	}
 	memset(ctx, 0, sizeof(struct shinkos2145_ctx));
 
 	/* Use Fast return by default in CUPS mode */
@@ -1758,7 +1771,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145",
-	.version = "0.39",
+	.version = "0.40",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

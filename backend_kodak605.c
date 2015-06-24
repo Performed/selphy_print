@@ -95,8 +95,10 @@ enum {
 static void *kodak605_init(void)
 {
 	struct kodak605_ctx *ctx = malloc(sizeof(struct kodak605_ctx));
-	if (!ctx)
+	if (!ctx) {
+		ERROR("Memory Allocation Failure!\n");
 		return NULL;
+	}
 	memset(ctx, 0, sizeof(struct kodak605_ctx));
 
 	return ctx;

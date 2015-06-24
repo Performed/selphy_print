@@ -143,8 +143,10 @@ struct mitsu9550_status2 {
 static void *mitsu9550_init(void)
 {
 	struct mitsu9550_ctx *ctx = malloc(sizeof(struct mitsu9550_ctx));
-	if (!ctx)
+	if (!ctx) {
+		ERROR("Memory Allocation Failure!\n");
 		return NULL;
+	}
 	memset(ctx, 0, sizeof(struct mitsu9550_ctx));
 
         /* Use Fast return by default in CUPS mode */

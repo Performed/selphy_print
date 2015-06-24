@@ -59,8 +59,10 @@ struct updr150_ctx {
 static void* updr150_init(void)
 {
 	struct updr150_ctx *ctx = malloc(sizeof(struct updr150_ctx));
-	if (!ctx)
+	if (!ctx) {
+		ERROR("Memory Allocation Failure!");
 		return NULL;
+	}
 	memset(ctx, 0, sizeof(struct updr150_ctx));
 	return ctx;
 }
