@@ -1507,6 +1507,23 @@ static int dnpds620_standby_mode(struct dnpds40_ctx *ctx, int delay)
 	return 0;
 }
 
+static int dnpds620_media_keep_mode(struct dnpds40_ctx *ctx, int delay)
+{
+	struct dnpds40_cmd cmd;
+	char msg[9];
+	int ret;
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_WT", "END_KEEP_MODE", 4);
+	snprintf(msg, sizeof(msg), "%02d\r", delay);
+
+	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 4)))
+		return ret;
+
+	return 0;
+}
+
+
 static int dnpds40_set_counter_p(struct dnpds40_ctx *ctx, char *arg)
 {
 	struct dnpds40_cmd cmd;
@@ -1531,8 +1548,8 @@ static void dnpds40_cmdline(void)
 	DEBUG("\t\t[ -n ]           # Query counters\n");
 	DEBUG("\t\t[ -N A|B|M ]     # Clear counter A/B/M\n");
 	DEBUG("\t\t[ -p num ]       # Set counter P\n");
-	DEBUG("\t\t[ -S num ]       # Set standby time (1-99 minutes, 0 disables)\n");	
-
+	DEBUG("\t\t[ -S num ]       # Set standby time (1-99 minutes, 0 disables)\n");
+	DEBUG("\t\t[ -K num ]       # Keep Media Status Across Power Cycles (1 on, 0 off)\n");
 }
 
 static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
@@ -1543,7 +1560,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "iInN:p:sS:")) >= 0) {
+	while ((i = getopt(argc, argv, "iInN:p:sK:k:")) >= 0) {
 		switch(i) {
 		case 'i':
 			if (ctx) {
@@ -1556,6 +1573,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 				j = dnpds40_get_sensors(ctx);
 				break;
 			}
+			return 1;
 		case 'n':
 			if (ctx) {
 				j = dnpds40_get_counters(ctx);
@@ -1575,20 +1593,20 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 				j = dnpds40_clear_counter(ctx, optarg[0]);
 				break;
 			}
-			return 1;
+			return 2;
 		case 'p':
 			if (ctx) {
 				j = dnpds40_set_counter_p(ctx, optarg);
 				break;
 			}
-			return 1;
+			return 2;
 		case 's':
 			if (ctx) {
 				j = dnpds40_get_status(ctx);
 				break;
 			}
 			return 1;
-		case 'S':
+		case 'k':
 			if (ctx) {
 				int time = atoi(optarg);
 				if (!ctx->supports_standby) {
@@ -1603,6 +1621,23 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 				}
 				j = dnpds620_standby_mode(ctx, time);
 			}
+			return 2;
+		case 'K':
+			if (ctx) {
+				int keep = atoi(optarg);
+				if (!ctx->supports_standby) {
+					ERROR("Printer does not support media keep mode\n");
+					j = -1;
+					break;
+				}
+				if (keep < 0 || keep > 1) {
+					ERROR("Value out of range (0-1)");
+					j = -1;
+					break;
+				}
+				j = dnpds620_media_keep_mode(ctx, keep);
+			}
+			return 2;
 		default:
 			break;  /* Ignore completely */
 		}

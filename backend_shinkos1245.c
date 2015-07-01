@@ -1148,75 +1148,83 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	while ((i = getopt(argc, argv, "c:C:l:L:FfmsuU:X:")) >= 0) {
 		switch(i) {
 		case 'F':
-			if (!ctx)
-				return 1;
-			ctx->tonecurve = PARAM_TABLE_FINE;
-			break;
-		case 'c':
-			if (!ctx)
-				return 1;
-
-			j = get_tonecurve(ctx, TONE_TABLE_USER, ctx->tonecurve, optarg);
-			break;
-		case 'C':
-			if (!ctx)
-				return 1;
-			j = set_tonecurve(ctx, TONE_TABLE_USER, ctx->tonecurve, optarg);
-			break;
-		case 'l':
-			if (!ctx)
-				return 1;
-			j = get_tonecurve(ctx, TONE_TABLE_CURRENT, ctx->tonecurve, optarg);
-			break;
-		case 'L':
-			if (!ctx)
-				return 1;
-			j = set_tonecurve(ctx, TONE_TABLE_CURRENT, ctx->tonecurve, optarg);
-			break;
-		case 'f':
-			if (!ctx)
-				return 1;
-			ctx->fast_return = 1;
-			break;
-		case 'm':
-			if (!ctx)
-				return 1;
-			j = shinkos1245_get_media(ctx);
-			if (!j)
-				shinkos1245_dump_media(ctx->medias, ctx->num_medias);
-			break;
-		case 's': {
-			if (!ctx)
-				return 1;
-			struct shinkos1245_resp_status sts;
-			j = shinkos1245_get_status(ctx, &sts);
-			if (!j)
-				shinkos1245_dump_status(&sts);
-			break;
-		}
-		case 'u': {
-			if (!ctx)
-				return 1;
-			struct shinkos1245_resp_getid resp;
-			j = shinkos1245_get_printerid(ctx, &resp);
-			if (!j) {
-				char buffer[sizeof(resp.data)+1];
-				memcpy(buffer, resp.data, sizeof(resp.data));
-				buffer[sizeof(resp.data)] = 0;
-				INFO("Printer ID: %02x '%s'\n", resp.id, buffer);
+			if (ctx) {
+				ctx->tonecurve = PARAM_TABLE_FINE;
+				break;
 			}
-			break;
-		}
+			return 1;
+		case 'c':
+			if (ctx) {
+				j = get_tonecurve(ctx, TONE_TABLE_USER, ctx->tonecurve, optarg);
+				break;
+			}
+			return 2;
+		case 'C':
+			if (ctx) {
+				j = set_tonecurve(ctx, TONE_TABLE_USER, ctx->tonecurve, optarg);
+				break;
+			}
+			return 2;
+		case 'l':
+			if (ctx) {
+				j = get_tonecurve(ctx, TONE_TABLE_CURRENT, ctx->tonecurve, optarg);
+				break;
+			}
+			return 2;
+		case 'L':
+			if (ctx) {
+				j = set_tonecurve(ctx, TONE_TABLE_CURRENT, ctx->tonecurve, optarg);
+				break;
+			}
+			return 2;
+		case 'f':
+			if (!ctx) {
+				ctx->fast_return = 1;
+				break;
+			}
+			return 1;
+		case 'm':
+			if (ctx) {
+				j = shinkos1245_get_media(ctx);
+				if (!j)
+					shinkos1245_dump_media(ctx->medias, ctx->num_medias);
+				break;
+			}
+			return 1;
+		case 's':
+			if (ctx) {
+				struct shinkos1245_resp_status sts;
+				j = shinkos1245_get_status(ctx, &sts);
+				if (!j)
+					shinkos1245_dump_status(&sts);
+				break;
+			}
+			return 1;
+		case 'u':
+			if (ctx) {
+				struct shinkos1245_resp_getid resp;
+				j = shinkos1245_get_printerid(ctx, &resp);
+				if (!j) {
+					char buffer[sizeof(resp.data)+1];
+					memcpy(buffer, resp.data, sizeof(resp.data));
+					buffer[sizeof(resp.data)] = 0;
+					INFO("Printer ID: %02x '%s'\n", resp.id, buffer);
+					break;
+				}
+			}
+			return 1;
 		case 'U':
-			if (!ctx)
-				return 1;
-			j = shinkos1245_set_printerid(ctx, optarg);
-			break;
+			if (ctx) {
+				j = shinkos1245_set_printerid(ctx, optarg);
+				break;
+			}
+			return 1;
 		case 'X':
-			if (!ctx)
-				return 1;
-			j = shinkos1245_canceljob(ctx, atoi(optarg));
-			break;
+			if (ctx) {
+				j = shinkos1245_canceljob(ctx, atoi(optarg));
+				break;
+			}
+			return 1;
 		default:
 			break;  /* Ignore completely */
 		}
@@ -1607,7 +1615,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.02WIP",
+	.version = "0.03WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,

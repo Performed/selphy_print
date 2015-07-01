@@ -450,7 +450,8 @@
      -N [ A | B | M ]   Reset Counter A/B/M                              [2]
      -p num             Set 'P' counter to 'num'
      -s                 Query printer status
-     -S num		Specify standby delay (1-99 minutes, 0 disables) [1]
+     -k num		Specify standby delay (1-99 minutes, 0 disables)    [1]
+     -K num		Keep Media Status Across Power Cycles (1 yes, 0 no) [1]
 			
    Notes:
 
