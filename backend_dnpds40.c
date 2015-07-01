@@ -1544,11 +1544,12 @@ static int dnpds40_set_counter_p(struct dnpds40_ctx *ctx, char *arg)
 static void dnpds40_cmdline(void)
 {
 	DEBUG("\t\t[ -i ]           # Query printer info\n");
+	DEBUG("\t\t[ -I ]           # Query sensor  info\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -n ]           # Query counters\n");
 	DEBUG("\t\t[ -N A|B|M ]     # Clear counter A/B/M\n");
 	DEBUG("\t\t[ -p num ]       # Set counter P\n");
-	DEBUG("\t\t[ -S num ]       # Set standby time (1-99 minutes, 0 disables)\n");
+	DEBUG("\t\t[ -k num ]       # Set standby time (1-99 minutes, 0 disables)\n");
 	DEBUG("\t\t[ -K num ]       # Keep Media Status Across Power Cycles (1 on, 0 off)\n");
 }
 
