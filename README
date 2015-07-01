@@ -445,6 +445,7 @@
    Valid commands:
 
      -i                 Query printer information (resolution, etc)
+     -I                 Query printer sensor information
      -n                 Query printer counters
      -N [ A | B | M ]   Reset Counter A/B/M                              [2]
      -p num             Set 'P' counter to 'num'
