@@ -36,6 +36,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <time.h>
 
 #include "backend_common.h"
 
@@ -124,7 +125,7 @@ struct s6245_cmd_hdr {
 
 #define S6245_CMD_GETEEPROM 0x400E
 #define S6245_CMD_SETEEPROM 0x400F
-#define S6245_CMD_TIMESET   0x4011
+#define S6245_CMD_SETTIME   0x4011
 
 #define S6245_CMD_FWINFO    0xC003
 #define S6245_CMD_UPDATE    0xC004
@@ -161,7 +162,7 @@ static char *cmd_names(uint16_t v) {
 		return "Get EEPROM Backup Parameter";
 	case S6245_CMD_SETEEPROM:
 		return "Set EEPROM Backup Parameter";
-	case S6245_CMD_TIMESET:
+	case S6245_CMD_SETTIME:
 		return "Time Setting";
 	case S6245_CMD_FWINFO:
 		return "Get Firmware Info";
@@ -1602,13 +1603,39 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
- top:
+	/* Send Set Time */
+	{
+		struct s6245_settime_cmd *stime = (struct s6245_settime_cmd *)cmdbuf;
+		time_t now = time(NULL);
+		struct tm *cur = localtime(&now);
+
+		memset(cmdbuf, 0, CMDBUF_LEN);
+		cmd->cmd = cpu_to_le16(S6245_CMD_SETTIME);
+		cmd->len = cpu_to_le16(0);
+		stime->enable = 1;
+		stime->second = cur->tm_sec;
+		stime->minute = cur->tm_min;
+		stime->hour = cur->tm_hour;
+		stime->day = cur->tm_mday;
+		stime->month = cur->tm_mon;
+		stime->year = cur->tm_year + 1900 - 2000;
+
+		if ((ret = s6245_do_cmd(ctx,
+					cmdbuf, sizeof(*stime),
+					sizeof(struct s6245_status_hdr),
+					&num)) < 0) {
+			ERROR("Failed to execute %s command\n", cmd_names(stime->hdr.cmd));
+			return CUPS_BACKEND_FAILED;
+		}
+		if (sts->hdr.result != RESULT_SUCCESS)
+			goto printer_error;
+	}
+
+top:
 	if (state != last_state) {
 		if (dyesub_debug)
 			DEBUG("last_state %d new %d\n", last_state, state);
 	}
-
-	// XXX Send "set time" ??
 
 	/* Send Status Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
