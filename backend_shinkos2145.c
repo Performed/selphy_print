@@ -1641,6 +1641,9 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 			if (sts->hdr.error == ERROR_BUFFER_FULL) {
 				INFO("Printer Buffers full, retrying\n");
 				break;
+			} else if ((sts->hdr.status & 0xf0) == 0x30 || sts->hdr.status == 0x21) {
+				INFO("Printer busy (%s), retrying\n", status_str(sts->hdr.status));
+				break;
 			} else if (sts->hdr.status != ERROR_NONE)
 				goto printer_error;
 		}

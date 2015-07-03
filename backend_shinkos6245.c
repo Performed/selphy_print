@@ -1608,6 +1608,8 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 			DEBUG("last_state %d new %d\n", last_state, state);
 	}
 
+	// XXX Send "set time" ??
+
 	/* Send Status Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
 	cmd->cmd = cpu_to_le16(S6245_CMD_GETSTATUS);
@@ -1648,6 +1650,8 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 
 		break;
 	case S_PRINTER_READY_CMD:
+		// XXX send "get eeprom backup command"
+
 		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -1673,6 +1677,9 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 		if (sts->hdr.result != RESULT_SUCCESS) {
 			if (sts->hdr.error == ERROR_BUFFER_FULL) {
 				INFO("Printer Buffers full, retrying\n");
+				break;
+			} else if ((sts->hdr.status & 0xf0) == 0x30 || sts->hdr.status == 0x21) {
+				INFO("Printer busy (%s), retrying\n", status_str(sts->hdr.status));
 				break;
 			} else if (sts->hdr.status != ERROR_NONE)
 				goto printer_error;
