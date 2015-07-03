@@ -257,13 +257,6 @@
 
      Shinko CHC-S2145 (aka "Sinfonia S2")
 
-   Work-in-process printers:
-
-     Shinko CHC-S6245 (aka "Sinfonia CE1")
-     Shinko CHC-S6145 (aka "Sinfonia CS2")
-     Shinko CHC-S6145-5A (aka "Sinfonia CS2-c")
-     Ciaat Brava 21
-
    Development was initially sponsored by:
 
         LiveLink Technology [ www.livelinktechnology.net ]
@@ -351,6 +344,52 @@
 	 256 entries each of Yellow, Magenta, Cyan mappings:
 	 Values are unsigned 16-bit big endian, between 0 and 16383
 	 (ie only 14 bits used)
+
+ *************************************************************************** 
+  BACKEND=shinkos6245
+
+   Low-level documentation was provided by Sinfonia, Inc.  Thank you!
+
+   Work-in-process printers:
+
+     Shinko CHC-S6245 (aka "Sinfonia CE1")
+
+   Valid commands:
+
+     -c filename        Query User tone curve from flash        [1]
+     -C filename        Store User tone curve in flash          [1]
+     -e                 Query Error log
+     -f                 Enable Fast return from prints          [2]
+     -F                 Flash printer LEDs for 5 seconds
+     -i                 Query printer firmware information
+     -l filename        Query Current tone curve from RAM       [1]
+     -L filename        Store Current tone curve in RAM         [1]
+     -m                 Query media information
+     -r                 Reset User tone curve to default        [4]
+     -R                 Reset printer to factory defaults
+     -s                 Query printer status
+     -X id              Cancel print job 'id'                    [3]
+
+  Notes:
+
+    [1]  Format of curvedata file:
+
+	 256 entries each of Yellow, Magenta, Cyan mappings:
+	 Values are unsigned 16-bit big endian, between 0 and 2047 
+	 (ie only 11 bits used)
+
+    [2]  This terminates the backend as soon as the printer has acknowledged
+         the print job, without waiting for the print job to complete.
+         This can also be enabled by setting the 'FAST_RETURN' environment
+         variable.  This is the default behavior when using this backend
+	 with CUPS.
+
+    [3]  Job ID is the Internal Job ID (reported via status)
+    	   This cancels a multi-copy print job.
+	   To see which jobs are active/pending, see the output of the
+	   '-s' command, specifically the 'Bank' output.
+
+    [4]  Default printer tone curve is a linear 'val << 3'
 
  *************************************************************************** 
   BACKEND=sonyupdr150
