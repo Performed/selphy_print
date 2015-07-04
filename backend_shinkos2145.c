@@ -898,7 +898,7 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 					(uint8_t*)&cmd, sizeof(cmd),
 					sizeof(*resp),
 					&num)) < 0) {
-			ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
+			ERROR("Failed to execute %s command (%d)\n", cmd_names(cmd.hdr.cmd), ret);
 			continue;
 		}
 
@@ -1134,7 +1134,7 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 	int ret, num = 0;
 
 	uint8_t *data;
-	uint16_t curves[768];
+	uint16_t curves[UPDATE_SIZE];
 
 	int i,j;
 
@@ -1187,11 +1187,11 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 			goto done;
 		}
 
-		for (i = 0 ; i < 768; i++) {
+		for (i = 0 ; i < UPDATE_SIZE; i++) {
 			/* Byteswap appropriately */
 			curves[i] = cpu_to_be16(le16_to_cpu(curves[i]));
-			write(tc_fd, &curves[i], sizeof(uint16_t));
 		}
+		write(tc_fd, curves, UPDATE_SIZE * sizeof(uint16_t));
 		close(tc_fd);
 	}
 
@@ -1208,7 +1208,7 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 
 	INFO("Set %s Tone Curve from '%s'\n", update_targets(target), fname);
 
-	uint16_t *data = malloc(UPDATE_SIZE);
+	uint16_t *data = malloc(UPDATE_SIZE * sizeof(uint16_t));
 
 	if (!data) {
 		ERROR("Memory allocation failure! (%d bytes)\n",
@@ -1221,26 +1221,26 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 		ret = -1;
 		goto done;
 	}
-	if (read(tc_fd, data, UPDATE_SIZE) != UPDATE_SIZE) {
+	if (read(tc_fd, data, UPDATE_SIZE * sizeof(uint16_t)) != (UPDATE_SIZE * sizeof(uint16_t))) {
 		ret = -2;
 		goto done;
 	}
 	close(tc_fd);
 	/* Byteswap data to local CPU.. */
-	for (ret = 0; ret < UPDATE_SIZE ; ret+=2) {
+	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
 		data[ret] = be16_to_cpu(data[ret]);
 	}
 
 	/* Set up command */
 	cmd.target = target;
 	cmd.reserved = 0;
-	cmd.size = cpu_to_le32(UPDATE_SIZE);
+	cmd.size = cpu_to_le32(UPDATE_SIZE * sizeof(uint16_t));
 
 	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_UPDATE);
 	cmd.hdr.len = cpu_to_le16(sizeof(struct s2145_update_cmd)-sizeof(cmd.hdr));
 
 	/* Byteswap data to format printer is expecting.. */
-	for (ret = 0; ret < UPDATE_SIZE ; ret+=2) {
+	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
 		data[ret] = cpu_to_le16(data[ret]);
 	}
 
@@ -1254,7 +1254,7 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 
 	/* Sent transfer */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t *) data, UPDATE_SIZE))) {
+			     (uint8_t *) data, UPDATE_SIZE * sizeof(uint16_t)))) {
 		goto done;
 	}
 
@@ -1740,7 +1740,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145",
-	.version = "0.41",
+	.version = "0.42",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
