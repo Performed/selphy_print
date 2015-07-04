@@ -1272,10 +1272,10 @@ static void shinkos2145_cmdline(void)
 	DEBUG("\t\t[ -e ]           # Query error log\n");
 	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -F ]           # Flash Printer LED\n");
+	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
 	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
-	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -r ]           # Reset user/NV tone curve\n");
 	DEBUG("\t\t[ -R ]           # Reset printer to factory defaults\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");

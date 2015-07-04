@@ -362,6 +362,7 @@
      -f                 Enable Fast return from prints          [2]
      -F                 Flash printer LEDs for 5 seconds
      -i                 Query printer firmware information
+     -k num		Specify standby delay (5-240 minutes)
      -l filename        Query Current tone curve from RAM       [1]
      -L filename        Store Current tone curve in RAM         [1]
      -m                 Query media information

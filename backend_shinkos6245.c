@@ -1055,13 +1055,14 @@ static int get_errorlog(struct shinkos6245_ctx *ctx)
 {
 	struct s6245_errorlog_cmd cmd;
 	struct s6245_errorlog_resp *resp = (struct s6245_errorlog_resp *) rdbuf;
-	int ret, num = 0;
+	int num = 0;
 	int i = 0;
 
 	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_ERRORLOG);
 	cmd.hdr.len = cpu_to_le16(2);
 
 	do {
+		int ret;
 		cmd.index = i;
 	
 		if ((ret = s6245_do_cmd(ctx,
@@ -1164,6 +1165,30 @@ static int flash_led(struct shinkos6245_ctx *ctx)
 	}
 
 	return 0;
+}
+
+
+static int set_param(struct shinkos6245_ctx *ctx, int target, uint32_t param)
+{
+	struct s6245_setparam_cmd cmd;
+	struct s6245_status_hdr *resp = (struct s6245_status_hdr *) rdbuf;
+	int ret, num = 0;
+
+	/* Set up command */
+	cmd.target = target;
+	cmd.param = cpu_to_le32(param);
+
+	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_SETPARAM);
+	cmd.hdr.len = cpu_to_le16(sizeof(struct s6245_setparam_cmd)-sizeof(cmd.hdr));
+
+	if ((ret = s6245_do_cmd(ctx,
+				(uint8_t*)&cmd, sizeof(cmd),
+				sizeof(*resp),
+				&num)) < 0) {
+		ERROR("Failed to execute %s command (%d)\n", cmd_names(cmd.hdr.cmd), ret);
+	}
+
+	return ret;
 }
 
 static int reset_curve(struct shinkos6245_ctx *ctx, int target)
@@ -1333,10 +1358,11 @@ static void shinkos6245_cmdline(void)
 	DEBUG("\t\t[ -e ]           # Query error log\n");
 	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -F ]           # Flash Printer LED\n");
+	DEBUG("\t\t[ -i ]           # Query printer info\n");
+	DEBUG("\t\t[ -k num ]       # Set sleep time (5-240 minutes)\n");
 	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
 	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
-	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -r ]           # Reset user/NV tone curve\n");
 	DEBUG("\t\t[ -R ]           # Reset printer to factory defaults\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
@@ -1351,7 +1377,7 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "c:C:efFil:L:mr:R:sX:")) >= 0) {
+	while ((i = getopt(argc, argv, "c:C:efFik:l:L:mr:R:sX:")) >= 0) {
 		switch(i) {
 		case 'c':
 			if (ctx) {
@@ -1389,6 +1415,27 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 				break;
 			}
 			return 1;
+		case 'k':
+			if (ctx) {
+				uint32_t i = atoi(optarg);
+				if (i < 5)
+					i = 0;
+				else if (i < 15)
+					i = 1;
+				else if (i < 30)
+					i = 2;
+				else if (i < 60)
+					i = 3;
+				else if (i < 120)
+					i = 4;
+				else if (i < 240)
+					i = 5;
+				else
+					i = 5;
+
+				j = set_param(ctx, PARAM_SLEEP_TIME, i);
+				break;
+			}
 		case 'l':
 			if (ctx) {
 				j = get_tonecurve(ctx, TONECURVE_CURRENT, optarg);
