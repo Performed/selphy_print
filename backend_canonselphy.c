@@ -565,8 +565,7 @@ static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 	/* Special cases for some models */
 	if (ctx->printer->type == P_ES40_CP790) {
 		int i;
-		int printer_type;
-
+		int printer_type = -1;
 		
 		if (desc.idProduct == USB_PID_CANON_CP790)
 			printer_type = P_CP790;

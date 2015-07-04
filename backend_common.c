@@ -463,7 +463,7 @@ static int print_scan_output(struct libusb_device *device,
 		/* Try to claim the printer, and handle transient failures */
 		if (!backend_claim_interface(dev, iface)) {
 			int i;
-			uint8_t endp_up, endp_down;
+			uint8_t endp_up = 0, endp_down = 0;
 			libusb_get_active_config_descriptor(device, &config);
 			for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
 				if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {

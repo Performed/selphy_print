@@ -1474,7 +1474,7 @@ top:
 
 		/* Set matte intensity */
 		if (ctx->hdr.mattedepth != 0x7fffffff) {
-			int current;
+			int current = -1;
 			i = shinkos1245_get_matte(ctx, &current);
 			if (i < 0)
 				goto printer_error;
@@ -1483,7 +1483,7 @@ top:
 				if (i < 0)
 					goto printer_error;
 				if (i > 0) {
-					/* We can't set the matte depth if we're printing */
+					INFO("Can't set matte intensity when printing in progres...\n");
 					state = S_IDLE;
 					sleep(1);
 					break;
