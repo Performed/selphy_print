@@ -34,15 +34,16 @@
 
 #define NUM_CLAIM_ATTEMPTS 10
 
-/* Global variables */
+/* Global Variables */
 int dyesub_debug = 0;
-int extra_vid = -1;
-int extra_pid = -1;
-int extra_type = -1;
-char *use_serno = NULL;
+int terminate = 0;
+
+/* Local Global Variables */
+static int extra_vid = -1;
+static int extra_pid = -1;
+static int extra_type = -1;
 
 /* Support Functions */
-
 static int backend_claim_interface(struct libusb_device_handle *dev, int iface)
 {
 	int attempts = NUM_CLAIM_ATTEMPTS;
@@ -117,7 +118,6 @@ done:
 }
 
 /* Used with the IEEE1284 deviceid string parsing */
-
 struct deviceid_dict {
 	char *key;
 	char *val;
@@ -185,7 +185,6 @@ static char *dict_find(const char *key, int dlen, struct deviceid_dict* dict)
 }
 
 /* I/O functions */
-
 int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int buflen, int *readlen)
 {
@@ -274,8 +273,6 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 }
 
 /* More stuff */
-int terminate = 0;
-
 static void sigterm_handler(int signum) {
 	UNUSED(signum);
 
@@ -747,6 +744,8 @@ int main (int argc, char **argv)
 	char *fname = NULL;
 	int printer_type = P_ANY;
 
+	char *use_serno = NULL;
+
 	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
 	      BACKEND_VERSION);
 	DEBUG("Copyright 2007-2015 Solomon Peachy\n");
@@ -815,7 +814,6 @@ int main (int argc, char **argv)
 		case 'V':
 			extra_pid = strtol(optarg, NULL, 16);
 			break;
-		case '?': 
 		default: {
 			/* Check to see if it is claimed by the backend */
 			if (backend && backend->cmdline_arg) {
