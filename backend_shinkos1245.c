@@ -488,7 +488,7 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 	struct shinkos1245_cmd_getmedia cmd;
 	struct shinkos1245_resp_media resp;
 	int i, j;
-	int ret, num;
+	int ret = 0, num;
 
 	shinkos1245_fill_hdr(&cmd.hdr);
 	memset(cmd.pad, 0, sizeof(cmd.pad));
@@ -520,7 +520,7 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 		if (resp.count < 5)
 			break;
 	}
-	return 0;
+	return ret;
 }
 
 static int shinkos1245_get_printerid(struct shinkos1245_ctx *ctx,
@@ -934,7 +934,7 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	cmd.tone[1] = 0x4f;
 	cmd.tone[2] = 0x4e;
 	cmd.tone[3] = 0x45;
-	cmd.cmd2[1] = 0x72;
+	cmd.cmd2[0] = 0x72;
 	cmd.read_write.tone_table = type;
 	cmd.read_write.param_table = table;
 
@@ -962,7 +962,7 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 	while(remaining) {
 		/* Issue a tone_data message */
-		cmd.cmd2[1] = 0x20;
+		cmd.cmd2[0] = 0x20;
 
 		ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
 					 &resp, sizeof(resp), &num);
@@ -988,7 +988,7 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	}
 
 	/* Issue a tone_end */
-	cmd.cmd2[1] = 0x65;
+	cmd.cmd2[0] = 0x65;
 	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
 				&resp, sizeof(resp), &num);
 
@@ -1058,7 +1058,7 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	cmd.tone[1] = 0x4f;
 	cmd.tone[2] = 0x4e;
 	cmd.tone[3] = 0x45;
-	cmd.cmd2[1] = 0x77;
+	cmd.cmd2[0] = 0x77;
 	cmd.read_write.tone_table = type;
 	cmd.read_write.param_table = table;
 
@@ -1077,7 +1077,7 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 	while(remaining) {
 		/* Issue a tone_data message */
-		cmd.cmd2[1] = 0x20;
+		cmd.cmd2[0] = 0x20;
 
 		ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
 					 &resp, sizeof(resp), &num);
@@ -1102,7 +1102,7 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	free(data);
 
 	/* Issue a tone_end */
-	cmd.cmd2[1] = 0x65;
+	cmd.cmd2[0] = 0x65;
 	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
 				&resp, sizeof(resp), &num);
 
@@ -1178,7 +1178,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 			}
 			return 2;
 		case 'f':
-			if (!ctx) {
+			if (ctx) {
 				ctx->fast_return = 1;
 				break;
 			}
@@ -1615,7 +1615,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.03WIP",
+	.version = "0.04WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
