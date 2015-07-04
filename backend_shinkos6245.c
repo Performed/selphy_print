@@ -1220,7 +1220,7 @@ static int get_tonecurve(struct shinkos6245_ctx *ctx, int type, char *fname)
 	int ret, num = 0;
 
 	uint8_t *data;
-	uint16_t curves[UPDATE_SIZE];
+	uint16_t curves[UPDATE_SIZE] = { 0 };
 
 	int i,j;
 
@@ -1274,7 +1274,7 @@ static int get_tonecurve(struct shinkos6245_ctx *ctx, int type, char *fname)
 			goto done;
 		}
 
-		for (i = 0 ; i < 768; i++) {
+		for (i = 0 ; i < UPDATE_SIZE; i++) {
 			/* Byteswap appropriately */
 			curves[i] = cpu_to_be16(le16_to_cpu(curves[i]));
 		}

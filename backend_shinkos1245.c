@@ -919,7 +919,7 @@ static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
 
 static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char *fname)
 {
-	int ret, num, remaining;
+	int ret = 0, num, remaining;
 	uint8_t *data, *ptr;
 
 	struct shinkos1245_cmd_tone cmd;
@@ -969,21 +969,24 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 		if (ret < 0) {
 			ERROR("Failed to execute TONE_DATA command\n");
-			return ret;
+			goto done;
 		}
 		if (resp.code != CMD_CODE_OK) {
 			ERROR("Bad return code on TONE_DATA (%02x)\n",
 			      resp.code);
-			return -99;
+			ret = -99;
+			goto done;
 		}
 
 		/* And read back 64-bytes of data */
 		ret = read_data(ctx->dev, ctx->endp_up,
 				ptr, TONE_CURVE_DATA_BLOCK_SIZE, &num);
-		if (num != TONE_CURVE_DATA_BLOCK_SIZE)
-			return -99;
+		if (num != TONE_CURVE_DATA_BLOCK_SIZE) {
+			ret = -99;
+			goto done;
+		}
 		if (ret < 0)
-			return ret;
+			goto done;
 		ptr += num;
 	}
 
@@ -994,34 +997,38 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 	if (ret < 0) {
 		ERROR("Failed to execute TONE_END command\n");
-		return ret;
+		goto done;
 	}
 	if (resp.code != CMD_CODE_OK) {
 		ERROR("Bad return code on TONE_END (%02x)\n",
 		      resp.code);
-		return -99;
+		ret = -99;
+		goto done;
 	}
 
 	/* Open file and write it out */
 	{
 		int tc_fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
 		if (tc_fd < 0) {
-			return tc_fd;
+			ret = tc_fd;
+			goto done;
 		}
 
 		ret = write(tc_fd, data, TONE_CURVE_SIZE);
 		if (ret < 0)
-			return ret;
+			goto done;
 		close(tc_fd);
 	}
+
+done:
 	free(data);
 
-	return 0;
+	return ret;
 }
 
 static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char *fname)
 {
-	int ret, num, remaining;
+	int ret = 0, num, remaining;
 	uint8_t *data, *ptr;
 
 	struct shinkos1245_cmd_tone cmd;
@@ -1042,12 +1049,16 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	{
 		int tc_fd = open(fname, O_RDONLY);
 		if (tc_fd < 0) {
-			return tc_fd;
+			ret = tc_fd;
+			goto done;
 		}
 
 		ret = read(tc_fd, data, TONE_CURVE_SIZE);
-		if (ret < 0)
-			return ret;
+		if (ret < 0) {
+			close(tc_fd);
+			goto done;
+		}
+
 		close(tc_fd);
 	}
 
@@ -1067,12 +1078,13 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 	if (ret < 0) {
 		ERROR("Failed to execute TONE_WRITE command\n");
-		return ret;
+		goto done;
 	}
 	if (resp.code != CMD_CODE_OK) {
 		ERROR("Bad return code on TONE_WRITE (%02x)\n",
 		      resp.code);
-		return -99;
+		ret = -99;
+		goto done;
 	}
 
 	while(remaining) {
@@ -1084,22 +1096,22 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 		if (ret < 0) {
 			ERROR("Failed to execute TONE_DATA command\n");
-			return ret;
+			goto done;
 		}
 		if (resp.code != CMD_CODE_OK) {
 			ERROR("Bad return code on TONE_DATA (%02x)\n",
 			      resp.code);
-			return -99;
+			ret = -99;
+			goto done;
 		}
 
 		/* Write 64-bytes of data */
 		ret = send_data(ctx->dev, ctx->endp_up,
 				ptr, TONE_CURVE_DATA_BLOCK_SIZE);
 		if (ret < 0)
-			return ret;
+			goto done;
 		ptr += num;
 	}
-	free(data);
 
 	/* Issue a tone_end */
 	cmd.cmd2[0] = 0x65;
@@ -1108,15 +1120,19 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 	if (ret < 0) {
 		ERROR("Failed to execute TONE_END command\n");
-		return ret;
+		goto done;
 	}
 	if (resp.code != CMD_CODE_OK) {
 		ERROR("Bad return code on TONE_END (%02x)\n",
 		      resp.code);
-		return -99;
+		ret = -99;
+		goto done;
 	}
 
-	return 0;
+done:
+	free(data);
+
+	return ret;
 }
 
 
