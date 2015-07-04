@@ -1,6 +1,8 @@
 BACKEND_NAME = gutenprint52+usb
 EXEC_NAME = dyesub_backend
 
+# CC ?= gcc
+
 CFLAGS = -Wall -Wextra -g -Os
 LDFLAGS = `pkg-config --libs libusb-1.0`
 CPPFLAGS = `pkg-config --cflags libusb-1.0`
@@ -19,7 +21,7 @@ SOURCES = backend_common.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 all: $(EXEC_NAME) $(BACKENDS)
 
 $(EXEC_NAME): $(SOURCES) $(DEPS)
-	gcc -o $@ $(SOURCES) $(LDFLAGS) $(CFLAGS) $(CPPFLAGS) -DURI_PREFIX=\"$(BACKEND_NAME)\"
+	$(CC) -o $@ $(SOURCES) $(LDFLAGS) $(CFLAGS) $(CPPFLAGS) -DURI_PREFIX=\"$(BACKEND_NAME)\"
 
 $(BACKENDS): $(EXEC_NAME)
 	ln -sf $(EXEC_NAME) $@
