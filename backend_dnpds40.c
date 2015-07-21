@@ -754,6 +754,11 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			ERROR("Printer only supports 2-inch cuts on 4x6 or 8x6 jobs!");
 			return CUPS_BACKEND_CANCEL;
 		}
+
+		/* Work around firmware bug on DS40 where if we run out
+		   of media, we can't resume the job without losing the
+		   cutter setting. XXX add version test? */
+		ctx->manual_copies = 1;
 	}
 
 	if (ctx->matte && !ctx->supports_matte) {
