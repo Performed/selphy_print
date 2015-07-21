@@ -82,6 +82,7 @@ struct dnpds40_ctx {
 	int cutter;
 	int can_rewind;
 
+	int manual_copies;
 	int supports_6x9;
 	int supports_2x6;
 	int supports_3x5x2;
@@ -494,6 +495,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	matte = 0;
 	dpi = 0;
 	cutter = 0;
+	ctx->manual_copies = 0;
 	ctx->multicut = 0;
 	ctx->buffctrl_offset = ctx->qty_offset = ctx->multicut_offset = 0;
 
@@ -606,7 +608,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 				if (y_ppm != 1920) {
 					ERROR("Incorrect horizontal resolution (%d), aborting!\n", y_ppm);
 					return CUPS_BACKEND_CANCEL;
-				}				
+				}
 			}
 		}
 
@@ -619,8 +621,8 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	}
 
 	if (!ctx->datalen)
-		return CUPS_BACKEND_CANCEL;	
-	
+		return CUPS_BACKEND_CANCEL;
+
 	/* Figure out the number of buffers we need. Most only need one. */
 	if (ctx->multicut) {
 		ctx->buf_needed = 1;
@@ -828,7 +830,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	}
 
 	/* Update quantity offset with count */
-	if (copies > 1) {
+	if (!ctx->manual_copies && copies > 1) {
 		snprintf(buf, sizeof(buf), "%07d\r", copies);
 		if (ctx->qty_offset) {
 			memcpy(ctx->qty_offset, buf, 8);
@@ -954,7 +956,7 @@ top:
 		ERROR("Fatal Printer Error: %d => %s, halting queue!\n", status, dnpds40_statuses(status));
 		return CUPS_BACKEND_HOLD;
 	}
-	
+
 	/* Send the stream over as individual data chunks */
 	ptr = ctx->databuf;
 
@@ -975,7 +977,7 @@ top:
 	/* Clean up */
 	if (terminate)
 		copies = 1;
-	
+
 	INFO("Print complete (%d copies remaining)\n", copies - 1);
 
 	if (copies && --copies) {
@@ -1629,7 +1631,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.55",
+	.version = "0.56",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
