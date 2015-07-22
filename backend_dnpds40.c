@@ -778,61 +778,10 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	uint8_t *ptr;
 	char buf[9];
 	int status;
+	int buf_needed;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
-
-	/* Verify we have sufficient media for prints */
-	{
-		int i = 0;
-
-		/* See if we can rewind to save media */
-		if (ctx->can_rewind && ctx->supports_rewind) {
-//XXX implicit //    (ctx->multicut == 1 || ctx->multicut == 2 || ctx->multicut == 30)
-			/* Get Media remaining */
-			dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
-
-			if (resp) free(resp);
-			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-			if (!resp)
-				return CUPS_BACKEND_FAILED;
-
-			dnpds40_cleanup_string((char*)resp, len);
-			i = atoi((char*)resp);
-
-			/* If the count is odd, we can rewind. */
-			if (i & 1) {
-				snprintf(buf, sizeof(buf), "%08d", ctx->multicut + 400);
-				memcpy(ctx->multicut_offset, buf, 8);
-			}
-		}
-
-		/* If we didn't succeed with RQTY, try MQTY */
-		if (i == 0) {
-			dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
-
-			if (resp) free(resp);
-			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-			if (!resp)
-				return CUPS_BACKEND_FAILED;
-
-			dnpds40_cleanup_string((char*)resp, len);
-
-			i = atoi((char*)resp+4);
-
-			/* For some reason all but the DS620 report 50 too high */
-			if (ctx->type != P_DNP_DS620 && i > 0)
-				i -= 50;
-		}
-
-		if (i < 1) {
-			ERROR("Printer out of media, please correct!\n");
-			return CUPS_BACKEND_STOP;
-		}
-		if (i < copies) {
-			WARNING("Printer does not have sufficient remaining media to complete job..\n");
-		}
-	}
 
 	/* Update quantity offset with count */
 	if (!ctx->manual_copies && copies > 1) {
@@ -875,9 +824,11 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	}
 #endif
 
+	buf_needed = ctx->buf_needed;
+
 #ifdef MATTE_GLOSSY_2BUF
 	if (ctx->matte != ctx->last_matte)
-		ctx->buf_needed = 2; /* Switching needs both buffers */
+		buf_needed = 2; /* Switching needs both buffers */
 #endif
 
 	ctx->last_matte = ctx->matte;
@@ -897,10 +848,9 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 
 top:
 
-	if (resp) free(resp);
-
 	/* Query status */
 	dnpds40_build_cmd(&cmd, "STATUS", "", 0);
+	if (resp) free(resp);
 	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 	if (!resp)
 		return CUPS_BACKEND_FAILED;
@@ -910,7 +860,6 @@ top:
 	/* Figure out what's going on */
 	switch(status) {
 	case 0:	/* Idle; we can continue! */
-		break;
 	case 1: /* Printing */
 	{
 		int bufs;
@@ -926,8 +875,8 @@ top:
 		dnpds40_cleanup_string((char*)resp, len);
 		/* Check to see if we have sufficient buffers */
 		bufs = atoi(((char*)resp)+3);
-		if (bufs < ctx->buf_needed) {
-			INFO("Insufficient printer buffers (%d vs %d), retrying...\n", bufs, ctx->buf_needed);
+		if (bufs < buf_needed) {
+			INFO("Insufficient printer buffers (%d vs %d), retrying...\n", bufs, buf_needed);
 			sleep(1);
 			goto top;
 		}
@@ -962,6 +911,57 @@ top:
 		return CUPS_BACKEND_HOLD;
 	}
 
+	/* Verify we have sufficient media for prints */
+	{
+		int i = 0;
+
+		/* See if we can rewind to save media */
+		if (ctx->can_rewind && ctx->supports_rewind) {
+//XXX implicit //    (ctx->multicut == 1 || ctx->multicut == 2 || ctx->multicut == 30)
+
+			/* Tell the printer we want to rewind, if possible. */
+			snprintf(buf, sizeof(buf), "%08d", ctx->multicut + 400);
+			memcpy(ctx->multicut_offset, buf, 8);
+
+			/* Get Media remaining */
+			dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
+
+			if (resp) free(resp);
+			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+			if (!resp)
+				return CUPS_BACKEND_FAILED;
+
+			dnpds40_cleanup_string((char*)resp, len);
+			i = atoi((char*)resp+4);
+		}
+
+		/* If we didn't succeed with RQTY, try MQTY */
+		if (i == 0) {
+			dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
+
+			if (resp) free(resp);
+			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+			if (!resp)
+				return CUPS_BACKEND_FAILED;
+
+			dnpds40_cleanup_string((char*)resp, len);
+
+			i = atoi((char*)resp+4);
+
+			/* For some reason all but the DS620 report 50 too high */
+			if (ctx->type != P_DNP_DS620 && i > 0)
+				i -= 50;
+		}
+
+		if (i < 1) {
+			ERROR("Printer out of media, please correct!\n");
+			return CUPS_BACKEND_STOP;
+		}
+		if (i < copies) {
+			WARNING("Printer does not have sufficient remaining media to complete job..\n");
+		}
+	}
+
 	/* Send the stream over as individual data chunks */
 	ptr = ctx->databuf;
 
@@ -970,7 +970,6 @@ top:
 		buf[8] = 0;
 		memcpy(buf, ptr + 24, 8);
 		i = atoi(buf) + 32;
-
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ptr, i)))
@@ -986,6 +985,10 @@ top:
 	INFO("Print complete (%d copies remaining)\n", copies - 1);
 
 	if (copies && --copies) {
+#ifdef MATTE_GLOSSY_2BUF
+		/* No need to wait on buffers due to matte switching */
+		buf_needed = ctx->buf_needed;
+#endif
 		goto top;
 	}
 
@@ -1636,7 +1639,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.56",
+	.version = "0.57",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
