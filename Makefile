@@ -2,13 +2,14 @@ BACKEND_NAME = gutenprint52+usb
 EXEC_NAME = dyesub_backend
 
 # CC ?= gcc
+# DESTDIR ?=
 
 CFLAGS = -Wall -Wextra -g -Os
 LDFLAGS = `pkg-config --libs libusb-1.0`
 CPPFLAGS = `pkg-config --cflags libusb-1.0`
 
-CUPS_BACKEND_DIR = /usr/lib/cups/backend
-CUPS_DATA_DIR = /usr/share/cups
+CUPS_BACKEND_DIR = $(DESTDIR)/usr/lib/cups/backend
+CUPS_DATA_DIR = $(DESTDIR)/usr/share/cups
 
 BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 citizencw01 mitsu9550 shinkos6245
 
@@ -30,6 +31,7 @@ cppcheck:
 	cppcheck -q -v --std=c99 --enable=all -I/usr/include  $(CPPFLAGS)  -DURI_PREFIX=\"$(BACKEND_NAME)\" $(SOURCES) 
 
 install:
+	mkdir -p $(CUPS_BACKEND_DIR)
 	install -o root -m 700 $(EXEC_NAME) $(CUPS_BACKEND_DIR)/$(BACKEND_NAME)
 	mkdir -p $(CUPS_DATA_DIR)/usb
 	install -o root -m 644 blacklist $(CUPS_DATA_DIR)/usb/net.sf.gimp-print.usb-quirks
