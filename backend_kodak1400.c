@@ -739,7 +739,8 @@ struct dyesub_backend kodak1400_backend = {
 
  Other readback codes seen:
 
- e4 72 00 00  10 00 50 59  -- ???
+ e4 72 00 00  40 00 50 59  -- ?? paper jam?
+ e4 72 00 00  10 00 50 59  -- media red blink, error red blink, [media mismatch]]
  e4 72 00 00  10 01 50 59  -- ???
  e4 72 00 00  00 04 50 59  -- media red blink, error red  [media too small for image ?]
  e4 72 00 00  02 00 50 59  -- media off, error red. [out of paper]
