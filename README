@@ -346,6 +346,59 @@
 	 (ie only 14 bits used)
 
  *************************************************************************** 
+  BACKEND=shinkos6145
+
+   Low-level documentation was provided by Sinfonia, Inc.  Thank you!
+
+   Work-in-process printers:
+
+     Shinko CHC-S6145 (aka "Sinfonia CE1")
+
+	***VERY IMPORTANT***  This backend does NOT work -- At the moment, 
+	a proprietary binary-only library is necessary to convert the input
+	8bpp YMC data to the 16bpp YMCO data the printer needs.  This 
+	library is only available for x86 and x86_64 targets, 
+	and I do not have permission to redistribute it.
+
+   Valid commands:
+
+     -c filename        Query User tone curve from flash        [1]
+     -C filename        Store User tone curve in flash          [1]
+     -e                 Query Error log
+     -f                 Enable Fast return from prints          [2]
+     -F                 Flash printer LEDs for 5 seconds
+     -i                 Query printer firmware information
+     -k num		Specify standby delay (5-240 minutes)
+     -l filename        Query Current tone curve from RAM       [1]
+     -L filename        Store Current tone curve in RAM         [1]
+     -m                 Query media information
+     -r                 Reset User tone curve to default        [4]
+     -R                 Reset printer to factory defaults
+     -s                 Query printer status
+     -X id              Cancel print job 'id'                    [3]
+
+  Notes:
+
+    [1]  Format of curvedata file:
+
+	 256 entries each of Yellow, Magenta, Cyan mappings:
+	 Values are unsigned 16-bit big endian, between 0 and 2047 
+	 (ie only 11 bits used)
+
+    [2]  This terminates the backend as soon as the printer has acknowledged
+         the print job, without waiting for the print job to complete.
+         This can also be enabled by setting the 'FAST_RETURN' environment
+         variable.  This is the default behavior when using this backend
+	 with CUPS.
+
+    [3]  Job ID is the Internal Job ID (reported via status)
+    	   This cancels a multi-copy print job.
+	   To see which jobs are active/pending, see the output of the
+	   '-s' command, specifically the 'Bank' output.
+
+    [4]  Default printer tone curve is a linear 'val << 3'
+
+ *************************************************************************** 
   BACKEND=shinkos6245
 
    Low-level documentation was provided by Sinfonia, Inc.  Thank you!
