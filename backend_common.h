@@ -102,7 +102,8 @@ enum {
 	P_KODAK_605,
 	P_SHINKO_S2145,
 	P_SHINKO_S1245,
-	P_SHINKO_S6245,	
+	P_SHINKO_S6245,
+	P_SHINKO_S6145,	
 	P_SONY_UPDR150,
 	P_SONY_UPCR10,
 	P_MITSU_D70X,
@@ -157,6 +158,7 @@ extern struct dyesub_backend kodak605_backend;
 extern struct dyesub_backend kodak1400_backend;
 extern struct dyesub_backend shinkos1245_backend;
 extern struct dyesub_backend shinkos2145_backend;
+extern struct dyesub_backend shinkos6145_backend;
 extern struct dyesub_backend shinkos6245_backend;
 extern struct dyesub_backend canonselphy_backend;
 extern struct dyesub_backend mitsu70x_backend;

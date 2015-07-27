@@ -1,5 +1,5 @@
 /*
- *   Shinko/Sinfonia CHC-S6245 CUPS backend -- libusb-1.0 version
+ *   Shinko/Sinfonia CHC-S6145 CUPS backend -- libusb-1.0 version
  *
  *   (c) 2013-2015 Solomon Peachy <pizza@shaftnet.org>
  *
@@ -49,20 +49,20 @@ enum {
 };
 
 /* Structure of printjob header.  All fields are LITTLE ENDIAN */
-struct s6245_printjob_hdr {
+struct s6145_printjob_hdr {
 	uint32_t len1;   /* Fixed at 0x10 */
 	uint32_t model;  /* Equal to the printer model (eg '6245' or '1245' decimal) */
-	uint32_t unk2;
+	uint32_t media_w; /* 0x02 for 5", 0x03 for 6" */
 	uint32_t unk3;   /* Fixed at 0x01 */
 
 	uint32_t len2;   /* Fixed at 0x64 */
 	uint32_t unk5;
-	uint32_t media; // 8x4->8x12
+	uint32_t media;  /* 0x08 5x5, 0x03 5x7, 0x07 2x6, 0x00 4x6, 0x06 6x6/6x6+6x2/6x8 */
 	uint32_t unk6;
 
-	uint32_t unk7;
-	uint32_t unk7a;
-	uint32_t oc_mode;   /* 6145/6245 only, Matte/Glossy/None */
+	uint32_t multicut;  /* 0x00 normal, 0x04 2x6*2, 0x05 6x6+2x6 */
+	uint32_t qual;      /* 0x00 default, 0x01 std */
+	uint32_t oc_mode;   /* 0x00 default, 0x02 glossy, 0x03 matte */
 	uint32_t unk8;
 
 	uint32_t unk9;
@@ -89,100 +89,101 @@ struct s6245_printjob_hdr {
 } __attribute__((packed));
 
 /* Private data stucture */
-struct shinkos6245_ctx {
+struct shinkos6145_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
 	uint8_t jobid;
 	uint8_t fast_return;
 
-	struct s6245_printjob_hdr hdr;
+	struct s6145_printjob_hdr hdr;
 
 	uint8_t *databuf;
 	int datalen;
 };
 
 /* Structs for printer */
-struct s6245_cmd_hdr {
+struct s6145_cmd_hdr {
 	uint16_t cmd;
 	uint16_t len;  /* Not including this header */
 } __attribute__((packed));
 
-#define S6245_CMD_GETSTATUS  0x0001
-#define S6245_CMD_MEDIAINFO  0x0002
-#define S6245_CMD_ERRORLOG   0x0004
-#define S6245_CMD_GETPARAM   0x0005
-#define S6245_CMD_GETSERIAL  0x0006
-#define S6245_CMD_PRINTSTAT  0x0007
-#define S6245_CMD_EXTCOUNTER 0x0008
+#define S6145_CMD_GETSTATUS  0x0001
+#define S6145_CMD_MEDIAINFO  0x0002
+#define S6145_CMD_ERRORLOG   0x0004
+#define S6145_CMD_GETPARAM   0x0005
+#define S6145_CMD_GETSERIAL  0x0006
+#define S6145_CMD_PRINTSTAT  0x0007
+#define S6145_CMD_EXTCOUNTER 0x0008
 
-#define S6245_CMD_PRINTJOB  0x4001
-#define S6245_CMD_CANCELJOB 0x4002
-#define S6245_CMD_FLASHLED  0x4003
-#define S6245_CMD_RESET     0x4004
-#define S6245_CMD_READTONE  0x4005
-#define S6245_CMD_SETPARAM  0x4007
+#define S6145_CMD_PRINTJOB  0x4001
+#define S6145_CMD_CANCELJOB 0x4002
+#define S6145_CMD_FLASHLED  0x4003
+#define S6145_CMD_RESET     0x4004
+#define S6145_CMD_READTONE  0x4005
+#define S6145_CMD_SETPARAM  0x4007
 
-#define S6245_CMD_GETEEPROM 0x400E
-#define S6245_CMD_SETEEPROM 0x400F
-#define S6245_CMD_SETTIME   0x4011
+#define S6145_CMD_GETCORR   0x400D
+#define S6145_CMD_GETEEPROM 0x400E
+#define S6145_CMD_SETEEPROM 0x400F
 
-#define S6245_CMD_FWINFO    0xC003
-#define S6245_CMD_UPDATE    0xC004
+#define S6145_CMD_FWINFO    0xC003
+#define S6145_CMD_UPDATE    0xC004
 
 static char *cmd_names(uint16_t v) {
 	switch (le16_to_cpu(v)) {
-	case S6245_CMD_GETSTATUS:
+	case S6145_CMD_GETSTATUS:
 		return "Get Status";
-	case S6245_CMD_MEDIAINFO:
+	case S6145_CMD_MEDIAINFO:
 		return "Get Media Info";
-	case S6245_CMD_ERRORLOG:
+	case S6145_CMD_ERRORLOG:
 		return "Get Error Log";
-	case S6245_CMD_GETPARAM:
+	case S6145_CMD_GETPARAM:
 		return "Get Parameter";
-	case S6245_CMD_GETSERIAL:
+	case S6145_CMD_GETSERIAL:
 		return "Get Serial Number";		
-	case S6245_CMD_PRINTSTAT:
+	case S6145_CMD_PRINTSTAT:
 		return "Get Print ID Status";
-	case S6245_CMD_EXTCOUNTER:
+	case S6145_CMD_EXTCOUNTER:
 		return "Get Extended Counters";
-	case S6245_CMD_PRINTJOB:
+	case S6145_CMD_PRINTJOB:
 		return "Print";
-	case S6245_CMD_CANCELJOB:
+	case S6145_CMD_CANCELJOB:
 		return "Cancel Print";
-	case S6245_CMD_FLASHLED:
+	case S6145_CMD_FLASHLED:
 		return "Flash LEDs";
-	case S6245_CMD_RESET:
+	case S6145_CMD_RESET:
 		return "Reset";
-	case S6245_CMD_READTONE:
+	case S6145_CMD_READTONE:
 		return "Read Tone Curve";
-	case S6245_CMD_SETPARAM:
+	case S6145_CMD_SETPARAM:
 		return "Set Parameter";
-	case S6245_CMD_GETEEPROM:
+	case S6145_CMD_GETCORR:
+		return "Get Image Correction Parameter";
+	case S6145_CMD_GETEEPROM:
 		return "Get EEPROM Backup Parameter";
-	case S6245_CMD_SETEEPROM:
+	case S6145_CMD_SETEEPROM:
 		return "Set EEPROM Backup Parameter";
-	case S6245_CMD_SETTIME:
-		return "Time Setting";
-	case S6245_CMD_FWINFO:
+	case S6145_CMD_FWINFO:
 		return "Get Firmware Info";
-	case S6245_CMD_UPDATE:
+	case S6145_CMD_UPDATE:
 		return "Update";
 	default:
 		return "Unknown Command";
 	}
 };
 
-struct s6245_print_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_print_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t  id;
 	uint16_t count;
 	uint16_t columns;
 	uint16_t rows;
-	uint8_t  reserved[2];
-	uint8_t  mode;
+	uint8_t  reserved;
+	uint8_t  combo_wait;
+	uint8_t  reserved2[7];
 	uint8_t  method;
-	uint8_t  reserved2;	
+	uint8_t  image_avg;	
 } __attribute__((packed));
 
 #define PRINT_MODE_NO_OC        0x01
@@ -206,9 +207,9 @@ static char *print_modes(uint8_t v) {
 
 #define PRINT_METHOD_STD     0x00
 #define PRINT_METHOD_COMBO_2 0x02
-#define PRINT_METHOD_COMBO_3 0x03
-
-#define PRINT_METHOD_DISABLE_ERR 0x10
+#define PRINT_METHOD_SPLIT   0x04
+#define PRINT_METHOD_DOUBLE  0x08
+#define PRINT_METHOD_NOTRIM  0x80
 
 static char *print_methods (uint8_t v) { 
 	switch (v & 0xf) {
@@ -216,20 +217,22 @@ static char *print_methods (uint8_t v) {
 		return "Standard";
 	case PRINT_METHOD_COMBO_2:
 		return "2up";
-	case PRINT_METHOD_COMBO_3:
-		return "3up";
+	case PRINT_METHOD_SPLIT:
+		return "split";		
+	case PRINT_METHOD_DOUBLE:
+		return "double";		
 	default:
 		return "Unknown";
 	}
 }
 
-struct s6245_cancel_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_cancel_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t  id;
 } __attribute__((packed));
 
-struct s6245_reset_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_reset_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t  target;
 	uint8_t  curveid;
 } __attribute__((packed));
@@ -239,8 +242,8 @@ struct s6245_reset_cmd {
 
 #define TONE_CURVE_ID       0x01
 
-struct s6245_readtone_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_readtone_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t  target;
 	uint8_t  curveid;
 } __attribute__((packed));
@@ -248,15 +251,24 @@ struct s6245_readtone_cmd {
 #define READ_TONE_CURVE_USER 0x01
 #define READ_TONE_CURVE_CURR 0x02
 
-struct s6245_setparam_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_setparam_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t target;
 	uint32_t param;
 } __attribute__((packed));
 
+#define PARAM_OP_PRINT     0x20
+#define PARAM_PAPER_PRESV  0x3d
 #define PARAM_DRIVER_MODE  0x3e
 #define PARAM_PAPER_MODE   0x3f
 #define PARAM_SLEEP_TIME   0x54
+
+#define PARAM_OP_PRINT_OFF   0x00000000
+#define PARAM_OP_PRINT_GLOSS 0x00000001
+#define PARAM_OP_PRINT_MATTE 0x00000002
+
+#define PARAM_PAPER_PRESV_OFF 0x00000000
+#define PARAM_PAPER_PRESV_ON  0x00000001
 
 #define PARAM_DRIVER_WIZOFF 0x00000000
 #define PARAM_DRIVER_WIZON  0x00000001
@@ -271,39 +283,28 @@ struct s6245_setparam_cmd {
 #define PARAM_SLEEP_120MIN  0x00000004
 #define PARAM_SLEEP_240MIN  0x00000005
 
-struct s6245_seteeprom_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_seteeprom_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t data[256]; /* Maxlen */
 } __attribute__((packed));
 
-struct s6245_settime_cmd {
-	struct s6245_cmd_hdr hdr;
-	uint8_t enable;  /* 0 or 1 */
-	uint8_t second;
-	uint8_t minute;
-	uint8_t hour;
-	uint8_t day;
-	uint8_t month;
-	uint8_t year;
-} __attribute__((packed));
-
-struct s6245_errorlog_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_errorlog_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint16_t index;  /* 0 is latest */
 } __attribute__((packed));
 
-struct s6245_getparam_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_getparam_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t target;
 } __attribute__((packed));
 
-struct s6245_getprintidstatus_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_getprintidstatus_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t id;
 } __attribute__((packed));
 
-struct s6245_fwinfo_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_fwinfo_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t  target;
 } __attribute__((packed));
 
@@ -327,8 +328,8 @@ static char *fwinfo_targets (uint8_t v) {
 	}
 }
 
-struct s6245_update_cmd {
-	struct s6245_cmd_hdr hdr;
+struct s6145_update_cmd {
+	struct s6145_cmd_hdr hdr;
 	uint8_t  target;
 	uint8_t  curve_id;
 	uint8_t  reset; // ??
@@ -356,13 +357,12 @@ static char *update_targets (uint8_t v) {
    Printer expects LE data.  We use BE data on disk.
 */
 
-struct s6245_status_hdr {
+struct s6145_status_hdr {
 	uint8_t  result;
 	uint8_t  error;
 	uint8_t  printer_major;
 	uint8_t  printer_minor;
-	uint8_t  reserved[2];
-	uint8_t  mode;
+	uint8_t  reserved[3];
 	uint8_t  status;
 	uint16_t payload_len;
 } __attribute__((packed));
@@ -386,24 +386,14 @@ static char *error_codes(uint8_t major, uint8_t minor)
 		switch(minor) {
 		case 0x01:
 			return "Controller: EEPROM Write Timeout";
-		case 0x09:
-			return "Controller: DSP FW Boot";
 		case 0x0A:
 			return "Controller: Invalid Print Parameter Table";
-		case 0x0B:
-			return "Controller: DSP FW Mismatch";
 		case 0x0C:
 			return "Controller: Print Parameter Table Mismatch";
-		case 0x0D:
-			return "Controller: FPGA Configuration Failed";
 		case 0x0F:
 			return "Controller: Main FW Checksum";
 		case 0x10:
 			return "Controller: Flash Write Failed";
-		case 0x11:
-			return "Controller: DSP Checksum";
-		case 0x12:
-			return "Controller: DSP FW Write Failed";
 		case 0x13:
 			return "Controller: Print Parameter Table Checksum";
 		case 0x14:
@@ -418,10 +408,8 @@ static char *error_codes(uint8_t major, uint8_t minor)
 			return "Controller: THV Value Out of Range";
 		case 0x19:
 			return "Controller: Thermal Head";
-		case 0x1B:
-			return "Controller: DSP Communication";
-		case 0x1C:
-			return "Controller: DSP DMA Failed";
+		case 0x1A:
+			return "Controller: Wake from Power Save Failed";
 		default:
 			return "Controller: Unknown";
 		}
@@ -554,16 +542,8 @@ static char *error_codes(uint8_t major, uint8_t minor)
 			return "Paper Jam: Paper Empty On, Top On, Position On";
 		case 0x52:
 			return "Paper Jam: Paper Empty On, Top On, Position Off";
-		case 0x53:
-			return "Paper Jam: Paper Empty On, Top Off, Print Position On";
 		case 0x54:
 			return "Paper Jam: Paper Empty On, Top Of, Position Off";
-		case 0x55:
-			return "Paper Jam: Paper Empty Off, Top On, Position On";
-		case 0x56:
-			return "Paper Jam: Paper Empty Off, Top On, Position Off";
-		case 0x57:
-			return "Paper Jam: Paper Empty Off, Top Off, Position On";
 		case 0x60:
 			return "Paper Jam: Cutter Right";
 		case 0x61:
@@ -578,10 +558,8 @@ static char *error_codes(uint8_t major, uint8_t minor)
 			return "Drawer Unit Open";
 		case 0x02:
 			return "Incorrect Ribbon";
-		case 0x03:
-			return "No/Empty Ribbon";
 		case 0x04:
-			return "Mismatched Ribbon";
+			return "Ribbon Empty";
 		case 0x08:
 			return "No Paper";
 		case 0x0C:
@@ -688,8 +666,8 @@ static char *status_str(uint8_t v) {
 	}
 }
 
-struct s6245_status_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_status_resp {
+	struct s6145_status_hdr hdr;
 	uint32_t count_lifetime;
 	uint32_t count_maint;
 	uint32_t count_paper;
@@ -754,17 +732,17 @@ static char *tonecurve_statuses (uint8_t v)
 	}
 }
 
-struct s6245_geteeprom_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_geteeprom_resp {
+	struct s6145_status_hdr hdr;
 	uint8_t data[256];
 } __attribute__((packed));
 
-struct s6245_readtone_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_readtone_resp {
+	struct s6145_status_hdr hdr;
 	uint16_t total_size;
 } __attribute__((packed));
 
-struct s6245_mediainfo_item {
+struct s6145_mediainfo_item {
 	uint8_t  media_code;
 	uint16_t columns;
 	uint16_t rows;
@@ -773,94 +751,62 @@ struct s6245_mediainfo_item {
 	uint8_t  reserved2[3];
 } __attribute__((packed));
 
-#define MEDIA_8x10    0x10
-#define MEDIA_8x12    0x11
-#define MEDIA_8x4     0x20
-#define MEDIA_8x5     0x21
-#define MEDIA_8x6     0x22
-#define MEDIA_8x8     0x23
-#define MEDIA_8x4_2   0x30
-#define MEDIA_8x5_2   0x31
-#define MEDIA_8x6_2   0x32
-#define MEDIA_8x4_3   0x40
+#define MEDIA_4x6     0x00
+#define MEDIA_3_5x5   0x01
+#define MEDIA_5x7     0x03
+#define MEDIA_6x9     0x05
+#define MEDIA_6x8     0x06
+#define MEDIA_2x6     0x07
 
 static char *print_medias (uint8_t v) {
 	switch (v) {
-	case MEDIA_8x10:
-		return "8x10";
-	case MEDIA_8x12:
-		return "8x12";
-	case MEDIA_8x4:
-		return "8x4";
-	case MEDIA_8x5:
-		return "8x5";
-	case MEDIA_8x6:
-		return "8x6";
-	case MEDIA_8x8:
-		return "8x8";
-	case MEDIA_8x4_2:
-		return "8x4*2";
-	case MEDIA_8x5_2:
-		return "8x5*2";
-	case MEDIA_8x6_2:
-		return "8x6*2";
-	case MEDIA_8x4_3:
-		return "8x4*3";
+	case MEDIA_4x6:
+		return "4x6";
+	case MEDIA_3_5x5:
+		return "3.5x5";
+	case MEDIA_5x7:
+		return "5x7";
+	case MEDIA_6x9:
+		return "6x9";
+	case MEDIA_6x8:
+		return "6x8";
+	case MEDIA_2x6:
+		return "2x6";
 	default:
 		return "Unknown";
 	}
 }
 
-struct s6245_mediainfo_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_mediainfo_resp {
+	struct s6145_status_hdr hdr;
 	uint8_t  count;
-	struct s6245_mediainfo_item items[10];  /* Not all necessarily used */
+	struct s6145_mediainfo_item items[10];  /* Not all necessarily used */
 } __attribute__((packed));
 
-struct s6245_errorlog_resp {
-	struct s6245_status_hdr hdr;
-	uint16_t error_count;
-	uint8_t  error_major;
-	uint8_t  error_minor;
-	uint16_t reserved;
+struct s6145_error_item {
+	uint8_t  major;
+	uint8_t  minor;
 	uint32_t print_counter;
-	uint16_t ribbon_remain;
-	uint8_t  ribbon_takeup_diameter;
-	uint8_t  ribbon_supply_diameter;
-	uint16_t main_fw_ver;
-	uint16_t dsp_fw_ver;
-	uint16_t print_param_ver;
-	uint16_t boot_fw_ver;
-	uint8_t  time_sec;
-	uint8_t  time_min;
-	uint8_t  time_hour;
-	uint8_t  time_day;
-	uint8_t  time_month;
-	uint8_t  time_year;
-	uint16_t reserved2;
-	uint8_t  printer_thermistor;
-	uint8_t  head_thermistor;
-	uint8_t  printer_humidity;
-	uint8_t  reserved3[13];
-	uint8_t  status;
-	uint8_t  reserved4[3];
-	uint16_t image_cols;
-	uint16_t image_rows;
-	uint8_t  reserved5[8];
 } __attribute__((packed));
 
-struct s6245_getparam_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_errorlog_resp {
+	struct s6145_status_hdr hdr;
+	uint8_t  count;
+	struct s6145_error_item items[10];  /* Not all necessarily used */
+} __attribute__((packed));
+
+struct s6145_getparam_resp {
+	struct s6145_status_hdr hdr;
 	uint32_t param;
 } __attribute__((packed));
 
-struct s6245_getserial_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_getserial_resp {
+	struct s6145_status_hdr hdr;
 	uint8_t  data[8];
 } __attribute__((packed));
 
-struct s6245_getprintidstatus_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_getprintidstatus_resp {
+	struct s6145_status_hdr hdr;
 	uint8_t  id;
 	uint16_t remaining;
 	uint16_t finished;
@@ -873,16 +819,16 @@ struct s6245_getprintidstatus_resp {
 #define STATUS_COMPLETED 0x0200
 #define STATUS_ERROR     0xFFFF
 
-struct s6245_getextcounter_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_getextcounter_resp {
+	struct s6145_status_hdr hdr;
 	uint32_t lifetime_distance;  /* Inches */
 	uint32_t maint_distance;
 	uint32_t head_distance;
 	uint8_t  reserved[32];
 } __attribute__((packed));
 
-struct s6245_fwinfo_resp {
-	struct s6245_status_hdr hdr;
+struct s6145_fwinfo_resp {
+	struct s6145_status_hdr hdr;
 	uint8_t  name[8];
 	uint8_t  type[16];
 	uint8_t  date[10];
@@ -891,19 +837,26 @@ struct s6245_fwinfo_resp {
 	uint16_t checksum;
 } __attribute__((packed));
 
+struct s6145_imagecorr_resp {
+	struct s6145_status_hdr hdr;
+	uint16_t total_size;
+	uint8_t  remain_pkt;
+	uint8_t  return_size;
+	uint8_t  data[0];
+} __attribute__((packed));
 
 
 #define READBACK_LEN 512    /* Needs to be larger than largest response hdr */
-#define CMDBUF_LEN sizeof(struct s6245_print_cmd)
+#define CMDBUF_LEN sizeof(struct s6145_print_cmd)
 
 uint8_t rdbuf[READBACK_LEN];
 
-static int s6245_do_cmd(struct shinkos6245_ctx *ctx,
+static int s6145_do_cmd(struct shinkos6145_ctx *ctx,
 			uint8_t *cmd, int cmdlen,
 			int minlen, int *num)
 {
 	int ret;
-	struct s6245_status_hdr *resp = (struct s6245_status_hdr *) rdbuf;
+	struct s6145_status_hdr *resp = (struct s6145_status_hdr *) rdbuf;
 
 	libusb_device_handle *dev = ctx->dev;
 	uint8_t endp_up = ctx->endp_up;
@@ -935,17 +888,17 @@ static int s6245_do_cmd(struct shinkos6245_ctx *ctx,
 	return ret;
 }
 
-static int get_status(struct shinkos6245_ctx *ctx)
+static int get_status(struct shinkos6145_ctx *ctx)
 {
-	struct s6245_cmd_hdr cmd;
-	struct s6245_status_resp *resp = (struct s6245_status_resp *) rdbuf;
-	struct s6245_getextcounter_resp *resp2 = (struct s6245_getextcounter_resp *) rdbuf;
+	struct s6145_cmd_hdr cmd;
+	struct s6145_status_resp *resp = (struct s6145_status_resp *) rdbuf;
+	struct s6145_getextcounter_resp *resp2 = (struct s6145_getextcounter_resp *) rdbuf;
 	int ret, num = 0;
 
-	cmd.cmd = cpu_to_le16(S6245_CMD_GETSTATUS);
+	cmd.cmd = cpu_to_le16(S6145_CMD_GETSTATUS);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -964,7 +917,7 @@ static int get_status(struct shinkos6245_ctx *ctx)
 		     resp->hdr.printer_major,
 		     resp->hdr.printer_minor, error_codes(resp->hdr.printer_major, resp->hdr.printer_minor));
 	}
-	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6245_status_resp) - sizeof(struct s6245_status_hdr)))
+	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6145_status_resp) - sizeof(struct s6145_status_hdr)))
 		return 0;
 
 	INFO(" Print Counts:\n");
@@ -991,17 +944,17 @@ static int get_status(struct shinkos6245_ctx *ctx)
 	INFO("Tonecurve Status: 0x%02x (%s)\n", resp->tonecurve_status, tonecurve_statuses(resp->tonecurve_status));
 
 	/* Query Extended counters */
-	cmd.cmd = cpu_to_le16(S6245_CMD_EXTCOUNTER);
+	cmd.cmd = cpu_to_le16(S6145_CMD_EXTCOUNTER);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp2),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
-	if (le16_to_cpu(resp2->hdr.payload_len) != (sizeof(struct s6245_getextcounter_resp) - sizeof(struct s6245_status_hdr)))
+	if (le16_to_cpu(resp2->hdr.payload_len) != (sizeof(struct s6145_getextcounter_resp) - sizeof(struct s6145_status_hdr)))
 		return 0;
 
 	INFO("Lifetime Distance: %08d inches\n", le32_to_cpu(resp2->lifetime_distance));
@@ -1011,14 +964,14 @@ static int get_status(struct shinkos6245_ctx *ctx)
 	return 0;
 }
 
-static int get_fwinfo(struct shinkos6245_ctx *ctx)
+static int get_fwinfo(struct shinkos6145_ctx *ctx)
 {
-	struct s6245_fwinfo_cmd  cmd;
-	struct s6245_fwinfo_resp *resp = (struct s6245_fwinfo_resp *)rdbuf;
+	struct s6145_fwinfo_cmd  cmd;
+	struct s6145_fwinfo_resp *resp = (struct s6145_fwinfo_resp *)rdbuf;
 	int num = 0;
 	int i;
 
-	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_FWINFO);
+	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_FWINFO);
 	cmd.hdr.len = cpu_to_le16(1);
 
 	INFO("FW Information:\n");
@@ -1027,7 +980,7 @@ static int get_fwinfo(struct shinkos6245_ctx *ctx)
 		int ret;
 		cmd.target = i;
 
-		if ((ret = s6245_do_cmd(ctx,
+		if ((ret = s6145_do_cmd(ctx,
 					(uint8_t*)&cmd, sizeof(cmd),
 					sizeof(*resp),
 					&num)) < 0) {
@@ -1035,7 +988,7 @@ static int get_fwinfo(struct shinkos6245_ctx *ctx)
 			continue;
 		}
 
-		if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6245_fwinfo_resp) - sizeof(struct s6245_status_hdr)))
+		if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6145_fwinfo_resp) - sizeof(struct s6145_status_hdr)))
 			continue;
 		
 		INFO(" %s\t ver %02x.%02x\n", fwinfo_targets(i),
@@ -1051,56 +1004,17 @@ static int get_fwinfo(struct shinkos6245_ctx *ctx)
 	return 0;
 }
 
-static int get_errorlog(struct shinkos6245_ctx *ctx)
+static int get_errorlog(struct shinkos6145_ctx *ctx)
 {
-	struct s6245_errorlog_cmd cmd;
-	struct s6245_errorlog_resp *resp = (struct s6245_errorlog_resp *) rdbuf;
-	int num = 0;
-	int i = 0;
-
-	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_ERRORLOG);
-	cmd.hdr.len = cpu_to_le16(2);
-
-	do {
-		int ret;
-		cmd.index = i;
-	
-		if ((ret = s6245_do_cmd(ctx,
-					(uint8_t*)&cmd, sizeof(cmd),
-					sizeof(*resp),
-					&num)) < 0) {
-			ERROR("Failed to execute %s command (%d)\n", cmd_names(cmd.hdr.cmd), ret);
-			return ret;
-		}
-
-		if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6245_errorlog_resp) - sizeof(struct s6245_status_hdr)))
-			return -2;
-
-		INFO("Stored Error ID %d:\n", i);
-		INFO(" %04d-%02d-%02d %02d:%02d:%02d @ %08u prints : 0x%02x/0x%02x (%s)\n",
-		     resp->time_year + 2000, resp->time_month, resp->time_day,
-		     resp->time_hour, resp->time_min, resp->time_sec,
-		     le32_to_cpu(resp->print_counter),
-		     resp->error_major, resp->error_minor, 
-		     error_codes(resp->error_major, resp->error_minor));
-		INFO("  Temp: %02d/%02d Hum: %02d\n",
-		     resp->printer_thermistor, resp->head_thermistor, resp->printer_humidity);
-	} while (++i < le16_to_cpu(resp->error_count));
-	
-	return 0;
-}
-
-static int get_mediainfo(struct shinkos6245_ctx *ctx) 
-{
-	struct s6245_cmd_hdr cmd;
-	struct s6245_mediainfo_resp *resp = (struct s6245_mediainfo_resp *) rdbuf;
+	struct s6145_cmd_hdr cmd;
+	struct s6145_errorlog_resp *resp = (struct s6145_errorlog_resp *) rdbuf;
 	int ret, num = 0;
 	int i;
 
-	cmd.cmd = cpu_to_le16(S6245_CMD_MEDIAINFO);
+	cmd.cmd = cpu_to_le16(S6145_CMD_ERRORLOG);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -1108,7 +1022,38 @@ static int get_mediainfo(struct shinkos6245_ctx *ctx)
 		return ret;
 	}
 	
-	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6245_mediainfo_resp) - sizeof(struct s6245_status_hdr)))
+	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6145_errorlog_resp) - sizeof(struct s6145_status_hdr)))
+		return -2;
+
+	INFO("Stored Error Events: %d entries:\n", resp->count);
+	for (i = 0 ; i < resp->count ; i++) {
+		INFO(" %02d: @ %08u prints : 0x%02x/0x%02x (%s)\n", i,
+		     le32_to_cpu(resp->items[i].print_counter),
+		     resp->items[i].major, resp->items[i].minor, 
+		     error_codes(resp->items[i].major, resp->items[i].minor));
+	}
+	return 0;
+}
+
+static int get_mediainfo(struct shinkos6145_ctx *ctx) 
+{
+	struct s6145_cmd_hdr cmd;
+	struct s6145_mediainfo_resp *resp = (struct s6145_mediainfo_resp *) rdbuf;
+	int ret, num = 0;
+	int i;
+
+	cmd.cmd = cpu_to_le16(S6145_CMD_MEDIAINFO);
+	cmd.len = cpu_to_le16(0);
+
+	if ((ret = s6145_do_cmd(ctx,
+				(uint8_t*)&cmd, sizeof(cmd),
+				sizeof(*resp),
+				&num)) < 0) {
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
+		return ret;
+	}
+	
+	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6145_mediainfo_resp) - sizeof(struct s6145_status_hdr)))
 		return -2;
 
 	INFO("Supported Media Information: %d entries:\n", resp->count);
@@ -1122,10 +1067,10 @@ static int get_mediainfo(struct shinkos6245_ctx *ctx)
 	return 0;
 }
 
-static int cancel_job(struct shinkos6245_ctx *ctx, char *str)
+static int cancel_job(struct shinkos6145_ctx *ctx, char *str)
 {
-	struct s6245_cancel_cmd cmd;
-	struct s6245_status_hdr *resp = (struct s6245_status_hdr *) rdbuf;
+	struct s6145_cancel_cmd cmd;
+	struct s6145_status_hdr *resp = (struct s6145_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	if (!str)
@@ -1133,10 +1078,10 @@ static int cancel_job(struct shinkos6245_ctx *ctx, char *str)
 
 	cmd.id = atoi(str);
 
-	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_CANCELJOB);
+	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_CANCELJOB);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -1147,16 +1092,16 @@ static int cancel_job(struct shinkos6245_ctx *ctx, char *str)
 	return 0;
 }
 
-static int flash_led(struct shinkos6245_ctx *ctx) 
+static int flash_led(struct shinkos6145_ctx *ctx) 
 {
-	struct s6245_cmd_hdr cmd;
-	struct s6245_status_hdr *resp = (struct s6245_status_hdr *) rdbuf;
+	struct s6145_cmd_hdr cmd;
+	struct s6145_status_hdr *resp = (struct s6145_status_hdr *) rdbuf;
 	int ret, num = 0;
 
-	cmd.cmd = cpu_to_le16(S6245_CMD_FLASHLED);
+	cmd.cmd = cpu_to_le16(S6145_CMD_FLASHLED);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -1168,20 +1113,20 @@ static int flash_led(struct shinkos6245_ctx *ctx)
 }
 
 
-static int set_param(struct shinkos6245_ctx *ctx, int target, uint32_t param)
+static int set_param(struct shinkos6145_ctx *ctx, int target, uint32_t param)
 {
-	struct s6245_setparam_cmd cmd;
-	struct s6245_status_hdr *resp = (struct s6245_status_hdr *) rdbuf;
+	struct s6145_setparam_cmd cmd;
+	struct s6145_status_hdr *resp = (struct s6145_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	/* Set up command */
 	cmd.target = target;
 	cmd.param = cpu_to_le32(param);
 
-	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_SETPARAM);
-	cmd.hdr.len = cpu_to_le16(sizeof(struct s6245_setparam_cmd)-sizeof(cmd.hdr));
+	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_SETPARAM);
+	cmd.hdr.len = cpu_to_le16(sizeof(struct s6145_setparam_cmd)-sizeof(cmd.hdr));
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -1191,18 +1136,18 @@ static int set_param(struct shinkos6245_ctx *ctx, int target, uint32_t param)
 	return ret;
 }
 
-static int reset_curve(struct shinkos6245_ctx *ctx, int target)
+static int reset_curve(struct shinkos6145_ctx *ctx, int target)
 {
-	struct s6245_reset_cmd cmd;
-	struct s6245_status_hdr *resp = (struct s6245_status_hdr *) rdbuf;
+	struct s6145_reset_cmd cmd;
+	struct s6145_status_hdr *resp = (struct s6145_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	cmd.target = target;
 
-	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_RESET);
+	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_RESET);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -1213,10 +1158,10 @@ static int reset_curve(struct shinkos6245_ctx *ctx, int target)
 	return 0;
 }
 
-static int get_tonecurve(struct shinkos6245_ctx *ctx, int type, char *fname) 
+static int get_tonecurve(struct shinkos6145_ctx *ctx, int type, char *fname) 
 {
-	struct s6245_readtone_cmd  cmd;
-	struct s6245_readtone_resp *resp = (struct s6245_readtone_resp *) rdbuf;
+	struct s6145_readtone_cmd  cmd;
+	struct s6145_readtone_resp *resp = (struct s6145_readtone_resp *) rdbuf;
 	int ret, num = 0;
 
 	uint8_t *data;
@@ -1227,12 +1172,12 @@ static int get_tonecurve(struct shinkos6245_ctx *ctx, int type, char *fname)
 	cmd.target = type;
 	cmd.curveid = TONE_CURVE_ID;
 
-	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_READTONE);
+	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_READTONE);
 	cmd.hdr.len = cpu_to_le16(1);
 
 	INFO("Dump %s Tone Curve to '%s'\n", tonecurve_statuses(type), fname);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -1287,10 +1232,10 @@ done:
 	return ret;
 }
 
-static int set_tonecurve(struct shinkos6245_ctx *ctx, int target, char *fname) 
+static int set_tonecurve(struct shinkos6145_ctx *ctx, int target, char *fname) 
 {
-	struct s6245_update_cmd cmd;
-	struct s6245_status_hdr *resp = (struct s6245_status_hdr *) rdbuf;
+	struct s6145_update_cmd cmd;
+	struct s6145_status_hdr *resp = (struct s6145_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	INFO("Set %s Tone Curve from '%s'\n", update_targets(target), fname);
@@ -1323,15 +1268,15 @@ static int set_tonecurve(struct shinkos6245_ctx *ctx, int target, char *fname)
 	cmd.reset = 0;
 	cmd.size = cpu_to_le32(UPDATE_SIZE * sizeof(uint16_t));
 
-	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_UPDATE);
-	cmd.hdr.len = cpu_to_le16(sizeof(struct s6245_update_cmd)-sizeof(cmd.hdr));
+	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_UPDATE);
+	cmd.hdr.len = cpu_to_le16(sizeof(struct s6145_update_cmd)-sizeof(cmd.hdr));
 
 	/* Byteswap data to format printer is expecting.. */
 	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
 		data[ret] = cpu_to_le16(data[ret]);
 	}
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp),
 				&num)) < 0) {
@@ -1351,7 +1296,7 @@ done:
 	return ret;
 }
 
-static void shinkos6245_cmdline(void)
+static void shinkos6145_cmdline(void)
 {
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
 	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
@@ -1369,9 +1314,9 @@ static void shinkos6245_cmdline(void)
 	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");
 }
 
-int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
+int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 {
-	struct shinkos6245_ctx *ctx = vctx;
+	struct shinkos6145_ctx *ctx = vctx;
 	int i, j = 0;
 
 	/* Reset arg parsing */
@@ -1488,14 +1433,14 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
-static void *shinkos6245_init(void)
+static void *shinkos6145_init(void)
 {
-	struct shinkos6245_ctx *ctx = malloc(sizeof(struct shinkos6245_ctx));
+	struct shinkos6145_ctx *ctx = malloc(sizeof(struct shinkos6145_ctx));
 	if (!ctx) {
 		ERROR("Memory Allocation Failure!\n");
 		return NULL;
 	}
-	memset(ctx, 0, sizeof(struct shinkos6245_ctx));
+	memset(ctx, 0, sizeof(struct shinkos6145_ctx));
 
 	/* Use Fast return by default in CUPS mode */
 	if (getenv("DEVICE_URI") || getenv("FAST_RETURN"))
@@ -1504,10 +1449,10 @@ static void *shinkos6245_init(void)
 	return ctx;
 }
 
-static void shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, 
+static void shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, 
 			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
-	struct shinkos6245_ctx *ctx = vctx;
+	struct shinkos6145_ctx *ctx = vctx;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -1517,8 +1462,8 @@ static void shinkos6245_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->jobid = (jobid & 0x7f) + 1;
 }
 
-static void shinkos6245_teardown(void *vctx) {
-	struct shinkos6245_ctx *ctx = vctx;
+static void shinkos6145_teardown(void *vctx) {
+	struct shinkos6145_ctx *ctx = vctx;
 
 	if (!ctx)
 		return;
@@ -1529,8 +1474,8 @@ static void shinkos6245_teardown(void *vctx) {
 	free(ctx);
 }
 
-static int shinkos6245_read_parse(void *vctx, int data_fd) {
-	struct shinkos6245_ctx *ctx = vctx;
+static int shinkos6145_read_parse(void *vctx, int data_fd) {
+	struct shinkos6145_ctx *ctx = vctx;
 	int ret;
 	uint8_t tmpbuf[4];
 
@@ -1555,7 +1500,7 @@ static int shinkos6245_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if (le32_to_cpu(ctx->hdr.model) != 6245) {
+	if (le32_to_cpu(ctx->hdr.model) != 6145) {
 		ERROR("Unrecognized printer (%d)!\n", le32_to_cpu(ctx->hdr.model));
 
 		return CUPS_BACKEND_CANCEL;
@@ -1605,11 +1550,13 @@ static int shinkos6245_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_FAILED;
 	}
 
+	// XXX run it through the library.. convert 8bit YMC to 16-bit YMCO
+	
 	return CUPS_BACKEND_OK;
 }
 
-static int shinkos6245_main_loop(void *vctx, int copies) {
-	struct shinkos6245_ctx *ctx = vctx;
+static int shinkos6145_main_loop(void *vctx, int copies) {
+	struct shinkos6145_ctx *ctx = vctx;
 
 	int ret, num;
 	uint8_t cmdbuf[CMDBUF_LEN];
@@ -1617,17 +1564,17 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 
 	int i, last_state = -1, state = S_IDLE;
 
-	struct s6245_cmd_hdr *cmd = (struct s6245_cmd_hdr *) cmdbuf;;
-	struct s6245_print_cmd *print = (struct s6245_print_cmd *) cmdbuf;
-	struct s6245_status_resp *sts = (struct s6245_status_resp *) rdbuf; 
-	struct s6245_mediainfo_resp *media = (struct s6245_mediainfo_resp *) rdbuf;
+	struct s6145_cmd_hdr *cmd = (struct s6145_cmd_hdr *) cmdbuf;;
+	struct s6145_print_cmd *print = (struct s6145_print_cmd *) cmdbuf;
+	struct s6145_status_resp *sts = (struct s6145_status_resp *) rdbuf; 
+	struct s6145_mediainfo_resp *media = (struct s6145_mediainfo_resp *) rdbuf;
 
 	/* Send Media Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmd->cmd = cpu_to_le16(S6245_CMD_MEDIAINFO);
+	cmd->cmd = cpu_to_le16(S6145_CMD_MEDIAINFO);
 	cmd->len = cpu_to_le16(0);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				cmdbuf, sizeof(*cmd),
 				sizeof(*media),
 				&num)) < 0) {
@@ -1635,7 +1582,7 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_FAILED;
 	}
 	
-	if (le16_to_cpu(media->hdr.payload_len) != (sizeof(struct s6245_mediainfo_resp) - sizeof(struct s6245_status_hdr)))
+	if (le16_to_cpu(media->hdr.payload_len) != (sizeof(struct s6145_mediainfo_resp) - sizeof(struct s6145_status_hdr)))
 		return CUPS_BACKEND_FAILED;
 
 	/* Validate print sizes */
@@ -1650,34 +1597,6 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
-	/* Send Set Time */
-	{
-		struct s6245_settime_cmd *stime = (struct s6245_settime_cmd *)cmdbuf;
-		time_t now = time(NULL);
-		struct tm *cur = localtime(&now);
-
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		cmd->cmd = cpu_to_le16(S6245_CMD_SETTIME);
-		cmd->len = cpu_to_le16(0);
-		stime->enable = 1;
-		stime->second = cur->tm_sec;
-		stime->minute = cur->tm_min;
-		stime->hour = cur->tm_hour;
-		stime->day = cur->tm_mday;
-		stime->month = cur->tm_mon;
-		stime->year = cur->tm_year + 1900 - 2000;
-
-		if ((ret = s6245_do_cmd(ctx,
-					cmdbuf, sizeof(*stime),
-					sizeof(struct s6245_status_hdr),
-					&num)) < 0) {
-			ERROR("Failed to execute %s command\n", cmd_names(stime->hdr.cmd));
-			return CUPS_BACKEND_FAILED;
-		}
-		if (sts->hdr.result != RESULT_SUCCESS)
-			goto printer_error;
-	}
-
 top:
 	if (state != last_state) {
 		if (dyesub_debug)
@@ -1686,12 +1605,12 @@ top:
 
 	/* Send Status Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmd->cmd = cpu_to_le16(S6245_CMD_GETSTATUS);
+	cmd->cmd = cpu_to_le16(S6145_CMD_GETSTATUS);
 	cmd->len = cpu_to_le16(0);
 
-	if ((ret = s6245_do_cmd(ctx,
+	if ((ret = s6145_do_cmd(ctx,
 				cmdbuf, sizeof(*cmd),
-				sizeof(struct s6245_status_hdr),
+				sizeof(struct s6145_status_hdr),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
 		return CUPS_BACKEND_FAILED;
@@ -1729,22 +1648,22 @@ top:
 		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
-		print->hdr.cmd = cpu_to_le16(S6245_CMD_PRINTJOB);
+		print->hdr.cmd = cpu_to_le16(S6145_CMD_PRINTJOB);
 		print->hdr.len = cpu_to_le16(sizeof (*print) - sizeof(*cmd));
 
 		print->id = ctx->jobid;
 		print->count = cpu_to_le16(copies);
 		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
 		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
-		print->mode = le32_to_cpu(ctx->hdr.oc_mode);
+//		print->mode = le32_to_cpu(ctx->hdr.oc_mode); // XXX send param.
+		// print->image_avg comes from LIBRARY!
 //		print->method = le32_to_cpu(ctx->hdr.method);
-		// XXX multicut -- 8x4*2, 8x4*3, 8x6*2, 8x5*2 ??
 		// or does the "method" automatically double up the normal
 		// sizes?
 
-		if ((ret = s6245_do_cmd(ctx,
+		if ((ret = s6145_do_cmd(ctx,
 					cmdbuf, sizeof(*print),
-					sizeof(struct s6245_status_hdr),
+					sizeof(struct s6145_status_hdr),
 					&num)) < 0) {
 			ERROR("Failed to execute %s command\n", cmd_names(print->hdr.cmd));
 			return ret;
@@ -1812,22 +1731,22 @@ printer_error:
 	return CUPS_BACKEND_FAILED;
 }
 
-static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
 {
-	struct s6245_cmd_hdr cmd;
-	struct s6245_getserial_resp *resp = (struct s6245_getserial_resp*) rdbuf;
+	struct s6145_cmd_hdr cmd;
+	struct s6145_getserial_resp *resp = (struct s6145_getserial_resp*) rdbuf;
 	int ret, num = 0;
 
-	struct shinkos6245_ctx ctx = {
+	struct shinkos6145_ctx ctx = {
 		.dev = dev,
 		.endp_up = endp_up,
 		.endp_down = endp_down,
 	};
 
-	cmd.cmd = cpu_to_le16(S6245_CMD_GETSERIAL);
+	cmd.cmd = cpu_to_le16(S6145_CMD_GETSERIAL);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s6245_do_cmd(&ctx,
+	if ((ret = s6145_do_cmd(&ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
 				sizeof(*resp) - 1,
 				&num)) < 0) {
@@ -1848,35 +1767,35 @@ static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 /* Exported */
 #define USB_VID_SHINKO       0x10CE
-#define USB_PID_SHINKO_S6245 0x001D
+#define USB_PID_SHINKO_S6145 0x0019
 
-struct dyesub_backend shinkos6245_backend = {
-	.name = "Shinko/Sinfonia CHC-S6245",
-	.version = "0.02WIP",
-	.uri_prefix = "shinkos6245",
-	.cmdline_usage = shinkos6245_cmdline,
-	.cmdline_arg = shinkos6245_cmdline_arg,
-	.init = shinkos6245_init,
-	.attach = shinkos6245_attach,
-	.teardown = shinkos6245_teardown,
-	.read_parse = shinkos6245_read_parse,
-	.main_loop = shinkos6245_main_loop,
-	.query_serno = shinkos6245_query_serno,
+struct dyesub_backend shinkos6145_backend = {
+	.name = "Shinko/Sinfonia CHC-S6145",
+	.version = "0.01WIP",
+	.uri_prefix = "shinkos6145",
+	.cmdline_usage = shinkos6145_cmdline,
+	.cmdline_arg = shinkos6145_cmdline_arg,
+	.init = shinkos6145_init,
+	.attach = shinkos6145_attach,
+	.teardown = shinkos6145_teardown,
+	.read_parse = shinkos6145_read_parse,
+	.main_loop = shinkos6145_main_loop,
+	.query_serno = shinkos6145_query_serno,
 	.devices = {
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, ""},
+	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, ""},
 	{ 0, 0, 0, ""}
 	}
 };
 
-/* CHC-S6245 data format
+/* CHC-S6145 data format
 
   Spool file consists of an 116-byte header, followed by RGB-packed data,
   followed by a 4-byte footer.  Header appears to consist of a series of
   4-byte Little Endian words.
 
-   10 00 00 00 MM MM 00 00  01 00 00 00 01 00 00 00  MM == Model (ie 6245d)
-   64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == 0x20 8x4, 0x21 8x5, 0x22 8x6, 0x23 8x8, 0x10 8x10, 0x11 8x12
-   00 00 00 00 00 00 00 00  XX 00 00 00 00 00 00 00  XX == 0x03 matte, 0x02 glossy, 0x01 no coat
+   10 00 00 00 MM MM 00 00  HH 00 00 00 01 00 00 00  MM == Model (ie 6145d), HH == 0x02 (5" media), 0x03 (6" media)
+   64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == 0x08 5x5, 0x03 5x7, 0x07 2x6, 0x00 4x6, 0x06 6x6/6x6+6x2/6x8
+   UU 00 00 00 ZZ 00 00 00  XX 00 00 00 00 00 00 00  XX == 0x00 default, 0x02 glossy, 0x03 matte, ZZ == 0x00 default, 0x01 == std qual; UU == 0x00 normal, 0x04 2x6*2, 0x05 6x6+2x6
    00 00 00 00 WW WW 00 00  HH HH 00 00 NN 00 00 00  WW/HH Width, Height (LE), NN == Copies
    00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
    00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI (300)
@@ -1886,5 +1805,30 @@ struct dyesub_backend shinkos6245_backend = {
    [[Packed RGB payload of WW*HH*3 bytes]]
 
    04 03 02 01  [[ footer ]]
+
+ * CIAAT Brava 21 data format  
+
+   This printer is supposed to be a variant of the S6145, but uses a 
+   different spool format -- but seems to use the same command language.
+
+   01 40 12 00  01 NN 00 YY  YY XX XX TT  00 00 00 00  00 00 01 MM  QQ 00
+
+    NN == copies
+    YY YY == Columns (LE)
+    XX XX == Rows (LE)
+    MM == Overcoat (02 = glossy, 03 = matte, 01 = none)
+    QQ == Multicut (00 = normal, 01 = none, 02 = 2*4x6, 
+                    04 = 2*2x6, 80 = 4x6-notrim)
+    TT == Type (00 = 4x6, 03 = 5x7, 06 = 8x6, 07 = 2x6)
+
+    1844*2434  8x6
+    1844*2492  4x6*2
+    1548*2140  5x7
+    1844*1240  4x6 (and 2x6*2)
+    1844*1210  4x6-notrim (WTF?)
+    1844*634   2x6
+
+
+   [[ Followed by XX*YY*3 bytes of image data, RGB ]]
 
 */

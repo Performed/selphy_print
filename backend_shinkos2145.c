@@ -1777,48 +1777,4 @@ struct dyesub_backend shinkos2145_backend = {
 
    04 03 02 01  [[ footer ]]
 
- * CHC-S6145 data format
-
-  Spool file consists of an 116-byte header, followed by RGB-packed data,
-  followed by a 4-byte footer.  Header appears to consist of a series of
-  4-byte Little Endian words.
-
-   10 00 00 00 MM MM 00 00  HH 00 00 00 01 00 00 00  MM == Model (ie 6145d), HH == 0x02 (5" media), 0x03 (6" media)
-   64 00 00 00 00 00 00 00  TT 00 00 00 00 00 00 00  TT == 0x08 5x5, 0x03 5x7, 0x07 2x6, 0x00 4x6, 0x06 6x6/6x6+6x2/6x8
-   UU 00 00 00 ZZ 00 00 00  XX 00 00 00 00 00 00 00  XX == 0x00 default, 0x02 glossy, 0x03 matte, ZZ == 0x00 default, 0x01 == std qual; UU == 0x00 normal, 0x04 2x6*2, 0x05 6x6+2x6
-   00 00 00 00 WW WW 00 00  HH HH 00 00 NN 00 00 00  WW/HH Width, Height (LE), NN == Copies
-   00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
-   00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI (300)
-   00 00 00 00 ce ff ff ff  00 00 00 00 00 00 00 00
-   00 00 00 00
-
-   [[Packed RGB payload of WW*HH*3 bytes]]
-
-   04 03 02 01  [[ footer ]]
-
- * CIAAT Brava 21 data format  
-
-   This printer is supposed to be a variant of the S6145, but uses a 
-   different spool format -- but seems to use the same command language.
-
-   01 40 12 00  01 NN 00 YY  YY XX XX TT  00 00 00 00  00 00 01 MM  QQ 00
-
-    NN == copies
-    YY YY == Columns (LE)
-    XX XX == Rows (LE)
-    MM == Overcoat (02 = glossy, 03 = matte, 01 = none)
-    QQ == Multicut (00 = normal, 01 = none, 02 = 2*4x6, 
-                    04 = 2*2x6, 80 = 4x6-notrim)
-    TT == Type (00 = 4x6, 03 = 5x7, 06 = 8x6, 07 = 2x6)
-
-    1844*2434  8x6
-    1844*2492  4x6*2
-    1548*2140  5x7
-    1844*1240  4x6 (and 2x6*2)
-    1844*1210  4x6-notrim (WTF?)
-    1844*634   2x6
-
-
-   [[ Followed by XX*YY*3 bytes of image data, RGB ]]
-
 */

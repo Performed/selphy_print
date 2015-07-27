@@ -23,7 +23,7 @@ CPPFLAGS += `pkg-config --cflags libusb-1.0`
 CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\"
 
 # List of backends
-BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 citizencw01 mitsu9550 shinkos6245
+BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 citizencw01 mitsu9550 shinkos6245 shinkos6145
 
 # Build stuff
 DEPS = backend_common.h
