@@ -40,6 +40,11 @@
 
 #include "backend_common.h"
 
+//#define WITH_6145_LIB
+
+#if defined(WITH_6145_LIB)
+#include "libS6145ImageProcess.h"
+#endif
 
 enum {
 	S_IDLE = 0,
@@ -57,12 +62,12 @@ struct s6145_printjob_hdr {
 
 	uint32_t len2;   /* Fixed at 0x64 */
 	uint32_t unk5;
-	uint32_t media;  /* 0x08 5x5, 0x03 5x7, 0x07 2x6, 0x00 4x6, 0x06 6x6/6x6+6x2/6x8 */
+	uint32_t media;  /* 0x08 5x5, 0x03 5x7, 0x07 2x6, 0x00 4x6, 0x06 6x6/6x6+6x2/4x6*2/6x8 */
 	uint32_t unk6;
 
-	uint32_t multicut;  /* 0x00 normal, 0x04 2x6*2, 0x05 6x6+2x6 */
+	uint32_t multicut;  /* 0x00 normal, 0x02 4x6*2, 0x04 2x6*2, 0x05 6x6+2x6 */
 	uint32_t qual;      /* 0x00 default, 0x01 std */
-	uint32_t oc_mode;   /* 0x00 default, 0x02 glossy, 0x03 matte */
+	uint32_t oc_mode;   /* 0x00 default, 0x01 off, 0x02 glossy, 0x03 matte */
 	uint32_t unk8;
 
 	uint32_t unk9;
@@ -98,9 +103,16 @@ struct shinkos6145_ctx {
 
 	struct s6145_printjob_hdr hdr;
 
+	int image_avg;
+
 	uint8_t *databuf;
 	int datalen;
+
+	uint8_t *corrdata;
+	int corrdatalen;
 };
+
+static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx);
 
 /* Structs for printer */
 struct s6145_cmd_hdr {
@@ -840,11 +852,13 @@ struct s6145_fwinfo_resp {
 struct s6145_imagecorr_resp {
 	struct s6145_status_hdr hdr;
 	uint16_t total_size;
-	uint8_t  remain_pkt;
-	uint8_t  return_size;
-	uint8_t  data[0];
 } __attribute__((packed));
 
+struct s6145_imagecorr_data {
+	uint8_t  remain_pkt;
+	uint8_t  return_size;
+	uint8_t  data[256];
+} __attribute__((packed));
 
 #define READBACK_LEN 512    /* Needs to be larger than largest response hdr */
 #define CMDBUF_LEN sizeof(struct s6145_print_cmd)
@@ -1296,6 +1310,51 @@ done:
 	return ret;
 }
 
+static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
+{
+	struct s6145_cmd_hdr cmd;
+	struct s6145_imagecorr_resp *resp = (struct s6145_imagecorr_resp *) rdbuf;
+
+	int total = 0;
+	int ret, num;
+	cmd.cmd = cpu_to_le16(S6145_CMD_GETCORR);
+	cmd.len = 0;
+
+	if (ctx->corrdata) {
+		free(ctx->corrdata);
+		ctx->corrdata = NULL;
+	}
+
+	if ((ret = s6145_do_cmd(ctx,
+				(uint8_t*)&cmd, sizeof(cmd),
+				sizeof(*resp),
+				&num)) < 0) {
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
+		goto done;
+	}
+
+	ctx->corrdatalen = le16_to_cpu(resp->total_size);
+	ctx->corrdata = malloc(ctx->corrdatalen);
+	total = 0;
+
+	while (total < ctx->corrdatalen) {
+		struct s6145_imagecorr_data data;
+		ret = read_data(ctx->dev, ctx->endp_up, (uint8_t*) &data,
+				sizeof(data),
+				&num);
+		if (ret < 0)
+			goto done;
+
+		memcpy(ctx->corrdata + total, data.data, data.return_size);
+		total += data.return_size;
+		if (data.remain_pkt == 0)
+			break;
+	}
+
+done:
+	return ret;
+}
+
 static void shinkos6145_cmdline(void)
 {
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
@@ -1470,6 +1529,8 @@ static void shinkos6145_teardown(void *vctx) {
 
 	if (ctx->databuf)
 		free(ctx->databuf);
+	if (ctx->corrdata)
+		free(ctx->corrdata);
 
 	free(ctx);
 }
@@ -1550,8 +1611,13 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_FAILED;
 	}
 
-	// XXX run it through the library.. convert 8bit YMC to 16-bit YMCO
-	
+#if defined(WITH_6145_LIB)
+	if (ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), &ctx->image_avg)) {
+		ERROR("Library returned error!\n");
+		return CUPS_BACKEND_FAILED;
+	}
+#endif
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1643,7 +1709,30 @@ top:
 
 		break;
 	case S_PRINTER_READY_CMD:
-		// XXX send "get eeprom backup command"
+		// XXX send "get eeprom backup command" ?
+
+		/* Set matte/etc */
+		// XXX query printer mode, and set only if changed?
+		if (ctx->hdr.oc_mode)
+			set_param(ctx, PARAM_DRIVER_MODE, ctx->hdr.oc_mode - 1);
+
+		/* Get image correction parameters */
+		shinkos6145_get_imagecorr(ctx);
+
+#if defined(WITH_6145_LIB)
+		// Perform library transform
+		uint32_t newlen = le32_to_cpu(ctx->hdr.columns) *
+			le32_to_cpu(ctx->hdr.rows) * 2 * 4;
+		uint8_t *databuf2 = malloc(newlen);
+
+		if (!ImageProcessing(ctx->databuf, databuf2, ctx->corrdata)) {
+			ERROR("Image Processing failed\n");
+			return CUPS_BACKEND_FAILED;
+		}
+		free(ctx->databuf);
+		ctx->databuf = databuf2;
+		ctx->datalen = newlen;
+#endif
 
 		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
 
@@ -1655,11 +1744,8 @@ top:
 		print->count = cpu_to_le16(copies);
 		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
 		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
-//		print->mode = le32_to_cpu(ctx->hdr.oc_mode); // XXX send param.
-		// print->image_avg comes from LIBRARY!
-//		print->method = le32_to_cpu(ctx->hdr.method);
-		// or does the "method" automatically double up the normal
-		// sizes?
+		print->image_avg = ctx->image_avg;
+		print->method = cpu_to_le32(ctx->hdr.multicut);
 
 		if ((ret = s6145_do_cmd(ctx,
 					cmdbuf, sizeof(*print),
@@ -1771,7 +1857,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.01WIP",
+	.version = "0.02WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
