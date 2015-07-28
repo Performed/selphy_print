@@ -860,6 +860,8 @@ struct s6145_imagecorr_data {
 	uint8_t  data[256];
 } __attribute__((packed));
 
+#define CORRDATA_MAX 16384
+
 #define READBACK_LEN 512    /* Needs to be larger than largest response hdr */
 #define CMDBUF_LEN sizeof(struct s6145_print_cmd)
 
@@ -1334,7 +1336,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 	}
 
 	ctx->corrdatalen = le16_to_cpu(resp->total_size);
-	ctx->corrdata = malloc(ctx->corrdatalen);
+	ctx->corrdata = malloc(CORRDATA_MAX);
 	total = 0;
 
 	while (total < ctx->corrdatalen) {
@@ -1716,14 +1718,22 @@ top:
 		if (ctx->hdr.oc_mode)
 			set_param(ctx, PARAM_DRIVER_MODE, ctx->hdr.oc_mode - 1);
 
+		// XXX can only set OC mode if we're not charged.
+
 		/* Get image correction parameters */
 		shinkos6145_get_imagecorr(ctx);
 
 #if defined(WITH_6145_LIB)
-		// Perform library transform
+		/* Perform library transform... */
 		uint32_t newlen = le32_to_cpu(ctx->hdr.columns) *
 			le32_to_cpu(ctx->hdr.rows) * 2 * 4;
 		uint8_t *databuf2 = malloc(newlen);
+
+		// WTF.. we don't care.
+		uint16_t *width = (uint16_t*) (imagecorr + 12432);
+		*width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
+		uint16_t *height = (uint16_t*) (imagecorr + 12434);
+		*width = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
 		if (!ImageProcessing(ctx->databuf, databuf2, ctx->corrdata)) {
 			ERROR("Image Processing failed\n");
