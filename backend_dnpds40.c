@@ -689,6 +689,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		case 310: //"6x8 (A5)"
 			ctx->can_rewind = 1;
 			if (ctx->multicut != 2 && ctx->multicut != 4 &&
+			    ctx->multicut != 12 &&
 			    ctx->multicut != 27 && ctx->multicut != 30) {
 				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
@@ -697,7 +698,8 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		case 400: //"6x9 (A5W)"
 			ctx->can_rewind = 1;
 			if (ctx->multicut != 2 && ctx->multicut != 4 &&
-			    ctx->multicut != 5 && ctx->multicut != 27 &&
+			    ctx->multicut != 5 &&  ctx->multicut != 12 &&
+			    ctx->multicut != 27 &&
 			    ctx->multicut != 30 && ctx->multicut != 31) {
 				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
@@ -1639,7 +1641,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.57",
+	.version = "0.58",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
