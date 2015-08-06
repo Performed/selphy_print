@@ -540,15 +540,16 @@
      -i                 Query printer information (resolution, etc)
      -I                 Query printer sensor information
      -n                 Query printer counters
-     -N [ A | B | M ]   Reset Counter A/B/M                              [2]
+     -N [ A | B | M ]   Reset Counter A/B/M                                 [2]
      -p num             Set 'P' counter to 'num'
      -s                 Query printer status
      -k num		Specify standby delay (1-99 minutes, 0 disables)    [1]
      -K num		Keep Media Status Across Power Cycles (1 yes, 0 no) [1]
-			
+     -x num             Set USB iSerialNumber reporting (1 yes, 0 no)       [1]
+
    Notes:
 
-     [1] Only DNP-DS620 supports standby mode
+     [1] Only supported by DNP-DS620
      [2] Certain printer features may require updating the printer firmware
 
  *************************************************************************** 

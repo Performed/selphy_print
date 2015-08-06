@@ -92,6 +92,7 @@ struct dnpds40_ctx {
 	int supports_standby;
 	int supports_6x4_5;
 	int supports_mqty_default;
+	int supports_iserial;
 
 	uint8_t *qty_offset;
 	uint8_t *buffctrl_offset;
@@ -432,6 +433,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->supports_mqty_default = 1;
 		ctx->supports_rewind = 1;
 		ctx->supports_standby = 1;
+		ctx->supports_iserial = 1;
 		if (FW_VER_CHECK(0,30))
 			ctx->supports_3x5x2 = 1;
 		if (FW_VER_CHECK(1,10))
@@ -1251,7 +1253,9 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		INFO("Media End kept across power cycles: '%s'\n", (char*)resp);
 
 		free(resp);
+	}
 
+	if (ctx->supports_iserial) {
 		/* Get USB serial descriptor status */
 		dnpds40_build_cmd(&cmd, "MNT_RD", "USB_ISERI_SET", 0);
 
@@ -1510,6 +1514,21 @@ static int dnpds620_media_keep_mode(struct dnpds40_ctx *ctx, int delay)
 	return 0;
 }
 
+static int dnpds620_iserial_mode(struct dnpds40_ctx *ctx, int enable)
+{
+	struct dnpds40_cmd cmd;
+	char msg[9];
+	int ret;
+
+	/* Generate command */
+	dnpds40_build_cmd(&cmd, "MNT_WT", "USB_ISERI_SET", 4);
+	snprintf(msg, sizeof(msg), "%02d\r", enable);
+
+	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 8)))
+		return ret;
+
+	return 0;
+}
 
 static int dnpds40_set_counter_p(struct dnpds40_ctx *ctx, char *arg)
 {
@@ -1538,6 +1557,7 @@ static void dnpds40_cmdline(void)
 	DEBUG("\t\t[ -p num ]       # Set counter P\n");
 	DEBUG("\t\t[ -k num ]       # Set standby time (1-99 minutes, 0 disables)\n");
 	DEBUG("\t\t[ -K num ]       # Keep Media Status Across Power Cycles (1 on, 0 off)\n");
+	DEBUG("\t\t[ -x num ]       # Set USB iSerialNumber Reporting (1 on, 0 off)\n");
 }
 
 static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
@@ -1628,6 +1648,23 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 				break;
 			}
 			return 2;
+		case 'x':
+			if (ctx) {
+				int enable = atoi(optarg);
+				if (!ctx->supports_iserial) {
+					ERROR("Printer does not support USB iSerialNumber reporting\n");
+					j = -1;
+					break;
+				}
+				if (enable < 0 || enable > 1) {
+					ERROR("Value out of range (0-1)");
+					j = -1;
+					break;
+				}
+				j = dnpds620_iserial_mode(ctx, enable);
+				break;
+			}
+			return 2;
 		default:
 			break;  /* Ignore completely */
 		}
@@ -1641,7 +1678,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.58",
+	.version = "0.59",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
