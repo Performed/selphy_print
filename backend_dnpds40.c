@@ -675,12 +675,14 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			}
 			break;
 		case 210: //"5x7 (2L)"
-			ctx->can_rewind = 1;
 			if (ctx->multicut != 1 && ctx->multicut != 3 &&
 			    ctx->multicut != 22 && ctx->multicut != 29) {
 				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
+			/* Only 3.5x5 on 7x5 media can be rewound */
+			if (ctx->multicut == 1)
+				ctx->can_rewind = 1;
 			break;
 		case 300: //"6x4 (PC)"
 			if (ctx->multicut != 2) {
@@ -689,16 +691,17 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			}
 			break;
 		case 310: //"6x8 (A5)"
-			ctx->can_rewind = 1;
 			if (ctx->multicut != 2 && ctx->multicut != 4 &&
 			    ctx->multicut != 12 &&
 			    ctx->multicut != 27 && ctx->multicut != 30) {
 				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
+			/* Only 6x4 on 6x8 media can be rewound */
+			if (ctx->multicut == 2)
+				ctx->can_rewind = 1;
 			break;
 		case 400: //"6x9 (A5W)"
-			ctx->can_rewind = 1;
 			if (ctx->multicut != 2 && ctx->multicut != 4 &&
 			    ctx->multicut != 5 &&  ctx->multicut != 12 &&
 			    ctx->multicut != 27 &&
@@ -706,6 +709,9 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
+			/* Only 6x4 or 6x4.5 on 6x9 media can be rewound */
+			if (ctx->multicut == 2 || ctx->multicut == 30)
+				ctx->can_rewind = 1;
 			break;
 		case 500: //"8x10"
 			if (ctx->multicut < 6 || ctx->multicut == 7 ||
@@ -921,8 +927,6 @@ top:
 
 		/* See if we can rewind to save media */
 		if (ctx->can_rewind && ctx->supports_rewind) {
-//XXX implicit //    (ctx->multicut == 1 || ctx->multicut == 2 || ctx->multicut == 30)
-
 			/* Tell the printer we want to rewind, if possible. */
 			snprintf(buf, sizeof(buf), "%08d", ctx->multicut + 400);
 			memcpy(ctx->multicut_offset, buf, 8);
@@ -1678,7 +1682,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.59",
+	.version = "0.60",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
