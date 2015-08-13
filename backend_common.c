@@ -38,11 +38,9 @@
 int dyesub_debug = 0;
 int terminate = 0;
 int fast_return = 0;
-
-/* Local Global Variables */
-static int extra_vid = -1;
-static int extra_pid = -1;
-static int extra_type = -1;
+int extra_vid = -1;
+int extra_pid = -1;
+int extra_type = -1;
 
 /* Support Functions */
 static int backend_claim_interface(struct libusb_device_handle *dev, int iface)
@@ -360,7 +358,7 @@ static char *url_decode(char *str) {
 static int print_scan_output(struct libusb_device *device,
 			     struct libusb_device_descriptor *desc,
 			     char *prefix, char *manuf2,
-			     int found, int match,
+			     int found,
 			     int scan_only, char *match_serno,
 			     struct dyesub_backend *backend)
 {
@@ -436,7 +434,7 @@ static int print_scan_output(struct libusb_device *device,
 				free(manuf3);
 			if (product2)
 				free(product2);
-			return found;
+			return -1;
 		}
 		
 		sprintf(descr, "%s %s", manuf3, product2);
@@ -496,8 +494,7 @@ static int print_scan_output(struct libusb_device *device,
 	}
 
 	if (dyesub_debug)
-		DEBUG("%sVID: %04X PID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
-		      match ? "MATCH: " : "",
+		DEBUG("VID: %04X PID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
 		      desc->idVendor, desc->idProduct, manuf, product, serial);
 	
 	if (scan_only) {
@@ -564,7 +561,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
 			      struct dyesub_backend *backend,
 			      char *match_serno,
-			      int printer_type,
 			      int scan_only)
 {
 	int num;
@@ -583,28 +579,22 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			if (backend && backend != backends[k])
 				continue;
 			for (j = 0 ; backends[k]->devices[j].vid ; j++) {
+				if (extra_pid != -1 &&
+				    extra_vid != -1 &&
+				    extra_type != -1) {
+					if (backends[k]->devices[j].type == extra_type &&
+					    extra_vid == desc.idVendor &&
+					    extra_pid == desc.idProduct) {
+						match = 1;
+						found = i;
+						goto match;
+					}
+				}
 				if (desc.idVendor == backends[k]->devices[j].vid &&
 				    desc.idProduct == backends[k]->devices[j].pid) {
 					match = 1;
-					if (printer_type == P_ANY ||
-					    printer_type == backends[k]->devices[j].type)
-						found = i;
+					found = i;
 					goto match;
-				}
-			}
-		}
-
-	match:
-		if (!match) {
-			if (extra_pid != -1 &&
-			    extra_vid != -1 &&
-			    extra_type != -1) {
-				if (extra_vid == desc.idVendor &&
-				    extra_pid == desc.idProduct) {
-					match = 1;
-					if (printer_type == P_ANY ||
-					    printer_type == extra_type)
-						found = i;
 				}
 			}
 		}
@@ -612,9 +602,10 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		if (!match)
 			continue;
 
+	match:
 		found = print_scan_output((*list)[i], &desc,
 					  URI_PREFIX, backends[k]->devices[j].manuf_str,
-					  found, (found == i),
+					  found,
 					  scan_only, match_serno,
 					  backends[k]);
 
@@ -721,7 +712,7 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		ERROR("Failed to initialize libusb (%d)\n", i);
 		exit(CUPS_BACKEND_STOP);
 	}
-	find_and_enumerate(ctx, &list, backend, NULL, P_ANY, 1);
+	find_and_enumerate(ctx, &list, backend, NULL, 1);
 	libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
 }
@@ -754,7 +745,6 @@ int main (int argc, char **argv)
 
 	char *uri;
 	char *fname = NULL;
-	int printer_type = P_ANY;
 
 	char *use_serno = NULL;
 
@@ -794,6 +784,8 @@ int main (int argc, char **argv)
 			copies = atoi(argv[base + 3]);
 		if (argc > 6)
 			fname = argv[base + 5];
+		else
+			fname = "-";
 
 		/* Figure out backend based on URI */
 		{
@@ -903,19 +895,13 @@ int main (int argc, char **argv)
 
 		/* Make sure a filename was specified */
 		if (optind >= argc || !argv[optind]) {
-			if (!backend_cmd)
+			if (!backend_cmd) {
 				print_help(argv[0], backend);
-
-			exit(0);
+				exit(0);
+			}
 		}
-
 		/* Grab the filename */
-		fname = argv[optind];
-
-		if (!fname && !backend_cmd) {
-			perror("ERROR:No input file");
-			exit(1);
-		}
+		fname = argv[optind]; // XXX
 
 		srand(getpid());
 		jobid = rand();
@@ -936,47 +922,6 @@ int main (int argc, char **argv)
 		exit(1);
 	}
 
-	if (fname && strcmp("-", fname)) {
-		data_fd = open(fname, O_RDONLY);
-		if (data_fd < 0) {
-			perror("ERROR:Can't open input file");
-			exit(1);
-		}
-	} else {
-		fname = "-";
-	}
-
-	/* Ensure we're using BLOCKING I/O */
-	i = fcntl(data_fd, F_GETFL, 0);
-	if (i < 0) {
-		perror("ERROR:Can't open input");
-		exit(1);
-	}
-	i &= ~O_NONBLOCK;
-	i = fcntl(data_fd, F_SETFL, i);
-	if (i < 0) {
-		perror("ERROR:Can't open input");
-		exit(1);
-	}
-
-	/* Ignore SIGPIPE */
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGTERM, sigterm_handler);
-
-	/* Initialize backend */
-	DEBUG("Initializing '%s' backend (version %s)\n",
-	      backend->name, backend->version);
-	backend_ctx = backend->init();
-
-	/* Parse printjob if necessary */
-	if (fname && backend->early_parse) {
-		printer_type = backend->early_parse(backend_ctx, data_fd);
-		if (printer_type < 0) {
-			ret = CUPS_BACKEND_CANCEL;
-			goto done;
-		}
-	}
-
 	/* Libusb setup */
 	ret = libusb_init(&ctx);
 	if (ret) {
@@ -986,11 +931,11 @@ int main (int argc, char **argv)
 	}
 
 	/* Enumerate devices */
-	found = find_and_enumerate(ctx, &list, backend, use_serno, printer_type, 0);
+	found = find_and_enumerate(ctx, &list, backend, use_serno, 0);
 
 #if 1
 	if (found == -1) {
-		ERROR("Printer open failure (No suitable printers found!)\n");
+		ERROR("Printer open failure (No matching printers found!)\n");
 		ret = CUPS_BACKEND_HOLD;
 		goto done;
 	}
@@ -1034,6 +979,12 @@ int main (int argc, char **argv)
 		}
 	}
 #endif
+
+	/* Initialize backend */
+	DEBUG("Initializing '%s' backend (version %s)\n",
+	      backend->name, backend->version);
+	backend_ctx = backend->init();
+
 	/* Attach backend to device */
 	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
 
@@ -1044,14 +995,41 @@ int main (int argc, char **argv)
 			goto done_claimed;
 	}
 
+	if (!fname) {
+		fprintf(stderr, "ERROR: No input file specified\n");
+		exit(1);
+	}
+
+	/* Open file if not STDIN */
+	if (strcmp("-", fname)) {
+		data_fd = open(fname, O_RDONLY);
+		if (data_fd < 0) {
+			perror("ERROR:Can't open input file");
+			exit(1);
+		}
+	}
+
+	/* Ensure we're using BLOCKING I/O */
+	i = fcntl(data_fd, F_GETFL, 0);
+	if (i < 0) {
+		perror("ERROR:Can't open input");
+		exit(1);
+	}
+	i &= ~O_NONBLOCK;
+	i = fcntl(data_fd, F_SETFL, i);
+	if (i < 0) {
+		perror("ERROR:Can't open input");
+		exit(1);
+	}
+
+	/* Ignore SIGPIPE */
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGTERM, sigterm_handler);
+
 	/* Time for the main processing loop */
 	INFO("Printing started (%d copies)\n", copies);
 
 newpage:
-	/* Do early parsing if needed for subsequent pages */
-	if (pages && backend->early_parse &&
-	    backend->early_parse(backend_ctx, data_fd) < 0)
-			goto done_multiple;
 
 	/* Read in data */
 	if ((ret = backend->read_parse(backend_ctx, data_fd))) {

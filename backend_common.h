@@ -134,7 +134,6 @@ struct dyesub_backend {
 		       uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
 	void (*teardown)(void *ctx);
 	int  (*cmdline_arg)(void *ctx, int argc, char **argv);
-	int  (*early_parse)(void *ctx, int data_fd);
 	int  (*read_parse)(void *ctx, int data_fd);
 	int  (*main_loop)(void *ctx, int copies);
 	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len);
@@ -147,10 +146,13 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int buflen, int *readlen);
 
-/* Exported data */
+/* Global data */
 extern int terminate;
 extern int dyesub_debug;
 extern int fast_return;
+extern int extra_vid;
+extern int extra_pid;
+extern int extra_type;
 
 /* External data */
 extern struct dyesub_backend updr150_backend;

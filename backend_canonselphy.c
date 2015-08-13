@@ -656,6 +656,14 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
+	/* Perform early parsing */
+	i = canonselphy_early_parse(ctx, data_fd);
+	if (i < 0)
+		return i;
+	if (ctx->printer->type != i) {
+		ERROR("Job/Printer mismatch (%d/%d)\n", i, ctx->printer->type);
+	}
+
 	if (ctx->header) {
 		free(ctx->header);
 		ctx->header = NULL;
@@ -950,12 +958,11 @@ top:
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.87",
+	.version = "0.88",
 	.uri_prefix = "canonselphy",
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
 	.teardown = canonselphy_teardown,
-	.early_parse = canonselphy_early_parse,
 	.read_parse = canonselphy_read_parse,
 	.main_loop = canonselphy_main_loop,
 	.devices = {
