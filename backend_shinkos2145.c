@@ -95,7 +95,6 @@ struct shinkos2145_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 	uint8_t jobid;
-	uint8_t fast_return;
 
 	struct s2145_printjob_hdr hdr;
 
@@ -1294,7 +1293,7 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "b:c:C:efFil:L:mr:R:suU:X:")) >= 0) {
+	while ((i = getopt(argc, argv, "b:c:C:eFil:L:mr:R:suU:X:")) >= 0) {
 		switch(i) {
 		case 'b':
 			if (ctx) {
@@ -1322,12 +1321,6 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 		case 'e':
 			if (ctx) {
 				j = get_errorlog(ctx);
-				break;
-			}
-			return 1;
-		case 'f':
-			if (ctx) {
-				ctx->fast_return = 1;
 				break;
 			}
 			return 1;
@@ -1417,10 +1410,6 @@ static void *shinkos2145_init(void)
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct shinkos2145_ctx));
-
-	/* Use Fast return by default in CUPS mode */
-	if (getenv("DEVICE_URI") || getenv("FAST_RETURN"))
-		ctx->fast_return = 1;
 
 	return ctx;
 }
@@ -1660,7 +1649,7 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 		state = S_PRINTER_SENT_DATA;
 		break;
 	case S_PRINTER_SENT_DATA:
-		if (ctx->fast_return) {
+		if (fast_return) {
 			INFO("Fast return mode enabled.\n");
 			state = S_FINISHED;
 		} else if (sts->hdr.status == STATUS_READY ||

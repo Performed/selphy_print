@@ -52,8 +52,6 @@ struct mitsu9550_ctx {
 
 	int is_s_variant;
 
-	int fast_return;
-	
 	uint16_t rows;
 	uint16_t cols;
 };
@@ -149,10 +147,6 @@ static void *mitsu9550_init(void)
 	}
 	memset(ctx, 0, sizeof(struct mitsu9550_ctx));
 
-        /* Use Fast return by default in CUPS mode */
-        if (getenv("DEVICE_URI") || getenv("FAST_RETURN"))
-                ctx->fast_return = 1;
-	
 	return ctx;
 }
 
@@ -592,12 +586,12 @@ top:
 		if (!sts->sts1) /* If printer transitions to idle */
 			break;
 
-		if (ctx->fast_return && !be16_to_cpu(sts->copies)) { /* No remaining prints */
+		if (fast_return && !be16_to_cpu(sts->copies)) { /* No remaining prints */
                         INFO("Fast return mode enabled.\n");
 			break;
                 }
 
-		if (ctx->fast_return && !sts->sts5) { /* Ready for another job */
+		if (fast_return && !sts->sts5) { /* Ready for another job */
 			INFO("Fast return mode enabled.\n");
 			break;
 		}
@@ -744,7 +738,6 @@ static void mitsu9550_cmdline(void)
 {
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
-	DEBUG("\t\t[ -f ]           # Enable fast return mode\n");
 }
 
 static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
@@ -755,7 +748,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "mfs")) >= 0) {
+	while ((i = getopt(argc, argv, "ms")) >= 0) {
 		switch(i) {
  		case 'm':
 			if (ctx) {
@@ -766,13 +759,6 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 		case 's':
 			if (ctx) {
 				j = mitsu9550_query_status(ctx);
-				break;
-			}
-			return 1;
-
-		case 'f':
-			if (ctx) {
-				ctx->fast_return = 1;
 				break;
 			}
 			return 1;

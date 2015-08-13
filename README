@@ -133,33 +133,56 @@
       Gutenprint (eg via its gimp plugin) or the Windows print-to-file 
       output.
 
-      Extra debugging output can be enabled by setting the DYESUB_DEBUG
-      environment variable or passing the '-D' argument on the command line.
+      All global arguments:
 
-      If you have multiple models of the same printer family connected
-      simultaneously, the backend will choose the first one it finds.  If you
-      wish to target a specific device, you may specify its serial number
-      in the 'DEVICE' environment variable or by passing the '-S serialnum'
-      argument on the command line.  For example, these are equivalent:
+      	   -D                 Increment debug level                      [1]
+	   -G                 Display GPL text
+	   -f                 Enable fast return mode if possible        [2]
+           -B name            Use Backend 'name'                         [3]
+	   -S serno           Use SerialNum 'serno'                      [4]
+	   -V extra_vid                                                  [5]
+	   -P extra_pid                                                  [5]
+	   -T extra_type                                                 [5]
+	   -d numcopies       Print 'numcopies' of the supplied job
 
-  	  DEVICE=N782 backend filename [ arguments ]
-	  backend -S N782 filename [ arguments ]
+       [1]  This argument can be repeated to increase the debug level.
+            Alternatively, the 'DYESUB_DEBUG' environment variable can be
+	    used.
 
-      All backends support an additional operational mode, to test out
-      unknown models. To use this mode, specify the VID, PID and its 
-      internal device type as arguments or environment variables:
+       [2]  This terminates the backend as soon as the printer has
+            acknowledged the print job, without waiting for the print job
+	    to complete.  This can also be enabled by setting the
+	    'FAST_RETURN' environment variable.  This is the default behavior
+	    when using this backend with CUPS.  Not all backends support
+	    fast return.
 
- 	  EXTRA_VID=04a9 EXTRA_PID=3ab1 EXTRA_TYPE=7 backend filename
- 	  backend -V 04a9 -P 3ab1 -T 7 filename
+       [3]  Alternatively, you can use the 'BACKEND' environment variable.
 
-      The VID and PID are specified in hexidecimal, and the TYPE is 
-      the P_XXX enumeration defined in backend_common.h. The '7' in this
-      example corresponds to most Canon SELPHY CP models, and is what you
-      would use if you were trying to get the backend to detect an
-      otherwise unrecognized SELPHY CP model.
+       [4]  If you have multiple models of the same printer family connected
+            simultaneously, the backend will choose the first one it finds.
+	    If you wish to target a specific device, you may specify its
+	    serial number with this switch, or using the 'SERIAL' environment
+	    variable.  For example, these are equivalent:
 
-      If you are able to successfuly print using this technique, please let
-      us know so we can add the apppriate entry to the internal database.
+	      	  SERIAL=N782 backend filename [ arguments ]
+		  backend -S N782 filename [ arguments ]
+
+       [5]  All backends support an additional operational mode, to test out
+            unknown models. To use this mode, specify the VID, PID and its
+	    internal device type as arguments or environment variables:
+
+	     	  EXTRA_VID=04a9 EXTRA_PID=3ab1 EXTRA_TYPE=7 backend filename
+		  backend -V 04a9 -P 3ab1 -T 7 filename
+
+	    The VID and PID are specified in hexidecimal, and the TYPE is 
+            the P_XXX enumeration defined in backend_common.h. The '7' in this
+            example corresponds to most Canon SELPHY CP models, and is what you
+            would use if you were trying to get the backend to detect an
+            otherwise unrecognized SELPHY CP model.
+
+            If you are able to successfuly print using this technique,
+	    please let us know so we can add the apppriate entry to the
+	    internal database.
 
       Finally, some backends support additional arguments; see below:
 
@@ -271,7 +294,6 @@
      -c filename        Query User tone curve from flash        [1]
      -C filename        Store User tone curve in flash          [1]
      -e                 Query Error log
-     -f                 Enable Fast return from prints          [2]
      -F                 Flash printer LEDs for 5 seconds
      -i                 Query printer firmware information
      -l filename        Query Current tone curve from RAM       [1]
@@ -292,12 +314,6 @@
 	 Values are unsigned 16-bit big endian, between 0 and 2047 
 	 (ie only 11 bits used)
 
-    [2]  This terminates the backend as soon as the printer has acknowledged
-         the print job, without waiting for the print job to complete.
-         This can also be enabled by setting the 'FAST_RETURN' environment
-         variable.  This is the default behavior when using this backend
-	 with CUPS.
-
     [3]  Job ID is the Internal Job ID (reported via status)
     	   This cancels a multi-copy print job.
 	   To see which jobs are active/pending, see the output of the
@@ -316,30 +332,23 @@
 
    Valid commands:
 
-     -f                 Enable Fast return from prints          [1]
      -s                 Query printer status
      -m                 Query media information
      -u                 Query user string
      -U somestring      Set user string to 'somestring'
-     -X id              Cancel print job 'id'                   [2]
+     -X id              Cancel print job 'id'                   [1]
      -F                 Tone curve commands affect FINE table
-     -c filename        Query User tone curve from flash        [3]
-     -C filename        Store User tone curve in flash          [3]
-     -l filename        Query Current tone curve from RAM       [3]
-     -L filename        Store Current tone curve in RAM         [3]
+     -c filename        Query User tone curve from flash        [2]
+     -C filename        Store User tone curve in flash          [2]
+     -l filename        Query Current tone curve from RAM       [2]
+     -L filename        Store Current tone curve in RAM         [2]
 
-    [1]  This terminates the backend as soon as the printer has acknowledged
-         the print job, without waiting for the print job to complete.
-         This can also be enabled by setting the 'FAST_RETURN' environment
-         variable.  This is the default behavior when using this backend
-	 with CUPS.
-	 
-    [2]  Job ID is the Internal Job ID (reported via status)
+    [1]  Job ID is the Internal Job ID (reported via status)
     	   This cancels a multi-copy print job.
 	   To see which jobs are active/pending, see the output of the
 	   '-s' command, specifically the 'Bank' output.
 
-    [3]  Format of tone curve file:
+    [2]  Format of tone curve file:
 
 	 256 entries each of Yellow, Magenta, Cyan mappings:
 	 Values are unsigned 16-bit big endian, between 0 and 16383
@@ -365,17 +374,16 @@
      -c filename        Query User tone curve from flash        [1]
      -C filename        Store User tone curve in flash          [1]
      -e                 Query Error log
-     -f                 Enable Fast return from prints          [2]
      -F                 Flash printer LEDs for 5 seconds
      -i                 Query printer firmware information
      -k num		Specify standby delay (5-240 minutes)
      -l filename        Query Current tone curve from RAM       [1]
      -L filename        Store Current tone curve in RAM         [1]
      -m                 Query media information
-     -r                 Reset User tone curve to default        [4]
+     -r                 Reset User tone curve to default        [3]
      -R                 Reset printer to factory defaults
      -s                 Query printer status
-     -X id              Cancel print job 'id'                    [3]
+     -X id              Cancel print job 'id'                   [2]
 
   Notes:
 
@@ -385,18 +393,12 @@
 	 Values are unsigned 16-bit big endian, between 0 and 2047 
 	 (ie only 11 bits used)
 
-    [2]  This terminates the backend as soon as the printer has acknowledged
-         the print job, without waiting for the print job to complete.
-         This can also be enabled by setting the 'FAST_RETURN' environment
-         variable.  This is the default behavior when using this backend
-	 with CUPS.
-
-    [3]  Job ID is the Internal Job ID (reported via status)
+    [2]  Job ID is the Internal Job ID (reported via status)
     	   This cancels a multi-copy print job.
 	   To see which jobs are active/pending, see the output of the
 	   '-s' command, specifically the 'Bank' output.
 
-    [4]  Default printer tone curve is a linear 'val << 3'
+    [3]  Default printer tone curve is a linear 'val << 3'
 
  *************************************************************************** 
   BACKEND=shinkos6245
@@ -412,17 +414,16 @@
      -c filename        Query User tone curve from flash        [1]
      -C filename        Store User tone curve in flash          [1]
      -e                 Query Error log
-     -f                 Enable Fast return from prints          [2]
      -F                 Flash printer LEDs for 5 seconds
      -i                 Query printer firmware information
      -k num		Specify standby delay (5-240 minutes)
      -l filename        Query Current tone curve from RAM       [1]
      -L filename        Store Current tone curve in RAM         [1]
      -m                 Query media information
-     -r                 Reset User tone curve to default        [4]
+     -r                 Reset User tone curve to default        [3]
      -R                 Reset printer to factory defaults
      -s                 Query printer status
-     -X id              Cancel print job 'id'                    [3]
+     -X id              Cancel print job 'id'                   [2]
 
   Notes:
 
@@ -432,18 +433,12 @@
 	 Values are unsigned 16-bit big endian, between 0 and 2047 
 	 (ie only 11 bits used)
 
-    [2]  This terminates the backend as soon as the printer has acknowledged
-         the print job, without waiting for the print job to complete.
-         This can also be enabled by setting the 'FAST_RETURN' environment
-         variable.  This is the default behavior when using this backend
-	 with CUPS.
-
-    [3]  Job ID is the Internal Job ID (reported via status)
+    [2]  Job ID is the Internal Job ID (reported via status)
     	   This cancels a multi-copy print job.
 	   To see which jobs are active/pending, see the output of the
 	   '-s' command, specifically the 'Bank' output.
 
-    [4]  Default printer tone curve is a linear 'val << 3'
+    [3]  Default printer tone curve is a linear 'val << 3'
 
  *************************************************************************** 
   BACKEND=sonyupdr150
@@ -494,14 +489,8 @@
 
    Valid commands:
 
-     -m                 Query printer media status
-     -f                 Enable Fast return from prints          [1]
-
-    [1]  This terminates the backend as soon as the printer has acknowledged
-         the print job, without waiting for the print job to complete.
-         This can also be enabled by setting the 'FAST_RETURN' environment
-         variable.  This is the default behavior when using this backend
-	 with CUPS.
+     -s                 Query printer status
+     -m                 Query printer media
 
  *************************************************************************** 
   BACKEND=dnpds40

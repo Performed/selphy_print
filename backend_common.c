@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.57"
+#define BACKEND_VERSION "0.58"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -37,6 +37,7 @@
 /* Global Variables */
 int dyesub_debug = 0;
 int terminate = 0;
+int fast_return = 0;
 
 /* Local Global Variables */
 static int extra_vid = -1;
@@ -682,16 +683,19 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 	
 	if (!backend) {
 		int i;
+		DEBUG("Environment variables:\n");
+		DEBUG(" DYESUB_DEBUG EXTRA_PID EXTRA_VID EXTRA_TYPE BACKEND SERIAL\n");
 		DEBUG("CUPS Usage:\n");
 		DEBUG("\tDEVICE_URI=someuri %s job user title num-copies options [ filename ]\n", URI_PREFIX);
 		DEBUG("\n");
 		DEBUG("Standalone Usage:\n");
 		DEBUG("\t%s\n", URI_PREFIX);
-		DEBUG("  [ -D ] [ -G ]\n");
+		DEBUG("  [ -D ] [ -G ] [ -f ]\n");
 		DEBUG("  [ -S serialnum ] [ -B backendname ] \n");
 		DEBUG("  [ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
 		DEBUG("  [ backend_specific_args ] \n");
-		DEBUG("  [ -d copies ] [ - | infile ] \n");
+		DEBUG("  [ -d copies ] \n");
+		DEBUG("  [ - | infile ] \n");
 		for (i = 0; ; i++) {
 			backend = backends[i];
 			if (!backend)
@@ -763,7 +767,7 @@ int main (int argc, char **argv)
 
 	/* First pass at cmdline parsing */
 	if (getenv("DYESUB_DEBUG"))
-		dyesub_debug++;
+		dyesub_debug = atoi(getenv("DYESUB_DEBUG"));
 	if (getenv("EXTRA_PID"))
 		extra_pid = strtol(getenv("EXTRA_PID"), NULL, 16);
 	if (getenv("EXTRA_VID"))
@@ -772,120 +776,24 @@ int main (int argc, char **argv)
 		extra_type = atoi(getenv("EXTRA_TYPE"));
 	if (getenv("BACKEND"))
 		backend = find_backend(getenv("BACKEND"));
-	use_serno = getenv("DEVICE");
-	uri = getenv("DEVICE_URI");  /* For CUPS */
+	if (getenv("FAST_RETURN"))
+		fast_return++;
+	use_serno = getenv("SERIAL");
+	uri = getenv("DEVICE_URI");  /* CUPS backend mode? */
 
-	/* Try to ensure we have a sane backend for standalone mode.
-	   CUPS mode uses 'uri' later on. */
-	if (!backend) {
-		char *ptr = strrchr(argv[0], '/');
-		if (ptr)
-			ptr++;
-		else
-			ptr = argv[0];
-		backend = find_backend(ptr);
-	}
-
-	/* Reset arg parsing */
-	optind = 1;
-	opterr = 0;
-	while ((i = getopt(argc, argv, "B:d:DGhP:S:T:V:")) >= 0) {
-		switch(i) {
-		case 'B':
-			backend = find_backend(optarg);
-			if (!backend) {
-				fprintf(stderr, "ERROR:  Unknown backend '%s'\n", optarg);
-			}
-			break;
-		case 'd':
-			copies = atoi(optarg);
-			break;
-		case 'D':
-			dyesub_debug++;
-			break;
-		case 'G':
-			print_license_blurb();
-			exit(0);
-		case 'h':
-			print_help(argv[0], backend);
-			exit(0);
-			break;
-		case 'P':
-			extra_pid = strtol(optarg, NULL, 16);
-			break;
-		case 'S':
-			use_serno = optarg;
-			break;
-		case 'T':
-			extra_type = atoi(optarg);
-			break;
-		case 'V':
-			extra_pid = strtol(optarg, NULL, 16);
-			break;
-		default: {
-			/* Check to see if it is claimed by the backend */
-			if (backend && backend->cmdline_arg) {
-				int keep = optind;
-				int boo;
-
-				boo = backend->cmdline_arg(NULL, argc, argv);
-				backend_cmd += boo;
-
-				if (boo > 1)
-					keep++;
-
-				optind = keep;
-			}
-			break;
-		}
-		}
-	}
-
-#ifndef LIBUSB_PRE_1_0_10
-	if (dyesub_debug) {
-		const struct libusb_version *ver;
-		ver = libusb_get_version();
-		DEBUG(" ** running with libusb %d.%d.%d%s (%d)\n",
-		      ver->major, ver->minor, ver->micro, (ver->rc? ver->rc : ""), ver->nano );
-	}
-#endif
-
-	/* Make sure a filename was specified */
-	if (!backend_cmd && (optind == argc || !argv[optind])) {
-		print_help(argv[0], backend);
-		exit(0);
-	}
-
-	/* Are we running as a CUPS backend? */
 	if (uri) {
-		int base = optind; // XXX aka 1.
-		fname = argv[base + 5];
+		/* CUPS backend mode */
+		int base = optind; /* ie 1 */
+		if (argc < 6) {
+			ERROR("Insufficient arguments\n");
+			exit(1);
+		}
 		if (argv[base])
 			jobid = atoi(argv[base]);
 		if (argv[base + 3])
 			copies = atoi(argv[base + 3]);
-		if (fname) {  /* IOW, is it specified? */
-			data_fd = open(fname, O_RDONLY);
-			if (data_fd < 0) {
-				perror("ERROR:Can't open input file");
-				exit(1);
-			}
-		} else {
-			fname = "-";
-		}
-
-		/* Ensure we're using BLOCKING I/O */
-		i = fcntl(data_fd, F_GETFL, 0);
-		if (i < 0) {
-			perror("ERROR:Can't open input");
-			exit(1);
-		}
-		i &= ~O_NONBLOCK;
-		i = fcntl(data_fd, F_SETFL, i);
-		if (i < 0) {
-			perror("ERROR:Can't open input");
-			exit(1);
-		}
+		if (argc > 6)
+			fname = argv[base + 5];
 
 		/* Figure out backend based on URI */
 		{
@@ -919,9 +827,87 @@ int main (int argc, char **argv)
 			if (ptr)
 				*ptr = 0;
 		}
+
+		/* Always enable fast return in CUPS mode */
+		fast_return++;
 	} else {
-		srand(getpid());
-		jobid = rand();
+		/* Standalone mode */		
+
+		/* Try to guess backend from executable name */
+		if (!backend) {
+			char *ptr = strrchr(argv[0], '/');
+			if (ptr)
+				ptr++;
+			else
+				ptr = argv[0];
+			backend = find_backend(ptr);
+		}
+
+		/* Reset arg parsing */
+		optind = 1;
+		opterr = 0;
+		while ((i = getopt(argc, argv, "B:d:DfGhP:S:T:V:")) >= 0) {
+			switch(i) {
+			case 'B':
+				backend = find_backend(optarg);
+				if (!backend) {
+					fprintf(stderr, "ERROR:  Unknown backend '%s'\n", optarg);
+					exit(1);
+				}
+				break;
+			case 'd':
+				copies = atoi(optarg);
+				break;
+			case 'D':
+				dyesub_debug++;
+				break;
+			case 'f':
+				fast_return++;
+				break;
+			case 'G':
+				print_license_blurb();
+				exit(0);
+			case 'h':
+				print_help(argv[0], backend);
+				exit(0);
+			case 'P':
+				extra_pid = strtol(optarg, NULL, 16);
+				break;
+			case 'S':
+				use_serno = optarg;
+				break;
+			case 'T':
+				extra_type = atoi(optarg);
+				break;
+			case 'V':
+				extra_pid = strtol(optarg, NULL, 16);
+				break;
+			default: {
+				/* Check to see if it is claimed by the backend */
+				if (backend && backend->cmdline_arg) {
+					int keep = optind;
+					int boo;
+
+					boo = backend->cmdline_arg(NULL, argc, argv);
+					backend_cmd += boo;
+
+					if (boo > 1)
+						keep++;
+
+					optind = keep;
+				}
+				break;
+			}
+			}
+		}
+
+		/* Make sure a filename was specified */
+		if (optind >= argc || !argv[optind]) {
+			if (!backend_cmd)
+				print_help(argv[0], backend);
+
+			exit(0);
+		}
 
 		/* Grab the filename */
 		fname = argv[optind];
@@ -930,16 +916,47 @@ int main (int argc, char **argv)
 			perror("ERROR:No input file");
 			exit(1);
 		}
-		if (fname) {
-			/* Open Input File */
-			if (strcmp("-", fname)) {
-				data_fd = open(fname, O_RDONLY);
-				if (data_fd < 0) {
-					perror("ERROR:Can't open input file");
-					exit(1);
-				}
-			}
+
+		srand(getpid());
+		jobid = rand();
+	}
+
+#ifndef LIBUSB_PRE_1_0_10
+	if (dyesub_debug) {
+		const struct libusb_version *ver;
+		ver = libusb_get_version();
+		DEBUG(" ** running with libusb %d.%d.%d%s (%d)\n",
+		      ver->major, ver->minor, ver->micro, (ver->rc? ver->rc : ""), ver->nano );
+	}
+#endif
+
+	/* Make sure we have a sane backend */
+	if (!backend) {
+		fprintf(stderr, "ERROR:  Unknown backend\n");
+		exit(1);
+	}
+
+	if (fname && strcmp("-", fname)) {
+		data_fd = open(fname, O_RDONLY);
+		if (data_fd < 0) {
+			perror("ERROR:Can't open input file");
+			exit(1);
 		}
+	} else {
+		fname = "-";
+	}
+
+	/* Ensure we're using BLOCKING I/O */
+	i = fcntl(data_fd, F_GETFL, 0);
+	if (i < 0) {
+		perror("ERROR:Can't open input");
+		exit(1);
+	}
+	i &= ~O_NONBLOCK;
+	i = fcntl(data_fd, F_SETFL, i);
+	if (i < 0) {
+		perror("ERROR:Can't open input");
+		exit(1);
 	}
 
 	/* Ignore SIGPIPE */

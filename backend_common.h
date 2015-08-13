@@ -150,6 +150,7 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 /* Exported data */
 extern int terminate;
 extern int dyesub_debug;
+extern int fast_return;
 
 /* External data */
 extern struct dyesub_backend updr150_backend;

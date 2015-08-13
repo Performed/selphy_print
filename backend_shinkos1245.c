@@ -403,7 +403,6 @@ struct shinkos1245_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 	uint8_t jobid;
-	uint8_t fast_return;
 
 	struct s1245_printjob_hdr hdr;
 
@@ -1140,7 +1139,6 @@ done:
 
 static void shinkos1245_cmdline(void)
 {
-	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -u ]           # Query user string\n");
@@ -1161,7 +1159,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "c:C:l:L:FfmsuU:X:")) >= 0) {
+	while ((i = getopt(argc, argv, "c:C:l:L:FmsuU:X:")) >= 0) {
 		switch(i) {
 		case 'F':
 			if (ctx) {
@@ -1193,12 +1191,6 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 				break;
 			}
 			return 2;
-		case 'f':
-			if (ctx) {
-				ctx->fast_return = 1;
-				break;
-			}
-			return 1;
 		case 'm':
 			if (ctx) {
 				j = shinkos1245_get_media(ctx);
@@ -1259,10 +1251,6 @@ static void *shinkos1245_init(void)
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct shinkos1245_ctx));
-
-	/* Use Fast return by default in CUPS mode */
-	if (getenv("DEVICE_URI") || getenv("FAST_RETURN"))
-		ctx->fast_return = 1;
 
 	ctx->tonecurve = PARAM_TABLE_STANDARD;
 
@@ -1554,7 +1542,7 @@ top:
 		break;
 	}
 	case S_PRINTER_SENT_DATA:
-		if (ctx->fast_return) {
+		if (fast_return) {
 			INFO("Fast return mode enabled.\n");
 			state = S_FINISHED;
 		}

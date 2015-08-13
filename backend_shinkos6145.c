@@ -99,7 +99,6 @@ struct shinkos6145_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 	uint8_t jobid;
-	uint8_t fast_return;
 
 	struct s6145_printjob_hdr hdr;
 
@@ -1362,7 +1361,6 @@ static void shinkos6145_cmdline(void)
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
 	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
 	DEBUG("\t\t[ -e ]           # Query error log\n");
-	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -F ]           # Flash Printer LED\n");
 	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -k num ]       # Set sleep time (5-240 minutes)\n");
@@ -1383,7 +1381,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "c:C:efFik:l:L:mr:R:sX:")) >= 0) {
+	while ((i = getopt(argc, argv, "c:C:eFik:l:L:mr:R:sX:")) >= 0) {
 		switch(i) {
 		case 'c':
 			if (ctx) {
@@ -1400,12 +1398,6 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 		case 'e':
 			if (ctx) {
 				j = get_errorlog(ctx);
-				break;
-			}
-			return 1;
-		case 'f':
-			if (ctx) {
-				ctx->fast_return = 1;
 				break;
 			}
 			return 1;
@@ -1502,10 +1494,6 @@ static void *shinkos6145_init(void)
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct shinkos6145_ctx));
-
-	/* Use Fast return by default in CUPS mode */
-	if (getenv("DEVICE_URI") || getenv("FAST_RETURN"))
-		ctx->fast_return = 1;
 
 	return ctx;
 }
@@ -1786,7 +1774,7 @@ top:
 		state = S_PRINTER_SENT_DATA;
 		break;
 	case S_PRINTER_SENT_DATA:
-		if (ctx->fast_return) {
+		if (fast_return) {
 			INFO("Fast return mode enabled.\n");
 			state = S_FINISHED;
 		} else if (sts->hdr.status == STATUS_READY) {
