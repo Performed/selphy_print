@@ -617,7 +617,7 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 		else
 			printer_type = P_ES40;			
 	}
-
+	
 	/* Look up the printer entry */
 	for (i = 0; selphy_printers[i].type != -1; i++) {
 		if (selphy_printers[i].type == printer_type) {
@@ -629,6 +629,9 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 		ERROR("Unrecognized printjob file format!\n");
 		return -1;
 	}
+
+	INFO("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
+
 	if (ctx->printer->type != ctx->type) {
 		ERROR("Printer/Job mismatch (%d/%d)\n", ctx->type, ctx->printer->type);
 		return -1;
@@ -639,8 +642,6 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 		ctx->paper_code = ctx->printer->paper_codes[ctx->buffer[ctx->printer->pgcode_offset]];
 	else
 		ctx->paper_code = -1;
-
-	INFO("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
 
 	return printer_type;
 }
@@ -656,7 +657,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	/* Perform early parsing */
 	i = canonselphy_early_parse(ctx, data_fd);
 	if (i < 0)
-		return i;
+		return CUPS_BACKEND_FAILED;
 
 	if (ctx->header) {
 		free(ctx->header);
