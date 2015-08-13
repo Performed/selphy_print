@@ -91,7 +91,6 @@ enum {
 	P_ES1,
 	P_ES2_20,
 	P_ES3_30,
-	P_ES40_CP790,
 	P_ES40,
 	P_CP790,
 	P_CP_XXX,
@@ -107,7 +106,9 @@ enum {
 	P_SONY_UPDR150,
 	P_SONY_UPCR10,
 	P_MITSU_D70X,
+	P_MITSU_K60,	
 	P_MITSU_9550,
+	P_MITSU_9550S,	
 	P_DNP_DS40,
 	P_DNP_DS80,
 	P_CITIZEN_CW01,
@@ -145,6 +146,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int len);
 int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int buflen, int *readlen);
+int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor, uint16_t idProduct);
 
 /* Global data */
 extern int terminate;
@@ -153,21 +155,6 @@ extern int fast_return;
 extern int extra_vid;
 extern int extra_pid;
 extern int extra_type;
-
-/* External data */
-extern struct dyesub_backend updr150_backend;
-extern struct dyesub_backend kodak6800_backend;
-extern struct dyesub_backend kodak605_backend;
-extern struct dyesub_backend kodak1400_backend;
-extern struct dyesub_backend shinkos1245_backend;
-extern struct dyesub_backend shinkos2145_backend;
-extern struct dyesub_backend shinkos6145_backend;
-extern struct dyesub_backend shinkos6245_backend;
-extern struct dyesub_backend canonselphy_backend;
-extern struct dyesub_backend mitsu70x_backend;
-extern struct dyesub_backend mitsu9550_backend;
-extern struct dyesub_backend dnpds40_backend;
-extern struct dyesub_backend cw01_backend;
 
 /* CUPS compatibility */
 #define CUPS_BACKEND_OK            0 /* Sucess */

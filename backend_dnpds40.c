@@ -315,6 +315,8 @@ static void *dnpds40_init(void)
 	((ctx->ver_major > (__major)) || \
 	 (ctx->ver_major == (__major) && ctx->ver_minor >= (__minor)))
 
+extern struct dyesub_backend dnpds40_backend;
+
 static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
@@ -330,6 +332,9 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
+
+	ctx->type = lookup_printer_type(&dnpds40_backend,
+					desc.idVendor, desc.idProduct);
 
 	{
 		/* Get Firmware Version */
@@ -400,9 +405,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 #endif
 
 	/* Per-printer options */
-	switch (desc.idProduct) {
-	case USB_PID_DNP_DS40:
-		ctx->type = P_DNP_DS40;
+	switch (ctx->type) {
+	case P_DNP_DS40:
 		ctx->supports_6x9 = 1;
 		if (FW_VER_CHECK(1,30))
 			ctx->supports_matte = 1;
@@ -413,20 +417,17 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		if (FW_VER_CHECK(1,51))
 			ctx->supports_fullcut = 1;
 		break;
-	case USB_PID_DNP_DS80:
-		ctx->type = P_DNP_DS80;
+	case P_DNP_DS80:
 		if (FW_VER_CHECK(1,30))
 			ctx->supports_matte = 1;
 		break;
-	case USB_PID_DNP_DSRX1:
-		ctx->type = P_DNP_DSRX1;
+	case P_DNP_DSRX1:
 		ctx->supports_matte = 1;
 		ctx->supports_mqty_default = 1; // 1.10 does. Maybe older too?
 		if (FW_VER_CHECK(1,10))
 			ctx->supports_2x6 = 1;
 		break;
-	case USB_PID_DNP_DS620:
-		ctx->type = P_DNP_DS620;
+	case P_DNP_DS620:
 		ctx->supports_matte = 1;
 		ctx->supports_2x6 = 1;
 		ctx->supports_fullcut = 1;
@@ -440,7 +441,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->supports_6x9 = ctx->supports_6x4_5 = 1;
 		break;
 	default:
-		ERROR("Unknown USB PID...\n");
+		ERROR("Unknown vid/pid %04x/%04x (%d)\n", desc.idVendor, desc.idProduct, ctx->type);
 		return;
 	}
 }

@@ -48,12 +48,12 @@ struct updr150_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int type;
 
 	uint8_t *databuf;
 	int datalen;
 
 	uint32_t copies_offset;
-	uint8_t type;
 };
 
 static void* updr150_init(void)
@@ -66,6 +66,8 @@ static void* updr150_init(void)
 	memset(ctx, 0, sizeof(struct updr150_ctx));
 	return ctx;
 }
+
+extern struct dyesub_backend updr150_backend;
 
 static void updr150_attach(void *vctx, struct libusb_device_handle *dev, 
 			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
@@ -82,11 +84,9 @@ static void updr150_attach(void *vctx, struct libusb_device_handle *dev,
 
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
-	if (desc.idProduct == USB_PID_SONY_UPDR150 ||
-	    desc.idProduct == USB_PID_SONY_UPDR200)
-		ctx->type = P_SONY_UPDR150;
-	else
-		ctx->type = P_SONY_UPCR10; // XXX
+
+	ctx->type = lookup_printer_type(&updr150_backend,
+					desc.idVendor, desc.idProduct);	
 
 	ctx->copies_offset = 0;
 }

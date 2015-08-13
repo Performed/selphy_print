@@ -37,6 +37,8 @@
 
 #include "backend_common.h"
 
+#define P_ES40_CP790 (P_END + 1) // used for detection only
+
 /* Exported */
 #define USB_VID_CANON       0x04a9
 #define USB_PID_CANON_CP10  0x304A
@@ -291,13 +293,6 @@ static struct printer_data selphy_printers[] = {
 	  .paper_code_offset = -1,
 	  .error_detect = es3_error_detect,
 	},
-	/* PLACEHOLDER FOR DETECTION PURPOSES ONLY */
-	{ .type = P_ES40_CP790,
-	  .model = "SELPHY ES40/CP790",
-	  .init_length = 16,
-	  .foot_length = 12,
-	  .pgcode_offset = 2,
-	},
 	{ .type = P_ES40,
 	  .model = "SELPHY ES40",
 	  .init_length = 16,
@@ -504,6 +499,7 @@ struct canonselphy_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int type;
 
 	struct printer_data *printer;
 
@@ -546,6 +542,8 @@ static void *canonselphy_init(void)
 	return ctx;
 }
 
+extern struct dyesub_backend canonselphy_backend;
+
 static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev, 
 			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
@@ -562,25 +560,11 @@ static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
 
-	/* Special cases for some models */
-	if (ctx->printer->type == P_ES40_CP790) {
-		int i;
-		int printer_type = -1;
-		
-		if (desc.idProduct == USB_PID_CANON_CP790)
-			printer_type = P_CP790;
-		else if (desc.idProduct == USB_PID_CANON_ES40)
-			printer_type = P_ES40;
+	ctx->type = lookup_printer_type(&canonselphy_backend,
+					desc.idVendor, desc.idProduct);
 
-		for (i = 0; selphy_printers[i].type != -1; i++) {
-			if (selphy_printers[i].type == printer_type) {
-				ctx->printer = &selphy_printers[i];
-				break;
-			}
-		}
-	} else if (desc.idProduct == USB_PID_CANON_CP900) {
+	if (desc.idProduct == USB_PID_CANON_CP900)
 		ctx->cp900 = 1;
-	}
 }
 
 static void canonselphy_teardown(void *vctx) {
@@ -626,6 +610,15 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 	}
 
 	printer_type = parse_printjob(ctx->buffer, &ctx->bw_mode, &ctx->plane_len);
+	/* Special cases for some models */
+	if (printer_type == P_ES40_CP790) {
+		if (ctx->type == P_CP790)
+			printer_type = P_CP790;
+		else
+			printer_type = P_ES40;			
+	}
+
+	/* Look up the printer entry */
 	for (i = 0; selphy_printers[i].type != -1; i++) {
 		if (selphy_printers[i].type == printer_type) {
 			ctx->printer = &selphy_printers[i];
@@ -634,6 +627,10 @@ static int canonselphy_early_parse(void *vctx, int data_fd)
 	}
 	if (!ctx->printer) {
 		ERROR("Unrecognized printjob file format!\n");
+		return -1;
+	}
+	if (ctx->printer->type != ctx->type) {
+		ERROR("Printer/Job mismatch (%d/%d)\n", ctx->type, ctx->printer->type);
 		return -1;
 	}
 
@@ -660,9 +657,6 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	i = canonselphy_early_parse(ctx, data_fd);
 	if (i < 0)
 		return i;
-	if (ctx->printer->type != i) {
-		ERROR("Job/Printer mismatch (%d/%d)\n", i, ctx->printer->type);
-	}
 
 	if (ctx->header) {
 		free(ctx->header);
@@ -801,7 +795,7 @@ top:
 		
 		/* Make sure paper/ribbon is correct */
 		if (ctx->paper_code != -1) {
-			if (ctx->printer->type == P_CP_XXX) {
+			if (ctx->type == P_CP_XXX) {
 				uint8_t pc = rdbuf[ctx->printer->paper_code_offset];
 				if (((pc >> 4) & 0xf) != (ctx->paper_code & 0x0f)) {
 
@@ -832,7 +826,7 @@ top:
 					return CUPS_BACKEND_HOLD;  /* Hold this job, don't stop queue */
 				}
 			}
-		} else if (ctx->printer->type == P_CP790) {
+		} else if (ctx->type == P_CP790) {
 			uint8_t ribbon = rdbuf[4] >> 4;
 			uint8_t paper = rdbuf[5];
 
@@ -986,7 +980,7 @@ struct dyesub_backend canonselphy_backend = {
 	{ USB_VID_CANON, USB_PID_CANON_CP760, P_CP_XXX, ""},
 	{ USB_VID_CANON, USB_PID_CANON_CP770, P_CP_XXX, ""},
 	{ USB_VID_CANON, USB_PID_CANON_CP780, P_CP_XXX, ""},
-	{ USB_VID_CANON, USB_PID_CANON_CP790, P_ES40_CP790, ""},
+	{ USB_VID_CANON, USB_PID_CANON_CP790, P_CP790, ""},
 	{ USB_VID_CANON, USB_PID_CANON_CP800, P_CP_XXX, ""},
 	{ USB_VID_CANON, USB_PID_CANON_CP810, P_CP_XXX, ""},
 	{ USB_VID_CANON, USB_PID_CANON_CP900, P_CP_XXX, ""},
@@ -995,7 +989,7 @@ struct dyesub_backend canonselphy_backend = {
 	{ USB_VID_CANON, USB_PID_CANON_ES20, P_ES2_20, ""},
 	{ USB_VID_CANON, USB_PID_CANON_ES3, P_ES3_30, ""},
 	{ USB_VID_CANON, USB_PID_CANON_ES30, P_ES3_30, ""},
-	{ USB_VID_CANON, USB_PID_CANON_ES40, P_ES40_CP790, ""},
+	{ USB_VID_CANON, USB_PID_CANON_ES40, P_ES40, ""},
 	{ 0, 0, 0, ""}
 	}
 };

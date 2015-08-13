@@ -77,6 +77,7 @@ struct kodak1400_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int type;
 
 	struct kodak1400_hdr hdr;
 	uint8_t *plane_r;
@@ -291,18 +292,27 @@ static void *kodak1400_init(void)
 	return ctx;
 }
 
+extern struct dyesub_backend kodak1400_backend;
+
 static void kodak1400_attach(void *vctx, struct libusb_device_handle *dev, 
 			     uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct kodak1400_ctx *ctx = vctx;
+	struct libusb_device *device;
+	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-}
 
+	device = libusb_get_device(dev);
+	libusb_get_device_descriptor(device, &desc);
+
+	ctx->type = lookup_printer_type(&kodak1400_backend,
+					desc.idVendor, desc.idProduct);
+}
 
 static void kodak1400_teardown(void *vctx) {
 	struct kodak1400_ctx *ctx = vctx;

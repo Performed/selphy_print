@@ -46,6 +46,7 @@ struct mitsu9550_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int type;
 
 	uint8_t *databuf;
 	int datalen;
@@ -150,6 +151,8 @@ static void *mitsu9550_init(void)
 	return ctx;
 }
 
+extern struct dyesub_backend mitsu9550_backend;
+
 static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
@@ -166,8 +169,8 @@ static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
 
-	if (desc.idProduct == USB_PID_MITSU_9550DS)
-		ctx->is_s_variant = 1;
+	ctx->type = lookup_printer_type(&mitsu9550_backend,
+					desc.idVendor, desc.idProduct);	
 }
 
 
@@ -334,7 +337,7 @@ static int mitsu9550_main_loop(void *vctx, int copies) {
 	ptr = ctx->databuf;
 	
 top:
-	if (ctx->is_s_variant) {
+	if (ctx->type == P_MITSU_9550S) {
 		int num;
 		
 		/* Send "unknown 1" command */
@@ -399,7 +402,7 @@ top:
 
 	/* Now it's time for the actual print job! */
 	
-	if (ctx->is_s_variant) {
+	if (ctx->type == P_MITSU_9550S) {
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x44;
 		cmd.cmd[2] = 0;
@@ -457,7 +460,7 @@ top:
 			     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr3))))
 		return CUPS_BACKEND_FAILED;
 	ptr += sizeof(struct mitsu9550_hdr3);
-	if (!ctx->is_s_variant) {
+	if (ctx->type != P_MITSU_9550S) {
 		// XXX need to investigate what hdr4 is about
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr4))))
@@ -465,7 +468,7 @@ top:
 	}
 	ptr += sizeof(struct mitsu9550_hdr4);
 	
-	if (ctx->is_s_variant) {
+	if (ctx->type == P_MITSU_9550S) {
 		/* Send "start data" command */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x5a;
@@ -540,7 +543,7 @@ top:
 		}
 	}
 	
-	if (ctx->is_s_variant) {
+	if (ctx->type == P_MITSU_9550S) {
 		/* Send "end data" command */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x50;
@@ -787,7 +790,7 @@ struct dyesub_backend mitsu9550_backend = {
 	.query_serno = mitsu9550_query_serno,
 	.devices = {
 	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, ""},
 	{ 0, 0, 0, ""}
 	}
 };

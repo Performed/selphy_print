@@ -98,6 +98,8 @@ struct shinkos6145_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int type;
+
 	uint8_t jobid;
 
 	struct s6145_printjob_hdr hdr;
@@ -1498,15 +1500,25 @@ static void *shinkos6145_init(void)
 	return ctx;
 }
 
+extern struct dyesub_backend shinkos6145_backend;
+
 static void shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, 
 			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos6145_ctx *ctx = vctx;
+	struct libusb_device *device;
+	struct libusb_device_descriptor desc;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
 
+	device = libusb_get_device(dev);
+	libusb_get_device_descriptor(device, &desc);
+	
+	ctx->type = lookup_printer_type(&shinkos6145_backend,
+					desc.idVendor, desc.idProduct);	
+	
 	/* Ensure jobid is sane */
 	ctx->jobid = (jobid & 0x7f) + 1;
 }

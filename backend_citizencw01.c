@@ -68,6 +68,7 @@ struct cw01_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int type;
 
 	uint8_t *databuf;
 	struct cw01_spool_hdr hdr;
@@ -292,16 +293,26 @@ static void *cw01_init(void)
 	return ctx;
 }
 
+extern struct dyesub_backend cw01_backend;
+
 static void cw01_attach(void *vctx, struct libusb_device_handle *dev,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct cw01_ctx *ctx = vctx;
+	struct libusb_device *device;
+	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+
+	device = libusb_get_device(dev);
+	libusb_get_device_descriptor(device, &desc);
+	
+	ctx->type = lookup_printer_type(&cw01_backend,
+					desc.idVendor, desc.idProduct);
 }
 
 static void cw01_teardown(void *vctx) {

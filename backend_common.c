@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.58"
+#define BACKEND_VERSION "0.59"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -539,6 +539,20 @@ abort:
 
 	return found;
 }
+
+extern struct dyesub_backend updr150_backend;
+extern struct dyesub_backend kodak6800_backend;
+extern struct dyesub_backend kodak605_backend;
+extern struct dyesub_backend kodak1400_backend;
+extern struct dyesub_backend shinkos1245_backend;
+extern struct dyesub_backend shinkos2145_backend;
+extern struct dyesub_backend shinkos6145_backend;
+extern struct dyesub_backend shinkos6245_backend;
+extern struct dyesub_backend canonselphy_backend;
+extern struct dyesub_backend mitsu70x_backend;
+extern struct dyesub_backend mitsu9550_backend;
+extern struct dyesub_backend dnpds40_backend;
+extern struct dyesub_backend cw01_backend;
 
 static struct dyesub_backend *backends[] = {
 	&canonselphy_backend,
@@ -1079,3 +1093,26 @@ done:
 	return ret;
 }
 
+int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor, uint16_t idProduct)
+{
+	int i;
+	int type = -1;
+	
+	for (i = 0 ; backend->devices[i].vid ; i++) {
+		if (extra_pid != -1 &&
+		    extra_vid != -1 &&
+		    extra_type != -1) {
+			if (backend->devices[i].type == extra_type &&
+			    extra_vid == idVendor &&
+			    extra_pid == idProduct) {
+				return extra_type;
+			}
+		}
+		if (idVendor == backend->devices[i].vid &&
+		    idProduct == backend->devices[i].pid) {
+			return backend->devices[i].type;
+		}
+	}
+
+	return type;
+}

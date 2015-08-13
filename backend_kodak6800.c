@@ -651,6 +651,8 @@ static void *kodak6800_init(void)
 	return ctx;
 }
 
+extern struct dyesub_backend kodak6800_backend;
+
 static void kodak6800_attach(void *vctx, struct libusb_device_handle *dev, 
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
@@ -667,11 +669,8 @@ static void kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
 
-	/* Map out device type */
-	if (desc.idProduct == USB_PID_KODAK_6850)
-		ctx->type = P_KODAK_6850;
-	else
-		ctx->type = P_KODAK_6800;
+	ctx->type = lookup_printer_type(&kodak6800_backend,
+					desc.idVendor, desc.idProduct);	
 }
 
 static void kodak6800_teardown(void *vctx) {

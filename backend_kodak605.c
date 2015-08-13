@@ -74,6 +74,7 @@ struct kodak605_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int type;
 
 	struct kodak605_hdr hdr;
 	uint8_t *databuf;
@@ -104,6 +105,8 @@ static void *kodak605_init(void)
 	return ctx;
 }
 
+extern struct dyesub_backend kodak605_backend;
+
 static void kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
@@ -119,7 +122,9 @@ static void kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
-
+	
+	ctx->type = lookup_printer_type(&kodak605_backend,
+					desc.idVendor, desc.idProduct);	
 }
 
 static void kodak605_teardown(void *vctx) {
