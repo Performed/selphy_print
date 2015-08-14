@@ -872,6 +872,12 @@ top:
 		} else {
 			break;
 		}
+
+		if (fast_return) {
+			INFO("Fast return mode enabled.\n");
+			break;
+		}
+
 		sleep(1);
 	}
 	
@@ -891,7 +897,7 @@ top:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.43",
+	.version = "0.44",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
