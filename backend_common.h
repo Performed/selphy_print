@@ -148,6 +148,9 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int buflen, int *readlen);
 int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor, uint16_t idProduct);
 
+void print_license_blurb(void);
+void print_help(char *argv0, struct dyesub_backend *backend);
+
 /* Global data */
 extern int terminate;
 extern int dyesub_debug;
@@ -155,6 +158,12 @@ extern int fast_return;
 extern int extra_vid;
 extern int extra_pid;
 extern int extra_type;
+extern int copies;
+extern char *use_serno;
+
+#if defined(BACKEND)
+extern struct dyesub_backend BACKEND;
+#endif
 
 /* CUPS compatibility */
 #define CUPS_BACKEND_OK            0 /* Sucess */
@@ -165,5 +174,36 @@ extern int extra_type;
 #define CUPS_BACKEND_CANCEL        5 /* Cancel print job */
 #define CUPS_BACKEND_RETRY         6 /* Retry later */
 #define CUPS_BACKEND_RETRY_CURRENT 7 /* Retry immediately */
+
+/* Argument processing */
+#define GETOPT_LIST_GLOBAL "d:DfGhP:S:T:V:"
+#define GETOPT_PROCESS_GLOBAL \
+			case 'd': \
+				copies = atoi(optarg); \
+				break; \
+			case 'D': \
+				dyesub_debug++; \
+				break; \
+			case 'f': \
+				fast_return++; \
+				break; \
+			case 'G': \
+				print_license_blurb(); \
+				exit(0); \
+			case 'h': \
+				print_help(argv[0], &BACKEND); \
+				exit(0); \
+			case 'P': \
+				extra_pid = strtol(optarg, NULL, 16); \
+				break; \
+			case 'S': \
+				use_serno = optarg; \
+				break; \
+			case 'T': \
+				extra_type = atoi(optarg); \
+				break; \
+			case 'V': \
+				extra_pid = strtol(optarg, NULL, 16); \
+				break;
 
 #endif /* __BACKEND_COMMON_H */

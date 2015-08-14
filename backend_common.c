@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.59"
+#define BACKEND_VERSION "0.60"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -41,6 +41,8 @@ int fast_return = 0;
 int extra_vid = -1;
 int extra_pid = -1;
 int extra_type = -1;
+int copies = 1;
+char *use_serno = NULL;
 
 /* Support Functions */
 static int backend_claim_interface(struct libusb_device_handle *dev, int iface)
@@ -648,7 +650,7 @@ static struct dyesub_backend *find_backend(char *uri_prefix)
 	return NULL;
 }
 
-static void print_license_blurb(void)
+void print_license_blurb(void)
 {
 	const char *license = "\n\
 Copyright 2007-2015 Solomon Peachy <pizza AT shaftnet DOT org>\n\
@@ -671,7 +673,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.\n\
 	fprintf(stderr, "%s", license);
 }
 
-static void print_help(char *argv0, struct dyesub_backend *backend)
+void print_help(char *argv0, struct dyesub_backend *backend)
 {
 	struct libusb_context *ctx = NULL;
 	struct libusb_device **list = NULL;
@@ -696,7 +698,7 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("Standalone Usage:\n");
 		DEBUG("\t%s\n", URI_PREFIX);
 		DEBUG("  [ -D ] [ -G ] [ -f ]\n");
-		DEBUG("  [ -S serialnum ] [ -B backendname ] \n");
+		DEBUG("  [ -S serialnum ] \n");
 		DEBUG("  [ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
 		DEBUG("  [ backend_specific_args ] \n");
 		DEBUG("  [ -d copies ] \n");
@@ -705,7 +707,7 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 			backend = backends[i];
 			if (!backend)
 				break;
-			DEBUG("  -B %s\t# %s version %s\n",
+			DEBUG("  BACKEND=%s\t# %s version %s\n",
 			      backend->uri_prefix, backend->name, backend->version);
 			if (backend->cmdline_usage)
 				backend->cmdline_usage();
@@ -721,6 +723,7 @@ static void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("\t[ -d copies ] [ infile | - ]\n");
 	}
 
+	/* Probe for printers */
 	i = libusb_init(&ctx);
 	if (i) {
 		ERROR("Failed to initialize libusb (%d)\n", i);
@@ -748,19 +751,15 @@ int main (int argc, char **argv)
 
 	int i;
 	int claimed;
-	int backend_cmd = 0;
 
 	int ret = CUPS_BACKEND_OK;
 	int iface = 0;
 	int found = -1;
-	int copies = 1;
 	int jobid = 0;
 	int pages = 0;
 
 	char *uri;
 	char *fname = NULL;
-
-	char *use_serno = NULL;
 
 	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
 	      BACKEND_VERSION);
@@ -848,75 +847,7 @@ int main (int argc, char **argv)
 				ptr = argv[0];
 			backend = find_backend(ptr);
 		}
-
-		/* Reset arg parsing */
-		optind = 1;
-		opterr = 0;
-		while ((i = getopt(argc, argv, "B:d:DfGhP:S:T:V:")) >= 0) {
-			switch(i) {
-			case 'B':
-				backend = find_backend(optarg);
-				if (!backend) {
-					fprintf(stderr, "ERROR:  Unknown backend '%s'\n", optarg);
-					exit(1);
-				}
-				break;
-			case 'd':
-				copies = atoi(optarg);
-				break;
-			case 'D':
-				dyesub_debug++;
-				break;
-			case 'f':
-				fast_return++;
-				break;
-			case 'G':
-				print_license_blurb();
-				exit(0);
-			case 'h':
-				print_help(argv[0], backend);
-				exit(0);
-			case 'P':
-				extra_pid = strtol(optarg, NULL, 16);
-				break;
-			case 'S':
-				use_serno = optarg;
-				break;
-			case 'T':
-				extra_type = atoi(optarg);
-				break;
-			case 'V':
-				extra_pid = strtol(optarg, NULL, 16);
-				break;
-			default: {
-				/* Check to see if it is claimed by the backend */
-				if (backend && backend->cmdline_arg) {
-					int keep = optind;
-					int boo;
-
-					boo = backend->cmdline_arg(NULL, argc, argv);
-					backend_cmd += boo;
-
-					if (boo > 1)
-						keep++;
-
-					optind = keep;
-				}
-				break;
-			}
-			}
-		}
-
-		/* Make sure a filename was specified */
-		if (optind >= argc || !argv[optind]) {
-			if (!backend_cmd) {
-				print_help(argv[0], backend);
-				exit(0);
-			}
-		}
-		/* Grab the filename */
-		fname = argv[optind]; // XXX
-
+	
 		srand(getpid());
 		jobid = rand();
 	}
@@ -930,12 +861,6 @@ int main (int argc, char **argv)
 	}
 #endif
 
-	/* Make sure we have a sane backend */
-	if (!backend) {
-		fprintf(stderr, "ERROR:  Unknown backend\n");
-		exit(1);
-	}
-
 	/* Libusb setup */
 	ret = libusb_init(&ctx);
 	if (ret) {
@@ -944,16 +869,30 @@ int main (int argc, char **argv)
 		goto done;
 	}
 
+	/* If we don't have a valid backend, print help and terminate */
+	if (!backend) {
+		print_help(argv[0], NULL); // probes all devices
+		exit(1);
+	}
+
+	/* If we're in standalone mode, print help only if no args */
+	if (!uri) {
+		if (argc < 2) {
+			print_help(argv[0], backend); // probes all devices
+			exit(1);
+		}
+	}
+
 	/* Enumerate devices */
 	found = find_and_enumerate(ctx, &list, backend, use_serno, 0);
 
-#if 1
 	if (found == -1) {
 		ERROR("Printer open failure (No matching printers found!)\n");
 		ret = CUPS_BACKEND_HOLD;
 		goto done;
 	}
 
+	/* Open an appropriate device */
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
 		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
@@ -992,7 +931,6 @@ int main (int argc, char **argv)
 				endp_down = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;				
 		}
 	}
-#endif
 
 	/* Initialize backend */
 	DEBUG("Initializing '%s' backend (version %s)\n",
@@ -1002,16 +940,18 @@ int main (int argc, char **argv)
 	/* Attach backend to device */
 	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
 
-	if (backend_cmd && !uri) {
-		if (backend->cmdline_arg(backend_ctx, argc, argv))
+	if (!uri) {
+		if (backend->cmdline_arg(backend_ctx, argc, argv) < 0)
 			goto done_claimed;
-		if (!fname)
-			goto done_claimed;
+
+		/* Grab the filename */
+		fname = argv[optind]; // XXX do this a smarter way?
 	}
 
 	if (!fname) {
-		fprintf(stderr, "ERROR: No input file specified\n");
-		exit(1);
+		if (uri)
+			fprintf(stderr, "ERROR: No input file specified\n");
+		goto done_claimed;
 	}
 
 	/* Open file if not STDIN */

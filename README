@@ -116,10 +116,9 @@
     When compiled, a set of symlinks are created, corresponding to each
     of the internal backends.  Alternatively you may set the BACKEND
     environment variable to force a specific backend to be used.  These
-    commands are all equivalent:
+    commands are equivalent:
 
          BACKEND=backend gutenprint52+usb [ arguments ]
-   	 gutenprint52+usb -B backend [ arguments ]
  	 backend [ arguments ]
 
      All backends support the following invocations:
@@ -138,11 +137,10 @@
       	   -D                 Increment debug level                      [1]
 	   -G                 Display GPL text
 	   -f                 Enable fast return mode if possible        [2]
-           -B name            Use Backend 'name'                         [3]
-	   -S serno           Use SerialNum 'serno'                      [4]
-	   -V extra_vid                                                  [5]
-	   -P extra_pid                                                  [5]
-	   -T extra_type                                                 [5]
+	   -S serno           Use SerialNum 'serno'                      [3]
+	   -V extra_vid                                                  [4]
+	   -P extra_pid                                                  [4]
+	   -T extra_type                                                 [4]
 	   -d numcopies       Print 'numcopies' of the supplied job
 
        [1]  This argument can be repeated to increase the debug level.
@@ -156,9 +154,7 @@
 	    when using this backend with CUPS.  Not all backends support
 	    fast return.
 
-       [3]  Alternatively, you can use the 'BACKEND' environment variable.
-
-       [4]  If you have multiple models of the same printer family connected
+       [3]  If you have multiple models of the same printer family connected
             simultaneously, the backend will choose the first one it finds.
 	    If you wish to target a specific device, you may specify its
 	    serial number with this switch, or using the 'SERIAL' environment
@@ -167,7 +163,7 @@
 	      	  SERIAL=N782 backend filename [ arguments ]
 		  backend -S N782 filename [ arguments ]
 
-       [5]  All backends support an additional operational mode, to test out
+       [4]  All backends support an additional operational mode, to test out
             unknown models. To use this mode, specify the VID, PID and its
 	    internal device type as arguments or environment variables:
 

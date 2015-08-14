@@ -35,6 +35,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define BACKEND cw01_backend
+
 #include "backend_common.h"
 
 #define USB_VID_CITIZEN      0x1343
@@ -292,8 +294,6 @@ static void *cw01_init(void)
 
 	return ctx;
 }
-
-extern struct dyesub_backend cw01_backend;
 
 static void cw01_attach(void *vctx, struct libusb_device_handle *dev,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
@@ -836,8 +836,9 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "inN:s")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "inN:s")) >= 0) {
 		switch(i) {
+		GETOPT_PROCESS_GLOBAL
 		case 'i':
 			if (ctx) {
 				j = cw01_get_info(ctx);

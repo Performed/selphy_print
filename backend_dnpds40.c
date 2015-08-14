@@ -44,6 +44,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define BACKEND dnpds40_backend
+
 #include "backend_common.h"
 
 #define USB_VID_CITIZEN   0x1343
@@ -314,8 +316,6 @@ static void *dnpds40_init(void)
 #define FW_VER_CHECK(__major, __minor) \
 	((ctx->ver_major > (__major)) || \
 	 (ctx->ver_major == (__major) && ctx->ver_minor >= (__minor)))
-
-extern struct dyesub_backend dnpds40_backend;
 
 static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
@@ -1573,8 +1573,9 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "iInN:p:sK:k:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "iInN:p:sK:k:")) >= 0) {
 		switch(i) {
+		GETOPT_PROCESS_GLOBAL			
 		case 'i':
 			if (ctx) {
 				j = dnpds40_get_info(ctx);

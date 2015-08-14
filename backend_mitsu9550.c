@@ -35,6 +35,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define BACKEND mitsu9550_backend
+
 #include "backend_common.h"
 
 #define USB_VID_MITSU       0x06D3
@@ -150,8 +152,6 @@ static void *mitsu9550_init(void)
 
 	return ctx;
 }
-
-extern struct dyesub_backend mitsu9550_backend;
 
 static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
@@ -751,9 +751,10 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "ms")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ms")) >= 0) {
 		switch(i) {
- 		case 'm':
+ 		GETOPT_PROCESS_GLOBAL			
+		case 'm':
 			if (ctx) {
 				j = mitsu9550_query_media(ctx);
 				break;

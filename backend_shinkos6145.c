@@ -38,6 +38,8 @@
 #include <signal.h>
 #include <time.h>
 
+#define BACKEND shinkos6145_backend
+
 #include "backend_common.h"
 
 //#define WITH_6145_LIB
@@ -1383,8 +1385,9 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "c:C:eFik:l:L:mr:R:sX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFik:l:L:mr:R:sX:")) >= 0) {
 		switch(i) {
+		GETOPT_PROCESS_GLOBAL
 		case 'c':
 			if (ctx) {
 				j = get_tonecurve(ctx, TONECURVE_USER, optarg);
@@ -1499,8 +1502,6 @@ static void *shinkos6145_init(void)
 
 	return ctx;
 }
-
-extern struct dyesub_backend shinkos6145_backend;
 
 static void shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, 
 			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)

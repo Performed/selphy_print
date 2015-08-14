@@ -35,6 +35,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define BACKEND canonselphy_backend
+
 #include "backend_common.h"
 
 #define P_ES40_CP790 (P_END + 1) // used for detection only
@@ -951,10 +953,32 @@ top:
 	return CUPS_BACKEND_OK;
 }
 
+static int canonselphy_cmdline_arg(void *vctx, int argc, char **argv)
+{
+//	struct canonselphy_ctx *ctx = vctx;
+	int i, j = 0;
+
+	UNUSED(vctx);
+	
+	/* Reset arg parsing */
+	optind = 1;
+	opterr = 0;
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL)) >= 0) {
+		switch(i) {
+		GETOPT_PROCESS_GLOBAL
+		}
+
+		if (j) return j;
+	}
+
+	return 0;
+}
+
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
 	.version = "0.88",
 	.uri_prefix = "canonselphy",
+	.cmdline_arg = canonselphy_cmdline_arg,
 	.init = canonselphy_init,
 	.attach = canonselphy_attach,
 	.teardown = canonselphy_teardown,

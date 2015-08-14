@@ -35,6 +35,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define BACKEND kodak1400_backend
+
 #include "backend_common.h"
 
 /* Program states */
@@ -262,8 +264,9 @@ int kodak1400_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "C:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "C:")) >= 0) {
 		switch(i) {
+		GETOPT_PROCESS_GLOBAL
 		case 'C':
 			if (ctx) {
 				j = kodak1400_set_tonecurve(ctx, optarg);
@@ -291,8 +294,6 @@ static void *kodak1400_init(void)
 	
 	return ctx;
 }
-
-extern struct dyesub_backend kodak1400_backend;
 
 static void kodak1400_attach(void *vctx, struct libusb_device_handle *dev, 
 			     uint8_t endp_up, uint8_t endp_down, uint8_t jobid)

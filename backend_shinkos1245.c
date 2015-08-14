@@ -37,6 +37,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define BACKEND shinkos1245_backend
+
 #include "backend_common.h"
 
 /* Structure of printjob header.  All fields are LITTLE ENDIAN */
@@ -1161,8 +1163,9 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
-	while ((i = getopt(argc, argv, "c:C:l:L:FmsuU:X:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:l:L:FmsuU:X:")) >= 0) {
 		switch(i) {
+		GETOPT_PROCESS_GLOBAL
 		case 'F':
 			if (ctx) {
 				ctx->tonecurve = PARAM_TABLE_FINE;
@@ -1258,8 +1261,6 @@ static void *shinkos1245_init(void)
 
 	return ctx;
 }
-
-extern struct dyesub_backend shinkos1245_backend;
 
 static void shinkos1245_attach(void *vctx, struct libusb_device_handle *dev, 
 			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
