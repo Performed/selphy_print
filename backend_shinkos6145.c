@@ -811,8 +811,36 @@ static char *print_medias (uint8_t v) {
 	}
 }
 
+#define RIBBON_NONE   0x00
+#define RIBBON_4x6    0x01
+#define RIBBON_3_5x5  0x02
+#define RIBBON_5x7    0x03
+#define RIBBON_6x8    0x04
+#define RIBBON_6x9    0x05
+
+static char *print_ribbons (uint8_t v) {
+	switch (v) {
+	case RIBBON_NONE:
+		return "None";
+	case RIBBON_4x6:
+		return "4x6";
+	case RIBBON_3_5x5:
+		return "3.5x5";
+	case RIBBON_5x7:
+		return "5x7";
+	case RIBBON_6x8:
+		return "6x8";
+	case RIBBON_6x9:
+		return "6x9";
+	default:
+		return "Unknown";
+	}
+}
+
 struct s6145_mediainfo_resp {
 	struct s6145_status_hdr hdr;
+	uint8_t  ribbon;
+	uint8_t  reserved;
 	uint8_t  count;
 	struct s6145_mediainfo_item items[10];  /* Not all necessarily used */
 } __attribute__((packed));
@@ -954,7 +982,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 		     resp->hdr.printer_minor, error_codes(resp->hdr.printer_major, resp->hdr.printer_minor));
 	}
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6145_status_resp) - sizeof(struct s6145_status_hdr)))
-		return 0;
+		return -1;
 
 	INFO(" Print Counts:\n");
 	INFO("\tSince Paper Changed:\t%08u\n", le32_to_cpu(resp->count_paper));
@@ -991,7 +1019,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 		return ret;
 	}
 	if (le16_to_cpu(resp2->hdr.payload_len) != (sizeof(struct s6145_getextcounter_resp) - sizeof(struct s6145_status_hdr)))
-		return 0;
+		return -1;
 
 	INFO("Lifetime Distance: %08d inches\n", le32_to_cpu(resp2->lifetime_distance));
 	INFO("Maintainence Distance: %08d inches\n", le32_to_cpu(resp2->maint_distance));
@@ -1092,7 +1120,8 @@ static int get_mediainfo(struct shinkos6145_ctx *ctx)
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6145_mediainfo_resp) - sizeof(struct s6145_status_hdr)))
 		return -2;
 
-	INFO("Supported Media Information: %d entries:\n", resp->count);
+	INFO("Loaded Media Type:  %s\n", print_ribbons(resp->ribbon));
+	INFO("Supported Print Sizes: %d entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: C 0x%02x (%s), %04dx%04d, P 0x%02x (%s)\n", i,
 		     resp->items[i].media_code, print_medias(resp->items[i].media_code),
@@ -1903,7 +1932,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.03WIP",
+	.version = "0.04WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
