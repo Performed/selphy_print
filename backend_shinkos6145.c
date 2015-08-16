@@ -94,6 +94,26 @@ struct s6145_printjob_hdr {
 	uint32_t unk21;
 } __attribute__((packed));
 
+/* "Image Correction Parameter" File */
+struct shinkos6145_correctionparam {
+	uint16_t map_Y[256];      // @0
+	uint16_t map_M[256];      // @512
+	uint16_t map_C[256];      // @1024
+	uint16_t map_O[256];      // @1536 ??
+	uint16_t unk_0004[1024];  // @2048 '00 04' repeated
+	uint16_t unk_0080[8];     // @4096 '00 80' repeated
+	uint8_t  unknown_1[568];  // @4122 ??
+	uint16_t unk_dc05_1[768]; // @4680 'dc 05' repeated
+	uint16_t unk_f401_1[256]; // @6216 'f4 01' repeated
+	uint16_t unk_dc05_2[768]; // @6728 'dc 05' repeated
+	uint16_t unk_f401_2[256]; // @8264 'f4 01' repeated
+	uint8_t  unknown_2[60];   // @8776 ??
+	uint8_t  rsvd_1[3596];    // @8836, null.
+	uint16_t width;           // @12432
+	uint16_t height;          // @12434
+	uint8_t  rsvd_22[3948];   // @12436, null.
+} __attribute__((packed)); /* 16384 bytes */
+
 /* Private data stucture */
 struct shinkos6145_ctx {
 	struct libusb_device_handle *dev;
@@ -108,10 +128,10 @@ struct shinkos6145_ctx {
 	uint8_t image_avg[3]; /* YMC */
 
 	uint8_t *databuf;
-	int datalen;
+	size_t datalen;
 
-	uint8_t *corrdata;
-	int corrdatalen;
+	struct shinkos6145_correctionparam *corrdata;
+	size_t corrdatalen;
 };
 
 static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx);
@@ -862,8 +882,6 @@ struct s6145_imagecorr_data {
 	uint8_t  data[256];
 } __attribute__((packed));
 
-#define CORRDATA_MAX 16384
-
 #define READBACK_LEN 512    /* Needs to be larger than largest response hdr */
 #define CMDBUF_LEN sizeof(struct s6145_print_cmd)
 
@@ -1319,7 +1337,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 	struct s6145_cmd_hdr cmd;
 	struct s6145_imagecorr_resp *resp = (struct s6145_imagecorr_resp *) rdbuf;
 
-	int total = 0;
+	size_t total = 0;
 	int ret, num;
 	cmd.cmd = cpu_to_le16(S6145_CMD_GETCORR);
 	cmd.len = 0;
@@ -1338,7 +1356,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 	}
 
 	ctx->corrdatalen = le16_to_cpu(resp->total_size);
-	ctx->corrdata = malloc(CORRDATA_MAX);
+	ctx->corrdata = malloc(sizeof(struct shinkos6145_correctionparam));
 	total = 0;
 
 	while (total < ctx->corrdatalen) {
@@ -1349,7 +1367,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 		if (ret < 0)
 			goto done;
 
-		memcpy(ctx->corrdata + total, data.data, data.return_size);
+		memcpy(((uint8_t*)ctx->corrdata) + total, data.data, data.return_size);
 		total += data.return_size;
 		if (data.remain_pkt == 0)
 			break;
@@ -1568,7 +1586,7 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	if (ret < 0 || ret != sizeof(ctx->hdr)) {
 		if (ret == 0)
 			return CUPS_BACKEND_CANCEL;
-		ERROR("Read failed (%d/%d/%d)\n", 
+		ERROR("Read failed (%d/%d/%d)\n",
 		      ret, 0, (int)sizeof(ctx->hdr));
 		perror("ERROR: Read failed");
 		return ret;
@@ -1605,7 +1623,7 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 		do {
 			ret = read(data_fd, ptr, remain);
 			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%d)\n", 
+				ERROR("Read failed (%d/%d/%zu)\n",
 				      ret, remain, ctx->datalen);
 				perror("ERROR: Read failed");
 				return ret;
@@ -1618,7 +1636,7 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	/* Make sure footer is sane too */
 	ret = read(data_fd, tmpbuf, 4);
 	if (ret != 4) {
-		ERROR("Read failed (%d/%d/%d)\n", 
+		ERROR("Read failed (%d/%d/%d)\n",
 		      ret, 4, 4);
 		perror("ERROR: Read failed");
 		return ret;
@@ -1749,11 +1767,9 @@ top:
 			le32_to_cpu(ctx->hdr.rows) * 2 * 4;
 		uint16_t *databuf2 = malloc(newlen);
 
-		// WTF.. we don't care.
-		uint16_t *width = (uint16_t*) (ctx->corrdata + 12432);
-		*width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
-		uint16_t *height = (uint16_t*) (ctx->corrdata + 12434);
-		*height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
+		/* Set the size in the correctiondata */
+		corrdata->width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
+		corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
 		if (!ImageProcessing(ctx->databuf, databuf2, ctx->corrdata)) {
 			ERROR("Image Processing failed\n");
@@ -1887,7 +1903,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.02WIP",
+	.version = "0.03WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
