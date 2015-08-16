@@ -1768,8 +1768,8 @@ top:
 		uint16_t *databuf2 = malloc(newlen);
 
 		/* Set the size in the correctiondata */
-		corrdata->width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
-		corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
+		ctx->corrdata->width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
+		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
 		if (!ImageProcessing(ctx->databuf, databuf2, ctx->corrdata)) {
 			ERROR("Image Processing failed\n");
