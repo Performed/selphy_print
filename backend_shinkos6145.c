@@ -1537,6 +1537,24 @@ static void shinkos6145_teardown(void *vctx) {
 	free(ctx);
 }
 
+#if !defined (WITH_6145_LIB)
+static void lib6145_calc_avg(struct shinkos6145_ctx *ctx, uint16_t rows, uint16_t cols)
+{
+	int plane, i, planelen;
+	planelen = rows * cols;
+
+	for (plane = 0 ; plane < 3 ; plane++) {
+		uint32_t sum = 0;
+
+		for (i = 0 ; i < planelen ; i++) {
+			sum += ctx->databuf[(planelen * plane) + i];
+		}
+		ctx->image_avg[plane] = sum / planelen;
+	}
+}
+#endif
+
+
 static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	struct shinkos6145_ctx *ctx = vctx;
 	int ret;
@@ -1618,6 +1636,8 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 		ERROR("Library returned error!\n");
 		return CUPS_BACKEND_FAILED;
 	}
+#else
+	lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
 #endif
 
 	return CUPS_BACKEND_OK;
