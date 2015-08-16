@@ -22,6 +22,14 @@ CPPFLAGS += `pkg-config --cflags libusb-1.0`
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
 CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\"
 
+# If you have the binary s6145 library, use it..
+# The result is *NOT* GPL compatible.
+ifneq ($(LIBS6145),)
+CFLAGS += -DWITH_6145_LIB -I$(LIBS6145)
+LDFLAGS += -L$(LIBS6145) -lS6145ImageProcess-x64  # x86_64
+#LDFLAGS += -L$(LIBS6145) -lS6145ImageProcess-x32 # x86_32
+endif
+
 # List of backends
 BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 citizencw01 mitsu9550 shinkos6245 shinkos6145
 

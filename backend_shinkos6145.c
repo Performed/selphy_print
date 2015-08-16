@@ -42,9 +42,8 @@
 
 #include "backend_common.h"
 
-//#define WITH_6145_LIB
-
 #if defined(WITH_6145_LIB)
+/* Note that this is a proprietary library, and *NOT* GPL compatible! */
 #include "libS6145ImageProcess.h"
 #endif
 
@@ -106,7 +105,7 @@ struct shinkos6145_ctx {
 
 	struct s6145_printjob_hdr hdr;
 
-	int image_avg;
+	uint8_t image_avg[3]; /* YMC */
 
 	uint8_t *databuf;
 	int datalen;
@@ -1615,7 +1614,7 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	}
 
 #if defined(WITH_6145_LIB)
-	if (ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), &ctx->image_avg)) {
+	if (ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
 		ERROR("Library returned error!\n");
 		return CUPS_BACKEND_FAILED;
 	}
@@ -1728,20 +1727,20 @@ top:
 		/* Perform library transform... */
 		uint32_t newlen = le32_to_cpu(ctx->hdr.columns) *
 			le32_to_cpu(ctx->hdr.rows) * 2 * 4;
-		uint8_t *databuf2 = malloc(newlen);
+		uint16_t *databuf2 = malloc(newlen);
 
 		// WTF.. we don't care.
-		uint16_t *width = (uint16_t*) (imagecorr + 12432);
+		uint16_t *width = (uint16_t*) (ctx->corrdata + 12432);
 		*width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
-		uint16_t *height = (uint16_t*) (imagecorr + 12434);
-		*width = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
+		uint16_t *height = (uint16_t*) (ctx->corrdata + 12434);
+		*height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
 		if (!ImageProcessing(ctx->databuf, databuf2, ctx->corrdata)) {
 			ERROR("Image Processing failed\n");
 			return CUPS_BACKEND_FAILED;
 		}
 		free(ctx->databuf);
-		ctx->databuf = databuf2;
+		ctx->databuf = (uint8_t*) databuf2;
 		ctx->datalen = newlen;
 #endif
 
@@ -1755,7 +1754,7 @@ top:
 		print->count = cpu_to_le16(copies);
 		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
 		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
-		print->image_avg = ctx->image_avg;
+		print->image_avg = ctx->image_avg[2]; /* Cyan level */
 		print->method = cpu_to_le32(ctx->hdr.multicut);
 
 		if ((ret = s6145_do_cmd(ctx,
