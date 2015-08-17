@@ -66,7 +66,7 @@ struct s6145_printjob_hdr {
 	uint32_t media;  /* 0x08 5x5, 0x03 5x7, 0x07 2x6, 0x00 4x6, 0x06 6x6/6x6+6x2/4x6*2/6x8 */
 	uint32_t unk6;
 
-	uint32_t multicut;  /* 0x00 normal, 0x02 4x6*2, 0x04 2x6*2, 0x05 6x6+2x6 */
+	uint32_t method;    /* 0x00 normal, 0x02 4x6*2, 0x04 2x6*2, 0x05 6x6+2x6 */
 	uint32_t qual;      /* 0x00 default, 0x01 std */
 	uint32_t oc_mode;   /* 0x00 default, 0x01 off, 0x02 glossy, 0x03 matte */
 	uint32_t unk8;
@@ -252,9 +252,9 @@ static char *print_methods (uint8_t v) {
 	case PRINT_METHOD_COMBO_2:
 		return "2up";
 	case PRINT_METHOD_SPLIT:
-		return "split";		
+		return "Split";
 	case PRINT_METHOD_DOUBLE:
-		return "double";		
+		return "Double";
 	default:
 		return "Unknown";
 	}
@@ -1724,7 +1724,8 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 	for (i = 0; i < media->count ; i++) {
 		/* Look for matching media */
 		if (le16_to_cpu(media->items[i].columns) == cpu_to_le16(le32_to_cpu(ctx->hdr.columns)) &&
-		    le16_to_cpu(media->items[i].rows) == cpu_to_le16(le32_to_cpu(ctx->hdr.rows)))
+		    le16_to_cpu(media->items[i].rows) == cpu_to_le16(le32_to_cpu(ctx->hdr.rows)) &&
+		    media->items[i].print_method == le32_to_cpu(ctx->hdr.method))
 			break;
 	}
 	if (i == media->count) {
@@ -1820,7 +1821,7 @@ top:
 		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
 		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 		print->image_avg = ctx->image_avg[2]; /* Cyan level */
-		print->method = cpu_to_le32(ctx->hdr.multicut);
+		print->method = cpu_to_le32(ctx->hdr.method);
 
 		if ((ret = s6145_do_cmd(ctx,
 					cmdbuf, sizeof(*print),
@@ -1932,7 +1933,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.04WIP",
+	.version = "0.05WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
