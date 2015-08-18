@@ -329,11 +329,24 @@ top:
 		break;
 	}
 
-	INFO("Sending image header\n");
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*)&ctx->hdr, sizeof(ctx->hdr))))
-		return CUPS_BACKEND_FAILED;
+	{
+		INFO("Sending image header\n");
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*)&ctx->hdr, sizeof(ctx->hdr))))
+			return CUPS_BACKEND_FAILED;
+
+		uint8_t rdbuf[10];
+		if ((ret = read_data(ctx->dev, ctx->endp_up,
+				     rdbuf, sizeof(rdbuf), &num)))
+			return CUPS_BACKEND_FAILED;
+		if (rdbuf[0] != 0x01 ||
+		    rdbuf[6] != 0x02) { // XXX is this always the case?
+			ERROR("Printer not ready..\n");
+			return CUPS_BACKEND_FAILED;
+		}
+	}
 	sleep(1);
+	
 	INFO("Sending image data\n");
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     ctx->databuf, ctx->datalen)))
