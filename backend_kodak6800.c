@@ -75,7 +75,7 @@ struct kodak68x0_status_readback {
 	uint8_t  errtype2; /* 0x00 none, 0xd0 "control" */
 	uint8_t  donor;    /* Percentage, 0-100 */
 	uint8_t  unkC[2];  /* Always 00 03 */
-	uint16_t main_fw;  /* seen 652, 656, 670 (6850) and 232 (6800) */
+	uint16_t main_fw;  /* seen 652, 656, 670, 671 (6850) and 232 (6800) */
 	uint8_t  unkD[2];  /* Always 00 01 */
 	uint16_t dsp_fw;   /* Seen 540, 541, 560 (6850) and 131 (6800) */
 	uint8_t  unk1;     /* Seen 0x00, 0x01, 0x03, 0x04 */
@@ -933,6 +933,10 @@ struct dyesub_backend kodak6800_backend = {
 
   Note:  For 4x6 prints on 6x8 media, print size (SS) is set to 0x06 and the 
          final octet is set to 0x01.
+
+  ************************************************************************
+
+  Note:  6800 is Shinko CHC-S1145-5A, 6850 is Shinko CHC-S1145-5B
 
   ************************************************************************
 
