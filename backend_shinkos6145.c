@@ -95,19 +95,48 @@ struct s6145_printjob_hdr {
 } __attribute__((packed));
 
 /* "Image Correction Parameter" File */
+// 128 bytes total, apparently an array of 32-bit values
+struct table_unk {
+	uint32_t var1; // lib checks non-zero
+	uint32_t var2; // lib checks non-zero
+	uint32_t var3; // lib checks non-zero
+	uint32_t vars[5]; // lib copies first 8 entries
+	uint32_t unk[24]; // unknown
+} __attribute__((packed));
+
 struct shinkos6145_correctionparam {
 	uint16_t map_Y[256];      // @0
 	uint16_t map_M[256];      // @512
 	uint16_t map_C[256];      // @1024
-	uint16_t map_O[256];      // @1536 ??
-	uint16_t unk_0004[1024];  // @2048 '00 04' repeated
+	uint16_t map_O[256];      // @1536
+	uint16_t unk_0004_1[1024];// @2048 '00 04' repeated
 	uint16_t unk_0080[8];     // @4096 '00 80' repeated
-	uint8_t  unknown_1[568];  // @4122 ??
+	uint16_t unk_0004_2[4];   // @4112 '00 04' repeated
+	uint8_t  rsvd_0[48];      // @4120, null
+	uint8_t  tbl_Y[128];      // @4168 ?? struct table_unk
+	uint8_t  tbl_M[128];      // @4296 ?? struct table_unk
+	uint8_t  tbl_C[128];      // @4424 ?? struct table_unk
+	uint8_t  tbl_O[128];      // @4552 ?? struct table_unk
 	uint16_t unk_dc05_1[768]; // @4680 'dc 05' repeated
 	uint16_t unk_f401_1[256]; // @6216 'f4 01' repeated
 	uint16_t unk_dc05_2[768]; // @6728 'dc 05' repeated
 	uint16_t unk_f401_2[256]; // @8264 'f4 01' repeated
-	uint8_t  unknown_2[60];   // @8776 ??
+	uint16_t max_y;           // @8776 max_Y
+	uint16_t max_m;           // @8778 max_M
+	uint16_t max_c;           // @8780 max_C
+	uint16_t max_o;           // @8782 max_O
+	uint16_t unknown_2[12];   // @8784
+	uint16_t val_1;           // @8808 < 2
+	uint16_t val_2;		  // @8810 < 2
+	uint16_t val_3;           // @8812 < 256
+	uint16_t val_4;		  // @8814 < 2
+	uint16_t val_5;           // @8816 < 256
+	uint16_t val_6;           // @8818 < 256
+	uint16_t val_7;           // @8820 < 256
+	uint16_t val_8;           // @8822 < 256
+	uint16_t val_9;           // @8824 > 0, < 3
+	uint8_t  unknown_3[9];    // @8826
+	uint16_t val_10;          // @8834, == 0x0780, ie 1920. print width? data width is 1844 (0x0734)
 	uint8_t  rsvd_1[3596];    // @8836, null.
 	uint16_t width;           // @12432
 	uint16_t height;          // @12434
