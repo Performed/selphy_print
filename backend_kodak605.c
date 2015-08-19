@@ -70,32 +70,35 @@ struct kodak605_status {
 	uint32_t ctr_4;     /* 75 00 00 00 -> incr by 2 ?? cutter? */
 	uint32_t ctr_5;     /* 30 00 00 00 -> incr by 1 ?? lifetime? */
 	uint8_t  unk_3;     /* 5d -> 5c -> 5b -- Donor % ?? */
-	uint8_t  null[7];   /* 00 00 00 00 00 00 00 */
-	uint8_t  sts_3;     /* 00 or 01 */
+/*@31*/	uint8_t  null_1[7]; /* 00 00 00 00 00 00 00 */
+/*@38*/	uint8_t  sts_3;     /* 00 or 01 or 02 */
 	uint8_t  sts_4;     /* 00 or 01 */
 	uint8_t  unk_4;     /* 00 */
 	uint8_t  sts_5;     /* 00 or 01 */
 	uint8_t  unk_5;     /* 00 */
 	uint8_t  sts_6;     /* 00 or 01 */
 	uint8_t  unk_6;     /* 00 */
-	uint8_t  sts_7;     /* 00 or 02 */
-	uint8_t  sts_8;     /* 00 or 01 */
-	uint8_t  unk_7[3];  /* 00 00 00 */
+/*@45*/	uint8_t  sts_7;     /* 00 or 02 or 12 */  // XXX theory; 00 is idle, 02 is buffer "full", 12 is "printing"
+	uint8_t  sts_8;     /* 00 or 01 or 02 */
 	uint8_t  sts_9;     /* 00 or 01 */
+	uint8_t  unk_7[3];  /* 00 00 00 */
+	uint8_t  sts_10;    /* 00 or 01 */
 	uint8_t  unk_8;     /* 00 */
-	uint8_t  sts_10[3]; /* 00 00 00 or 02 02 01 or 02 01 01 */
-	uint8_t  unk_9[3];  /* 00 00 00 */
-	uint8_t  sts_11;    /* 00 or 01 */
-	uint8_t  unk_10;    /* 00 */
-	uint8_t  sts_12;    /* 00 or 02 */
-	uint8_t  unk_11[8]; /* 00 00 00 00 00 00 00 00 */
+/*@53*/	uint8_t  sts_11;    /* 00 or 02 or 12, always matches @45 */
+/*@54*/	uint8_t  sts_12;    /* 00 or 01 or 02 */
+/*@55*/ uint8_t  sts_13;    /* 00 or 01 */
+/*@56*/	uint8_t  unk_9;     /* 00 */
+/*@57*/	uint8_t  sts_14;    /* 00 or 01 */
+/*@58*/	uint8_t  unk_10;    /* 00 */
+/*@59*/	uint8_t  sts_15;    /* 00 or 01 */
+/*@60*/	uint8_t  null_2[10];/* 00 00 00 00 00 00 00 00 00 00*/
 	uint8_t  unk_12[6]; /* 01 00 00 00 00 00 */
 } __attribute__((packed));
 
 /* File header */
 struct kodak605_hdr {
 	uint8_t  hdr[4];   /* 01 40 0a 00 */
-	uint8_t  unk1;     /* 01 or 02 */
+	uint8_t  unk1;     /* 01 (file) or 02 (sometimes sent to printer) */
 	uint8_t  copies;   /* 01 or more */
 	uint8_t  unk2;     /* always 00 */
 	uint16_t columns;  /* BE always 0x0734 */
@@ -328,6 +331,9 @@ top:
 		sleep(1);
 		break;
 	}
+
+	if (ctx->hdr.media == 0x03)
+		ctx->hdr.unk1 = 0x02;  /* XXX Seen in many sniffs... */
 
 	{
 		INFO("Sending image header\n");
