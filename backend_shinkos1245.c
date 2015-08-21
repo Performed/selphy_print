@@ -114,7 +114,7 @@ struct shinkos1245_cmd_print {
 	uint8_t  cmd[2];   /* 0x0a 0x00 */
 	uint8_t  id;       /* 1-255 */
 	uint16_t count;    /* # Copies in BCD, 1-9999 */
-	uint16_t columns;  /* Fixed at 2448 */
+	uint16_t columns;  /* Fixed at 2446 */
 	uint16_t rows;
 	uint8_t  media;    /* Fixed at 0x10 */
 	uint8_t  mode;     /* dust removal and lamination mode */
@@ -1425,13 +1425,10 @@ static int shinkos1245_main_loop(void *vctx, int copies) {
 	}
 	/* Make sure print size is supported */
 	for (i = 0 ; i < ctx->num_medias ; i++) {
-		if (ctx->hdr.media != ctx->medias[i].code)
-			break;
-		if (ctx->hdr.method != ctx->medias[i].print_type)
-			break;
-		if (ctx->hdr.rows != ctx->medias[i].rows)
-			break;
-		if (ctx->hdr.columns != ctx->medias[i].columns)
+		if (ctx->hdr.media == ctx->medias[i].code &&
+		    ctx->hdr.method == ctx->medias[i].print_type &&
+		    ctx->hdr.rows == ctx->medias[i].rows &&
+		    ctx->hdr.columns == ctx->medias[i].columns)
 			break;
 	}
 	if (i == ctx->num_medias) {
