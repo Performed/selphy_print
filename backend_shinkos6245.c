@@ -1679,6 +1679,8 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 			goto printer_error;
 	}
 
+	// XXX check copies against remaining media!
+
 top:
 	if (state != last_state) {
 		if (dyesub_debug)

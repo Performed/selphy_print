@@ -1436,6 +1436,10 @@ static int shinkos1245_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
+	/* Fix max print count. */
+	if (copies > 9999) // XXX test against remaining media
+		copies = 9999;
+
 top:
 	if (state != last_state) {
 		if (dyesub_debug)

@@ -1573,7 +1573,9 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
- top:
+	// XXX check copies against remaining media!
+
+top:
 	if (state != last_state) {
 		if (dyesub_debug)
 			DEBUG("last_state %d new %d\n", last_state, state);

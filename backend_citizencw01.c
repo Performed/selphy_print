@@ -445,7 +445,8 @@ top:
 	free(resp);
 	resp = NULL;
 
-	/* Set print quantity */
+	/* Set print quantity */ // XXX check against remaining print count
+
 	cw01_build_cmd(&cmd, "CNTRL", "QTY", 8);
 	snprintf(buf, sizeof(buf), "%07d\r", copies);
 	ret = cw01_do_cmd(ctx, &cmd, (uint8_t*) buf, 8);

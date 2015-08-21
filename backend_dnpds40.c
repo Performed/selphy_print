@@ -795,6 +795,8 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_FAILED;
 
 	/* Update quantity offset with count */
+	// XXX this breaks if ctx->manual_copies is set, but the job
+	// has a CNTRL QTY != 1
 	if (!ctx->manual_copies && copies > 1) {
 		snprintf(buf, sizeof(buf), "%07d\r", copies);
 		if (ctx->qty_offset) {

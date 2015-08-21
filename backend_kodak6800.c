@@ -757,6 +757,8 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_FAILED;
 
 	/* Printer handles generating copies.. */
+	if (copies > 255) // XXX test against remaining media?
+		copies = 255;
 	if (ctx->hdr.copies < copies)
 		ctx->hdr.copies = copies;
 
