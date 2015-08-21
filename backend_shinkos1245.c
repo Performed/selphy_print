@@ -289,11 +289,13 @@ struct shinkos1245_mediadesc {
 	uint8_t  reserved[3];
 } __attribute__((packed));
 
+#define NUM_MEDIAS 5 /* Maximum per message */
+
 struct shinkos1245_resp_media {
 	uint8_t  code;
 	uint8_t  reserved[5];
 	uint8_t  count;  /* 1-5? */
-	struct shinkos1245_mediadesc data[5];
+	struct shinkos1245_mediadesc data[NUM_MEDIAS];
 } __attribute__((packed));
 
 enum {
@@ -509,6 +511,9 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 			      resp.code);
 			return -99;
 		}
+
+		if (resp.count > NUM_MEDIAS)
+			resp.count = NUM_MEDIAS;
 
 		/* Store media info */
 		for (j = 0; j < resp.count ; j++) {
