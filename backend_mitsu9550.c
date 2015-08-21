@@ -329,8 +329,8 @@ static int mitsu9550_main_loop(void *vctx, int copies) {
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
-	
-	/* This printer handles copies internally */
+
+	/* Update printjob header to reflect number of requested copies */
 	hdr2 = (struct mitsu9550_hdr2 *) (ctx->databuf + sizeof(struct mitsu9550_hdr1));
 	hdr2->copies = cpu_to_be16(copies);
 
@@ -602,18 +602,7 @@ top:
 		sleep(1);
 	}
 	
-        /* This printer handles copies internally */
-	copies = 1;
-
-	/* Clean up */
-	if (terminate)
-		copies = 1;
-
-	INFO("Print complete (%d copies remaining)\n", copies - 1);
-
-	if (copies && --copies) {
-		goto top;
-	}
+	INFO("Print complete\n");
 
 	return CUPS_BACKEND_OK;
 }
@@ -779,7 +768,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.13",
+	.version = "0.14",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

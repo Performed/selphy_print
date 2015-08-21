@@ -1573,14 +1573,7 @@ top:
 	if (state != S_FINISHED)
 		goto top;
 
-	/* This printer handles copies internally */
-	copies = 1;
-
-	/* Clean up */
-	if (terminate)
-		copies = 1;
-
-	INFO("Print complete (%d copies remaining)\n", copies - 1);
+	INFO("Print complete\n");
 
 	if (copies && --copies) {
 		state = S_IDLE;
@@ -1634,7 +1627,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.04WIP",
+	.version = "0.05WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,

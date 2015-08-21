@@ -759,7 +759,6 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	/* Printer handles generating copies.. */
 	if (ctx->hdr.copies < copies)
 		ctx->hdr.copies = copies;
-	copies = 1;
 
 	/* Query loaded media */
 	INFO("Querying loaded media\n");
@@ -785,7 +784,6 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
-top:
 	INFO("Waiting for printer idle\n");
 
 	while(1) {
@@ -881,15 +879,7 @@ top:
 		sleep(1);
 	}
 	
-	/* Clean up */
-	if (terminate)
-		copies = 1;
-
-	INFO("Print complete (%d copies remaining)\n", copies - 1);
-
-	if (copies && --copies) {
-		goto top;
-	}
+	INFO("Print complete\n");
 
 	return CUPS_BACKEND_OK;
 }
@@ -897,7 +887,7 @@ top:
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.44",
+	.version = "0.45",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

@@ -1786,19 +1786,7 @@ top:
 	if (state != S_FINISHED)
 		goto top;
 	
-	/* This printer handles copies internally */
-	copies = 1;
-
-	/* Clean up */
-	if (terminate)
-		copies = 1;
-
-	INFO("Print complete (%d copies remaining)\n", copies - 1);
-
-	if (copies && --copies) {
-		state = S_IDLE;
-		goto top;
-	}
+	INFO("Print complete\n");
 
 	return CUPS_BACKEND_OK;
 

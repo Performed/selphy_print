@@ -301,7 +301,6 @@ static int kodak605_main_loop(void *vctx, int copies) {
 	/* Printer handles generating copies.. */
 	if (ctx->hdr.copies < copies)
 		ctx->hdr.copies = copies;
-	copies = 1;
 
 	/* Query loaded media */
 	INFO("Querying loaded media\n");
@@ -320,7 +319,6 @@ static int kodak605_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 	
-top:
 	INFO("Waiting for printer idle\n");
 
 	while(1) {
@@ -372,15 +370,7 @@ top:
 		break;
 	}
 	
-	/* Clean up */
-	if (terminate)
-		copies = 1;
-
-	INFO("Print complete (%d copies remaining)\n", copies - 1);
-
-	if (copies && --copies) {
-		goto top;
-	}
+	INFO("Print complete\n");
 
 	return CUPS_BACKEND_OK;
 }
