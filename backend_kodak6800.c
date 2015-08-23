@@ -109,6 +109,7 @@ struct kodak68x0_media_readback {
 } __attribute__((packed));
 
 #define KODAK68x0_MEDIA_6R  0x0b
+#define KODAK68x0_MEDIA_UNK 0x03
 
 #define CMDBUF_LEN 17
 
@@ -119,7 +120,8 @@ struct kodak6800_ctx {
 	uint8_t endp_down;
 
 	int type;
-	int media;
+
+	struct kodak68x0_media_readback *media;
 
 	struct kodak6800_hdr hdr;
 	uint8_t *databuf;
@@ -193,8 +195,6 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx, struct kodak68x0_m
 		return CUPS_BACKEND_STOP;
 	}
 
-	ctx->media = media->media;
-
 	return 0;
 }
 
@@ -209,7 +209,7 @@ static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_st
 	DEBUG("Media prints     : %d\n", be32_to_cpu(status->ctr2));
 	if (ctx->type == P_KODAK_6850) {
 		int max;
-		if (ctx->media == KODAK68x0_MEDIA_6R) {
+		if (ctx->media->media == KODAK68x0_MEDIA_6R) {
 			max = 375;
 		} else {
 			max = 0;
@@ -604,20 +604,16 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 			return 2;
 		case 'm':
 			if (ctx) {
-				uint8_t mediabuf[MAX_MEDIA_LEN];
-				struct kodak68x0_media_readback *media = (struct kodak68x0_media_readback*)mediabuf;
-				j = kodak6800_get_mediainfo(ctx, media);
+				j = kodak6800_get_mediainfo(ctx, ctx->media);
 				if (!j)
-					kodak68x0_dump_mediainfo(media);
+					kodak68x0_dump_mediainfo(ctx->media);
 				break;
 			}
 			return 1;
 		case 's':
 			if (ctx) {
-				uint8_t mediabuf[MAX_MEDIA_LEN];
-				struct kodak68x0_media_readback *media = (struct kodak68x0_media_readback*)mediabuf;
 				struct kodak68x0_status_readback status;
-				j = kodak6800_get_mediainfo(ctx, media);
+				j = kodak6800_get_mediainfo(ctx, ctx->media);
 				if (!j)
 					j = kodak6800_get_status(ctx, &status);
 				if (!j)
@@ -638,7 +634,6 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
-
 static void *kodak6800_init(void)
 {
 	struct kodak6800_ctx *ctx = malloc(sizeof(struct kodak6800_ctx));
@@ -648,8 +643,9 @@ static void *kodak6800_init(void)
 	}
 	memset(ctx, 0, sizeof(struct kodak6800_ctx));
 
+	ctx->media = malloc(MAX_MEDIA_LEN);
+
 	ctx->type = P_ANY;
-	ctx->media = -1;
 
 	return ctx;
 }
@@ -671,7 +667,12 @@ static void kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 	libusb_get_device_descriptor(device, &desc);
 
 	ctx->type = lookup_printer_type(&kodak6800_backend,
-					desc.idVendor, desc.idProduct);	
+					desc.idVendor, desc.idProduct);
+
+	/* Query media info */
+	if (kodak6800_get_mediainfo(ctx, ctx->media)) {
+		ERROR("Can't query media\n");
+	}
 }
 
 static void kodak6800_teardown(void *vctx) {
@@ -748,43 +749,36 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 
 	uint8_t cmdbuf[CMDBUF_LEN];
 
-	uint8_t mediabuf[MAX_MEDIA_LEN];
-	struct kodak68x0_media_readback *media = (struct kodak68x0_media_readback*)mediabuf;
-
 	int num, ret;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
 	/* Printer handles generating copies.. */
-	if (copies > 255) // XXX test against remaining media?
+	if (copies > 255)
 		copies = 255;
 	if (ctx->hdr.copies < copies)
 		ctx->hdr.copies = copies;
 
-	/* Query loaded media */
-	INFO("Querying loaded media\n");
-	ret = kodak6800_get_mediainfo(ctx, media);
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
-	
-	/* Appears to depend on media */
-	if (media->media != KODAK68x0_MEDIA_6R &&
-	    media->media != 0x03) {
-		ERROR("Unrecognized media type %02x\n", media->media);
+	/* Validate media */
+	if (ctx->media->media != KODAK68x0_MEDIA_6R &&
+	    ctx->media->media != KODAK68x0_MEDIA_UNK) {
+		ERROR("Unrecognized media type %02x\n", ctx->media->media);
 		return CUPS_BACKEND_STOP;
 	}
 
 	/* Validate against supported media list */
-	for (num = 0 ; num < media->count; num++) {
-		if (media->sizes[num].height == ctx->hdr.rows &&
-		    media->sizes[num].width == ctx->hdr.columns)
+	for (num = 0 ; num < ctx->media->count; num++) {
+		if (ctx->media->sizes[num].height == ctx->hdr.rows &&
+		    ctx->media->sizes[num].width == ctx->hdr.columns)
 			break;
 	}
-	if (num == media->count) {
+	if (num == ctx->media->count) {
 		ERROR("Print size unsupported by media!\n");
 		return CUPS_BACKEND_HOLD;
 	}
+
+	// XXX test against remaining media
 
 	INFO("Waiting for printer idle\n");
 
@@ -843,7 +837,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	
 	/* If we're printing a 4x6 on 8x6 media... */
 	if (ctx->hdr.size == 0x00 &&
-	    be16_to_cpu(media->sizes[0].width) == 0x0982) {
+	    be16_to_cpu(ctx->media->sizes[0].width) == 0x0982) {
 		cmdbuf[14] = 0x06;
 		cmdbuf[16] = 0x01;
 	}
@@ -889,7 +883,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.45",
+	.version = "0.46",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
