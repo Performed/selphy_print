@@ -118,9 +118,41 @@ struct kodak605_ctx {
 	int type;
 
 	struct kodak605_hdr hdr;
+
+	struct kodak605_media_list *media;
+
 	uint8_t *databuf;
 	int datalen;
 };
+
+static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_list *media)
+{
+	uint8_t cmdbuf[4];
+
+	int ret, num = 0;
+
+	/* Send Media Query */
+	cmdbuf[0] = 0x02;
+	cmdbuf[1] = 0x00;
+	cmdbuf[2] = 0x00;
+	cmdbuf[3] = 0x00;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, sizeof(cmdbuf))))
+		return ret;
+
+	/* Read in the printer status */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) media, MAX_MEDIA_LEN, &num);
+	if (ret < 0)
+		return ret;
+
+	if (num < (int)sizeof(*media)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*media));
+		return 4;
+	}
+
+	return 0;
+}
 
 static void *kodak605_init(void)
 {
@@ -130,6 +162,10 @@ static void *kodak605_init(void)
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct kodak605_ctx));
+
+	ctx->media = malloc(MAX_MEDIA_LEN);
+
+	ctx->type = P_ANY;
 
 	return ctx;
 }
@@ -152,6 +188,11 @@ static void kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 	
 	ctx->type = lookup_printer_type(&kodak605_backend,
 					desc.idVendor, desc.idProduct);	
+
+	/* Query media info */
+	if (kodak605_get_media(ctx, ctx->media)) {
+		ERROR("Can't query media\n");
+	}
 }
 
 static void kodak605_teardown(void *vctx) {
@@ -256,42 +297,10 @@ static int kodak605_get_status(struct kodak605_ctx *ctx, struct kodak605_status 
 	return 0;
 }
 
-static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_list *media)
-{
-	uint8_t cmdbuf[4];
-
-	int ret, num = 0;
-
-	/* Send Media Query */
-	cmdbuf[0] = 0x02;
-	cmdbuf[1] = 0x00;
-	cmdbuf[2] = 0x00;
-	cmdbuf[3] = 0x00;
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, sizeof(cmdbuf))))
-		return ret;
-
-	/* Read in the printer status */
-	ret = read_data(ctx->dev, ctx->endp_up,
-			(uint8_t*) media, MAX_MEDIA_LEN, &num);
-	if (ret < 0)
-		return ret;
-
-	if (num < (int)sizeof(*media)) {
-		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*media));
-		return 4;
-	}
-
-	return 0;
-}
-
 static int kodak605_main_loop(void *vctx, int copies) {
 	struct kodak605_ctx *ctx = vctx;
 
 	struct kodak605_status sts;
-
-	uint8_t mediabuf[MAX_MEDIA_LEN];
-	struct kodak605_media_list *media = (struct kodak605_media_list *)mediabuf;
 
 	int num, ret;
 
@@ -304,19 +313,13 @@ static int kodak605_main_loop(void *vctx, int copies) {
 	if (ctx->hdr.copies < copies)
 		ctx->hdr.copies = copies;
 
-	/* Query loaded media */
-	INFO("Querying loaded media\n");
-	ret = kodak605_get_media(ctx, media);
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
-
 	/* Validate against supported media list */
-	for (num = 0 ; num < media->count; num++) {
-		if (media->entries[num].rows == ctx->hdr.rows &&
-		    media->entries[num].cols == ctx->hdr.columns)
+	for (num = 0 ; num < ctx->media->count; num++) {
+		if (ctx->media->entries[num].rows == ctx->hdr.rows &&
+		    ctx->media->entries[num].cols == ctx->hdr.columns)
 			break;
 	}
-	if (num == media->count) {
+	if (num == ctx->media->count) {
 		ERROR("Print size unsupported by media!\n");
 		return CUPS_BACKEND_HOLD;
 	}
