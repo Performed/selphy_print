@@ -584,6 +584,9 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 	struct kodak6800_ctx *ctx = vctx;
 	int i, j = 0;
 
+	if (!ctx)
+		return -1;
+
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
@@ -591,39 +594,21 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL			
 		case 'c':
-			if (ctx) {
-				j = kodak6800_get_tonecurve(ctx, optarg);
-				break;
-			} 
-			return 2;
+			j = kodak6800_get_tonecurve(ctx, optarg);
+			break;
 		case 'C':
-			if (ctx) {
-				j = kodak6800_set_tonecurve(ctx, optarg);
-				break;
-			}
-			return 2;
+			j = kodak6800_set_tonecurve(ctx, optarg);
+			break;
 		case 'm':
-			if (ctx) {
-				j = kodak6800_get_mediainfo(ctx, ctx->media);
-				if (!j)
-					kodak68x0_dump_mediainfo(ctx->media);
-				break;
-			}
-			return 1;
-		case 's':
-			if (ctx) {
-				struct kodak68x0_status_readback status;
-				j = kodak6800_get_mediainfo(ctx, ctx->media);
-				if (!j)
-					j = kodak6800_get_status(ctx, &status);
-				if (!j)
-					kodak68x0_dump_status(ctx, &status);
-
-				break;
-			}
-
-			return 1;
-
+			kodak68x0_dump_mediainfo(ctx->media);
+			break;
+		case 's': {
+			struct kodak68x0_status_readback status;
+			j = kodak6800_get_status(ctx, &status);
+			if (!j)
+				kodak68x0_dump_status(ctx, &status);
+			break;
+		}
 		default:
 			break;  /* Ignore completely */
 		}
@@ -883,7 +868,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.46",
+	.version = "0.47",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

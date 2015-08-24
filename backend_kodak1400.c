@@ -261,6 +261,9 @@ int kodak1400_cmdline_arg(void *vctx, int argc, char **argv)
 	struct kodak1400_ctx *ctx = vctx;
 	int i, j = 0;
 
+	if (!ctx)
+		return -1;
+
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
@@ -268,11 +271,8 @@ int kodak1400_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'C':
-			if (ctx) {
-				j = kodak1400_set_tonecurve(ctx, optarg);
-				break;
-			}
-			return 2;
+			j = kodak1400_set_tonecurve(ctx, optarg);
+			break;
 		default:
 			break;  /* Ignore completely */
 		}
@@ -614,7 +614,7 @@ top:
 
 struct dyesub_backend kodak1400_backend = {
 	.name = "Kodak 1400/805",
-	.version = "0.33",
+	.version = "0.34",
 	.uri_prefix = "kodak1400",
 	.cmdline_usage = kodak1400_cmdline,
 	.cmdline_arg = kodak1400_cmdline_arg,

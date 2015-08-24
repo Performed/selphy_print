@@ -823,6 +823,9 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 	struct cw01_ctx *ctx = vctx;
 	int i, j = 0;
 
+	if (!ctx)
+		return -1;
+
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
@@ -830,32 +833,20 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'i':
-			if (ctx) {
-				j = cw01_get_info(ctx);
-				break;
-			}
-			return 1;
+			j = cw01_get_info(ctx);
+			break;
 		case 'n':
-			if (ctx) {
-				j = cw01_get_counters(ctx);
-				break;
-			}
-			return 1;
+			j = cw01_get_counters(ctx);
+			break;
 		case 'N':
 			if (optarg[0] != 'A' &&
 			    optarg[0] != 'B')
 				return CUPS_BACKEND_FAILED;
-			if (ctx) {
-				j = cw01_clear_counter(ctx, optarg[0]);
-				break;
-			}
-			return 2;
+			j = cw01_clear_counter(ctx, optarg[0]);
+			break;
 		case 's':
-			if (ctx) {
-				j = cw01_get_status(ctx);
-				break;
-			}
-			return 1;
+			j = cw01_get_status(ctx);
+			break;
 		default:
 			break;  /* Ignore completely */
 		}
@@ -869,7 +860,7 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend cw01_backend = {
 	.name = "Citizen CW-01",
-	.version = "0.11",
+	.version = "0.12",
 	.uri_prefix = "citizencw01",
 	.cmdline_usage = cw01_cmdline,
 	.cmdline_arg = cw01_cmdline_arg,

@@ -491,6 +491,9 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 	struct kodak605_ctx *ctx = vctx;
 	int i, j = 0;
 
+	if (!ctx)
+		return -1;
+
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
@@ -498,31 +501,19 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'C':
-			if (ctx) {
-				j = kodak605_set_tonecurve(ctx, optarg);
-				break;
-			}
-			return 2;
+			j = kodak605_set_tonecurve(ctx, optarg);
+			break;
 		case 'm':
-			if (ctx) {
-				uint8_t mediabuf[MAX_MEDIA_LEN];
-				struct kodak605_media_list *media = (struct kodak605_media_list *)mediabuf;
-				j = kodak605_get_media(ctx, media);
-				if (!j)
-					kodak605_dump_mediainfo(media);
-				break;
-			}
-			return 1;
-		case 's':
-			if (ctx) {
-				struct kodak605_status sts;
+			kodak605_dump_mediainfo(ctx->media);
+			break;
+		case 's': {
+			struct kodak605_status sts;
 
-				j = kodak605_get_status(ctx, &sts);
-				if (!j)
-					kodak605_dump_status(&sts);
-				break;
-			}
-			return 1;
+			j = kodak605_get_status(ctx, &sts);
+			if (!j)
+				kodak605_dump_status(&sts);
+			break;
+		}
 		default:
 			break;  /* Ignore completely */
 		}
@@ -536,7 +527,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.22",
+	.version = "0.23",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,

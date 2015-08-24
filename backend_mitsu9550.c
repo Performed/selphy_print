@@ -737,6 +737,9 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	struct mitsu9550_ctx *ctx = vctx;
 	int i, j = 0;
 
+	if (!ctx)
+		return -1;
+
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
@@ -744,17 +747,11 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
  		GETOPT_PROCESS_GLOBAL			
 		case 'm':
-			if (ctx) {
-				j = mitsu9550_query_media(ctx);
-				break;
-			}
-			return 1;
+			j = mitsu9550_query_media(ctx);
+			break;
 		case 's':
-			if (ctx) {
-				j = mitsu9550_query_status(ctx);
-				break;
-			}
-			return 1;
+			j = mitsu9550_query_status(ctx);
+			break;
 		default:
 			break;  /* Ignore completely */
 		}
@@ -768,7 +765,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.14",
+	.version = "0.15",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

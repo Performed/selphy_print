@@ -1457,6 +1457,9 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 	struct shinkos6145_ctx *ctx = vctx;
 	int i, j = 0;
 
+	if (!ctx)
+		return -1;
+
 	/* Reset arg parsing */
 	optind = 1;
 	opterr = 0;
@@ -1464,98 +1467,61 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'c':
-			if (ctx) {
-				j = get_tonecurve(ctx, TONECURVE_USER, optarg);
-				break;
-			}
-			return 1;
+			j = get_tonecurve(ctx, TONECURVE_USER, optarg);
+			break;
 		case 'C':
-			if (ctx) {
-				j = set_tonecurve(ctx, TONECURVE_USER, optarg);
-				break;
-			}
-			return 1;
+			j = set_tonecurve(ctx, TONECURVE_USER, optarg);
+			break;
 		case 'e':
-			if (ctx) {
-				j = get_errorlog(ctx);
-				break;
-			}
-			return 1;
+			j = get_errorlog(ctx);
+			break;
 		case 'F':
-			if (ctx) {
-				j = flash_led(ctx);
-				break;
-			}
-			return 1;
+			j = flash_led(ctx);
+			break;
 		case 'i':
-			if (ctx) {
-				j = get_fwinfo(ctx);
-				break;
-			}
-			return 1;
-		case 'k':
-			if (ctx) {
-				uint32_t i = atoi(optarg);
-				if (i < 5)
-					i = 0;
-				else if (i < 15)
-					i = 1;
-				else if (i < 30)
-					i = 2;
-				else if (i < 60)
-					i = 3;
-				else if (i < 120)
-					i = 4;
-				else if (i < 240)
-					i = 5;
-				else
-					i = 5;
+			j = get_fwinfo(ctx);
+			break;
+		case 'k': {
+			uint32_t i = atoi(optarg);
+			if (i < 5)
+				i = 0;
+			else if (i < 15)
+				i = 1;
+			else if (i < 30)
+				i = 2;
+			else if (i < 60)
+				i = 3;
+			else if (i < 120)
+				i = 4;
+			else if (i < 240)
+				i = 5;
+			else
+				i = 5;
 
-				j = set_param(ctx, PARAM_SLEEP_TIME, i);
-				break;
-			}
+			j = set_param(ctx, PARAM_SLEEP_TIME, i);
+			break;
+		}
 		case 'l':
-			if (ctx) {
-				j = get_tonecurve(ctx, TONECURVE_CURRENT, optarg);
-				break;
-			}
-			return 1;
+			j = get_tonecurve(ctx, TONECURVE_CURRENT, optarg);
+			break;
 		case 'L':
-			if (ctx) {
-				j = set_tonecurve(ctx, TONECURVE_CURRENT, optarg);
-				break;
-			}
-			return 1;
+			j = set_tonecurve(ctx, TONECURVE_CURRENT, optarg);
+			break;
 		case 'm':
-			if (ctx) {
-				j = get_mediainfo(ctx);
-				break;
-			}
-			return 1;
+			j = get_mediainfo(ctx);
+			break;
 		case 'r':
-			if (ctx) {
-				j = reset_curve(ctx, RESET_TONE_CURVE);
-				break;
-			}
-			return 1;
+			j = reset_curve(ctx, RESET_TONE_CURVE);
+			break;
 		case 'R':
-			if (ctx) {
-				j = reset_curve(ctx, RESET_PRINTER);
-				break;
-			}
-			return 1;
+			j = reset_curve(ctx, RESET_PRINTER);
+			break;
 		case 's':
-			if (ctx) {
-				j = get_status(ctx);
-				break;
-			} 
-			return 1;
+			j = get_status(ctx);
+			break;
 		case 'X':
-			if (ctx) {
-				j = cancel_job(ctx, optarg);
-				break;
-			}
-			return 1;
+			j = cancel_job(ctx, optarg);
+			break;
 		default:
 			break;  /* Ignore completely */
 		}
