@@ -239,7 +239,8 @@
      -c filename        Query tone curve [1]
      -C filename        Set tone curve   [1]
      -m                 Query supported media
-     -s                 Query printer status (not fully decoded)
+     -s                 Query printer status
+     -X id              Cancel print job 'id' [2]
 
   Notes:
 
@@ -248,6 +249,11 @@
     	 256 entries each of Yellow, Magenta, Cyan mappings:
 	 Values are unsigned 16-bit big endian, between 0 and 16383
 	 (ie 14-bit)
+
+    [2]  Job ID is the Internal Job ID (reported via status)
+    	   This cancels a multi-copy print job.
+	   To see which jobs are active/pending, see the output of the
+	   '-s' command, specifically the 'Bank' output.
 
  *************************************************************************** 
   BACKEND=kodak605

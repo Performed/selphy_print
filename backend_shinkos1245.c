@@ -97,7 +97,7 @@ struct shinkos1245_cmd_getid {
 struct shinkos1245_resp_getid {
 	uint8_t id;       /* 0x00 */
 	uint8_t data[23]; /* padded with 0x20 (space) */
-	uint8_t reserved[8];
+	uint8_t reserved[8]; // XXX actual serial number?
 } __attribute__((packed));
 
 /* Set Printer ID -- Returns Status */
@@ -534,7 +534,7 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 static int shinkos1245_get_printerid(struct shinkos1245_ctx *ctx,
 				     struct shinkos1245_resp_getid *resp)
 {
-	struct shinkos1245_cmd_getstatus cmd;
+	struct shinkos1245_cmd_getid cmd;
 	int ret, num;
 
 	shinkos1245_fill_hdr(&cmd.hdr);
@@ -884,13 +884,13 @@ static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 //	INFO("USB TypeFlag: %02x\n", sts->counters.control_flag);
 
 	INFO("Bank 1 ID: %d\n", sts->counters2.bank1_id);
-	INFO("\tPrints:  %d/%d (%d complete)\n",
-	     sts->counters2.bank1_remain, sts->counters2.bank1_spec,
-	     sts->counters2.bank1_complete);
+	INFO("\tPrints:  %d/%d complete\n",
+	     be16_to_cpu(sts->counters2.bank1_complete),
+	     be16_to_cpu(sts->counters2.bank1_spec));
 	INFO("Bank 2 ID: %d\n", sts->counters2.bank2_id);
-	INFO("\tPrints:  %d/%d (%d complete)\n",
-	     sts->counters2.bank2_remain, sts->counters2.bank2_spec,
-	     sts->counters2.bank2_complete);
+	INFO("\tPrints:  %d/%d complete\n",
+	     be16_to_cpu(sts->counters2.bank2_complete),
+	     be16_to_cpu(sts->counters2.bank2_spec));
 
 	switch (sts->curve_status) {
 	case CURVE_TABLE_STATUS_INITIAL:
