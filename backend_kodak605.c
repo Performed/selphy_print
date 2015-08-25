@@ -86,11 +86,11 @@ struct kodak605_status {
 	uint8_t  unk_8;     /* 00 */
 /*@53*/	uint8_t  sts_11;    /* 00 or 02 or 12, always matches @45 */
 /*@54*/	uint8_t  sts_12;    /* 00 or 01 or 02 */
-/*@55*/ uint8_t  sts_13;    /* 00 or 01 */
+/*@55*/ uint8_t  sts_13;    /* 00 or 01 (remaining prints in job?) */
 /*@56*/	uint8_t  unk_9;     /* 00 */
-/*@57*/	uint8_t  sts_14;    /* 00 or 01 */
+/*@57*/	uint8_t  sts_14;    /* 00 or 01 (completed prints in job?) */
 /*@58*/	uint8_t  unk_10;    /* 00 */
-/*@59*/	uint8_t  sts_15;    /* 00 or 01 */
+/*@59*/	uint8_t  sts_15;    /* 00 or 01 (total prints in job?) */
 /*@60*/	uint8_t  null_2[10];/* 00 00 00 00 00 00 00 00 00 00*/
 	uint8_t  unk_12[6]; /* 01 00 00 00 00 00 */
 } __attribute__((packed));

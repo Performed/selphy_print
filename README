@@ -42,6 +42,7 @@
 
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
    Kodak 305
+   Fuji ASK-300
    Citizen CW-02, and CX2
    Olmec OP900/OP900II
    ICI Imagedata OP900
@@ -467,6 +468,7 @@
    Unsupported printers (Unknown VID/PID):
 
     Mitsubishi CP-D80DW
+    Fuji ASK-300
 
    Valid commands:
 
