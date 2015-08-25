@@ -1363,27 +1363,6 @@ static int shinkos1245_read_parse(void *vctx, int data_fd) {
 	return CUPS_BACKEND_OK;
 }
 
-static uint16_t uint16_to_packed_bcd(uint16_t val)
-{
-	uint16_t bcd;
-	uint16_t i;
-
-	/* Handle from 0-9999 */
-	i = val % 10;
-	bcd = i;
-	val /= 10;
-	i = val % 10;
-	bcd |= (i << 4);
-	val /= 10;
-	i = val % 10;
-	bcd |= (i << 8);
-	val /= 10;
-	i = val % 10;
-	bcd |= (i << 12);
-
-	return bcd;
-}
-
 static int shinkos1245_main_loop(void *vctx, int copies) {
 	struct shinkos1245_ctx *ctx = vctx;
 	int i, num, last_state = -1, state = S_IDLE;
@@ -1462,7 +1441,7 @@ top:
 		/* If the printer is "busy" check to see if there's any
 		   open memory banks so we can queue the next print */
 		if (!status1.counters2.bank1_remain ||
-		    status1.counters2.bank2_remain) {
+		    !status1.counters2.bank2_remain) {
 			state = S_PRINTER_READY_CMD;
 			break;
 		}
@@ -1606,7 +1585,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.06WIP",
+	.version = "0.07WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
