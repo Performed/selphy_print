@@ -182,7 +182,7 @@ struct s6245_print_cmd {
 	uint16_t count;
 	uint16_t columns;
 	uint16_t rows;
-	uint8_t  reserved[2];
+	uint8_t  reserved[8]; // columns and rows repeated, then nulls
 	uint8_t  mode;
 	uint8_t  method;
 	uint8_t  reserved2;	
@@ -1583,11 +1583,29 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 	uint8_t rdbuf2[READBACK_LEN];
 
 	int i, last_state = -1, state = S_IDLE;
+	uint8_t mcut;
 
 	struct s6245_cmd_hdr *cmd = (struct s6245_cmd_hdr *) cmdbuf;;
 	struct s6245_print_cmd *print = (struct s6245_print_cmd *) cmdbuf;
 	struct s6245_status_resp *sts = (struct s6245_status_resp *) rdbuf; 
 	struct s6245_mediainfo_resp *media = (struct s6245_mediainfo_resp *) rdbuf;
+
+	/* Cap copies */
+	if (copies > 120)
+		copies = 120;
+
+	/* Set up mcut */
+	switch (le32_to_cpu(ctx->hdr.media)) {
+	case MEDIA_8x4_2:
+	case MEDIA_8x5_2:
+	case MEDIA_8x6_2:
+		mcut = PRINT_METHOD_COMBO_2;
+	case MEDIA_8x4_3:
+		mcut = PRINT_METHOD_COMBO_3;
+	default:
+		mcut = PRINT_METHOD_STD;
+	}
+	// XXX what about mcut |= PRINT_METHOD_DISABLE_ERR;
 
 	/* Send Media Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
@@ -1706,10 +1724,7 @@ top:
 		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
 		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 		print->mode = le32_to_cpu(ctx->hdr.oc_mode);
-//		print->method = le32_to_cpu(ctx->hdr.method);
-		// XXX multicut -- 8x4*2, 8x4*3, 8x6*2, 8x5*2 ??
-		// or does the "method" automatically double up the normal
-		// sizes?
+		print->method = mcut;
 
 		if ((ret = s6245_do_cmd(ctx,
 					cmdbuf, sizeof(*print),
@@ -1809,7 +1824,7 @@ static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Shinko/Sinfonia CHC-S6245",
-	.version = "0.03WIP",
+	.version = "0.04WIP",
 	.uri_prefix = "shinkos6245",
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,

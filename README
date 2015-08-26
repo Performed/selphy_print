@@ -51,6 +51,7 @@
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
+   Kodak 8810
    Ciaat Brava 21 (Rebadged S6145)
 
  ***************************************************************************
@@ -411,6 +412,10 @@
    Work-in-process printers:
 
      Shinko CHC-S6245 (aka "Sinfonia CE1")
+
+   Unsupported printers (Unknown VID/PID):
+
+     Kodak 8810
 
    Valid commands:
 
