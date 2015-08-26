@@ -896,12 +896,9 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	/* Reset arg parsing */
-	optind = 1;
-	opterr = 0;
 	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "C:c:msX:")) >= 0) {
 		switch(i) {
-		GETOPT_PROCESS_GLOBAL			
+		GETOPT_PROCESS_GLOBAL
 		case 'c':
 			j = kodak6800_get_tonecurve(ctx, optarg);
 			break;

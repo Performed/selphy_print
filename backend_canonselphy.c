@@ -960,10 +960,7 @@ static int canonselphy_cmdline_arg(void *vctx, int argc, char **argv)
 
 	if (!ctx)
 		return -1;
-	
-	/* Reset arg parsing */
-	optind = 1;
-	opterr = 0;
+
 	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL)) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
