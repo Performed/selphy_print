@@ -236,24 +236,24 @@ static void kodak68x0_dump_mediainfo(struct kodak68x0_media_readback *media)
 {
 	int i;
 	if (media->media == KODAK68x0_MEDIA_NONE) {
-		DEBUG("No Media Loaded\n");
+		INFO("No Media Loaded\n");
 		return;
 	}
 
 	if (media->media == KODAK68x0_MEDIA_6R) {
-		DEBUG("Media type: 6R (Kodak 197-4096 or equivalent)\n");
+		INFO("Media type: 6R (Kodak 197-4096 or equivalent)\n");
 	} else {
-		DEBUG("Media type %02x (unknown, please report!)\n", media->media);
+		INFO("Media type %02x (unknown, please report!)\n", media->media);
 	}
-	DEBUG("Legal print sizes:\n");
+	INFO("Legal print sizes:\n");
 	for (i = 0 ; i < media->count ; i++) {
-		DEBUG("\t%d: %dx%d (%02x) %s\n", i, 
+		INFO("\t%d: %dx%d (%02x) %s\n", i,
 		      be16_to_cpu(media->sizes[i].width),
 		      be16_to_cpu(media->sizes[i].height),
 		      media->sizes[i].code,
 		      media->sizes[i].code2? "Disallowed" : "");
 	}
-	DEBUG("\n");
+	INFO("\n");
 }
 
 static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx, struct kodak68x0_media_readback *media)
