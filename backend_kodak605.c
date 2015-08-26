@@ -115,13 +115,13 @@ struct kodak605_status {
 /* File header */
 struct kodak605_hdr {
 	uint8_t  hdr[4];   /* 01 40 0a 00 */
-	uint8_t  jobid;    /* 01/02 seen */
+	uint8_t  jobid;
 	uint16_t copies;   /* LE, 0x0001 or more */
 	uint16_t columns;  /* LE, always 0x0734 */
 	uint16_t rows;     /* LE */
 	uint8_t  media;    /* 0x03 for 6x8, 0x01 for 6x4 */
 	uint8_t  laminate; /* 0x02 to laminate, 0x01 for not */
-	uint8_t  unk3;     /* 0x00, 0x01 [may be print mode] */
+	uint8_t  mode;     /* Print mode -- 0x00, 0x01 seen */
 } __attribute__((packed));
 
 #define BANK_STATUS_FREE      0x00
@@ -620,80 +620,23 @@ struct dyesub_backend kodak605_backend = {
   Spool file consists of 14-byte header followed by plane-interleaved BGR data.
   Native printer resolution is 1844 pixels per row, and 1240 or 2434 rows.
 
+  All fields are LITTLE ENDIAN unless otherwise specified
+
   Header:
 
   01 40 0a 00                    Fixed header
-  XX                             Unknown, always 01 in file, but 02 seen in sniffs sometimes (6x8?)
-  CC                             Number of copies (1-255)
-  00                             Always 0x00
-  WW WW                          Number of columns, little endian. (Fixed at 1844)
-  HH HH                          Number of rows, little endian. (1240 or 2434)
+  XX                             Job ID
+  CC CC                          Number of copies (1-???)
+  WW WW                          Number of columns (Fixed at 1844)
+  HH HH                          Number of rows (1240 or 2434)
   DD                             0x01 (4x6) 0x03 (8x6)
   LL                             Laminate, 0x01 (off) or 0x02 (on)
-  00
+  00                             Print Mode (???)
 
   ************************************************************************
 
-  Note:  605 is Shinko CHC-S1545-5A
+  Note:  Kodak 605 is actually a Shinko CHC-S1545-5A
 
   ************************************************************************
-
-   Kodak 605 Printer Comms:
-
-   [[file header]] 01 40 0a 00 01 CC 00 WW WW HH HH MT LL 00
-
--> 01 00 00 00
-<- [76 bytes -- status ]
-
-   01 00 00 00  00 00 02 00  42 00 30 00  00 00 30 00
-   00 00 13 00  00 00 75 00  00 00 30 00  00 00 5d 00
-   00 00 00 00  00 00 01 01  00 00 00 01  00 02 00 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 01 00  00 00 00 00
-
--> 01 00 00 00
-<- [76 bytes -- status ]
-
-   01 00 00 00  00 00 02 00  42 00 30 00  00 00 30 00
-   00 00 13 00  00 00 75 00  00 00 30 00  00 00 5d 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 01 00  00 00 00 00
-
-
--> 02 00 00 00
-<- [113 bytes -- supported media/sizes? Always seems to be identical ]
-
-   [ 13-byte header, plus 10 slots for 10-byte media definitions, see above ]
-
-   01 00 00 00  00 00 02 00  67 00 02 0b  04 01 34 07
-   d8 04 01 00  00 00 00 02  dc 05 34 08  01 00 00 00
-   00 03 34 07  82 09 01 00  00 00 00 04  34 07 ba 09
-   01 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00
-
--> 01 40 0a 00  01 01 00 34  07 d8 04 01  02 00  [[ unmodified header ]]
-<- 01 00 00 00  00 00 XX 00  00 00  [[ Seen 0x01 and 0x02 ]
--> image data!
--> image data!
-
--> 01 00 00 00
-<- [76 bytes -- status ?? ]
-
-   01 00 00 00  00 00 01 00  42 00 31 00  00 00 31 00
-   00 00 14 00  00 00 77 00  00 00 31 00  00 00 5d 00
-   00 00 00 00  00 00 01 00  00 01 00 01  00 00 00 00
-   00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-   00 00 00 00  00 00 01 00  00 00 00 00
-
-  Write tone curve data:
-
-->  04 c0 0a 00  03 01 00 00  00 00 LL LL  00 00  [[ LL LL == 0x0600 in LE ]]
-<-  01 00 00 00  00 00 XX 00  00 00  [[ Seen 0x01 and 0x02 ]
-
-->  [[ 1536 bytes of LE tone curve data ]]
 
 */
