@@ -95,6 +95,7 @@ struct dnpds40_ctx {
 	int supports_6x4_5;
 	int supports_mqty_default;
 	int supports_iserial;
+	int supports_square;
 
 	uint8_t *qty_offset;
 	uint8_t *buffctrl_offset;
@@ -435,6 +436,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->supports_rewind = 1;
 		ctx->supports_standby = 1;
 		ctx->supports_iserial = 1;
+		ctx->supports_square = 1;
 		if (FW_VER_CHECK(0,30))
 			ctx->supports_3x5x2 = 1;
 		if (FW_VER_CHECK(1,10))
@@ -734,7 +736,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 
 	/* Additional santity checks */
 	if ((ctx->multicut == 27 || ctx->multicut == 29) &&
-	    ctx->type != P_DNP_DS620) {
+	    ctx->supports_square) {
 		ERROR("Printer does not support 6x6 or 5x5 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
@@ -1662,7 +1664,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.61",
+	.version = "0.62",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
