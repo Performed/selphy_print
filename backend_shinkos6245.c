@@ -1588,6 +1588,8 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 	struct s6245_mediainfo_resp *media = (struct s6245_mediainfo_resp *) rdbuf;
 
 	/* Cap copies */
+	// XXX 120 for 8x10 media, 100 for 8x12 media (S6245)
+	// 250 for 8x12, 300 for 8x10 (Kodak 8810)
 	if (copies > 120)
 		copies = 120;
 
