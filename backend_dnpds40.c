@@ -195,6 +195,7 @@ static char *dnpds40_statuses(int status)
 	case 2700: return "Ribbon Tension Error";
 	case 2800: return "RF-ID Module Error";
 	case 3000: return "System Error";
+		/* add XXX 5000-series codes for duplexer */
 	default:
 		break;
 	}
@@ -1302,6 +1303,24 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
+#if 0
+	/* Figure out Duplexer */
+	if (ctx->type == P_DNP_DS80D) {
+		dnpds40_build_cmd(&cmd, "INFO", "UNIT_STATUS", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+		len = atoi((char*)resp);
+
+		INFO("Duplexer Status: %d => %s\n", len, dnpds80_duplex_statuses(len));
+
+		free(resp);
+	}
+#endif
+
 	/* Get remaining print quantity */
 	dnpds40_build_cmd(&cmd, "INFO", "PQTY", 0);
 
@@ -1679,7 +1698,7 @@ struct dyesub_backend dnpds40_backend = {
 	{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, ""},
 	{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, ""},
-//	{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80, ""},
+//	{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80D, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS40, ""},
 //	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS40, ""},
 	{ 0, 0, 0, ""}
