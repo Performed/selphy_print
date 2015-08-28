@@ -168,8 +168,83 @@ static char *dnpds40_media_types(int media)
 	return "Unknown type";
 }
 
+static char *dnpds80_duplex_statuses(int status)
+{
+	switch (status) {
+	case 5000: return "No Error";
+
+	case 5500: return "Duplex Unit Not Connected";
+
+	case 5017: return "Paper Jam: Supply Sensor On";
+	case 5018: return "Paper Jam: Supply Sensor Off";
+	case 5019: return "Paper Jam: Slot Sensor On";
+	case 5020: return "Paper Jam: Slot Sensor Off";
+	case 5021: return "Paper Jam: Pass Sensor On";
+	case 5022: return "Paper Jam: Pass Sensor Off";
+	case 5023: return "Paper Jam: Shell Sensor 1 On";
+	case 5024: return "Paper Jam: Shell Sensor 1 Off";
+	case 5025: return "Paper Jam: Shell Sensor 2 On";
+	case 5026: return "Paper Jam: Shell Sensor 2 Off";
+	case 5027: return "Paper Jam: Eject Sensor On";
+	case 5028: return "Paper Jam: Eject Sensor Off";
+	case 5029: return "Paper Jam: Slot FG Sensor";
+	case 5030: return "Paper Jam: Shell FG Sensor";
+
+	case 5033: return "Paper Supply Sensor Off";
+	case 5034: return "Printer Feed Slot Sensor Off";
+	case 5035: return "Pinch Pass Sensor Off";
+	case 5036: return "Shell Pass Sensor 1 Off";
+	case 5037: return "Shell Pass Sensor 2 Off";
+	case 5038: return "Eject Sensor Off";
+
+	case 5049: return "Capstan Drive Control Error";
+	case 5065: return "Shell Roller Error";
+
+	case 5081: return "Pinch Open Error";
+	case 5082: return "Pinch Close Error";
+	case 5083: return "Pinch Init Error";
+	case 5084: return "Pinch Position Error";
+
+	case 5097: return "Pass Guide Supply Error";
+	case 5098: return "Pass Guide Shell Error";
+	case 5099: return "Pass Guide Eject Error";
+	case 5100: return "Pass Guide Init Error";
+	case 5101: return "Pass Guide Position Error";
+
+	case 5113: return "Side Guide Home Error";
+	case 5114: return "Side Guide Position Error";
+	case 5115: return "Side Guide Init Error";
+
+	case 5129: return "Act Guide Home Error";
+
+	case 5145: return "Shell Rotate Home Error";
+	case 5146: return "Shell Rotate Rev Error";
+
+	case 5161: return "Paper Feed Lever Down Error";
+	case 5162: return "Paper Feed Lever Lock Error";
+	case 5163: return "Paper Feed Lever Up Error";
+
+	case 5177: return "Cutter Home Error";
+	case 5178: return "Cutter Away Error";
+	case 5179: return "Cutter Init Error";
+	case 5180: return "Cutter Position Error";
+
+	case 5193: return "Paper Tray Removed";
+	case 5209: return "Cover Opened";
+	case 5241: return "System Error";
+
+	default:
+		break;
+	}
+
+	return "Unkown Duplexer Error";
+}
+
 static char *dnpds40_statuses(int status)
 {
+	if (status >= 5000 && status <= 5999)
+		return dnpds80_duplex_statuses(status);
+
 	switch (status) {
 	case 0:	return "Idle";
 	case 1:	return "Printing";
@@ -195,12 +270,11 @@ static char *dnpds40_statuses(int status)
 	case 2700: return "Ribbon Tension Error";
 	case 2800: return "RF-ID Module Error";
 	case 3000: return "System Error";
-		/* add XXX 5000-series codes for duplexer */
 	default:
 		break;
 	}
 
-	return "Unkown Error";
+	return "Unknown Error";
 }
 
 static int dnpds40_do_cmd(struct dnpds40_ctx *ctx,
@@ -1088,6 +1162,21 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	/* Firmware version already queried */
 	INFO("Firmware Version: '%s'\n", ctx->version);
 
+	/* Figure out Duplexer */
+	if (ctx->type == P_DNP_DS80D) {
+		dnpds40_build_cmd(&cmd, "INFO", "UNIT_FVER", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Duplexer Version: '%s'\n", resp);
+
+		free(resp);
+	}
+
 	/* Get Media Color offset */
 	dnpds40_build_cmd(&cmd, "INFO", "MCOLOR", 0);
 
@@ -1303,7 +1392,6 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-#if 0
 	/* Figure out Duplexer */
 	if (ctx->type == P_DNP_DS80D) {
 		dnpds40_build_cmd(&cmd, "INFO", "UNIT_STATUS", 0);
@@ -1319,7 +1407,6 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 		free(resp);
 	}
-#endif
 
 	/* Get remaining print quantity */
 	dnpds40_build_cmd(&cmd, "INFO", "PQTY", 0);
@@ -1484,6 +1571,20 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 		dnpds40_cleanup_string((char*)resp, len);
 
 		INFO("Matte Counter: '%s'\n", (char*)resp+4);
+
+		free(resp);
+	}
+
+	if (ctx->type == P_DNP_DS80D) {
+		dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_DUPLEX", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Duplexer Counter: '%s'\n", (char*)resp);
 
 		free(resp);
 	}
@@ -1683,7 +1784,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.62",
+	.version = "0.63",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
