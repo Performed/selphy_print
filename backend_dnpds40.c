@@ -650,6 +650,10 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			ctx->multicut_offset = ctx->databuf + ctx->datalen + 32;
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
 			ctx->multicut = atoi(buf);
+
+			/* Backend handles rewind support */
+			if (ctx->multicut > 400)
+				ctx->multicut -= 400;
 		}
 		if(!memcmp("CNTRL FULL_CUTTER_SET", ctx->databuf + ctx->datalen+2, 21)) {
 			if (!ctx->supports_fullcut) {
@@ -797,6 +801,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
+			break;
 		case 510: //"8x12"
 			if (ctx->multicut < 6 || ctx->multicut > 21) {
 				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
@@ -1007,9 +1012,8 @@ top:
 
 		/* See if we can rewind to save media */
 		if (ctx->can_rewind && ctx->supports_rewind) {
-			/* Tell the printer we want to rewind, if possible. */
-			snprintf(buf, sizeof(buf), "%08d", ctx->multicut + 400);
-			memcpy(ctx->multicut_offset, buf, 8);
+			/* Tell printer to use rewind */
+			ctx->multicut += 400;
 
 			/* Get Media remaining */
 			dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
@@ -1021,6 +1025,12 @@ top:
 
 			dnpds40_cleanup_string((char*)resp, len);
 			i = atoi((char*)resp+4);
+		}
+
+		/* Update job with new offset, if it's present.. */
+		if (ctx->multicut_offset) {
+			snprintf(buf, sizeof(buf), "%08d", ctx->multicut);
+			memcpy(ctx->multicut_offset, buf, 8);
 		}
 
 		/* If we didn't succeed with RQTY, try MQTY */
@@ -1784,7 +1794,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.63",
+	.version = "0.64",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
