@@ -78,6 +78,7 @@ struct dnpds40_ctx {
 	int ver_major;
 	int ver_minor;
 	int media;
+	int duplex_media;
 
 	uint32_t multicut;
 	int matte;
@@ -167,6 +168,19 @@ static char *dnpds40_media_types(int media)
 
 	return "Unknown type";
 }
+
+static char *dnpds80_duplex_media_types(int media)
+{
+	switch (media) {
+	case 100: return "8x10.75";
+	case 200: return "8x12";
+	default:
+		break;
+	}
+
+	return "Unknown type";
+}
+
 
 static char *dnpds80_duplex_statuses(int status)
 {
@@ -467,6 +481,33 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		}
 	}
 
+	if (ctx->type == P_DNP_DS80D) {
+		struct dnpds40_cmd cmd;
+		uint8_t *resp;
+		int len = 0;
+
+		/* Query Duplex Media Info */
+		dnpds40_build_cmd(&cmd, "INFO", "CUT_PAPER", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (resp) {
+			char tmp[5];
+
+			dnpds40_cleanup_string((char*)resp, len);
+
+			memcpy(tmp, resp + 4, 4);
+			tmp[4] = 0;
+
+			ctx->duplex_media = atoi(tmp);
+
+			/* Subtract out the paper status */
+			if (ctx->duplex_media & 3)
+				ctx->duplex_media -= (ctx->duplex_media & 3);
+
+			free(resp);
+		}
+	}
+
 #ifdef DNP_ONLY
 	/* Only allow DNP printers to work. Rebadged versions should not. */
 
@@ -494,6 +535,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->supports_fullcut = 1;
 		break;
 	case P_DNP_DS80:
+	case P_DNP_DS80D:
 		if (FW_VER_CHECK(1,30))
 			ctx->supports_matte = 1;
 		break;
@@ -545,7 +587,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	int run = 1;
 	char buf[9] = { 0 };
 
-	uint32_t matte, dpi, cutter;
+	uint32_t dpi;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -572,11 +614,12 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	}
 
 	/* Clear everything out */
-	matte = 0;
 	dpi = 0;
-	cutter = 0;
+	ctx->matte = 0;
+	ctx->cutter = 0;
 	ctx->manual_copies = 0;
 	ctx->multicut = 0;
+	ctx->can_rewind = 0;
 	ctx->buffctrl_offset = ctx->qty_offset = ctx->multicut_offset = 0;
 
 	while (run) {
@@ -623,7 +666,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		}
 		if(!memcmp("CNTRL CUTTER", ctx->databuf + ctx->datalen+2, 12)) {
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
-			cutter = atoi(buf);
+			ctx->cutter = atoi(buf);
 		}
 		if(!memcmp("CNTRL BUFFCNTRL", ctx->databuf + ctx->datalen+2, 15)) {
 			/* If the printer doesn't support matte, it doesn't
@@ -640,9 +683,9 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			   support buffcntrl.  strip it from the stream */
 			if (ctx->supports_matte) {
 				memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
-				matte = atoi(buf);
+				ctx->matte = atoi(buf);
 			} else {
-				WARNING("Printer FW does not support matte prints, please update\n");
+				WARNING("Printer FW does not support matte prints, using glossy mode\n");
 				continue;
 			}
 		}
@@ -683,7 +726,8 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			/* Validate horizontal size */
 			memcpy(&y_ppm, ctx->databuf + ctx->datalen + 32 + 18, sizeof(y_ppm));
 			y_ppm = le32_to_cpu(y_ppm);
-			if (ctx->type == P_DNP_DS80) {
+			if (ctx->type == P_DNP_DS80 ||
+			    ctx->type == P_DNP_DS80D) {
 				if (y_ppm != 2560) {
 					ERROR("Incorrect horizontal resolution (%d), aborting!\n", y_ppm);
 					return CUPS_BACKEND_CANCEL;
@@ -707,48 +751,68 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	if (!ctx->datalen)
 		return CUPS_BACKEND_CANCEL;
 
-	/* Figure out the number of buffers we need. Most only need one. */
-	if (ctx->multicut) {
-		ctx->buf_needed = 1;
-
-		if (dpi == 600) {
-			if (ctx->type == P_DNP_DS620) {
-				if (ctx->multicut == 5 || // 6x9
-				    ctx->multicut == 31)  // 6x4.5*2
-					ctx->buf_needed = 2;
-			} else if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
-				if (matte && (ctx->multicut == 21 || // A4 length
-					      ctx->multicut == 20 || // 8x4*3
-					      ctx->multicut == 19 || // 8x8+8x4
-					      ctx->multicut == 15 || // 8x6*2
-					      ctx->multicut == 7)) // 8x12
-					ctx->buf_needed = 2;
-			} else { /* DS40/CX/RX1/CY/etc */
-				if (ctx->multicut == 4 ||  // 6x8
-				    ctx->multicut == 5 ||  // 6x9
-				    ctx->multicut == 12)   // 6x4*2
-					ctx->buf_needed = 2;
-				else if (matte && ctx->multicut == 3) // 5x7
-					ctx->buf_needed = 2;
-			}
-		}
-	} else {
-		WARNING("Missing or illegal MULTICUT command, can't validate print job against loaded media!\n");
+	if (!ctx->multicut) {
+		WARNING("Missing or illegal MULTICUT command!\n");
 		if (dpi == 300)
 			ctx->buf_needed = 1;
 		else
 			ctx->buf_needed = 2;
+
+		goto skip_checks;
 	}
 
-	ctx->matte = (int)matte;
-	ctx->cutter = cutter;
-	ctx->can_rewind = 0;
+	/* Only DS80D supports Cut Paper types */
+	if (ctx->multicut > 100 &&
+	    ctx->type != P_DNP_DS80D) {
+		ERROR("Only DS80D supports cut-paper sizes!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
 
-	DEBUG("dpi %u matte %u mcut %u cutter %d, bufs %d\n",
-	      dpi, matte, ctx->multicut, cutter, ctx->buf_needed);
+	/* Figure out the number of buffers we need. */
+	ctx->buf_needed = 1;
+	if (dpi == 600) {
+		if (ctx->type == P_DNP_DS620) {
+			if (ctx->multicut == 5 || // 6x9
+			    ctx->multicut == 31)  // 6x4.5*2
+				ctx->buf_needed = 2;
+		} else if (ctx->type == P_DNP_DS80) { /* DS80/CX-W */
+			if (ctx->matte && (ctx->multicut == 21 || // A4 length
+					   ctx->multicut == 20 || // 8x4*3
+					   ctx->multicut == 19 || // 8x8+8x4
+					   ctx->multicut == 15 || // 8x6*2
+					   ctx->multicut == 7)) // 8x12
+				ctx->buf_needed = 2;
+		} else if (ctx->type == P_DNP_DS80D) { /* DS80D */
+			if (ctx->matte) {
+				if (ctx->multicut == 21 || // A4 length
+				    ctx->multicut == 20 || // 8x4*3
+				    ctx->multicut == 19 || // 8x8+8x4
+				    ctx->multicut == 15 || // 8x6*2
+				    ctx->multicut == 7) // 8x12
+					ctx->buf_needed = 2;
+				if (ctx->multicut == 107 || // 8x12
+				    ctx->multicut == 207 ||
+				    ctx->multicut == 307 ||
+				    ctx->multicut == 115 || // 8x6*2
+				    ctx->multicut == 215 ||
+				    ctx->multicut == 315 ||
+				    ctx->multicut == 128 || // 8x4*3
+				    ctx->multicut == 228 ||
+				    ctx->multicut == 328)
+					ctx->buf_needed = 2;
+			}
+		} else { /* DS40/CX/RX1/CY/etc */
+			if (ctx->multicut == 4 ||  // 6x8
+			    ctx->multicut == 5 ||  // 6x9
+			    ctx->multicut == 12)   // 6x4*2
+				ctx->buf_needed = 2;
+			else if (ctx->matte && ctx->multicut == 3) // 5x7
+				ctx->buf_needed = 2;
+		}
+	}
 
-	/* Sanity-check printjob type vs loaded media */
-	if (ctx->multicut) {
+	/* Sanity-check type vs loaded media */
+	if (ctx->multicut < 100) {
 		switch(ctx->media) {
 		case 200: //"5x3.5 (L)"
 			if (ctx->multicut != 1) {
@@ -812,9 +876,32 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			ERROR("Unknown media (%d vs %d)!\n", ctx->media, ctx->multicut);
 			return CUPS_BACKEND_CANCEL;
 		}
+	} else if (ctx->multicut < 400) {
+		switch(ctx->duplex_media) {
+		case 100: //"8x10.75"
+			if (ctx->multicut == 107 || // 8x12
+			    ctx->multicut == 207 ||
+			    ctx->multicut == 307 ||
+			    ctx->multicut == 115 || // 8x6*2
+			    ctx->multicut == 215 ||
+			    ctx->multicut == 315 ||
+			    ctx->multicut == 128 || // 8x4*3
+			    ctx->multicut == 228 ||
+			    ctx->multicut == 328) {
+				ERROR("Incorrect media for job loaded (%d vs %d)\n", ctx->media, ctx->multicut);
+				return CUPS_BACKEND_CANCEL;
+			}
+			break;
+		case 200: //"8x12"
+			/* Everything is legal */
+			break;
+		default:
+			ERROR("Unknown duplexer media (%d vs %d)!\n", ctx->duplex_media, ctx->multicut);
+			return CUPS_BACKEND_CANCEL;
+		}
 	}
 
-	/* Additional santity checks */
+	/* Additional santity checks, make sure printer support exists */
 	if ((ctx->multicut == 27 || ctx->multicut == 29) &&
 	    ctx->supports_square) {
 		ERROR("Printer does not support 6x6 or 5x5 prints, aborting!\n");
@@ -854,10 +941,9 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		ctx->manual_copies = 1;
 	}
 
-	if (ctx->matte && !ctx->supports_matte) {
-		ERROR("Printer FW does not support matte operation, please update!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
+skip_checks:
+	DEBUG("dpi %u matte %u mcut %u cutter %d, bufs %d\n",
+	      dpi, ctx->matte, ctx->multicut, ctx->cutter, ctx->buf_needed);
 
 	return CUPS_BACKEND_OK;
 }
@@ -1447,6 +1533,10 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	/* Report media */
 	INFO("Media Type: '%s'\n", dnpds40_media_types(ctx->media));
 
+	/* Report Cut Media */
+	if (ctx->type == P_DNP_DS80D)
+		INFO("Duplex Media Type: '%s'\n", dnpds80_duplex_media_types(ctx->media));
+
 	if (ctx->supports_mqty_default) {
 		/* Get Media remaining */
 		dnpds40_build_cmd(&cmd, "INFO", "MQTY_DEFAULT", 0);
@@ -1794,7 +1884,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.64",
+	.version = "0.65",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
