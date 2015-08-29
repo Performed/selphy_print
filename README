@@ -40,6 +40,7 @@
 
   Work-in-progress Printers:
 
+   DNP DS80DX
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
    Kodak 305
    Fuji ASK-300
@@ -366,6 +367,7 @@
    Work-in-process printers:
 
      Shinko CHC-S6145 (aka "Sinfonia CE1")
+     Ciaat Brava 21
 
 	***VERY IMPORTANT***  This backend does NOT work -- At the moment, 
 	a proprietary binary-only library is necessary to convert the input
@@ -539,7 +541,7 @@
      -I                 Query printer sensor information
      -n                 Query printer counters
      -N [ A | B | M ]   Reset Counter A/B/M                                 [2]
-     -p num             Set 'P' counter to 'num'
+     -p num             Set 'P' counter to 'num'                            [2]
      -s                 Query printer status
      -k num		Specify standby delay (1-99 minutes, 0 disables)    [1]
      -K num		Keep Media Status Across Power Cycles (1 yes, 0 no) [1]
