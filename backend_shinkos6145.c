@@ -3,7 +3,7 @@
  *
  *   (c) 2013-2015 Solomon Peachy <pizza@shaftnet.org>
  *
- *   Low-level documentation was provided by Sinfonia, Inc.  Thank you!
+ *   Low-level documentation was provided by Sinfonia.  Thank you!
  *
  *   The latest version of this program can be found at:
  *
@@ -25,6 +25,16 @@
  *
  *          [http://www.gnu.org/licenses/gpl-3.0.html]
  *
+ *   An additional permission is granted, under the GPLv3 section 7, to combine
+ *   and/or redistribute this program with the proprietary libS6145ImageProcess
+ *   library, providing you have *written permission* from Sinfonia Technology
+ *   Co. LTD to use and/or redistribute that library.
+ *
+ *   Please note that the authors of this program *do not* have permission to
+ *   redistribute this library, which was provided only in binary form.
+ *
+ *   You must still adhere to all other terms of both the GPLv3 and the license
+ *   of the libS6145ImageProcess library.
  */
 
 #include <stdio.h>

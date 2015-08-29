@@ -366,14 +366,31 @@
 
    Work-in-process printers:
 
-     Shinko CHC-S6145 (aka "Sinfonia CE1")
+     Shinko CHC-S6145 (aka "Sinfonia CS2")
      Ciaat Brava 21
 
-	***VERY IMPORTANT***  This backend does NOT work -- At the moment, 
-	a proprietary binary-only library is necessary to convert the input
-	8bpp YMC data to the 16bpp YMCO data the printer needs.  This 
-	library is only available for x86 and x86_64 targets, 
-	and I do not have permission to redistribute it.
+	***VERY IMPORTANT***  At the moment, this backend is only able to
+	query printer statistics and issue various commands.  In order to
+	print, this backend requires a proprietary library
+	(libS6145ImageProcess) to transform the input data into a form the
+	printer can use.
+
+	This library was provided to the authors of this in binary form, and
+	without redistribution permissions.
+
+	If you obtain this library along with *written permission* from
+	Sinfonia Technology Co. LTD to use and/or redistribute it,
+	as an additional permission under the GPLv3 section 7, you
+	may combine and/or redistribute this backend along with	the library.
+
+        For the full text of the license exception, see the comments in the
+	header of backend_shinkos6145.c
+
+	Ideally, Sinfonia could be convinced to release source code to this
+	library under a suitable license, but I have been informed they are
+	unable to do so due to legal considerations.  Meanwhile, work is
+	slowly under way to reverse-engineer this proprietary, binary
+	library and write a Free Software replacement.
 
    Valid commands:
 
