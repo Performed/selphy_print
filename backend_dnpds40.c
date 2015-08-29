@@ -990,10 +990,15 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		snprintf(buf, sizeof(buf), "%08d", 1);
 		if (ctx->buffctrl_offset) {
 			memcpy(ctx->buffctrl_offset, buf, 8);
-		} else { // XXX disable on DS80D if mcut >= 100
-			dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
-			if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
-				return CUPS_BACKEND_FAILED;
+		} else {
+			/* DS80D does not support BUFFCNTRL when using
+			   cut media; all others support this */
+			if (ctx->type != P_DNP_DS80D ||
+			    ctx->multicut < 100) {
+				dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
+				if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+					return CUPS_BACKEND_FAILED;
+			}
 		}
 	}
 
