@@ -701,7 +701,8 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
 			ctx->multicut = atoi(buf);
 
-			/* Backend handles rewind support */
+			/* Backend automatically handles rewind support, so
+			   ignore application requests to use it. */
 			if (ctx->multicut > 400)
 				ctx->multicut -= 400;
 		}
@@ -755,9 +756,11 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		ctx->datalen += sizeof(struct dnpds40_cmd) + j;
 	}
 
+	/* If we have no data.. don't bother */
 	if (!ctx->datalen)
 		return CUPS_BACKEND_CANCEL;
 
+	/* Make sure MULTICUT is sane, most validation needs this */
 	if (!ctx->multicut) {
 		WARNING("Missing or illegal MULTICUT command!\n");
 		if (dpi == 300)
