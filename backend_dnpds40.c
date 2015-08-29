@@ -97,6 +97,7 @@ struct dnpds40_ctx {
 	int supports_mqty_default;
 	int supports_iserial;
 	int supports_square;
+	int supports_counterp;
 
 	uint8_t *qty_offset;
 	uint8_t *buffctrl_offset;
@@ -525,6 +526,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 	switch (ctx->type) {
 	case P_DNP_DS40:
 		ctx->supports_6x9 = 1;
+		if (FW_VER_CHECK(1,04))
+			ctx->supports_counterp = 1;
 		if (FW_VER_CHECK(1,30))
 			ctx->supports_matte = 1;
 		if (FW_VER_CHECK(1,40))
@@ -536,16 +539,20 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		break;
 	case P_DNP_DS80:
 	case P_DNP_DS80D:
+		if (FW_VER_CHECK(1,02))
+			ctx->supports_counterp = 1;
 		if (FW_VER_CHECK(1,30))
 			ctx->supports_matte = 1;
 		break;
 	case P_DNP_DSRX1:
+		ctx->supports_counterp = 1;
 		ctx->supports_matte = 1;
 		ctx->supports_mqty_default = 1; // 1.10 does. Maybe older too?
 		if (FW_VER_CHECK(1,10))
 			ctx->supports_2x6 = 1;
 		break;
 	case P_DNP_DS620:
+		ctx->supports_counterp = 1;
 		ctx->supports_matte = 1;
 		ctx->supports_2x6 = 1;
 		ctx->supports_fullcut = 1;
@@ -983,7 +990,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		snprintf(buf, sizeof(buf), "%08d", 1);
 		if (ctx->buffctrl_offset) {
 			memcpy(ctx->buffctrl_offset, buf, 8);
-		} else {
+		} else { // XXX disable on DS80D if mcut >= 100
 			dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
 			if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
 				return CUPS_BACKEND_FAILED;
@@ -1634,18 +1641,20 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-	/* Generate command */
-	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_P", 0);
+	if (ctx->supports_counterp) {
+		/* Generate command */
+		dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_P", 0);
 
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
 
-	dnpds40_cleanup_string((char*)resp, len);
+		dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("P Counter: '%s'\n", (char*)resp+2);
+		INFO("P Counter: '%s'\n", (char*)resp+2);
 
-	free(resp);
+		free(resp);
+	}
 
 	if (ctx->supports_matte) {
 		/* Generate command */
@@ -1821,6 +1830,10 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 			j = dnpds40_clear_counter(ctx, optarg[0]);
 			break;
 		case 'p':
+			if (!ctx->supports_counterp) {
+				ERROR("Printer FW dows not support P counter!\n");
+				return CUPS_BACKEND_FAILED;
+			}
 			j = dnpds40_set_counter_p(ctx, optarg);
 			break;
 		case 's':
