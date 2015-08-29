@@ -163,6 +163,7 @@ extern int extra_pid;
 extern int extra_type;
 extern int copies;
 extern char *use_serno;
+extern int current_page;
 
 #if defined(BACKEND)
 extern struct dyesub_backend BACKEND;
