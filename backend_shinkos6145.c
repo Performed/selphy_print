@@ -107,11 +107,14 @@ struct s6145_printjob_hdr {
 /* "Image Correction Parameter" File */
 // 128 bytes total, apparently an array of 32-bit values
 struct table_unk {
-	uint32_t var1; // lib checks non-zero
-	uint32_t var2; // lib checks non-zero
-	uint32_t var3; // lib checks non-zero
-	uint32_t vars[5]; // lib copies first 8 entries
-	uint32_t unk[24]; // unknown
+	uint32_t var1; // lib checks non-zero [ always 0x00011170 for YMC]
+	uint32_t var2; // lib checks non-zero [ always 0x00004e20 for YMC]
+	uint32_t var3; // lib checks non-zero [ always 0x0000157c for YMC]
+	uint32_t rsvd[3]; // null
+	uint32_t var4; // [ always 0x0000007f ]
+	uint32_t var5; // [ always 0x0000007f ]
+	uint32_t vars[5]; // [always 0x18 0x41 0x0bb8 0x0384 0x06d1 for YMC]
+	uint32_t rsvd2[19]; // null
 } __attribute__((packed));
 
 struct shinkos6145_correctionparam {
@@ -123,10 +126,10 @@ struct shinkos6145_correctionparam {
 	uint16_t unk_0080[8];     // @4096 '00 80' repeated
 	uint16_t unk_0004_2[4];   // @4112 '00 04' repeated
 	uint32_t rsvd_0[12];      // @4120 [ matte 0x03e8 *4, 0x04f2 * 4, 0x0028 * 4 ;  glossy is all null ]
-	uint8_t  tbl_Y[128];      // @4168 ?? struct table_unk
-	uint8_t  tbl_M[128];      // @4296 ?? struct table_unk
-	uint8_t  tbl_C[128];      // @4424 ?? struct table_unk
-	uint8_t  tbl_O[128];      // @4552 ?? struct table_unk
+	struct table_unk tbl_Y;   // @4168 ?? struct table_unk
+	struct table_unk tbl_M;   // @4296 ?? struct table_unk
+	struct table_unk tbl_C;   // @4424 ?? struct table_unk
+	struct table_unk tbl_O;   // @4552 ?? struct table_unk
 	uint16_t unk_dc05_1[768]; // @4680 'dc 05' repeated
 	uint16_t unk_f401_1[256]; // @6216 'f4 01' repeated
 	uint16_t unk_dc05_2[768]; // @6728 'dc 05' repeated
@@ -149,7 +152,7 @@ struct shinkos6145_correctionparam {
 	uint16_t val_9;           // @8824 > 0, < 3 [0x0002 always]
 	uint16_t unknown_3[4];    // @8826 [0x0069 0x00c3 0x00cd 0x0000 always]
 	uint16_t val_10;          // @8834 [always 0x0780, ie 1920. print width? data width is 1844 (0x0734)]
-	uint8_t  rsvd_1[3596];    // @8836, null.
+	uint8_t  rsvd_2[3596];    // @8836, null.
 	uint16_t width;           // @12432
 	uint16_t height;          // @12434
 	uint8_t  rsvd_22[3948];   // @12436, null.
