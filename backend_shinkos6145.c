@@ -122,7 +122,7 @@ struct shinkos6145_correctionparam {
 	uint16_t unk_0004_1[1024];// @2048 '00 04' repeated
 	uint16_t unk_0080[8];     // @4096 '00 80' repeated
 	uint16_t unk_0004_2[4];   // @4112 '00 04' repeated
-	uint8_t  rsvd_0[48];      // @4120, null
+	uint32_t rsvd_0[12];      // @4120 [ matte 0x03e8 *4, 0x04f2 * 4, 0x0028 * 4 ;  glossy is all null ]
 	uint8_t  tbl_Y[128];      // @4168 ?? struct table_unk
 	uint8_t  tbl_M[128];      // @4296 ?? struct table_unk
 	uint8_t  tbl_C[128];      // @4424 ?? struct table_unk
@@ -135,18 +135,20 @@ struct shinkos6145_correctionparam {
 	uint16_t max_m;           // @8778 max_M
 	uint16_t max_c;           // @8780 max_C
 	uint16_t max_o;           // @8782 max_O
-	uint16_t unknown_2[12];   // @8784
-	uint16_t val_1;           // @8808 < 2
-	uint16_t val_2;		  // @8810 < 2
-	uint16_t val_3;           // @8812 < 256
-	uint16_t val_4;		  // @8814 < 2
-	uint16_t val_5;           // @8816 < 256
-	uint16_t val_6;           // @8818 < 256
-	uint16_t val_7;           // @8820 < 256
-	uint16_t val_8;           // @8822 < 256
-	uint16_t val_9;           // @8824 > 0, < 3
-	uint8_t  unknown_3[9];    // @8826
-	uint16_t val_10;          // @8834, == 0x0780, ie 1920. print width? data width is 1844 (0x0734)
+	uint16_t rsvd_1[4];       // @8784, null
+	uint16_t unknown_0500[4]; // @8792, '05 00' repeated
+	uint16_t unknown_3300[4]; // @8800, '33 00' repeated
+	uint16_t val_1;           // @8808 < 2 [0x0001/0x0000 for matte/glossy]
+	uint16_t val_2;		  // @8810 < 2 [0x0001 always]
+	uint16_t val_3;           // @8812 < 256 [0x0091 always]
+	uint16_t val_4;		  // @8814 < 2 [0x0001/0x000 for matte/glossy]
+	uint16_t val_5;           // @8816 < 256 [0x0091 always]
+	uint16_t val_6;           // @8818 < 256 [0x009b always]
+	uint16_t val_7;           // @8820 < 256 [0x00a5 always]
+	uint16_t val_8;           // @8822 < 256 [0x00af always]
+	uint16_t val_9;           // @8824 > 0, < 3 [0x0002 always]
+	uint16_t unknown_3[4];    // @8826 [0x0069 0x00c3 0x00cd 0x0000 always]
+	uint16_t val_10;          // @8834 [always 0x0780, ie 1920. print width? data width is 1844 (0x0734)]
 	uint8_t  rsvd_1[3596];    // @8836, null.
 	uint16_t width;           // @12432
 	uint16_t height;          // @12434
