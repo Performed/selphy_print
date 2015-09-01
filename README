@@ -53,6 +53,7 @@
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
    Kodak 8810
+   Kodak 7000/7010/7015
    Ciaat Brava 21 (Rebadged S6145)
 
  ***************************************************************************
@@ -264,11 +265,15 @@
 
      Kodak 605
 
+   Unsupported printers (Unknown VID/PID):
+
+     Kodak 7000/7010/7015
+
    Valid commands:
 
      -C filename        Set tone curve   [1]
-     -m                 Query supported media (not fully decoded)
-     -s                 Query printer status (not fully decoded)
+     -m                 Query supported media
+     -s                 Query printer status
 
   Notes:
 
