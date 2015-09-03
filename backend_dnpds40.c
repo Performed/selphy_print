@@ -81,6 +81,7 @@ struct dnpds40_ctx {
 	int duplex_media;
 
 	uint32_t multicut;
+	uint32_t last_multicut;
 	int matte;
 	int cutter;
 	int can_rewind;
@@ -577,6 +578,20 @@ static void dnpds40_teardown(void *vctx) {
 
 	if (!ctx)
 		return;
+
+	if (ctx->type == P_DNP_DS80D) {
+		struct dnpds40_cmd cmd;
+		int ret;
+
+		/* Check to see if last print was the front side
+		   of a duplex job, and if so, cancel things so we're done */
+		if (ctx->last_multicut >= 200 &&
+		    ctx->last_multicut < 300) {
+			dnpds40_build_cmd(&cmd, "CNTRL", "DUPLEX_CANCEL", 0);
+			if ((ret = dnpds40_do_cmd(ctx, &cmd, NULL, 0)))
+				return;
+		}
+	}
 
 	if (ctx->databuf)
 		free(ctx->databuf);
@@ -1160,6 +1175,9 @@ top:
 			WARNING("Printer does not have sufficient remaining media to complete job..\n");
 		}
 	}
+
+	/* Store our last multicut state */
+	ctx->last_multicut = ctx->multicut;
 
 	/* Send the stream over as individual data chunks */
 	ptr = ctx->databuf;
@@ -1905,7 +1923,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.65",
+	.version = "0.66",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
