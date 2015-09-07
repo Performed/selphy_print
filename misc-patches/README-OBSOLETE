@@ -1,0 +1,7 @@
+BREAKING NEWS: As of 2015-09-07, Gutenprint includes full multicut 
+support.  This will be present in 5.2.11-pre2 and newer releases.
+
+These patches will remain for historical purposes.
+
+You *must* remove and re-create your printer queue after applying these 
+patches or upgrading to a newer snapshot of Gutenprint.
