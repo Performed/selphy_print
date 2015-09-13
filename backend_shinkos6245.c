@@ -1599,8 +1599,10 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 	case MEDIA_8x5_2:
 	case MEDIA_8x6_2:
 		mcut = PRINT_METHOD_COMBO_2;
+		break;
 	case MEDIA_8x4_3:
 		mcut = PRINT_METHOD_COMBO_3;
+		break;
 	default:
 		mcut = PRINT_METHOD_STD;
 	}
