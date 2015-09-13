@@ -928,7 +928,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 
 	/* Additional santity checks, make sure printer support exists */
 	if ((ctx->multicut == 27 || ctx->multicut == 29) &&
-	    ctx->supports_square) {
+	    !ctx->supports_square) {
 		ERROR("Printer does not support 6x6 or 5x5 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
