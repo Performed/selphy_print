@@ -16,8 +16,8 @@ LN = ln
 RM = rm
 
 # Flags
-CFLAGS = -Wall -Wextra -g -Os -D_GNU_SOURCE -std=c99
-LDFLAGS = `pkg-config --libs libusb-1.0`
+CFLAGS += -Wall -Wextra -g -Os -D_GNU_SOURCE -std=c99
+LDFLAGS += `pkg-config --libs libusb-1.0`
 CPPFLAGS += `pkg-config --cflags libusb-1.0`
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
 CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\"
