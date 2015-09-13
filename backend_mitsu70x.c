@@ -88,7 +88,7 @@ struct mitsu70x_status_deck {
 
 struct mitsu70x_status_ver {
 	char     ver[6];
-	uint8_t  unk[2];  /* checksum? */
+	uint16_t checksum; /* Presumably BE */
 } __attribute__((packed));
 
 struct mitsu70x_status_resp {
@@ -503,8 +503,8 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 			continue;
 		memcpy(buf, resp->vers[i].ver, 6);
 		buf[6] = 0;
-		INFO("Component #%d ID: %s (%02x%02x)\n",
-		     i, buf, resp->vers[i].unk[0], resp->vers[i].unk[1]);
+		INFO("Component #%d ID: %s (checksum %04x)\n",
+		     i, buf, be16_to_cpu(resp->vers[i].checksum));
 	}	
 	if (resp->upper.present) {  /* IOW, Not present */
 		INFO("Prints remaining:  %03d/%03d\n",
