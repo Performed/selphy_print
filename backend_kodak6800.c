@@ -637,7 +637,8 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	/* Validate proper response */
 	if (respbuf[0] != CMD_CODE_OK) {
 		ERROR("Unexpected response from tonecurve query!\n");
-		return -99;
+		ret = -99;
+		goto done;
 	}
 
 	/* Then we can poll the data */
@@ -758,7 +759,8 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 
 	if (respbuf[0] != CMD_CODE_OK) {
 		ERROR("Unexpected response from tonecurve set!\n");
-		return -99;
+		ret = -99;
+		goto done;
 	}
 
 	ptr = (uint8_t*) data;
@@ -784,7 +786,8 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 		}
 		if (respbuf[0] != CMD_CODE_OK) {
 			ERROR("Unexpected response from tonecurve set!\n");
-			return -99;
+			ret = -99;
+			goto done;
 		}
 	};
 
