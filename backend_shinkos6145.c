@@ -1616,7 +1616,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 
 	/* Convert each plane to 16-bit */
 	for (offset = 0 ; offset < planelen * 3 ; offset++) {
-		dest[offset] = src[offset] << 4;  /* 8->12-bit */
+		dest[offset] = (255 - src[offset]) << 4;  /* RGB->CMY, and 8->12-bit */
 	}
 
 	/* Generate lamination plane. */
