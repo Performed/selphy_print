@@ -341,9 +341,9 @@ struct s6145_setparam_cmd {
 #define PARAM_PAPER_MODE   0x3f
 #define PARAM_SLEEP_TIME   0x54
 
-#define PARAM_OP_PRINT_OFF   0x00000000
-#define PARAM_OP_PRINT_GLOSS 0x00000001
-#define PARAM_OP_PRINT_MATTE 0x00000002
+#define PARAM_OP_PRINT_OFF   0x00000001
+#define PARAM_OP_PRINT_GLOSS 0x00000002
+#define PARAM_OP_PRINT_MATTE 0x00000003
 
 #define PARAM_PAPER_PRESV_OFF 0x00000000
 #define PARAM_PAPER_PRESV_ON  0x00000001
@@ -1606,6 +1606,27 @@ static void lib6145_calc_avg(struct shinkos6145_ctx *ctx, uint16_t rows, uint16_
 		ctx->image_avg[plane] = sum / planelen;
 	}
 }
+
+static void lib6145_process_image(uint8_t *src, uint16_t *dest,
+				  struct shinkos6145_correctionparam *corrdata,
+				  uint8_t oc_mode)
+{
+	uint32_t offset;
+	uint32_t planelen = corrdata->width * corrdata->height;
+
+	/* Convert each plane to 16-bit */
+	for (offset = 0 ; offset < planelen * 3 ; offset++) {
+		dest[offset] = src[offset] << 4;  /* 8->12-bit */
+	}
+
+	/* Generate lamination plane. */
+	if (oc_mode > PRINT_MODE_NO_OC) {
+		// XXX matters if we're using glossy/matte/none.
+		for (offset = planelen * 3 ; offset < planelen * 4 ; offset++) {
+			dest[offset] = 0x7f;
+		}
+	}
+}
 #endif
 
 
@@ -1787,37 +1808,43 @@ top:
 			state = S_PRINTER_READY_CMD;
 
 		break;
-	case S_PRINTER_READY_CMD:
+	case S_PRINTER_READY_CMD: {
 		// XXX send "get eeprom backup command" ?
 
 		/* Set matte/etc */
+		uint32_t oc_mode = le32_to_cpu(ctx->hdr.oc_mode);
+
+		if (!oc_mode) /* if nothing set, default to glossy */
+			oc_mode = PARAM_OP_PRINT_GLOSS;
+
 		// XXX query printer mode, and set only if changed?
-		if (ctx->hdr.oc_mode)
-			set_param(ctx, PARAM_DRIVER_MODE, ctx->hdr.oc_mode - 1);
+		set_param(ctx, PARAM_DRIVER_MODE, oc_mode);
 
 		// XXX can only set OC mode if we're not charged.
 
 		/* Get image correction parameters */
 		shinkos6145_get_imagecorr(ctx);
 
-#if defined(WITH_6145_LIB)
 		/* Perform library transform... */
 		uint32_t newlen = le32_to_cpu(ctx->hdr.columns) *
-			le32_to_cpu(ctx->hdr.rows) * 2 * 4;
+			le32_to_cpu(ctx->hdr.rows) * 2 * 4; // XXX do we send the OC plane over even when it's disabled?
 		uint16_t *databuf2 = malloc(newlen);
 
 		/* Set the size in the correctiondata */
 		ctx->corrdata->width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
 		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
+#if defined(WITH_6145_LIB)
 		if (!ImageProcessing(ctx->databuf, databuf2, ctx->corrdata)) {
 			ERROR("Image Processing failed\n");
 			return CUPS_BACKEND_FAILED;
 		}
+#else
+		lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);
+#endif
 		free(ctx->databuf);
 		ctx->databuf = (uint8_t*) databuf2;
 		ctx->datalen = newlen;
-#endif
 
 		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
 
@@ -1860,6 +1887,7 @@ top:
 		sleep(1);
 		state = S_PRINTER_SENT_DATA;
 		break;
+	}
 	case S_PRINTER_SENT_DATA:
 		if (fast_return) {
 			INFO("Fast return mode enabled.\n");
@@ -1930,7 +1958,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.06WIP",
+	.version = "0.07WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
