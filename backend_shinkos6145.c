@@ -1611,19 +1611,25 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 				  struct shinkos6145_correctionparam *corrdata,
 				  uint8_t oc_mode)
 {
-	uint32_t offset;
+	uint32_t in, out;
 	uint32_t planelen = corrdata->width * corrdata->height;
 
-	/* Convert each plane to 16-bit */
-	for (offset = 0 ; offset < planelen * 3 ; offset++) {
-		dest[offset] = (255 - src[offset]) << 4;  /* RGB->CMY, and 8->12-bit */
+	/* Convert RGB->YMC, 8-bit to 16-bit */
+	for (out = 0, in = planelen * 2; out < planelen ; out++) {
+		dest[out] = (255 - src[in]) << 8;
 	}
+	for (out = planelen, in = planelen ; out < planelen*2 ; out++) {
+		dest[out] = (255 - src[in]) << 8;
+	}	
+	for (out = planelen * 2, in = 0 ; out < planelen*3 ; out++) {
+		dest[out] = (255 - src[in]) << 8;
+	}	
 
 	/* Generate lamination plane. */
 	if (oc_mode > PRINT_MODE_NO_OC) {
 		// XXX matters if we're using glossy/matte/none.
-		for (offset = planelen * 3 ; offset < planelen * 4 ; offset++) {
-			dest[offset] = 0x7f;
+		for (out = planelen * 3 ; out < planelen * 4 ; out++) {
+			dest[out] = 0x7f;
 		}
 	}
 }
@@ -1817,7 +1823,10 @@ top:
 		if (!oc_mode) /* if nothing set, default to glossy */
 			oc_mode = PARAM_OP_PRINT_GLOSS;
 
-		// XXX query printer mode, and set only if changed?
+		// XXX query printer mode.
+		// if not the same as new oc_mode, then wait until
+		// printer is COMPLETELY idle; ie printer_status == 0x00
+		
 		set_param(ctx, PARAM_DRIVER_MODE, oc_mode);
 
 		// XXX can only set OC mode if we're not charged.
