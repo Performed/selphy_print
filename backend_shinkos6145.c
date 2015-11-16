@@ -1616,14 +1616,23 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 
 	/* Convert RGB->YMC, 8-bit to 16-bit */
 	for (out = 0, in = planelen * 2; out < planelen ; out++) {
-		dest[out] = (255 - src[in]) << 8;
+		uint8_t y = (255 - src[in]);
+		dest[out] = corrdata->map_Y[y];
+		if (le16_to_cpu(dest[out]) > le16_to_cpu(corrdata->max_y))
+			dest[out] = corrdata->max_y;
 	}
 	for (out = planelen, in = planelen ; out < planelen*2 ; out++) {
-		dest[out] = (255 - src[in]) << 8;
-	}	
+		uint8_t m = (255 - src[in]);
+		dest[out] = corrdata->map_M[m];
+		if (le16_to_cpu(dest[out]) > le16_to_cpu(corrdata->max_m))
+			dest[out] = corrdata->max_m;
+	}
 	for (out = planelen * 2, in = 0 ; out < planelen*3 ; out++) {
-		dest[out] = (255 - src[in]) << 8;
-	}	
+		uint8_t c = (255 - src[in]);
+		dest[out] = corrdata->map_C[c];
+		if (le16_to_cpu(dest[out]) > le16_to_cpu(corrdata->max_c))
+			dest[out] = corrdata->max_c;
+	}
 
 	/* Generate lamination plane. */
 	if (oc_mode > PRINT_MODE_NO_OC) {
