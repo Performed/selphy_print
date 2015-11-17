@@ -1442,8 +1442,8 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 		if (ret < 0)
 			goto done;
 
-		memcpy(((uint8_t*)ctx->corrdata) + total, data.data, num - 2);
-		total += num - 4;
+		memcpy(((uint8_t*)ctx->corrdata) + total, data.data, data.return_size);
+		total += sizeof(data.return_size);
 
 		if (data.remain_pkt == 0)
 			INFO("block complete\n");
