@@ -1437,7 +1437,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 		struct s6145_imagecorr_data data;
 		
 		ret = read_data(ctx->dev, ctx->endp_up, (uint8_t *) &data,
-				le16_to_cpu(resp->hdr.payload_len),
+				sizeof(data),
 				&num);
 		if (ret < 0)
 			goto done;
@@ -1847,7 +1847,11 @@ top:
 		}
 
 		/* Get image correction parameters */
-		shinkos6145_get_imagecorr(ctx);
+		ret = shinkos6145_get_imagecorr(ctx);
+		if (ret) {
+			ERROR("Failed to execute command\n");
+			return ret;
+		}
 
 		/* Perform library transform... */
 		uint32_t newlen = le32_to_cpu(ctx->hdr.columns) *
