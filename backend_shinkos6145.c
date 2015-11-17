@@ -1255,7 +1255,7 @@ static int get_param(struct shinkos6145_ctx *ctx, int target, uint32_t *param)
 	cmd.target = target;
 	
 	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_GETPARAM);
-	cmd.hdr.len = cpu_to_le16(sizeof(struct s6145_setparam_cmd)-sizeof(cmd.hdr));
+	cmd.hdr.len = cpu_to_le16(sizeof(struct s6145_getparam_cmd)-sizeof(cmd.hdr));
 
 	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
