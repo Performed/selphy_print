@@ -1876,6 +1876,7 @@ top:
 			   is COMPLETELY idle */
 			if (sts->bank1_status != BANK_STATUS_FREE ||
 			    sts->bank2_status != BANK_STATUS_FREE) {
+				INFO("Need to switch overcoat mode, waiting for printer idle\n");
 				sleep(1);
 				goto top;
 			}
