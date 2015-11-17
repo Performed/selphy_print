@@ -1245,6 +1245,30 @@ static int set_param(struct shinkos6145_ctx *ctx, int target, uint32_t param)
 	return ret;
 }
 
+static int get_param(struct shinkos6145_ctx *ctx, int target, uint32_t *param)
+{
+	struct s6145_getparam_cmd cmd;
+	struct s6145_getparam_resp *resp = (struct s6145_getparam_resp *) rdbuf;
+	int ret, num = 0;
+
+	/* Set up command */
+	cmd.target = target;
+	
+	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_GETPARAM);
+	cmd.hdr.len = cpu_to_le16(sizeof(struct s6145_setparam_cmd)-sizeof(cmd.hdr));
+
+	if ((ret = s6145_do_cmd(ctx,
+				(uint8_t*)&cmd, sizeof(cmd),
+				sizeof(*resp),
+				&num)) < 0) {
+		ERROR("Failed to execute %s command (%d)\n", cmd_names(cmd.hdr.cmd), ret);
+	}
+	*param = le32_to_cpu(resp->param);
+
+	return ret;
+}
+
+
 static int reset_curve(struct shinkos6145_ctx *ctx, int target)
 {
 	struct s6145_reset_cmd cmd;
@@ -1751,6 +1775,8 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 	struct s6145_status_resp *sts = (struct s6145_status_resp *) rdbuf; 
 	struct s6145_mediainfo_resp *media = (struct s6145_mediainfo_resp *) rdbuf;
 
+	uint32_t cur_mode;
+
 	/* Send Media Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
 	cmd->cmd = cpu_to_le16(S6145_CMD_MEDIAINFO);
@@ -1782,6 +1808,13 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 
 	// XXX check copies against remaining media!
 
+	/* Query printer mode */
+	ret = get_param(ctx, PARAM_OP_PRINT, &cur_mode);
+	if (ret) {
+		ERROR("Failed to execute command\n");
+		return ret;
+	}
+	
 top:
 	if (state != last_state) {
 		if (dyesub_debug)
@@ -1831,19 +1864,26 @@ top:
 		// XXX send "get eeprom backup command" ?
 
 		/* Set matte/etc */
+
 		uint32_t oc_mode = le32_to_cpu(ctx->hdr.oc_mode);
 
 		if (!oc_mode) /* if nothing set, default to glossy */
 			oc_mode = PARAM_OP_PRINT_GLOSS;
 
-		// XXX query printer mode.
-		// if not the same as new oc_mode, then wait until
-		// printer is COMPLETELY idle; ie printer_status == 0x00
-		// XXX can only set OC mode if we're not idle.
-		ret = set_param(ctx, PARAM_OP_PRINT, oc_mode);
-		if (ret) {
-			ERROR("Failed to execute command\n");
-			return ret;
+		if (cur_mode != oc_mode) {
+			/* If cur_mode is not the same as desired oc_mode,
+			   change it -- but we have to wait until the printer 
+			   is COMPLETELY idle */
+			if (sts->bank1_status != BANK_STATUS_FREE ||
+			    sts->bank2_status != BANK_STATUS_FREE) {
+				sleep(1);
+				goto top;
+			}
+			ret = set_param(ctx, PARAM_OP_PRINT, oc_mode);
+			if (ret) {
+				ERROR("Failed to execute command\n");
+				return ret;
+			}
 		}
 
 		/* Get image correction parameters */
@@ -1986,7 +2026,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.07WIP",
+	.version = "0.08WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
