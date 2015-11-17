@@ -951,7 +951,7 @@ struct s6145_imagecorr_resp {
 struct s6145_imagecorr_data {
 	uint8_t  remain_pkt;
 	uint8_t  return_size;
-	uint8_t  data[256];
+	uint8_t  data[16];
 } __attribute__((packed));
 
 #define READBACK_LEN 512    /* Needs to be larger than largest response hdr */
@@ -1435,16 +1435,19 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 
 	while (total < ctx->corrdatalen) {
 		struct s6145_imagecorr_data data;
-		ret = read_data(ctx->dev, ctx->endp_up, (uint8_t*) &data,
-				sizeof(data),
+		
+		ret = read_data(ctx->dev, ctx->endp_up, (uint8_t *) &data,
+				le16_to_cpu(resp->hdr.payload_len),
 				&num);
 		if (ret < 0)
 			goto done;
 
-		memcpy(((uint8_t*)ctx->corrdata) + total, data.data, data.return_size);
-		total += data.return_size;
+		memcpy(((uint8_t*)ctx->corrdata) + total, data.data, num - 2);
+		total += num - 4;
+
 		if (data.remain_pkt == 0)
-			break;
+			INFO("block complete\n");
+
 	}
 
 done:
