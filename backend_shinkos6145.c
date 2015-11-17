@@ -1835,10 +1835,12 @@ top:
 		// XXX query printer mode.
 		// if not the same as new oc_mode, then wait until
 		// printer is COMPLETELY idle; ie printer_status == 0x00
-		
-		set_param(ctx, PARAM_DRIVER_MODE, oc_mode);
-
-		// XXX can only set OC mode if we're not charged.
+		// XXX can only set OC mode if we're not idle.
+		ret = set_param(ctx, PARAM_OP_PRINT, oc_mode);
+		if (ret) {
+			ERROR("Failed to execute command\n");
+			return ret;
+		}
 
 		/* Get image correction parameters */
 		shinkos6145_get_imagecorr(ctx);
