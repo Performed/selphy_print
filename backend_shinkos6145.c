@@ -1429,6 +1429,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 	}
 
 	ctx->corrdatalen = le16_to_cpu(resp->total_size);
+	INFO("Fetching %lu bytes of image correction data\n", ctx->corrdatalen);
 	ctx->corrdata = malloc(sizeof(struct shinkos6145_correctionparam));
 	total = 0;
 
