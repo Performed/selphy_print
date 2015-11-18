@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.62"
+#define BACKEND_VERSION "0.63"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -530,6 +530,7 @@ static int print_scan_output(struct libusb_device *device,
 	if(manuf) free(manuf);
 	if(product) free(product);
 	if(descr) free(descr);
+	free(buf); /* Always allocated at the start */
 
 	libusb_close(dev);
 abort:
