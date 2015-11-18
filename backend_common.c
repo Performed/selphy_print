@@ -515,9 +515,6 @@ static int print_scan_output(struct libusb_device *device,
 			prefix, buf, serial, backend->uri_prefix, 
 			descr, descr,
 			ieee_id? ieee_id : "");
-		
-		if (ieee_id)
-			free(ieee_id);
 	}
 	
 	/* If a serial number was passed down, use it. */
@@ -530,7 +527,7 @@ static int print_scan_output(struct libusb_device *device,
 	if(manuf) free(manuf);
 	if(product) free(product);
 	if(descr) free(descr);
-	free(buf); /* Always allocated at the start */
+	if (ieee_id) free(ieee_id);
 
 	libusb_close(dev);
 abort:
