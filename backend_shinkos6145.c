@@ -151,7 +151,7 @@ struct shinkos6145_correctionparam {
 	uint16_t val_8;           // @8822 < 256 [0x00af always]
 	uint16_t val_9;           // @8824 > 0, < 3 [0x0002 always]
 	uint16_t unknown_3[4];    // @8826 [0x0069 0x00c3 0x00cd 0x0000 always]
-	uint16_t val_10;          // @8834 [always 0x0780, ie 1920. print width? data width is 1844 (0x0734)]
+	uint16_t line_width;      // @8834 [always 0x0780, ie 1920. print width
 	uint8_t  rsvd_2[3596];    // @8836, null.
 	uint16_t width;           // @12432
 	uint16_t height;          // @12434
@@ -1689,32 +1689,69 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	uint32_t in, out;
 	uint32_t planelen = corrdata->width * corrdata->height;
 
-	/* Convert RGB->YMC, 8-bit to 16-bit */
-	for (out = 0, in = planelen * 2; out < planelen ; out++) {
-		uint8_t y = (255 - src[in]);
-		dest[out] = corrdata->map_Y[y];
-		if (le16_to_cpu(dest[out]) > le16_to_cpu(corrdata->max_y))
-			dest[out] = corrdata->max_y;
-	}
-	for (out = planelen, in = planelen ; out < planelen*2 ; out++) {
-		uint8_t m = (255 - src[in]);
-		dest[out] = corrdata->map_M[m];
-		if (le16_to_cpu(dest[out]) > le16_to_cpu(corrdata->max_m))
-			dest[out] = corrdata->max_m;
-	}
-	for (out = planelen * 2, in = 0 ; out < planelen*3 ; out++) {
-		uint8_t c = (255 - src[in]);
-		dest[out] = corrdata->map_C[c];
-		if (le16_to_cpu(dest[out]) > le16_to_cpu(corrdata->max_c))
-			dest[out] = corrdata->max_c;
-	}
+	uint16_t pad_l, pad_r, row_lim;
+	uint16_t row, col;
 
-	/* Generate lamination plane. */
-	if (oc_mode > PRINT_MODE_NO_OC) {
-		// XXX matters if we're using glossy/matte/none.
-		for (out = planelen * 3 ; out < planelen * 4 ; out++) {
-			dest[out] = 0x7f;
+	row_lim = le16_to_cpu(corrdata->line_width);
+	pad_l = (row_lim - corrdata->width) / 2;
+	pad_r = pad_l + corrdata->height;
+	out = 0;
+
+	/* Convert RGB->YMC, 8-bit to 16-bit.
+	   And pad appropriately to full stripe */
+	in = planelen * 2;
+	for (row = 0 ; row < corrdata->height ; row++) {
+		for (col = 0; col < pad_l; col++) {
+			dest[out++] = 0;
 		}
+		for (col = pad_l; col < pad_r; col++) {
+			uint8_t y = (255 - src[in]);			
+			dest[out++] = corrdata->map_Y[y];
+		}		
+		for (col = pad_r; col < row_lim; col++) {
+			dest[out++] = 0;
+		}
+	}
+	in = planelen;
+	for (row = 0 ; row < corrdata->height ; row++) {
+		for (col = 0; col < pad_l; col++) {
+			dest[out++] = 0;
+		}
+		for (col = pad_l; col < pad_r; col++) {
+			uint8_t m = (255 - src[in]);			
+			dest[out++] = corrdata->map_M[m];
+		}		
+		for (col = pad_r; col < row_lim; col++) {
+			dest[out++] = 0;
+		}
+	}
+	in = 0;
+	for (row = 0 ; row < corrdata->height ; row++) {
+		for (col = 0; col < pad_l; col++) {
+			dest[out++] = 0;
+		}
+		for (col = pad_l; col < pad_r; col++) {
+			uint8_t c = (255 - src[in]);			
+			dest[out++] = corrdata->map_C[c];
+		}		
+		for (col = pad_r; col < row_lim; col++) {
+			dest[out++] = 0;
+		}
+	}	
+
+	/* Generate lamination plane, if desired */
+	if (oc_mode > PRINT_MODE_NO_OC) {
+		// XXX matters if we're using glossy/matte..
+		// or should we just dump over the contents of the "raw" file?
+		for (col = 0; col < pad_l; col++) {
+			dest[out++] = 0;
+		}
+		for (col = pad_l; col < pad_r; col++) {
+			dest[out++] = 0x7f;
+		}		
+		for (col = pad_r; col < row_lim; col++) {
+			dest[out++] = 0;
+		}		
 	}
 }
 #endif
@@ -1942,8 +1979,8 @@ top:
 		}
 
 		/* Perform library transform... */
-		uint32_t newlen = le32_to_cpu(ctx->hdr.columns) *
-			le32_to_cpu(ctx->hdr.rows) * 2 * 4; // XXX do we send the OC plane over even when it's disabled?
+		uint32_t newlen = le16_to_cpu(ctx->corrdata->line_width) *
+			le32_to_cpu(ctx->hdr.rows) * sizeof(uint16_t) * 4;
 		uint16_t *databuf2 = malloc(newlen);
 
 		/* Set the size in the correctiondata */
