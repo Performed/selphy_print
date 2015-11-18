@@ -169,7 +169,7 @@ struct shinkos6145_ctx {
 
 	struct s6145_printjob_hdr hdr;
 
-	uint8_t image_avg[3]; /* YMC */
+	uint8_t image_avg[3]; /* CMY */
 
 	uint8_t *databuf;
 	size_t datalen;
@@ -1678,7 +1678,7 @@ static void lib6145_calc_avg(struct shinkos6145_ctx *ctx, uint16_t rows, uint16_
 		for (i = 0 ; i < planelen ; i++) {
 			sum += ctx->databuf[(planelen * plane) + i];
 		}
-		ctx->image_avg[plane] = sum / planelen;
+		ctx->image_avg[2 - plane] = 255 - (sum / planelen);
 	}
 }
 
