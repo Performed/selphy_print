@@ -1986,6 +1986,7 @@ top:
 		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
 #if defined(WITH_6145_LIB)
+		INFO("Calling Sinfonia Image Processing Library...\n");		
 		// XXX need to convert RGB to YMC
 		{
 			int planelen = ctx->corrdata->width * ctx->corrdata->height;
@@ -2011,6 +2012,8 @@ top:
 
 		ImageProcessing(ctx->databuf, databuf2, ctx->corrdata);
 #else
+		INFO("Calling Image Processing Library...\n");
+		
 		lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
 		lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);
 #endif
