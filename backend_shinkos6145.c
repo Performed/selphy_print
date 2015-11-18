@@ -1687,7 +1687,6 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 				  uint8_t oc_mode)
 {
 	uint32_t in, out;
-	uint32_t planelen = corrdata->width * corrdata->height;
 
 	uint16_t pad_l, pad_r, row_lim;
 	uint16_t row, col;
@@ -1696,45 +1695,42 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	pad_l = (row_lim - corrdata->width) / 2;
 	pad_r = pad_l + corrdata->width;
 	out = 0;
-
-	/* Convert RGB->YMC, 8-bit to 16-bit.
-	   And pad appropriately to full stripe */
-	in = planelen * 2;
-	for (row = 0 ; row < corrdata->height ; row++) {
-		for (col = 0 ; col < row_lim; col++) {
-			uint16_t val;
-			if (col < pad_l) {
-				val = 0;
-			} else if (col < pad_r) {
-				val = corrdata->map_Y[255 - src[in++]];
-			} else {
-				val = 0;
-			}
-			dest[out++] = val;
-		}
-	}
-	in = planelen;
-	for (row = 0 ; row < corrdata->height ; row++) {
-		for (col = 0 ; col < row_lim; col++) {
-			uint16_t val;
-			if (col < pad_l) {
-				val = 0;
-			} else if (col < pad_r) {
-				val = corrdata->map_M[255 - src[in++]];
-			} else {
-				val = 0;
-			}
-			dest[out++] = val;
-		}
-	}
 	in = 0;
+	
+	/* Convert YMC 8-bit to 16-bit, and pad appropriately to full stripe */
 	for (row = 0 ; row < corrdata->height ; row++) {
 		for (col = 0 ; col < row_lim; col++) {
 			uint16_t val;
 			if (col < pad_l) {
 				val = 0;
 			} else if (col < pad_r) {
-				val = corrdata->map_C[255 - src[in++]];
+				val = corrdata->map_Y[src[in++]];
+			} else {
+				val = 0;
+			}
+			dest[out++] = val;
+		}
+	}
+	for (row = 0 ; row < corrdata->height ; row++) {
+		for (col = 0 ; col < row_lim; col++) {
+			uint16_t val;
+			if (col < pad_l) {
+				val = 0;
+			} else if (col < pad_r) {
+				val = corrdata->map_M[src[in++]];
+			} else {
+				val = 0;
+			}
+			dest[out++] = val;
+		}
+	}
+	for (row = 0 ; row < corrdata->height ; row++) {
+		for (col = 0 ; col < row_lim; col++) {
+			uint16_t val;
+			if (col < pad_l) {
+				val = 0;
+			} else if (col < pad_r) {
+				val = corrdata->map_C[src[in++]];
 			} else {
 				val = 0;
 			}
@@ -1985,26 +1981,26 @@ top:
 		ctx->corrdata->width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
 		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
-#if defined(WITH_6145_LIB)
-		INFO("Calling Sinfonia Image Processing Library...\n");		
-		// XXX need to convert RGB to YMC
+		/* Convert packed RGB to planar YMC */
 		{
 			int planelen = ctx->corrdata->width * ctx->corrdata->height;
+			uint8_t *databuf3 = malloc(ctx->datalen);
+				 
 			for (i = 0 ; i < planelen ; i++) {
-				uint8_t r, g, b, y, m, c;
-
-				r = ctx->databuf[i];
-				g = ctx->databuf[planelen + i];
-				b = ctx->databuf[planelen + planelen + i];
-				y = 255 - b;
-				m = 255 - g;
-				c = 255 - r;
-				ctx->databuf[i] = y;
-				ctx->databuf[planelen + i] = m;
-				ctx->databuf[planelen + planelen + i] = c;
+				uint8_t r, g, b;
+				r = ctx->databuf[3*i];
+				g = ctx->databuf[3*i+1];
+				b = ctx->databuf[3*i+2];
+				databuf3[i] = 255 - b;
+				databuf3[planelen + i] = 255 - g;
+				databuf3[planelen + planelen + i] = 255 - r;
 			}
+			free(ctx->databuf);
+			ctx->databuf = databuf3;
 		}
-
+		
+#if defined(WITH_6145_LIB)
+		INFO("Calling Sinfonia Image Processing Library...\n");		
 		if (ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
 			ERROR("Library returned error!\n");
 			return CUPS_BACKEND_FAILED;
@@ -2012,7 +2008,7 @@ top:
 
 		ImageProcessing(ctx->databuf, databuf2, ctx->corrdata);
 #else
-		INFO("Calling Image Processing Library...\n");
+		INFO("Calling Internal Image Processing Library...\n");
 		
 		lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
 		lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);
