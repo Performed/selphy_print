@@ -1988,7 +1988,7 @@ top:
 #if defined(WITH_6145_LIB)
 		// XXX need to convert RGB to YMC
 		{
-			uint32_t planelen = corrdata->width * corrdata->height;
+			int planelen = ctx->corrdata->width * ctx->corrdata->height;
 			for (i = 0 ; i < planelen ; i++) {
 				uint8_t r, g, b, y, m, c;
 
