@@ -1093,7 +1093,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 		ERROR("Failed to execute command\n");
 		return ret;
 	}
-	INFO("Paper load mode:     %s\n", (val ? "No Cut" : " Cut"));
+	INFO("Paper load mode:     %s\n", (val ? "Cut" : "No Cut"));
 
 	if ((ret = get_param(ctx, PARAM_SLEEP_TIME, &val))) {
 		ERROR("Failed to execute command\n");
@@ -1111,6 +1111,8 @@ static int get_status(struct shinkos6145_ctx *ctx)
 		val = 120;
 	else if (val >= 5)
 		val = 240;
+	else
+		val = 240; // default?
 
 	INFO("Sleep delay:         %u minutes\n", val);
 		
@@ -2072,7 +2074,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.08WIP",
+	.version = "0.09WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
