@@ -1705,7 +1705,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 			dest[out++] = 0;
 		}
 		for (col = pad_l; col < pad_r; col++) {
-			uint8_t y = (255 - src[in]);			
+			uint8_t y = (255 - src[in++]);			
 			dest[out++] = corrdata->map_Y[y];
 		}		
 		for (col = pad_r; col < row_lim; col++) {
@@ -1718,7 +1718,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 			dest[out++] = 0;
 		}
 		for (col = pad_l; col < pad_r; col++) {
-			uint8_t m = (255 - src[in]);			
+			uint8_t m = (255 - src[in++]);			
 			dest[out++] = corrdata->map_M[m];
 		}		
 		for (col = pad_r; col < row_lim; col++) {
@@ -1731,7 +1731,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 			dest[out++] = 0;
 		}
 		for (col = pad_l; col < pad_r; col++) {
-			uint8_t c = (255 - src[in]);			
+			uint8_t c = (255 - src[in++]);			
 			dest[out++] = corrdata->map_C[c];
 		}		
 		for (col = pad_r; col < row_lim; col++) {
