@@ -1701,41 +1701,44 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	   And pad appropriately to full stripe */
 	in = planelen * 2;
 	for (row = 0 ; row < corrdata->height ; row++) {
-		for (col = 0; col < pad_l; col++) {
-			dest[out++] = 0;
-		}
-		for (col = pad_l; col < pad_r; col++) {
-			uint8_t y = (255 - src[in++]);
-			dest[out++] = corrdata->map_Y[y];
-		}
-		for (col = pad_r; col < row_lim; col++) {
-			dest[out++] = 0;
+		for (col = 0 ; col < row_lim; col++) {
+			uint16_t val;
+			if (col < pad_l) {
+				val = 0;
+			} else if (col < pad_r) {
+				val = corrdata->map_Y[255 - src[in++]];
+			} else {
+				val = 0;
+			}
+			dest[out++] = val;
 		}
 	}
 	in = planelen;
 	for (row = 0 ; row < corrdata->height ; row++) {
-		for (col = 0; col < pad_l; col++) {
-			dest[out++] = 0;
-		}
-		for (col = pad_l; col < pad_r; col++) {
-			uint8_t m = (255 - src[in++]);
-			dest[out++] = corrdata->map_M[m];
-		}
-		for (col = pad_r; col < row_lim; col++) {
-			dest[out++] = 0;
+		for (col = 0 ; col < row_lim; col++) {
+			uint16_t val;
+			if (col < pad_l) {
+				val = 0;
+			} else if (col < pad_r) {
+				val = corrdata->map_M[255 - src[in++]];
+			} else {
+				val = 0;
+			}
+			dest[out++] = val;
 		}
 	}
 	in = 0;
 	for (row = 0 ; row < corrdata->height ; row++) {
-		for (col = 0; col < pad_l; col++) {
-			dest[out++] = 0;
-		}
-		for (col = pad_l; col < pad_r; col++) {
-			uint8_t c = (255 - src[in++]);
-			dest[out++] = corrdata->map_C[c];
-		}
-		for (col = pad_r; col < row_lim; col++) {
-			dest[out++] = 0;
+		for (col = 0 ; col < row_lim; col++) {
+			uint16_t val;
+			if (col < pad_l) {
+				val = 0;
+			} else if (col < pad_r) {
+				val = corrdata->map_C[255 - src[in++]];
+			} else {
+				val = 0;
+			}
+			dest[out++] = val;
 		}
 	}	
 
@@ -1743,15 +1746,17 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	if (oc_mode > PRINT_MODE_NO_OC) {
 		// XXX matters if we're using glossy/matte..
 		// or should we just dump over the contents of the "raw" file?
-		for (row = 0 ; row < corrdata->height ; row++) {		
-			for (col = 0; col < pad_l; col++) {
-				dest[out++] = 0;
-			}
-			for (col = pad_l; col < pad_r; col++) {
-				dest[out++] = 0x7f;
-			}
-			for (col = pad_r; col < row_lim; col++) {
-				dest[out++] = 0;
+		for (row = 0 ; row < corrdata->height ; row++) {
+			for (col = 0 ; col < row_lim; col++) {
+				uint16_t val;
+				if (col < pad_l) {
+					val = 0;
+				} else if (col < pad_r) {
+					val = corrdata->map_O[0x7f];
+				} else {
+					val = 0;
+				}
+				dest[out++] = val;
 			}
 		}
 	}
