@@ -371,7 +371,7 @@ static int print_scan_output(struct libusb_device *device,
 
 	int dlen = 0;
 	struct deviceid_dict dict[MAX_DICT];
-	char *ieee_id;
+	char *ieee_id = NULL;
 
 	if (libusb_open(device, &dev)) {
 		ERROR("Could not open device %04x:%04x (need to be root?)\n", desc->idVendor, desc->idProduct);
