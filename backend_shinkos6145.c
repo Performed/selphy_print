@@ -1517,7 +1517,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 		total += sizeof(data.data);
 
 		if (data.remain_pkt == 0)
-			DEBUG("block complete (%lu/%lu total)\n", total, ctx->corrdatalen);
+			DEBUG("correction block complete (%lu/%lu total)\n", total, ctx->corrdatalen);
 
 	}
 
@@ -1694,7 +1694,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 
 	row_lim = le16_to_cpu(corrdata->line_width);
 	pad_l = (row_lim - corrdata->width) / 2;
-	pad_r = pad_l + corrdata->height;
+	pad_r = pad_l + corrdata->width;
 	out = 0;
 
 	/* Convert RGB->YMC, 8-bit to 16-bit.
@@ -1705,9 +1705,9 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 			dest[out++] = 0;
 		}
 		for (col = pad_l; col < pad_r; col++) {
-			uint8_t y = (255 - src[in++]);			
+			uint8_t y = (255 - src[in++]);
 			dest[out++] = corrdata->map_Y[y];
-		}		
+		}
 		for (col = pad_r; col < row_lim; col++) {
 			dest[out++] = 0;
 		}
@@ -1718,9 +1718,9 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 			dest[out++] = 0;
 		}
 		for (col = pad_l; col < pad_r; col++) {
-			uint8_t m = (255 - src[in++]);			
+			uint8_t m = (255 - src[in++]);
 			dest[out++] = corrdata->map_M[m];
-		}		
+		}
 		for (col = pad_r; col < row_lim; col++) {
 			dest[out++] = 0;
 		}
@@ -1731,9 +1731,9 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 			dest[out++] = 0;
 		}
 		for (col = pad_l; col < pad_r; col++) {
-			uint8_t c = (255 - src[in++]);			
+			uint8_t c = (255 - src[in++]);
 			dest[out++] = corrdata->map_C[c];
-		}		
+		}
 		for (col = pad_r; col < row_lim; col++) {
 			dest[out++] = 0;
 		}
@@ -1748,10 +1748,10 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 		}
 		for (col = pad_l; col < pad_r; col++) {
 			dest[out++] = 0x7f;
-		}		
+		}
 		for (col = pad_r; col < row_lim; col++) {
 			dest[out++] = 0;
-		}		
+		}
 	}
 }
 #endif
