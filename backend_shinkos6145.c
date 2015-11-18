@@ -1840,15 +1840,6 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_FAILED;
 	}
 
-#if defined(WITH_6145_LIB)
-	if (ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
-		ERROR("Library returned error!\n");
-		return CUPS_BACKEND_FAILED;
-	}
-#else
-	lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
-#endif
-
 	return CUPS_BACKEND_OK;
 }
 
@@ -1995,11 +1986,32 @@ top:
 		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
 #if defined(WITH_6145_LIB)
-		if (!ImageProcessing(ctx->databuf, databuf2, ctx->corrdata)) {
-			ERROR("Image Processing failed\n");
+		// XXX need to convert RGB to YMC
+		{
+			uint32_t planelen = corrdata->width * corrdata->height;
+			for (i = 0 ; i < planelen ; i++) {
+				uint8_t r, g, b, y, m, c;
+
+				r = ctx->databuf[i];
+				g = ctx->databuf[planelen + i];
+				b = ctx->databuf[planelen + planelen + i];
+				y = 255 - b;
+				m = 255 - g;
+				c = 255 - r;
+				ctx->databuf[i] = y;
+				ctx->databuf[planelen + i] = m;
+				ctx->databuf[planelen + planelen + i] = c;
+			}
+		}
+
+		if (ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
+			ERROR("Library returned error!\n");
 			return CUPS_BACKEND_FAILED;
 		}
+
+		ImageProcessing(ctx->databuf, databuf2, ctx->corrdata);
 #else
+		lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
 		lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);
 #endif
 		free(ctx->databuf);
