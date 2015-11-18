@@ -621,7 +621,7 @@ static char *error_codes(uint8_t major, uint8_t minor)
 		case 0x52:
 			return "Paper Jam: Paper Empty On, Top On, Position Off";
 		case 0x54:
-			return "Paper Jam: Paper Empty On, Top Of, Position Off";
+			return "Paper Jam: Paper Empty On, Top Off, Position Off";
 		case 0x60:
 			return "Paper Jam: Cutter Right";
 		case 0x61:
@@ -954,6 +954,8 @@ struct s6145_imagecorr_data {
 	uint8_t  data[16];
 } __attribute__((packed));
 
+static int get_param(struct shinkos6145_ctx *ctx, int target, uint32_t *param);
+
 #define READBACK_LEN 512    /* Needs to be larger than largest response hdr */
 #define CMDBUF_LEN sizeof(struct s6145_print_cmd)
 
@@ -1002,6 +1004,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	struct s6145_status_resp *resp = (struct s6145_status_resp *) rdbuf;
 	struct s6145_getextcounter_resp *resp2 = (struct s6145_getextcounter_resp *) rdbuf;
 	int ret, num = 0;
+	uint32_t val;
 
 	cmd.cmd = cpu_to_le16(S6145_CMD_GETSTATUS);
 	cmd.len = cpu_to_le16(0);
@@ -1069,6 +1072,50 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	INFO("Maintainence Distance: %08d inches\n", le32_to_cpu(resp2->maint_distance));
 	INFO("Head Distance: %08d inches\n", le32_to_cpu(resp2->head_distance));
 
+	/* Query various params */
+	if ((ret = get_param(ctx, PARAM_OP_PRINT, &val))) {
+		ERROR("Failed to execute command\n");
+		return ret;
+	}
+	INFO("Last Overcoat mode:  %02x\n", val);
+
+	if ((ret = get_param(ctx, PARAM_PAPER_PRESV, &val))) {
+		ERROR("Failed to execute command\n");
+		return ret;
+	}
+	INFO("Paper Preserve mode: %02x\n", val);
+
+	if ((ret = get_param(ctx, PARAM_DRIVER_MODE, &val))) {
+		ERROR("Failed to execute command\n");
+		return ret;
+	}
+	INFO("Driver mode:         %02x\n", val);
+
+	if ((ret = get_param(ctx, PARAM_PAPER_MODE, &val))) {
+		ERROR("Failed to execute command\n");
+		return ret;
+	}
+	INFO("Paper mode:          %02x\n", val);
+
+	if ((ret = get_param(ctx, PARAM_SLEEP_TIME, &val))) {
+		ERROR("Failed to execute command\n");
+		return ret;
+	}
+	if (val == 0)
+		val = 5;
+	else if (val == 1)
+		val = 15;
+	else if (val == 2)
+		val = 30;
+	else if (val == 3)
+		val = 60;
+	else if (val == 4)
+		val = 120;
+	else if (val >= 5)
+		val = 240;
+
+	INFO("Sleep delay:         %u minutes\n", val);
+		
 	return 0;
 }
 
