@@ -369,16 +369,19 @@
 
    Low-level documentation was provided by Sinfonia, Inc.  Thank you!
 
-   Work-in-process printers:
+   Verified supported printers:
 
      Shinko CHC-S6145 (aka "Sinfonia CS2")
+
+   Work-in-process printers:
+   
      Ciaat Brava 21
 
-	***VERY IMPORTANT***  At the moment, this backend is only able to
-	query printer statistics and issue various commands.  In order to
-	print, this backend requires a proprietary library
-	(libS6145ImageProcess) to transform the input data into a form the
-	printer can use.
+   *** VERY IMPORTANT ***
+
+	In order to print properly, this backend relies on a proprietary
+	library (libS6145ImageProcess) to correctly transform the input data
+	into a format the printer can use.
 
 	This library was provided to the authors of this in binary form, and
 	without redistribution permissions.
@@ -393,9 +396,16 @@
 
 	Ideally, Sinfonia could be convinced to release source code to this
 	library under a suitable license, but I have been informed they are
-	unable to do so due to legal considerations.  Meanwhile, work is
-	slowly under way to reverse-engineer this proprietary, binary
-	library and write a Free Software replacement.
+	unable to do so due to legal considerations.
+
+	In the mean time, there is a slowly-improving reverse-engineered
+	version of the library already included.  While it is adequate to
+	demonstrate that the printer functions properly, the quality of the
+	output is poor, and not suitable for photographic output.
+
+	If you own one of these printers, please politely contact Sinfonia
+	to inquire about access to the libS6145ImageProcess library, and
+	the possibility of obtaining its source code.
 
    Valid commands:
 

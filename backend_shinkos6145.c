@@ -1669,16 +1669,16 @@ static void shinkos6145_teardown(void *vctx) {
 #if !defined (WITH_6145_LIB)
 static void lib6145_calc_avg(struct shinkos6145_ctx *ctx, uint16_t rows, uint16_t cols)
 {
-	int plane, i, planelen;
+	uint32_t plane, i, planelen;
 	planelen = rows * cols;
 
 	for (plane = 0 ; plane < 3 ; plane++) {
-		uint32_t sum = 0;
+		uint64_t sum = 0;
 
 		for (i = 0 ; i < planelen ; i++) {
 			sum += ctx->databuf[(planelen * plane) + i];
 		}
-		ctx->image_avg[2 - plane] = 255 - (sum / planelen);
+		ctx->image_avg[plane] = (sum / planelen);
 	}
 }
 
