@@ -333,15 +333,15 @@ struct s6145_setparam_cmd {
 	uint32_t param;
 } __attribute__((packed));
 
-#define PARAM_OP_PRINT     0x20
+#define PARAM_OC_PRINT     0x20
 #define PARAM_PAPER_PRESV  0x3d
 #define PARAM_DRIVER_MODE  0x3e
 #define PARAM_PAPER_MODE   0x3f
 #define PARAM_SLEEP_TIME   0x54
 
-#define PARAM_OP_PRINT_OFF   0x00000001
-#define PARAM_OP_PRINT_GLOSS 0x00000002
-#define PARAM_OP_PRINT_MATTE 0x00000003
+#define PARAM_OC_PRINT_OFF   0x00000001
+#define PARAM_OC_PRINT_GLOSS 0x00000002
+#define PARAM_OC_PRINT_MATTE 0x00000003
 
 #define PARAM_PAPER_PRESV_OFF 0x00000000
 #define PARAM_PAPER_PRESV_ON  0x00000001
@@ -1071,7 +1071,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	INFO("Head Distance:         %08d inches\n", le32_to_cpu(resp2->head_distance));
 
 	/* Query various params */
-	if ((ret = get_param(ctx, PARAM_OP_PRINT, &val))) {
+	if ((ret = get_param(ctx, PARAM_OC_PRINT, &val))) {
 		ERROR("Failed to execute command\n");
 		return ret;
 	}
@@ -1743,14 +1743,16 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	if (oc_mode > PRINT_MODE_NO_OC) {
 		// XXX matters if we're using glossy/matte..
 		// or should we just dump over the contents of the "raw" file?
-		for (col = 0; col < pad_l; col++) {
-			dest[out++] = 0;
-		}
-		for (col = pad_l; col < pad_r; col++) {
-			dest[out++] = 0x7f;
-		}
-		for (col = pad_r; col < row_lim; col++) {
-			dest[out++] = 0;
+		for (row = 0 ; row < corrdata->height ; row++) {		
+			for (col = 0; col < pad_l; col++) {
+				dest[out++] = 0;
+			}
+			for (col = pad_l; col < pad_r; col++) {
+				dest[out++] = 0x7f;
+			}
+			for (col = pad_r; col < row_lim; col++) {
+				dest[out++] = 0;
+			}
 		}
 	}
 }
@@ -1893,7 +1895,7 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 	// XXX check copies against remaining media!
 
 	/* Query printer mode */
-	ret = get_param(ctx, PARAM_OP_PRINT, &cur_mode);
+	ret = get_param(ctx, PARAM_OC_PRINT, &cur_mode);
 	if (ret) {
 		ERROR("Failed to execute command\n");
 		return ret;
@@ -1952,7 +1954,7 @@ top:
 		uint32_t oc_mode = le32_to_cpu(ctx->hdr.oc_mode);
 
 		if (!oc_mode) /* if nothing set, default to glossy */
-			oc_mode = PARAM_OP_PRINT_GLOSS;
+			oc_mode = PARAM_OC_PRINT_GLOSS;
 
 		if (cur_mode != oc_mode) {
 			/* If cur_mode is not the same as desired oc_mode,
@@ -1964,7 +1966,7 @@ top:
 				sleep(1);
 				goto top;
 			}
-			ret = set_param(ctx, PARAM_OP_PRINT, oc_mode);
+			ret = set_param(ctx, PARAM_OC_PRINT, oc_mode);
 			if (ret) {
 				ERROR("Failed to execute command\n");
 				return ret;
