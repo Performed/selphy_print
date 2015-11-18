@@ -268,7 +268,6 @@ struct s6145_print_cmd {
 #define PRINT_MODE_GLOSSY       0x02
 #define PRINT_MODE_MATTE        0x03
 
-#if 0
 static char *print_modes(uint8_t v) {
 	switch (v) {
 	case PRINT_MODE_NO_OC:
@@ -281,7 +280,6 @@ static char *print_modes(uint8_t v) {
 		return "Unknown";
 	}
 }
-#endif
 
 #define PRINT_METHOD_STD     0x00
 #define PRINT_METHOD_COMBO_2 0x02
@@ -1068,34 +1066,34 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	if (le16_to_cpu(resp2->hdr.payload_len) != (sizeof(struct s6145_getextcounter_resp) - sizeof(struct s6145_status_hdr)))
 		return -1;
 
-	INFO("Lifetime Distance: %08d inches\n", le32_to_cpu(resp2->lifetime_distance));
+	INFO("Lifetime Distance:     %08d inches\n", le32_to_cpu(resp2->lifetime_distance));
 	INFO("Maintainence Distance: %08d inches\n", le32_to_cpu(resp2->maint_distance));
-	INFO("Head Distance: %08d inches\n", le32_to_cpu(resp2->head_distance));
+	INFO("Head Distance:         %08d inches\n", le32_to_cpu(resp2->head_distance));
 
 	/* Query various params */
 	if ((ret = get_param(ctx, PARAM_OP_PRINT, &val))) {
 		ERROR("Failed to execute command\n");
 		return ret;
 	}
-	INFO("Last Overcoat mode:  %02x\n", val);
+	INFO("Last Overcoat mode:  %s\n", print_modes(val));
 
 	if ((ret = get_param(ctx, PARAM_PAPER_PRESV, &val))) {
 		ERROR("Failed to execute command\n");
 		return ret;
 	}
-	INFO("Paper Preserve mode: %02x\n", val);
+	INFO("Paper Preserve mode: %s\n", (val ? "On" : "Off"));
 
 	if ((ret = get_param(ctx, PARAM_DRIVER_MODE, &val))) {
 		ERROR("Failed to execute command\n");
 		return ret;
 	}
-	INFO("Driver mode:         %02x\n", val);
+	INFO("Driver mode:         %s\n", (val ? "On" : "Off"));
 
 	if ((ret = get_param(ctx, PARAM_PAPER_MODE, &val))) {
 		ERROR("Failed to execute command\n");
 		return ret;
 	}
-	INFO("Paper mode:          %02x\n", val);
+	INFO("Paper load mode:     %s\n", (val ? "No Cut" : " Cut"));
 
 	if ((ret = get_param(ctx, PARAM_SLEEP_TIME, &val))) {
 		ERROR("Failed to execute command\n");
