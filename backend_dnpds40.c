@@ -1264,11 +1264,11 @@ static int dnpds40_get_sensors(struct dnpds40_ctx *ctx)
 			INFO("Roll Paper End 1   : %s\n", val);
 		} else if (!strcmp("RP2", tok)) {
 			INFO("Roll Paper End 2   : %s\n", val);
-		} else if (!strcmp("GSR", tok)) {
+		} else if (!strcmp("CSR", tok)) {
 			INFO("Color Sensor Red   : %s\n", val);
-		} else if (!strcmp("GSG", tok)) {
+		} else if (!strcmp("CSG", tok)) {
 			INFO("Color Sensor Green : %s\n", val);
-		} else if (!strcmp("GSB", tok)) {
+		} else if (!strcmp("CSB", tok)) {
 			INFO("Color Sensor Blue  : %s\n", val);
 		} else {
 			INFO("Unknown Sensor: '%s' '%s'\n",
@@ -1925,7 +1925,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.67",
+	.version = "0.68",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
