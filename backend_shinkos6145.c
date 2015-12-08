@@ -144,7 +144,7 @@ struct shinkos6145_correctionparam {
 	uint16_t val_1;           // @8808 < 2 [0x0001/0x0000 for matte/glossy]
 	uint16_t val_2;		  // @8810 < 2 [0x0001 always]
 	uint16_t val_3;           // @8812 < 256 [0x0091 always]
-	uint16_t val_4;		  // @8814 < 2 [0x0001/0x000 for matte/glossy]
+	uint16_t val_4;		  // @8814 < 2 [0x0001/0x0000 for matte/glossy]
 	uint16_t val_5;           // @8816 < 256 [0x0091 always]
 	uint16_t val_6;           // @8818 < 256 [0x009b always]
 	uint16_t val_7;           // @8820 < 256 [0x00a5 always]
