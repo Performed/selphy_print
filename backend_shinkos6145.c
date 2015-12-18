@@ -332,9 +332,10 @@ struct s6145_print_cmd {
 	uint16_t count;
 	uint16_t columns;
 	uint16_t rows;
-	uint8_t  reserved;
+	uint8_t  media;      /* reserved in docs, but brava21 uses this */
 	uint8_t  combo_wait;
-	uint8_t  reserved2[7];
+	uint8_t  reserved[6];
+	uint8_t  unk_1;      /* Brava 21 sets this to 1 */
 	uint8_t  method;
 	uint8_t  image_avg;	
 } __attribute__((packed));
@@ -908,6 +909,7 @@ struct s6145_mediainfo_item {
 #define MEDIA_6x9     0x05
 #define MEDIA_6x8     0x06
 #define MEDIA_2x6     0x07
+#define MEDIA_6x6     0x08
 
 static char *print_medias (uint8_t v) {
 	switch (v) {
@@ -923,6 +925,8 @@ static char *print_medias (uint8_t v) {
 		return "6x8";
 	case MEDIA_2x6:
 		return "2x6";
+	case MEDIA_6x6:
+		return "6x6";
 	default:
 		return "Unknown";
 	}
@@ -1982,7 +1986,7 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 
 	int i, last_state = -1, state = S_IDLE;
 
-	struct s6145_cmd_hdr *cmd = (struct s6145_cmd_hdr *) cmdbuf;;
+	struct s6145_cmd_hdr *cmd = (struct s6145_cmd_hdr *) cmdbuf;
 	struct s6145_print_cmd *print = (struct s6145_print_cmd *) cmdbuf;
 	struct s6145_status_resp *sts = (struct s6145_status_resp *) rdbuf; 
 	struct s6145_mediainfo_resp *media = (struct s6145_mediainfo_resp *) rdbuf;
@@ -2010,13 +2014,16 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 		/* Look for matching media */
 		if (le16_to_cpu(media->items[i].columns) == cpu_to_le16(le32_to_cpu(ctx->hdr.columns)) &&
 		    le16_to_cpu(media->items[i].rows) == cpu_to_le16(le32_to_cpu(ctx->hdr.rows)) &&
-		    media->items[i].print_method == le32_to_cpu(ctx->hdr.method))
+		    media->items[i].print_method == le32_to_cpu(ctx->hdr.method) &&
+		    media->items[i].media_code == le32_to_cpu(ctx->hdr.media))
 			break;
 	}
 	if (i == media->count) {
 		ERROR("Incorrect media loaded for print!\n");
 		return CUPS_BACKEND_HOLD;
 	}
+	// XXX sanity-check media vs size
+	// don't know if media information above will catch this.
 
 	// XXX check copies against remaining media!
 
@@ -2163,6 +2170,13 @@ top:
 		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 		print->image_avg = ctx->image_avg[2]; /* Cyan level */
 		print->method = cpu_to_le32(ctx->hdr.method);
+		print->combo_wait = 0;
+
+		/* Brava21 header has a few quirks */
+		if(ctx->type == P_SHINKO_S6145D) {
+			print->media = ctx->hdr.media;
+			print->unk_1 = 0x01;
+		}
 
 		if ((ret = s6145_do_cmd(ctx,
 					cmdbuf, sizeof(*print),
@@ -2276,7 +2290,7 @@ struct dyesub_backend shinkos6145_backend = {
 	.query_serno = shinkos6145_query_serno,
 	.devices = {
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, ""},
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145D, P_SHINKO_S6145, ""},	
+	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145D, P_SHINKO_S6145D, ""},	
 	{ 0, 0, 0, ""}
 	}
 };
@@ -2305,15 +2319,17 @@ struct dyesub_backend shinkos6145_backend = {
    This printer is supposed to be a variant of the S6145, but uses a 
    different spool format -- but seems to use the same command language.
 
-   01 40 12 00  01 NN 00 YY  YY XX XX TT  00 00 00 00  00 00 01 MM  QQ 00
+   01 40 12 00  II NN NN YY  YY XX XX TT  00 00 00 00  00 00 01 MM  QQ ZZ
 
-    NN == copies
+    II == Job ID (01-255, backend fills)
+    NN NN == copies (LE)
     YY YY == Columns (LE)
     XX XX == Rows (LE)
     MM == Overcoat (02 = glossy, 03 = matte, 01 = none)
+    TT == Type (00 = 4x6, 03 = 5x7, 06 = 8x6, 07 = 2x6)
     QQ == Multicut (00 = normal, 01 = none, 02 = 2*4x6, 
                     04 = 2*2x6, 80 = 4x6-notrim)
-    TT == Type (00 = 4x6, 03 = 5x7, 06 = 8x6, 07 = 2x6)
+    ZZ == Cyan Average (backend fills)
 
     1844*2434  8x6
     1844*2492  4x6*2
