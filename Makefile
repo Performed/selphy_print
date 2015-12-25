@@ -8,12 +8,12 @@ CUPS_BACKEND_DIR ?= $(DESTDIR)/usr/lib/cups/backend
 CUPS_DATA_DIR ?= $(DESTDIR)/usr/share/cups
 
 # Tools
-CC ?= gcc
-CPPCHECK = cppcheck
-MKDIR = mkdir
-INSTALL = install
-LN = ln
-RM = rm
+CC ?= $(CROSS_COMPILE)gcc
+CPPCHECK ?= cppcheck
+MKDIR ?= mkdir
+INSTALL ?= install
+LN ?= ln
+RM ?= rm
 
 # Flags
 CFLAGS += -Wall -Wextra -g -Os -D_GNU_SOURCE -std=c99
@@ -26,15 +26,20 @@ CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\"
 # The result is *NOT* GPL compatible.
 ifneq ($(LIBS6145),)
 CFLAGS += -DWITH_6145_LIB -I$(LIBS6145)
-LDFLAGS += -L$(LIBS6145) -lS6145ImageProcess-x64  # x86_64
-#LDFLAGS += -L$(LIBS6145) -lS6145ImageProcess-x32 # x86_32
+
+#LIBS6145_NAME = S6145ImageProcess-x64  # x86_64
+#LIBS6145_NAME = S6145ImageProcess-x32  # x86_32
+LIBS6145_NAME = S6145ImageProcessRE    # Reverse-engineered
+DEPS += $(LIBS6145)/libS6145ImageProcessRE.so
+
+LDFLAGS += -L$(LIBS6145) -l$(LIBS6145_NAME)
 endif
 
 # List of backends
 BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 citizencw01 mitsu9550 shinkos6245 shinkos6145
 
 # Build stuff
-DEPS = backend_common.h
+DEPS += backend_common.h
 SOURCES = backend_common.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 
 # And now the rules!
@@ -57,3 +62,12 @@ install:
 
 clean:
 	$(RM) -f $(EXEC_NAME) $(BACKENDS)
+
+ifneq ($(LIBS6145),)
+$(LIBS6145)/libS6145ImageProcessRE.so:  $(LIBS6145)/libS6145ImageProcess.o
+	$(CC) -Os -g -shared -o $@ $<
+
+$(LIBS6145)/libS6145ImageProcess.o:  $(LIBS6145)/libS6145ImageProcess.c
+	$(CC) -c -o $@ -fPIC $<
+
+endif
