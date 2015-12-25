@@ -147,7 +147,6 @@ struct mitsu70x_jobstatus {
 #define ERROR_STATUS0_PSUFANLOCKED   0x3F
 #define ERROR_STATUS0_OTHERS         0x40 // 0x40..?
 
-
 /* Error classifications */
 #define ERROR_STATUS1_PAPER          0x01
 #define ERROR_STATUS1_RIBBON         0x02
@@ -317,6 +316,133 @@ static char *mitsu70x_jobstatuses(uint8_t *sts)
 	return "Unknown status0";
 }
 
+static char *mitsu70x_errorclass(uint8_t *err)
+{
+	switch(err[1]) {
+	case ERROR_STATUS1_PAPER:
+		return "Paper";
+	case ERROR_STATUS1_RIBBON:
+		return "Ribbon";
+	case ERROR_STATUS1_SETTING:
+		return "Job settings";
+	case ERROR_STATUS1_OPEN:
+		return "Cover open";
+	case ERROR_STATUS1_NOSTRIPBIN:
+		return "No cut bin";
+	case ERROR_STATUS1_PAPERJAM:
+		return "Paper jam";
+	case ERROR_STATUS1_RIBBONSYS:
+		return "Ribbon system";
+	case ERROR_STATUS1_MECHANICAL:
+		return "Mechanical";
+	case ERROR_STATUS1_ELECTRICAL:
+		return "Electrical";
+	case ERROR_STATUS1_FIRMWARE:
+		return "Firmware";
+	case ERROR_STATUS1_OTHER:
+		return "Other";
+	default:
+		break;
+	}
+	return "Unknown error class";
+}
+
+static char *mitsu70x_errorrecovery(uint8_t *err)
+{
+	switch(err[1]) {
+	case ERROR_STATUS2_AUTO:
+		return "Automatic recovery";
+	case ERROR_STATUS2_RELOAD_PAPER:
+		return "Reload or change paper";
+	case ERROR_STATUS2_RELOAD_RIBBON:
+		return "Reload or change ribbon";
+	case ERROR_STATUS2_CHANGE_BOTH:
+		return "Change paper and ribbon";
+	case ERROR_STATUS2_CHANGE_ONE:
+		return "Change paper or ribbon";
+	case ERROR_STATUS2_CLOSEUNIT:
+		return "Close printer";
+	case ERROR_STATUS2_ATTACHSTRIPBIN:
+		return "Attach Strip Bin";
+	case ERROR_STATUS2_CLEARJAM:
+		return "Remove and reload paper";
+	case ERROR_STATUS2_CHECKRIBBON:
+		return "Check ribbon and reload paper";
+	case ERROR_STATUS2_OPENCLOSEUNIT:
+		return "Open then close printer";
+	case ERROR_STATUS2_POWEROFF:
+		return "Power-cycle printer";
+	default:
+		break;
+	}
+	return "Unknown recovery";
+}
+
+static char *mitsu70x_errors(uint8_t *err)
+{
+	switch(err[0]) {
+	case ERROR_STATUS0_NOSTRIPBIN:
+		return "Strip bin not attached";
+	case ERROR_STATUS0_NORIBBON:
+		return "No ribbon detected";
+	case ERROR_STATUS0_NOPAPER:
+		return "No paper loaded";
+	case ERROR_STATUS0_MEDIAMISMATCH:
+		return "Ribbon/Paper mismatch";
+	case ERROR_STATUS0_RIBBONCNTEND:
+		return "Ribbon count end";
+	case ERROR_STATUS0_BADRIBBON:
+		return "Illegal Ribbon";
+	case ERROR_STATUS0_BADJOBPARAM:
+		return "Job does not match loaded media";
+	case ERROR_STATUS0_PAPEREND:
+		return "End of paper detected";
+	case ERROR_STATUS0_RIBBONEND:
+		return "End of ribbon detected";
+	case ERROR_STATUS0_DOOROPEN_IDLE:
+	case ERROR_STATUS0_DOOROPEN_PRNT:
+		return "Printer door open";
+	case ERROR_STATUS0_POWEROFF:
+		return "Printer powered off"; // nonsense..
+	case ERROR_STATUS0_RIBBONSKIP1:
+	case ERROR_STATUS0_RIBBONSKIP2:
+		return "Ribbon skipped";
+	case ERROR_STATUS0_RIBBONJAM:
+		return "Ribbon stuck to paper";
+	case ERROR_STATUS0_RFID:
+		return "RFID read error";
+	case ERROR_STATUS0_FLASH:
+		return "FLASH read error";
+	case ERROR_STATUS0_EEPROM:
+		return "EEPROM read error";
+	case ERROR_STATUS0_PREHEAT:
+		return "Preheating unit time out";
+	case ERROR_STATUS0_MDASTATE:
+		return "Unknown MDA state";
+	case ERROR_STATUS0_PSUFANLOCKED:
+		return "Power supply fan locked up";
+	default:
+		break;
+	}
+
+	if (err[0] >= ERROR_STATUS0_RIBBON_OTHER &&
+	    err[0] < ERROR_STATUS0_PAPER_JAM) {
+		return "Unknown ribbon error";
+		// XXX use err[1]/err[2] codes?
+	}
+	if (err[0] >= ERROR_STATUS0_PAPER_JAM &&
+	    err[0] < ERROR_STATUS0_MECHANICAL) {
+		return "Paper jam";
+		// XXX use err[1]/err[2] codes?
+	}
+	if (err[0] >= ERROR_STATUS0_MECHANICAL &&
+	    err[0] < ERROR_STATUS0_RFID) {
+		return "Unknown mechanical error";
+		// XXX use err[1]/err[2] codes?
+	}
+
+	return "Unknown error";
+}
 
 #define CMDBUF_LEN 512
 #define READBACK_LEN 256
@@ -585,8 +711,10 @@ top:
 	
 	/* See if we hit a printer error. */
 	if (jobstatus.error_status[0]) {
-		// XXX decode these.
-		ERROR("Printer reporting error... %02x/%02x/%02x\n",
+		ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
+		      mitsu70x_errorclass(jobstatus.error_status),
+		      mitsu70x_errors(jobstatus.error_status),
+		      mitsu70x_errorrecovery(jobstatus.error_status),
 		      jobstatus.error_status[0],
 		      jobstatus.error_status[1],
 		      jobstatus.error_status[2]);
@@ -670,8 +798,10 @@ top:
 		
 		/* See if we hit a printer error. */
 		if (jobstatus.error_status[0]) {
-			// XXX decode these.
-			ERROR("Printer reporting error... %02x/%02x/%02x\n",
+			ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
+			      mitsu70x_errorclass(jobstatus.error_status),
+			      mitsu70x_errors(jobstatus.error_status),
+			      mitsu70x_errorrecovery(jobstatus.error_status),
 			      jobstatus.error_status[0],
 			      jobstatus.error_status[1],
 			      jobstatus.error_status[2]);
