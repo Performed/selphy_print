@@ -56,34 +56,140 @@ struct mitsu70x_ctx {
 	uint8_t *databuf;
 	int datalen;
 
+	int matte;
+
+	uint16_t jobid;	
 	uint16_t rows;
 	uint16_t cols;
 };
 
-/* Program states */
-enum {
-	S_IDLE = 0,
-	S_SENT_ATTN,
-	S_SENT_HDR,
-	S_SENT_DATA,
-	S_FINISHED,
-};
-
 /* Printer data structures */
-struct mitsu70x_state {
-	uint32_t hdr;
-	uint8_t  data[22];
+struct mitsu70x_jobstatus {
+	uint8_t  hdr[4];
+	uint16_t jobid;
+	uint16_t mecha_no;
+	uint8_t  job_status[4];
+	uint8_t  memory;
+	uint8_t  power;
+	uint8_t  mecha_status[2];
+	uint8_t  temperature;
+	uint8_t  error_status[3];
+	uint8_t  reserved[6];
 } __attribute__((packed));
 
+#define TEMPERATURE_NORMAL  0x00
+#define TEMPERATURE_PREHEAT 0x40
+#define TEMPERATURE_COOLING 0x80
+
+#define MECHA_STATUS_INIT   0x80
+#define MECHA_STATUS_FEED   0x50
+#define MECHA_STATUS_LOAD   0x40
+#define MECHA_STATUS_PRINT  0x20
+#define MECHA_STATUS_IDLE   0x00
+
+#define JOB_STATUS0_NONE    0x00
+#define JOB_STATUS0_DATA    0x10
+#define JOB_STATUS0_QUEUE   0x20
+#define JOB_STATUS0_PRINT   0x50
+#define JOB_STATUS0_ASSIGN  0x70 // XXX undefined.
+#define JOB_STATUS0_END     0x80
+
+#define JOB_STATUS1_PRINT_MEDIALOAD  0x10
+#define JOB_STATUS1_PRINT_PRE_Y      0x20
+#define JOB_STATUS1_PRINT_Y          0x30
+#define JOB_STATUS1_PRINT_PRE_M      0x40
+#define JOB_STATUS1_PRINT_M          0x50
+#define JOB_STATUS1_PRINT_PRE_C      0x60
+#define JOB_STATUS1_PRINT_C          0x70
+#define JOB_STATUS1_PRINT_PRE_OC     0x80
+#define JOB_STATUS1_PRINT_OC         0x90
+#define JOB_STATUS1_PRINT_EJECT      0xA0
+
+#define JOB_STATUS1_END_OK           0x00
+#define JOB_STATUS1_END_MECHA        0x10 // 0x10...0x7f
+#define JOB_STATUS1_END_HEADER       0x80
+#define JOB_STATUS1_END_PRINT        0x90
+#define JOB_STATUS1_END_INTERRUPT    0xA0
+
+#define JOB_STATUS2_END_HEADER_ERROR 0x00
+#define JOB_STATUS2_END_HEADER_MEMORY 0x10
+#define JOB_STATUS2_END_PRINT_MEDIA   0x00
+#define JOB_STATUS2_END_PRINT_PREVERR 0x10
+#define JOB_STATUS2_END_INT_TIMEOUT  0x00
+#define JOB_STATUS2_END_INT_CANCEL   0x10
+#define JOB_STATUS2_END_INT_DISCON   0x20
+
+/* Error codes */
+#define ERROR_STATUS0_NOSTRIPBIN     0x01
+#define ERROR_STATUS0_NORIBBON       0x02
+#define ERROR_STATUS0_NOPAPER        0x03
+#define ERROR_STATUS0_MEDIAMISMATCH  0x04
+#define ERROR_STATUS0_RIBBONCNTEND   0x05
+#define ERROR_STATUS0_BADRIBBON      0x06
+#define ERROR_STATUS0_BADJOBPARAM    0x07
+#define ERROR_STATUS0_PAPEREND       0x08
+#define ERROR_STATUS0_RIBBONEND      0x09
+#define ERROR_STATUS0_DOOROPEN_IDLE  0x0A
+#define ERROR_STATUS0_DOOROPEN_PRNT  0x0B
+#define ERROR_STATUS0_POWEROFF       0x0C // nonsense.. heh.
+#define ERROR_STATUS0_NOMCOP         0x0D
+#define ERROR_STATUS0_RIBBONSKIP1    0x0E
+#define ERROR_STATUS0_RIBBONSKIP2    0x0F
+#define ERROR_STATUS0_RIBBONJAM      0x10
+#define ERROR_STATUS0_RIBBON_OTHER   0x11 // 0x11->0x1F
+#define ERROR_STATUS0_PAPER_JAM      0x20 // 0x20->0x2F
+#define ERROR_STATUS0_MECHANICAL     0x30 // 0x30->0x39
+#define ERROR_STATUS0_RFID           0x3A
+#define ERROR_STATUS0_FLASH          0x3B
+#define ERROR_STATUS0_EEPROM         0x3C
+#define ERROR_STATUS0_PREHEAT        0x3D
+#define ERROR_STATUS0_MDASTATE       0x3E
+#define ERROR_STATUS0_PSUFANLOCKED   0x3F
+#define ERROR_STATUS0_OTHERS         0x40 // 0x40..?
+
+
+/* Error classifications */
+#define ERROR_STATUS1_PAPER          0x01
+#define ERROR_STATUS1_RIBBON         0x02
+#define ERROR_STATUS1_SETTING        0x03
+#define ERROR_STATUS1_OPEN           0x05
+#define ERROR_STATUS1_NOSTRIPBIN     0x06
+#define ERROR_STATUS1_PAPERJAM       0x07
+#define ERROR_STATUS1_RIBBONSYS      0x08
+#define ERROR_STATUS1_MECHANICAL     0x09
+#define ERROR_STATUS1_ELECTRICAL     0x0A
+#define ERROR_STATUS1_FIRMWARE       0x0E
+#define ERROR_STATUS1_OTHER          0x0F
+
+/* Error recovery conditions */
+#define ERROR_STATUS2_AUTO           0x00
+#define ERROR_STATUS2_RELOAD_PAPER   0x01
+#define ERROR_STATUS2_RELOAD_RIBBON  0x02
+#define ERROR_STATUS2_CHANGE_BOTH    0x03
+#define ERROR_STATUS2_CHANGE_ONE     0x04
+#define ERROR_STATUS2_CLOSEUNIT      0x05
+#define ERROR_STATUS2_ATTACHSTRIPBIN 0x06
+#define ERROR_STATUS2_CLEARJAM       0x07
+#define ERROR_STATUS2_CHECKRIBBON    0x08
+#define ERROR_STATUS2_OPENCLOSEUNIT  0x0A
+#define ERROR_STATUS2_POWEROFF       0x0F
+
 struct mitsu70x_status_deck {
-	uint16_t present; /* 0x80 for NOT present, 0x00 otherwise */
-	uint16_t unk[9];
+	uint8_t  mecha_status[2];
+	uint8_t  temperature;
+	uint8_t  error_status[3];
+	uint8_t  rsvd_a[10];
+	
+	uint8_t  media_brand;
+	uint8_t  media_type;
+	uint8_t  rsvd_b[2];
 	uint16_t capacity; /* media capacity */
 	uint16_t remain;   /* media remaining */
-	uint16_t unkb[2];
+	uint8_t  rsvd_c[2];
+
+	uint16_t rsvd_d;
 	uint16_t prints; /* lifetime prints on deck? */
-	uint16_t unkc[1];
-	uint16_t blank[16]; /* All fields are 0x8000 */
+	uint16_t rsvd_e[17];
 } __attribute__((packed));
 
 struct mitsu70x_status_ver {
@@ -102,9 +208,17 @@ struct mitsu70x_status_resp {
 	struct mitsu70x_status_deck upper;
 } __attribute__((packed));
 
+struct mitsu70x_memorystatus_resp {
+	uint8_t  hdr[3];
+	uint8_t  memory;
+	uint8_t  size;
+	uint8_t  rsvd;
+} __attribute__((packed));
+
 struct mitsu70x_hdr {
 	uint32_t cmd;
-	uint8_t  zero0[12];
+	uint16_t jobid;
+	uint8_t  zero0[10];
 
 	uint16_t cols;
 	uint16_t rows;
@@ -124,6 +238,85 @@ struct mitsu70x_hdr {
 
 	uint8_t  zero6[448];
 } __attribute__((packed));
+
+static char *mitsu70x_jobstatuses(uint8_t *sts)
+{
+	switch(sts[0]) {
+	case JOB_STATUS0_NONE:
+		return "No Job";
+	case JOB_STATUS0_DATA:
+		return "Data transfer";
+	case JOB_STATUS0_QUEUE:
+		return "Queued for printing";
+	case JOB_STATUS0_PRINT:		
+		switch(sts[1]) {
+		case JOB_STATUS1_PRINT_MEDIALOAD:
+			return "Media loading\n";
+		case JOB_STATUS1_PRINT_PRE_Y:
+			return "Waiting to print yellow plane";
+		case JOB_STATUS1_PRINT_Y:
+			return "Printing yellow plane";			
+		case JOB_STATUS1_PRINT_PRE_M:
+			return "Waiting to print magenta plane";
+		case JOB_STATUS1_PRINT_M:
+			return "Printing magenta plane";
+		case JOB_STATUS1_PRINT_PRE_C:
+			return "Waiting to print cyan plane";
+		case JOB_STATUS1_PRINT_C:
+			return "Printing cyan plane";
+		case JOB_STATUS1_PRINT_PRE_OC:
+			return "Waiting to laminate page";
+		case JOB_STATUS1_PRINT_OC:
+			return "Laminating page";
+		case JOB_STATUS1_PRINT_EJECT:
+			return "Ejecting page";
+		default:
+			return "Unknown 'Print' status1\n";
+		}
+		break;
+	case JOB_STATUS0_ASSIGN:
+		return "Unknown 'Assignment' status1\n";
+	case JOB_STATUS0_END:
+		switch(sts[1]) {
+		case JOB_STATUS1_END_OK:
+			return "Normal End";
+		case JOB_STATUS1_END_HEADER:
+		case JOB_STATUS1_END_PRINT:
+			switch(sts[2]) {
+			case JOB_STATUS2_END_PRINT_MEDIA:
+				return "Incorrect mediasize";
+			case JOB_STATUS2_END_PRINT_PREVERR:
+				return "Previous job terminated abnormally";
+			default:
+				return "Unknown 'End Print' status2";
+			}
+			break;
+		case JOB_STATUS1_END_INTERRUPT:
+			switch(sts[2]) {
+			case JOB_STATUS2_END_INT_TIMEOUT:
+				return "Timeout";
+			case JOB_STATUS2_END_INT_CANCEL:
+				return "Job cancelled";
+			case JOB_STATUS2_END_INT_DISCON:
+				return "Printer disconnected";
+			default:
+				return "Unknown 'End Print' status2";
+			}
+			break;
+		default:
+			if (sts[1] >= 0x10 && sts[1] <= 0x7f)
+				return "Mechanical Error";
+			else
+				return "Unknown 'End' status1";
+		}
+		break;
+	default:
+		break;
+	}
+
+	return "Unknown status0";
+}
+
 
 #define CMDBUF_LEN 512
 #define READBACK_LEN 256
@@ -147,7 +340,7 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
 
-	UNUSED(jobid);
+	ctx->jobid = jobid;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -159,7 +352,6 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->type = lookup_printer_type(&mitsu70x_backend,
 					desc.idVendor, desc.idProduct);
 }
-
 
 static void mitsu70x_teardown(void *vctx) {
 	struct mitsu70x_ctx *ctx = vctx;
@@ -186,6 +378,8 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 		ctx->databuf = NULL;
 	}
 
+	ctx->matte = 0;
+	
 	/* Read in initial header */
 	remain = sizeof(hdr);
 	while (remain > 0) {
@@ -218,6 +412,7 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 		i = be16_to_cpu(mhdr->lamcols) * be16_to_cpu(mhdr->lamrows) * 2;
 		i = (i + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 		remain += i;
+		ctx->matte = 1;
 	}
 
 	ctx->databuf = malloc(sizeof(hdr) + remain);
@@ -243,54 +438,7 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	return CUPS_BACKEND_OK;
 }
 
-static int mitsu70x_do_pagesetup(struct mitsu70x_ctx *ctx)
-{
-	uint8_t cmdbuf[CMDBUF_LEN];
-	uint8_t rdbuf[READBACK_LEN];
-
-	uint16_t tmp;
-	
-	int num, ret;
-
-	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmdbuf[0] = 0x1b;
-	cmdbuf[1] = 0x56;
-	cmdbuf[2] = 0x33;
-	cmdbuf[3] = 0x00;
-	tmp = cpu_to_be16(ctx->cols);
-	memcpy(cmdbuf + 4, &tmp, 2);
-	tmp = cpu_to_be16(ctx->rows);
-	memcpy(cmdbuf + 6, &tmp, 2);
-	cmdbuf[8] = 0x00; // or 0x80??
-	cmdbuf[9] = 0x00;
-	
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, 10)))
-		return CUPS_BACKEND_FAILED;
-	
-	/* Read in the printer status */
-	ret = read_data(ctx->dev, ctx->endp_up,
-			rdbuf, READBACK_LEN, &num);
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
-	
-	if (num != 6) {
-		ERROR("Short Read! (%d/%d)\n", num, 26);
-		return CUPS_BACKEND_FAILED;
-	}
-	
-	/* Make sure response is sane */
-	if (rdbuf[0] != 0xe4 ||
-	    rdbuf[1] != 0x56 ||
-	    rdbuf[2] != 0x33) {
-		ERROR("Unknown response from printer\n");
-		return CUPS_BACKEND_FAILED;
-	}
-	
-	return 0;
-}
-
-static int mitsu70x_get_state(struct mitsu70x_ctx *ctx, struct mitsu70x_state *resp)
+static int mitsu70x_get_jobstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_jobstatus *resp, uint16_t jobid)
 {
 	uint8_t cmdbuf[CMDBUF_LEN];
 	int num, ret;
@@ -300,9 +448,10 @@ static int mitsu70x_get_state(struct mitsu70x_ctx *ctx, struct mitsu70x_state *r
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x56;
 	cmdbuf[2] = 0x31;
-	cmdbuf[3] = 0x30;
-	cmdbuf[4] = 0x00;
-	cmdbuf[5] = 0x00;
+	cmdbuf[3] = 0x30;  // XXX 30 == specific, 31 = "all"
+
+	cmdbuf[4] = (jobid >> 8) & 0xff;
+	cmdbuf[5] = jobid & 0xff;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, 6)))
@@ -319,9 +468,57 @@ static int mitsu70x_get_state(struct mitsu70x_ctx *ctx, struct mitsu70x_state *r
 		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*resp));
 		return 4;
 	}
+	
+	return 0;
+}
+
+static int mitsu70x_get_memorystatus(struct mitsu70x_ctx *ctx, struct mitsu70x_memorystatus_resp *resp)
+{
+	uint8_t cmdbuf[CMDBUF_LEN];
+
+	uint16_t tmp;
+
+	int num;
+	int ret;
+
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x33;
+	cmdbuf[3] = 0x00;
+	tmp = cpu_to_be16(ctx->cols);
+	memcpy(cmdbuf + 4, &tmp, 2);
+	tmp = cpu_to_be16(ctx->rows);
+	memcpy(cmdbuf + 6, &tmp, 2);
+	cmdbuf[8] = ctx->matte ? 0x80 : 0x00;
+	cmdbuf[9] = 0x00;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 10)))
+		return CUPS_BACKEND_FAILED;
+
+	/* Read in the printer status */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) resp, sizeof(*resp), &num);
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	if (num != sizeof(*resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*resp));
+		return CUPS_BACKEND_FAILED;
+	}
+
+	/* Make sure response is sane */
+	if (resp->hdr[0] != 0xe4 ||
+	    resp->hdr[1] != 0x56 ||
+	    resp->hdr[2] != 0x33) {
+		ERROR("Unknown response from printer\n");
+		return CUPS_BACKEND_FAILED;
+	}
 
 	return 0;
 }
+
 
 static int mitsu70x_get_status(struct mitsu70x_ctx *ctx, struct mitsu70x_status_resp *resp)
 {
@@ -353,121 +550,159 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx, struct mitsu70x_status_
 
 static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
-
-	struct mitsu70x_state rdbuf = { .hdr = 0 }, rdbuf2 = { .hdr = 0 };
-
-	int last_state = -1, state = S_IDLE;
+	struct mitsu70x_jobstatus jobstatus;
+	struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
+	
 	int ret;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-top:
-	if (state != last_state) {
-		if (dyesub_debug)
-			DEBUG("last_state %d new %d\n", last_state, state);
-	}
+	INFO("Waiting for printer idle...\n");
 
-	ret = mitsu70x_get_state(ctx, &rdbuf);
+top:
+	/* Query job status for jobid 0 (global) */
+	ret = mitsu70x_get_jobstatus(ctx, &jobstatus, 0x0000);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	if (memcmp(&rdbuf, &rdbuf2, sizeof(rdbuf))) {
-		memcpy(&rdbuf2, &rdbuf, sizeof(rdbuf));
-	} else if (state == last_state) {
-		sleep(1);
-	}
-	last_state = state;
-
-	fflush(stderr);
-
-	switch (state) {
-	case S_IDLE:
-		INFO("Waiting for printer idle\n");
-#if 0 // XXX no idea if this works..
-		if (rdbuf.data[9] != 0x00) {
-			break;
-		}
-#endif
-		INFO("Sending attention sequence\n");
+	/* Make sure we're awake! */
+	if (jobstatus.power) {
+		INFO("Waking up printer...\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, sizeof(struct mitsu70x_hdr))))
 			return CUPS_BACKEND_FAILED;
-
-		state = S_SENT_ATTN;
-		break;
-	case S_SENT_ATTN: {
-		struct mitsu70x_status_resp resp;
-		ret = mitsu70x_get_status(ctx, &resp);
-		if (ret < 0)
-			return CUPS_BACKEND_FAILED;
-
-		/* Yes, do it twice.. */
-
-		ret = mitsu70x_get_status(ctx, &resp);
-		if (ret < 0)
-			return CUPS_BACKEND_FAILED;
-
-		// XXX check resp for sanity?
-
-		state = S_SENT_HDR;
-		break;
-	}
-	case S_SENT_HDR:
-		INFO("Sending Page setup sequence\n");
-		if ((ret = mitsu70x_do_pagesetup(ctx)))
-			return ret;
-
-		INFO("Sending header sequence\n");
-
-		/* K60 may require fixups */
-		if (ctx->type == P_MITSU_K60) {
-			struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
-			/* K60 only has a lower deck */
-			hdr->deck = 1;
-
-			/* 4x6 prints on 6x8 media need multicut mode */
-			if (ctx->cols == 0x0748 &&
-			    ctx->rows == 0x04c2)
-				hdr->multicut = 1;
-		}
-
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ctx->databuf + sizeof(struct mitsu70x_hdr),
-				     sizeof(struct mitsu70x_hdr))))
-			return CUPS_BACKEND_FAILED;
-
-		INFO("Sending data\n");
-
-		{
-			/* K60 and 305 need data sent in 256K chunks, but the first
-			   chunk needs to subtract the length of the 512-byte header */
-			int chunk = 256*1024 - sizeof(struct mitsu70x_hdr);
-			int sent = 1024;
-			while (ctx->datalen > 0) {
-				if ((ret = send_data(ctx->dev, ctx->endp_down,
-						     ctx->databuf + sent, chunk)))
-					return CUPS_BACKEND_FAILED;
-				sent += chunk;
-				chunk = ctx->datalen - sent;
-				if (chunk > 256*1024)
-					chunk = 256*1024;
-			}
-		}
-
-		state = S_SENT_DATA;
-		break;
-	case S_SENT_DATA:
-		INFO("Waiting for printer to acknowledge completion\n");
-
-		state = S_FINISHED;
-		break;
-	default:
-		break;
-	};
-
-	if (state != S_FINISHED)
+		sleep(1);
 		goto top;
+	}
+
+	/* Make sure temperature is sane */
+	if (jobstatus.temperature == TEMPERATURE_COOLING) {
+		INFO("Printer cooling down...\n");
+		sleep(1);
+		goto top;
+	}
+	
+	/* See if we hit a printer error. */
+	if (jobstatus.error_status[0]) {
+		// XXX decode these.
+		ERROR("Printer reporting error... %02x/%02x/%02x\n",
+		      jobstatus.error_status[0],
+		      jobstatus.error_status[1],
+		      jobstatus.error_status[2]);
+		return CUPS_BACKEND_STOP;
+	}
+
+	/* Perform memory status query */
+	{
+		struct mitsu70x_memorystatus_resp memory;
+		INFO("Checking Memory availability\n");
+		
+		ret = mitsu70x_get_memorystatus(ctx, &memory);
+		if (ret)
+			return CUPS_BACKEND_FAILED;
+
+		/* Check size is sane */
+		if (memory.size || memory.memory == 0xff) {
+			ERROR("Unsupported print size!\n");
+			return CUPS_BACKEND_CANCEL;
+		}
+		if (memory.memory) {
+			INFO("Printer buffers full, retrying!\n");
+			sleep(1);
+			goto top;
+		}
+	}
+
+	/* Set jobid */
+	hdr->jobid = cpu_to_be16(ctx->jobid);
+
+	/* Set deck */
+	if (ctx->type == P_MITSU_D70X) {
+		hdr->deck = 0;  /* D70 use automatic deck selection */
+	} else {
+		hdr->deck = 1;  /* All others only have a "lower" deck. */
+	}
+
+	/* We're clear to send data over! */
+	INFO("Sending Print Job\n");
+
+#if 0	// XXXX this is TBD.
+	/* K60 may require fixups */
+	if (ctx->type == P_MITSU_K60) {
+		struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
+		/* 4x6 prints on 6x8 media need multicut mode */
+		if (ctx->cols == 0x0748 &&
+		    ctx->rows == 0x04c2)
+			hdr->multicut = 1;
+	}
+#endif
+	
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     ctx->databuf + sizeof(struct mitsu70x_hdr),
+			     sizeof(struct mitsu70x_hdr))))
+		return CUPS_BACKEND_FAILED;
+
+	{
+		/* K60 and 305 need data sent in 256K chunks, but the first
+		   chunk needs to subtract the length of the 512-byte header */
+		int chunk = 256*1024 - sizeof(struct mitsu70x_hdr);
+		int sent = 1024;
+		while (ctx->datalen > 0) {
+			if ((ret = send_data(ctx->dev, ctx->endp_down,
+					     ctx->databuf + sent, chunk)))
+				return CUPS_BACKEND_FAILED;
+			sent += chunk;
+			chunk = ctx->datalen - sent;
+			if (chunk > 256*1024)
+				chunk = 256*1024;
+		}
+	}
+
+	/* Then wait for completion, if so desired.. */
+	INFO("Waiting for printer to acknowledge completion\n");
+
+	do {
+		/* Query job status for our used jobid */
+		ret = mitsu70x_get_jobstatus(ctx, &jobstatus, ctx->jobid);
+		if (ret)
+			return CUPS_BACKEND_FAILED;
+		
+		/* See if we hit a printer error. */
+		if (jobstatus.error_status[0]) {
+			// XXX decode these.
+			ERROR("Printer reporting error... %02x/%02x/%02x\n",
+			      jobstatus.error_status[0],
+			      jobstatus.error_status[1],
+			      jobstatus.error_status[2]);
+			return CUPS_BACKEND_STOP;
+		}
+
+		INFO("%s: %x/%x/%x/%x\n",
+		     mitsu70x_jobstatuses(jobstatus.job_status),
+		     jobstatus.job_status[0],
+		     jobstatus.job_status[1],
+		     jobstatus.job_status[2],
+		     jobstatus.job_status[3]);
+		if (jobstatus.job_status[0] == JOB_STATUS0_END) {
+			if (jobstatus.job_status[1] ||
+			    jobstatus.job_status[2] ||
+			    jobstatus.job_status[3]) {
+				ERROR("Abnormal exit: %02x/%02x/%02x\n",
+				      jobstatus.error_status[0],
+				      jobstatus.error_status[1],
+				      jobstatus.error_status[2]);
+				return CUPS_BACKEND_STOP;
+			}
+			/* Job complete */
+			break;
+		}
+
+		if (fast_return) {
+			INFO("Fast return mode enabled.\n");
+			break;
+		}
+	} while(1);
 
 	/* Clean up */
 	if (terminate)
@@ -476,7 +711,6 @@ top:
 	INFO("Print complete (%d copies remaining)\n", copies - 1);
 
 	if (copies && --copies) {
-		state = S_IDLE;
 		goto top;
 	}
 
@@ -506,7 +740,7 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 		INFO("Component #%d ID: %s (checksum %04x)\n",
 		     i, buf, be16_to_cpu(resp->vers[i].checksum));
 	}	
-	if (resp->upper.present) {  /* IOW, Not present */
+	if (resp->upper.mecha_status[0] == MECHA_STATUS_INIT) {  /* IOW, Not present */
 		INFO("Prints remaining:  %03d/%03d\n",
 		     be16_to_cpu(resp->lower.remain),
 		     be16_to_cpu(resp->lower.capacity));
@@ -561,6 +795,7 @@ static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_u
 static void mitsu70x_cmdline(void)
 {
 	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -f ]           # Use fast return mode\n");	
 }
 
 static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
@@ -590,8 +825,8 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
-	.name = "Mitsubishi CP-D70/D707/K60",
-	.version = "0.32",
+	.name = "Mitsubishi CP-D70/D707/K60/D80",
+	.version = "0.34",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -604,7 +839,7 @@ struct dyesub_backend mitsu70x_backend = {
 	.devices = {
 	{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_D70X, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_K60, ""},
 	{ USB_VID_KODAK, USB_PID_KODAK305, P_MITSU_K60, ""},
 	{ 0, 0, 0, ""}
 	}
@@ -618,34 +853,35 @@ struct dyesub_backend mitsu70x_backend = {
 
    All multi-byte numbers are big endian, ie MSB first.
 
-   Header 1:  (Init)
+   Header 1:  (Init) (AKA Wake Up)
 
    1b 45 57 55 00 00 00 00  00 00 00 00 00 00 00 00
    (padded by NULLs to a 512-byte boundary)
 
    Header 2:  (Header)
 
-   1b 5a 54 PP 00 00 00 00  00 00 00 00 00 00 00 00
+   1b 5a 54 PP JJ JJ 00 00  00 00 00 00 00 00 00 00
    XX XX YY YY QQ QQ ZZ ZZ  SS 00 00 00 00 00 00 00
    UU 00 00 00 00 00 00 00  00 TT 00 00 00 00 00 00
    RR 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
 
    (padded by NULLs to a 512-byte boundary)
 
-   PP    == 0x01 on D70x/D80, 0x02 on K60/305
+   PP    == 0x01 on D70x/D80, 0x02 on K60, 0x90 on K305, 0x04 on DS680/480
+   JJ JJ == Job ID, can leave at 00 00
    XX XX == columns
    YY YY == rows
    QQ QQ == lamination columns (equal to XX XX)
    ZZ ZZ == lamination rows (YY YY + 12)
-   SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80 only), 04 = UltraFine
+   SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80/DSx80 only), 04 = UltraFine
             (Matte requires Superfine or Ultrafine)
-   UU    == 00 = Auto, 01 = Lower Deck (required for K60/305), 02 = Upper Deck
+   UU    == 00 = Auto, 01 = Lower Deck (required for !D70x), 02 = Upper Decka
    TT    == lamination: 00 glossy, 02 matte.
    RR    == 00 (normal), 01 = (Double-cut 4x6), 05 = (double-cut 2x6)
-   
+
    Data planes:
    16-bit data, rounded up to 512-byte block (XX * YY * 2 bytes)
-   
+
    Lamination plane: (only present if QQ and ZZ are nonzero)
    16-byte data, rounded up to 512-byte block (QQ * ZZ * 2 bytes)
 
@@ -732,8 +968,6 @@ struct dyesub_backend mitsu70x_backend = {
     e4 56 31 30 00 00 00 00  40 20 00 00 00 cf 00 20 
     00 00 00 00 80 00 00 00  00 00
 
-
-
    CP-K60DW-S:
 
     e4 56 31 30 00 00 00 XX  YY 00 00 00 0f 00 00 00
@@ -744,19 +978,22 @@ struct dyesub_backend mitsu70x_backend = {
     40/80
     00/00
 
-   Sent to start a print
+   Memory status query:
 
    -> 1b 56 33 00 XX XX YY YY UU 00
 
     XX XX == columns
     YY YY == rows
-    UU    == Unknown, seen 0x00 and 0x80
+    UU    == 0x00 glossy, 0x80 matte
 
    <- [ 6 byte payload ]
 
     e4 56 33 00 00 00
     e4 56 33 00 00 01
-    e5 56 33 ff 01 01  (which appeared to work)
+    e4 56 33 ff 01 01
+
+                 |--- Size check, 00 ok, 01 fail
+              |------ Memory check, 00 ok, 01 fail, ff bad size
 
    ** ** ** ** ** **
 
