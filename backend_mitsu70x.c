@@ -196,7 +196,7 @@ struct mitsu70x_status_ver {
 	uint16_t checksum; /* Presumably BE */
 } __attribute__((packed));
 
-struct mitsu70x_status_resp {
+struct mitsu70x_printerstatus_resp {
 	uint8_t  hdr[4];
 	uint8_t  unk[36];
 	int16_t  model[6]; /* LE, UTF-16 */
@@ -646,7 +646,7 @@ static int mitsu70x_get_memorystatus(struct mitsu70x_ctx *ctx, struct mitsu70x_m
 }
 
 
-static int mitsu70x_get_status(struct mitsu70x_ctx *ctx, struct mitsu70x_status_resp *resp)
+static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_printerstatus_resp *resp)
 {
 	uint8_t cmdbuf[CMDBUF_LEN];
 	int num, ret;
@@ -673,6 +673,25 @@ static int mitsu70x_get_status(struct mitsu70x_ctx *ctx, struct mitsu70x_status_
 
 	return 0;
 }
+
+static int mitsu70x_cancel_job(struct mitsu70x_ctx *ctx, uint16_t jobid)
+{
+	uint8_t cmdbuf[4];
+	int ret;
+
+	/* Send Job cancel.  No response. */
+	memset(cmdbuf, 0, 4);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x44;
+	cmdbuf[2] = (jobid >> 8) & 0xff;
+	cmdbuf[3] = jobid & 0xffl;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+
+	return 0;
+}
+
 
 static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
@@ -847,10 +866,10 @@ top:
 	return CUPS_BACKEND_OK;
 }
 
-static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
+static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp)
 {
 	unsigned int i;
-	
+
 	INFO("Model         : ");
 	for (i = 0 ; i < 6 ; i++) {
 		DEBUG2("%c", le16_to_cpu(resp->model[i]) & 0x7f);
@@ -886,21 +905,23 @@ static void mitsu70x_dump_status(struct mitsu70x_status_resp *resp)
 
 static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 {
-	struct mitsu70x_status_resp resp;
+	struct mitsu70x_printerstatus_resp resp;
 	int ret;
 
-	ret = mitsu70x_get_status(ctx, &resp);
-
+	// XXX only for D70 family...?
+	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (!ret)
-		mitsu70x_dump_status(&resp);
+		mitsu70x_dump_printerstatus(&resp);
 
+	// XXX query job status too.
+	
 	return ret;
 }
 
 static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
 {
 	int ret, i;
-	struct mitsu70x_status_resp resp = { .hdr = { 0 } };
+	struct mitsu70x_printerstatus_resp resp = { .hdr = { 0 } };
 
 	struct mitsu70x_ctx ctx = {
 		.dev = dev,
@@ -908,7 +929,7 @@ static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_u
 		.endp_down = endp_down,
 	};
 
-	ret = mitsu70x_get_status(&ctx, &resp);
+	ret = mitsu70x_get_printerstatus(&ctx, &resp);
 
 	if (buf_len > 6)  /* Will we ever have a buffer under 6 bytes? */
 		buf_len = 6;
@@ -926,7 +947,7 @@ static void mitsu70x_cmdline(void)
 {
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -f ]           # Use fast return mode\n");	
-}
+	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");}
 
 static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 {
@@ -936,11 +957,14 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "s")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "sX:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 's':
 			j = mitsu70x_query_status(ctx);
+			break;
+		case 'X':
+			j = mitsu70x_cancel_job(ctx, atoi(optarg));
 			break;
 		default:
 			break;  /* Ignore completely */
@@ -956,7 +980,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.34",
+	.version = "0.35",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

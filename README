@@ -519,6 +519,11 @@
    Valid commands:
 
      -s                 Query printer status (Only partially decoded)
+     -X id              Cancel print job 'id' [1]
+
+    [1]  Job ID is the Internal Job ID (reported via status)
+	   To see which jobs are active/pending, see the output of the
+	   '-s' command.
 
  *************************************************************************** 
   BACKEND=mitsu9550
