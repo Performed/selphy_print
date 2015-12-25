@@ -77,6 +77,16 @@ struct mitsu70x_jobstatus {
 	uint8_t  reserved[6];
 } __attribute__((packed));
 
+struct mitsu70x_jobs {
+	uint8_t  hdr[4];
+	uint16_t dummy;
+	uint16_t jobid_0;
+	uint8_t  job0_status[4];
+	uint16_t jobid_1;
+	uint8_t  job1_status[4];
+	// XXX are there more?
+} __attribute__((packed));
+
 #define TEMPERATURE_NORMAL  0x00
 #define TEMPERATURE_PREHEAT 0x40
 #define TEMPERATURE_COOLING 0x80
@@ -598,6 +608,40 @@ static int mitsu70x_get_jobstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs
 	return 0;
 }
 
+static int mitsu70x_get_jobs(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs *resp)
+{
+	uint8_t cmdbuf[CMDBUF_LEN];
+	int num, ret;
+
+	/* Send Printer Query */
+	memset(cmdbuf, 0, CMDBUF_LEN);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x56;
+	cmdbuf[2] = 0x31;
+	cmdbuf[3] = 0x31;
+	cmdbuf[4] = 0x00;
+	cmdbuf[5] = 0x00;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 6)))
+		return ret;
+
+	memset(resp, 0, sizeof(*resp));
+
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) resp, sizeof(*resp), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num != sizeof(*resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*resp));
+		return 4;
+	}
+	
+	return 0;
+}
+
+
 static int mitsu70x_get_memorystatus(struct mitsu70x_ctx *ctx, struct mitsu70x_memorystatus_resp *resp)
 {
 	uint8_t cmdbuf[CMDBUF_LEN];
@@ -906,6 +950,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 {
 	struct mitsu70x_printerstatus_resp resp;
+	struct mitsu70x_jobs jobs;
 	int ret;
 
 	// XXX only for D70 family...?
@@ -913,7 +958,14 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 	if (!ret)
 		mitsu70x_dump_printerstatus(&resp);
 
-	// XXX query job status too.
+	ret = mitsu70x_get_jobs(ctx, &jobs);
+	if (!ret) {
+		INFO("JOB0 ID     : %06d\n", jobs.jobid_0);
+		INFO("JOB0 status : %s\n", mitsu70x_jobstatuses(jobs.job0_status));
+		INFO("JOB1 ID     : %06d\n", jobs.jobid_1);
+		INFO("JOB1 status : %s\n", mitsu70x_jobstatuses(jobs.job1_status));
+		// XXX are there more?
+	}
 	
 	return ret;
 }
