@@ -248,6 +248,25 @@ struct mitsu70x_hdr {
 	uint8_t  zero6[448];
 } __attribute__((packed));
 
+static char *mitsu70x_mechastatus(uint8_t *sts)
+{
+	switch(sts[0]) {
+	case MECHA_STATUS_INIT:
+		return "Initializing";
+	case MECHA_STATUS_FEED:
+		return "Paper Feeding/Cutting";
+	case MECHA_STATUS_LOAD:
+		return "Media Loading";
+	case MECHA_STATUS_PRINT:
+		return "Printing";
+	case MECHA_STATUS_IDLE:
+		return "Idle";
+	default:
+		break;
+	}
+	return "Unknown Mechanical Status";
+}
+
 static char *mitsu70x_jobstatuses(uint8_t *sts)
 {
 	switch(sts[0]) {
@@ -952,10 +971,43 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 		     i, buf, be16_to_cpu(resp->vers[i].checksum));
 	}	
 	if (resp->upper.mecha_status[0] == MECHA_STATUS_INIT) {  /* IOW, Not present */
+		INFO("Mechanical Status: %s\n",
+		     mitsu70x_mechastatus(resp->lower.mecha_status));
+		if (resp->lower.error_status[0]) {
+			INFO("Error Status: %s/%s -> %s\n",
+			     mitsu70x_errorclass(resp->lower.error_status),
+			     mitsu70x_errors(resp->lower.error_status),
+			     mitsu70x_errorrecovery(resp->lower.error_status));
+		}
+		INFO("Media type:  %02x/%02x\n",
+		     resp->lower.media_brand,
+		     resp->lower.media_type);
 		INFO("Prints remaining:  %03d/%03d\n",
 		     be16_to_cpu(resp->lower.remain),
 		     be16_to_cpu(resp->lower.capacity));
 	} else {
+		INFO("Mechanical Status: Upper: %s\n"
+		     "                   Lower: %s\n",
+		     mitsu70x_mechastatus(resp->upper.mecha_status),
+		     mitsu70x_mechastatus(resp->lower.mecha_status));
+		if (resp->upper.error_status[0]) {
+			INFO("Upper Error Status: %s/%s -> %s\n",
+			     mitsu70x_errorclass(resp->upper.error_status),
+			     mitsu70x_errors(resp->upper.error_status),
+			     mitsu70x_errorrecovery(resp->upper.error_status));
+		}		
+		if (resp->lower.error_status[0]) {
+			INFO("Lower Error Status: %s/%s -> %s\n",
+			     mitsu70x_errorclass(resp->lower.error_status),
+			     mitsu70x_errors(resp->lower.error_status),
+			     mitsu70x_errorrecovery(resp->lower.error_status));
+		}		
+		INFO("Media type:  Lower: %02x/%02x\n"
+		     "             Upper: %02x/%02x\n",
+		     resp->lower.media_brand,
+		     resp->lower.media_type,
+		     resp->upper.media_brand,
+		     resp->upper.media_type);
 		INFO("Prints remaining:  Lower: %03d/%03d\n"
 		     "                   Upper: %03d/%03d\n",
 		     be16_to_cpu(resp->lower.remain),
