@@ -736,6 +736,24 @@ static int mitsu70x_cancel_job(struct mitsu70x_ctx *ctx, uint16_t jobid)
 	return 0;
 }
 
+static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
+{
+	uint8_t cmdbuf[4];
+	int ret;
+
+	/* Send Job cancel.  No response. */
+	memset(cmdbuf, 0, 4);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x53;
+	cmdbuf[2] = 0x53;
+	cmdbuf[3] = time;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+
+	return 0;
+}
 
 static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
@@ -998,7 +1016,8 @@ static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_u
 static void mitsu70x_cmdline(void)
 {
 	DEBUG("\t\t[ -s ]           # Query status\n");
-	DEBUG("\t\t[ -f ]           # Use fast return mode\n");	
+	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
+	DEBUG("\t\t[ -k num ]       # Set standby time (1-60 minutes, 0 disables)\n");
 	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");}
 
 static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
@@ -1009,9 +1028,12 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "sX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "sX:k:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 'k':
+			j = mitsu70x_set_sleeptime(ctx, atoi(optarg));
+			break;
 		case 's':
 			j = mitsu70x_query_status(ctx);
 			break;
@@ -1032,7 +1054,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.35",
+	.version = "0.36",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

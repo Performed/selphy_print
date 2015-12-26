@@ -518,6 +518,7 @@
 
    Valid commands:
 
+     -k num		Specify standby delay (1-60 minutes, 0 disables)
      -s                 Query printer status (Only partially decoded)
      -X id              Cancel print job 'id' [1]
 
