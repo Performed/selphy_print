@@ -853,24 +853,32 @@ top:
 	/* Set deck */
 	if (ctx->type == P_MITSU_D70X) {
 		hdr->deck = 0;  /* D70 use automatic deck selection */
+		// XXX alternatively route it based on state and media? */
 	} else {
 		hdr->deck = 1;  /* All others only have a "lower" deck. */
 	}
 
+	/* Matte operation requires Ultrafine/superfine */
+	if (ctx->matte) {
+		if (ctx->type == P_MITSU_K60) {
+			hdr->superfine = 0x04; /* Force UltraFine */
+		} else {
+			hdr->superfine = 0x03; /* Force SuperFine */
+		}
+	}
+
+	/* Any other fixups? */
+#if 1 // XXX is this actually needed on the K60?  K306 uses it.
+	if (ctx->type == P_MITSU_K60 && 
+	    ctx->cols == 0x0748 &&
+	    ctx->rows == 0x04c2) {
+		hdr->multicut = 1;
+	}
+#endif
+
 	/* We're clear to send data over! */
 	INFO("Sending Print Job\n");
 
-#if 0	// XXXX this is TBD.
-	/* K60 may require fixups */
-	if (ctx->type == P_MITSU_K60) {
-		struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
-		/* 4x6 prints on 6x8 media need multicut mode */
-		if (ctx->cols == 0x0748 &&
-		    ctx->rows == 0x04c2)
-			hdr->multicut = 1;
-	}
-#endif
-	
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     ctx->databuf + sizeof(struct mitsu70x_hdr),
 			     sizeof(struct mitsu70x_hdr))))
