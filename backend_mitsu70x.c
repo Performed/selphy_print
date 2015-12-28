@@ -45,6 +45,8 @@
 //#define USB_PID_MITSU_D80   XXXXXX
 #define USB_VID_KODAK       0x040a
 #define USB_PID_KODAK305    0x404f
+//#define USB_VID_FUJIFILM    XXXXXX
+//#define USB_PID_FUJI_ASK300 XXXXXX
 
 /* Private data stucture */
 struct mitsu70x_ctx {
@@ -225,7 +227,7 @@ struct mitsu70x_memorystatus_resp {
 } __attribute__((packed));
 
 struct mitsu70x_hdr {
-	uint32_t cmd;
+	uint8_t  hdr[4]; /* 1b 5a 54 XX */
 	uint16_t jobid;
 	uint8_t  zero0[10];
 
@@ -238,14 +240,14 @@ struct mitsu70x_hdr {
 
 	uint8_t  deck;
 	uint8_t  zero2[7];
-	uint8_t  zero3;
-	uint8_t  laminate;
-	uint8_t  zero4[6];
+	uint8_t  laminate; /* 00 == on, 01 == off */
+	uint8_t  laminate_mode;
+	uint8_t  zero3[6];
 
 	uint8_t  multicut;
-	uint8_t  zero5[15];
+	uint8_t  zero4[15];
 
-	uint8_t  zero6[448];
+	uint8_t  pad[448];
 } __attribute__((packed));
 
 static char *mitsu70x_mechastatus(uint8_t *sts)
@@ -555,6 +557,8 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	// XXX sanity-check second header chunk for destined printer.
+	
 	/* Work out printjob size */
 	ctx->cols = be16_to_cpu(mhdr->cols);
 	ctx->rows = be16_to_cpu(mhdr->rows);
@@ -563,7 +567,7 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	remain = (remain + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 	remain *= 3;  /* One for each plane */
 
-	if (mhdr->laminate) {
+	if (!mhdr->laminate && mhdr->laminate_mode) {
 		i = be16_to_cpu(mhdr->lamcols) * be16_to_cpu(mhdr->lamrows) * 2;
 		i = (i + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 		remain += i;
@@ -794,6 +798,7 @@ top:
 
 	/* Make sure we're awake! */
 	if (jobstatus.power) {
+		// XXX or should we only send the first 4 bytes? */
 		INFO("Waking up printer...\n");
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, sizeof(struct mitsu70x_hdr))))
@@ -1117,10 +1122,11 @@ struct dyesub_backend mitsu70x_backend = {
 	.main_loop = mitsu70x_main_loop,
 	.query_serno = mitsu70x_query_serno,
 	.devices = {
-	{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_K60, ""},
-	{ USB_VID_KODAK, USB_PID_KODAK305, P_MITSU_K60, ""},
+		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""}, //D70M
+		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, ""},   //K60M
+//	{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_K60, ""},           //D70M
+		{ USB_VID_KODAK, USB_PID_KODAK305, P_MITSU_K60, ""},    //K60M
+//	{ USB_VID_FUJIFILM, USB_PID_FUJI_ASK300, P_MITSU_D70X, ""},     //D70M
 	{ 0, 0, 0, ""}
 	}
 };
