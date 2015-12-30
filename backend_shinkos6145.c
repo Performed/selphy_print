@@ -1603,6 +1603,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 #if !defined(WITH_6145_LIB)	
 	/* Sanity check correction data */
 	{
+		// XXX endianness!!
 		int i;
 		struct shinkos6145_correctionparam *corrdata = ctx->corrdata;
 
@@ -1830,13 +1831,13 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	uint16_t row, col;
 
 	row_lim = le16_to_cpu(corrdata->headDots);
-	pad_l = (row_lim - corrdata->width) / 2;
-	pad_r = pad_l + corrdata->width;
+	pad_l = (row_lim - le16_to_cpu(corrdata->width)) / 2;
+	pad_r = pad_l + le16_to_cpu(corrdata->width);
 	out = 0;
 	in = 0;
 	
 	/* Convert YMC 8-bit to 16-bit, and pad appropriately to full stripe */
-	for (row = 0 ; row < corrdata->height ; row++) {
+	for (row = 0 ; row < le16_to_cpu(corrdata->height) ; row++) {
 		for (col = 0 ; col < row_lim; col++) {
 			uint16_t val;
 			if (col < pad_l) {
@@ -1849,7 +1850,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 			dest[out++] = val;
 		}
 	}
-	for (row = 0 ; row < corrdata->height ; row++) {
+	for (row = 0 ; row < le16_to_cpu(corrdata->height) ; row++) {
 		for (col = 0 ; col < row_lim; col++) {
 			uint16_t val;
 			if (col < pad_l) {
@@ -1862,7 +1863,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 			dest[out++] = val;
 		}
 	}
-	for (row = 0 ; row < corrdata->height ; row++) {
+	for (row = 0 ; row < le16_to_cpu(corrdata->height) ; row++) {
 		for (col = 0 ; col < row_lim; col++) {
 			uint16_t val;
 			if (col < pad_l) {
@@ -1880,7 +1881,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	if (oc_mode > PRINT_MODE_NO_OC) {
 		// XXX matters if we're using glossy/matte..
 		// or should we just dump over the contents of the "raw" file?
-		for (row = 0 ; row < corrdata->height ; row++) {
+		for (row = 0 ; row < le16_to_cpu(corrdata->height) ; row++) {
 			for (col = 0 ; col < row_lim; col++) {
 				uint16_t val;
 				if (col < pad_l) {
@@ -2124,7 +2125,7 @@ top:
 
 		/* Convert packed RGB to planar YMC */
 		{
-			int planelen = ctx->corrdata->width * ctx->corrdata->height;
+			int planelen = le16_to_cpu(ctx->corrdata->width) * le16_to_cpu(ctx->corrdata->height);
 			uint8_t *databuf3 = malloc(ctx->datalen);
 				 
 			for (i = 0 ; i < planelen ; i++) {
@@ -2278,7 +2279,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.12WIP",
+	.version = "0.13WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
