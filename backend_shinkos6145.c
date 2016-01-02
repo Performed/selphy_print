@@ -189,30 +189,27 @@ struct shinkos6145_correctionparam {
 	uint16_t printMaxPulse_C; // @8780
 	uint16_t printMaxPulse_O; // @8782
 
-	uint16_t MtfWeightH_Y;    // @8784
-	uint16_t MtfWeightH_M;    // @8786
-	uint16_t MtfWeightH_C;    // @8788
-	uint16_t MtfWeightH_O;    // @8790	
+	uint16_t mtfWeightH_Y;    // @8784
+	uint16_t mtfWeightH_M;    // @8786
+	uint16_t mtfWeightH_C;    // @8788
+	uint16_t mtfWeightH_O;    // @8790
 
-	uint16_t mtfWeightV_Y;    // @7092
-	uint16_t mtfWeightV_M;    // @7094
-	uint16_t mtfWeightV_C;    // @7096
-	uint16_t mtfWeightV_O;    // @7098
+	uint16_t mtfWeightV_Y;    // @8792
+	uint16_t mtfWeightV_M;    // @8794
+	uint16_t mtfWeightV_C;    // @8796
+	uint16_t mtfWeightV_O;    // @8798
 
 	uint16_t mtfSlice_Y;      // @8800
 	uint16_t mtfSlice_M;      // @8802
 	uint16_t mtfSlice_C;      // @8804
 	uint16_t mtfSlice_O;      // @8806
 
-	uint16_t val_1;           // @8808 // 1 for matte
-	uint16_t val_2;		  // @8810
+	uint16_t val_1;           // @8808 // 1 enables linepreprintprocess
+	uint16_t val_2;		  // @8810 // 1 enables ctankprocess
 	uint16_t printOpLevel;    // @8812
 	uint16_t matteMode;	  // @8814 // 1 for matte
 
-	uint16_t randomBase_1;    // @8816 [use lower word]
-	uint16_t randomBase_2;    // @8818 [use lower word]
-	uint16_t randomBase_3;    // @8820 [use lower word]
-	uint16_t randomBase_4;    // @8822 [use lower word]
+	uint16_t randomBase[4];   // @8816 [use lower byte of each]
 
 	uint16_t matteSize;       // @8824
 	uint16_t matteGloss;      // @8826
@@ -227,10 +224,10 @@ struct shinkos6145_correctionparam {
 	uint16_t SideEdgeLvCoefTable[256]; // @9348
 	uint8_t  rsvd_3[2572];             // @9860, null?
 
+	/* User-supplied data */
 	uint16_t width;           // @12432
 	uint16_t height;          // @12434
-
-	uint8_t  rsvd_22[3948];   // @12436, null.
+	uint8_t  pad[3948];       // @12436, null.
 } __attribute__((packed)); /* 16384 bytes */
 
 /* Private data stucture */
@@ -1645,10 +1642,10 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 			ret = -17;
 			goto done;
 		}
-		if (corrdata->randomBase_1 > 0xff ||
-		    corrdata->randomBase_2 > 0xff ||
-		    corrdata->randomBase_3 > 0xff ||
-		    corrdata->randomBase_4 > 0xff) {
+		if (corrdata->randomBase[0] > 0xff ||
+		    corrdata->randomBase[1] > 0xff ||
+		    corrdata->randomBase[2] > 0xff ||
+		    corrdata->randomBase[3] > 0xff) {
 			ret = -18;
 			goto done;
 		}
