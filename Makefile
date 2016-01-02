@@ -68,6 +68,6 @@ $(LIBS6145)/libS6145ImageProcessRE.so:  $(LIBS6145)/libS6145ImageProcess.o
 	$(CC) -Os -g -shared -o $@ $<
 
 $(LIBS6145)/libS6145ImageProcess.o:  $(LIBS6145)/libS6145ImageProcess.c
-	$(CC) -c -o $@ -fPIC $<
+	$(CC) -c -Wall -Wextra -o $@ -fPIC $<
 
 endif
