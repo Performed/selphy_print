@@ -1884,7 +1884,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 				if (col < pad_l) {
 					val = 0;
 				} else if (col < pad_r) {
-					val = corrdata->pulseTransTable_O[0x7f];
+					val = corrdata->pulseTransTable_O[corrdata->printOpLevel];
 				} else {
 					val = 0;
 				}

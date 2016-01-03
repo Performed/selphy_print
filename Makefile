@@ -32,7 +32,7 @@ CFLAGS += -DWITH_6145_LIB -I$(LIBS6145)
 LIBS6145_NAME = S6145ImageProcessRE    # Reverse-engineered
 DEPS += $(LIBS6145)/libS6145ImageProcessRE.so
 
-LDFLAGS += -L$(LIBS6145) -l$(LIBS6145_NAME)
+LDFLAGS += -L$(LIBS6145) -l$(LIBS6145_NAME) -lm
 endif
 
 # List of backends
@@ -65,7 +65,7 @@ clean:
 
 ifneq ($(LIBS6145),)
 $(LIBS6145)/libS6145ImageProcessRE.so:  $(LIBS6145)/libS6145ImageProcess.o
-	$(CC) -Os -g -shared -o $@ $<
+	$(CC) -lm -Os -g -shared -o $@ $<
 
 $(LIBS6145)/libS6145ImageProcess.o:  $(LIBS6145)/libS6145ImageProcess.c
 	$(CC) -c -Wall -Wextra -o $@ -fPIC $<
