@@ -265,6 +265,7 @@ struct s6145_cmd_hdr {
 #define S6145_CMD_GETSERIAL  0x0006
 #define S6145_CMD_PRINTSTAT  0x0007
 #define S6145_CMD_EXTCOUNTER 0x0008
+#define S6145_CMD_MEMORYBANK 0x000A // Brava 21 only?
 
 #define S6145_CMD_PRINTJOB  0x4001
 #define S6145_CMD_CANCELJOB 0x4002
@@ -410,7 +411,9 @@ struct s6145_setparam_cmd {
 #define PARAM_PAPER_PRESV  0x3d
 #define PARAM_DRIVER_MODE  0x3e
 #define PARAM_PAPER_MODE   0x3f
+#define PARAM_REGION_CODE  0x53 // Brava 21 only?
 #define PARAM_SLEEP_TIME   0x54
+
 
 #define PARAM_OC_PRINT_OFF   0x00000001
 #define PARAM_OC_PRINT_GLOSS 0x00000002
