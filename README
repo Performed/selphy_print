@@ -371,7 +371,8 @@
  *************************************************************************** 
   BACKEND=shinkos6145
 
-   Low-level documentation was provided by Sinfonia, Inc.  Thank you!
+   Low-level documentation was provided by Sinfonia and CIAAT.
+   Thank you!
 
    Mostly supported printers:
 
@@ -384,13 +385,13 @@
 	library (libS6145ImageProcess) to correctly transform the input data
 	into a format the printer can use.
 
-	This library was provided to the authors of this in binary form, and
-	without redistribution permissions.
+	This library was provided to the authors of this software in binary
+	form, without redistribution permissions.
 
 	If you obtain this library along with *written permission* from
 	Sinfonia Technology Co. LTD to use and/or redistribute it,
 	as an additional permission under the GPLv3 section 7, you
-	may combine and/or redistribute this backend along with	the library.
+	may combine and/or redistribute the library along with this software.
 
         For the full text of the license exception, see the comments in the
 	header of backend_shinkos6145.c

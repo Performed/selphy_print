@@ -30,12 +30,13 @@
  *   library, providing you have *written permission* from Sinfonia Technology
  *   Co. LTD to use and/or redistribute that library.
  *
+ *   You must still adhere to all other terms of the license to this program
+ *   (ie GPLv3) and the license of the libS6145ImageProcess library.
+ *
  *   Please note that the authors of this program *do not* have permission to
  *   redistribute this library, which was provided only in binary form.
  *
- *   You must still adhere to all other terms of both the GPLv3 and the license
- *   of the libS6145ImageProcess library.
- */
+ * */
 
 #include <stdio.h>
 #include <stdlib.h>
