@@ -2143,7 +2143,11 @@ top:
 		}
 		
 #if defined(WITH_6145_LIB)
-		INFO("Calling Sinfonia Image Processing Library...\n");		
+#if defined(S6145_RE)
+		INFO("Calling Reverse-Engineered Image Processing Library...\n");
+#else
+		INFO("Calling Sinfonia Image Processing Library...\n");
+#endif		
 		if (ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
 			ERROR("Library returned error!\n");
 			return CUPS_BACKEND_FAILED;
@@ -2151,7 +2155,7 @@ top:
 
 		ImageProcessing(ctx->databuf, databuf2, ctx->corrdata);
 #else
-		INFO("Calling Internal Image Processing Library...\n");
+		INFO("Calling Internal Fallback Image Processing Library...\n");
 		
 		lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
 		lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);
