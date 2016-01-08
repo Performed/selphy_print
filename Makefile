@@ -95,7 +95,7 @@ clean:
 	$(RM) -f $(EXEC_NAME) $(BACKENDS)
 
 # Reverse-engineered LibS6145ImageProcess
-ifneq ($(RE_LIBS6145),)
+ifneq ($(LIBS6145_RE),)
 $(LIBS6145)/libS6145ImageProcessRE.so:  $(LIBS6145)/libS6145ImageProcess.o
 	$(CC) -lm -Os -g -shared -o $@ $<
 
