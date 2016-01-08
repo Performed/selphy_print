@@ -1604,15 +1604,14 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 #if !defined(WITH_6145_LIB)	
 	/* Sanity check correction data */
 	{
-		// XXX endianness!!
 		int i;
 		struct shinkos6145_correctionparam *corrdata = ctx->corrdata;
 
 		for (i = 0 ; i < 256 ; i++) {
-			if (corrdata->pulseTransTable_Y[i] > corrdata->printMaxPulse_Y ||
-			    corrdata->pulseTransTable_M[i] > corrdata->printMaxPulse_M ||
-			    corrdata->pulseTransTable_C[i] > corrdata->printMaxPulse_C ||
-			    corrdata->pulseTransTable_O[i] > corrdata->printMaxPulse_O) {
+			if (le16_to_cpu(corrdata->pulseTransTable_Y[i]) > le16_to_cpu(corrdata->printMaxPulse_Y) ||
+			    le16_to_cpu(corrdata->pulseTransTable_M[i]) > le16_to_cpu(corrdata->printMaxPulse_M) ||
+			    le16_to_cpu(corrdata->pulseTransTable_C[i]) > le16_to_cpu(corrdata->printMaxPulse_C) ||
+			    le16_to_cpu(corrdata->pulseTransTable_O[i]) > le16_to_cpu(corrdata->printMaxPulse_O)) {
 				ret = -10;
 				goto done;
 			}
