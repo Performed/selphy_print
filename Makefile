@@ -33,8 +33,7 @@ UNAME_P := $(shell uname -p)
 ifeq ($(UNAME_S),Linux)
 ifeq ($(UNAME_P),x86_64)
  LIBS6145_NAME = S6145ImageProcess-x64
-endif
-ifneq ($(filter %86,$(UNAME_P)),)
+else ifneq ($(filter %86,$(UNAME_P)),)
  LIBS6145_NAME = S6145ImageProcess-x32
 else
  LIBS6145 = 
@@ -97,9 +96,9 @@ clean:
 # Reverse-engineered LibS6145ImageProcess
 ifneq ($(LIBS6145_RE),)
 $(LIBS6145)/libS6145ImageProcessRE.so:  $(LIBS6145)/libS6145ImageProcess.o
-	$(CC) -lm -Os -g -shared -o $@ $<
+	$(CC) -lm -g -shared -o $@ $<
 
 $(LIBS6145)/libS6145ImageProcess.o:  $(LIBS6145)/libS6145ImageProcess.c
-	$(CC) -c -Wall -Wextra -fno-strict-overflow -o $@ -fPIC $<
+	$(CC) -c $(CFLAGS) -fno-strict-overflow  -fPIC -o $@ $<
 
 endif
