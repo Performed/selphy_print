@@ -43,6 +43,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -1418,6 +1419,36 @@ static int reset_curve(struct shinkos6145_ctx *ctx, int target)
 	return 0;
 }
 
+static int shinkos6145_dump_corrdata(struct shinkos6145_ctx *ctx, char *fname)
+{
+	int ret;
+	
+	ret = shinkos6145_get_imagecorr(ctx);
+	if (ret) {
+		ERROR("Failed to execute command\n");
+		return ret;
+	}
+
+	/* Open file and write it out */
+	{
+		int fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+		if (fd < 0) {
+			ERROR("Unable to open filename\n");
+			return fd;
+		}
+
+		write(fd, ctx->corrdata, ctx->corrdatalen);
+		close(fd);
+	}
+
+	/* Free the buffers */
+	free(ctx->corrdata);
+	ctx->corrdata = NULL;
+	ctx->corrdatalen = 0;
+	
+	return ret;
+}
+
 static int get_tonecurve(struct shinkos6145_ctx *ctx, int type, char *fname) 
 {
 	struct s6145_readtone_cmd  cmd;
@@ -1581,7 +1612,14 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 
 	ctx->corrdatalen = le16_to_cpu(resp->total_size);
 	INFO("Fetching %lu bytes of image correction data\n", ctx->corrdatalen);
+
 	ctx->corrdata = malloc(sizeof(struct shinkos6145_correctionparam));
+	if (!ctx->corrdata) {
+		ERROR("Memory allocation failure\n");
+		ret = -ENOMEM;
+		goto done;
+	}
+	memset(ctx->corrdata, 0, sizeof(struct shinkos6145_correctionparam));
 	total = 0;
 
 	while (total < ctx->corrdatalen) {
@@ -1689,7 +1727,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFik:l:L:mr:R:sX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFik:l:L:mr:Q:R:sX:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'c':
@@ -1735,6 +1773,9 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 'm':
 			j = get_mediainfo(ctx);
+			break;
+		case 'Q':
+			j = shinkos6145_dump_corrdata(ctx, optarg);
 			break;
 		case 'r':
 			j = reset_curve(ctx, RESET_TONE_CURVE);
@@ -2086,6 +2127,7 @@ top:
 		/* Set matte/etc */
 
 		uint32_t oc_mode = le32_to_cpu(ctx->hdr.oc_mode);
+		uint32_t updated = 0;
 
 		if (!oc_mode) /* if nothing set, default to glossy */
 			oc_mode = PARAM_OC_PRINT_GLOSS;
@@ -2105,16 +2147,19 @@ top:
 				ERROR("Failed to execute command\n");
 				return ret;
 			}
+			updated = 1;
 		}
 
-		/* Get image correction parameters */
-		ret = shinkos6145_get_imagecorr(ctx);
-		if (ret) {
-			ERROR("Failed to execute command\n");
-			return ret;
+		/* Get image correction parameters if necessary */
+		if (updated || !ctx->corrdata || !ctx->corrdatalen) {
+			ret = shinkos6145_get_imagecorr(ctx);
+			if (ret) {
+				ERROR("Failed to execute command\n");
+				return ret;
+			}
 		}
 
-		/* Perform library transform... */
+		/* Set up library transform... */
 		uint32_t newlen = le16_to_cpu(ctx->corrdata->headDots) *
 			le32_to_cpu(ctx->hdr.rows) * sizeof(uint16_t) * 4;
 		uint16_t *databuf2 = malloc(newlen);
@@ -2140,7 +2185,8 @@ top:
 			free(ctx->databuf);
 			ctx->databuf = databuf3;
 		}
-		
+
+		/* Perform the actual library transform */
 #if defined(WITH_6145_LIB)
 #if defined(S6145_RE)
 		INFO("Calling Reverse-Engineered Image Processing Library...\n");
@@ -2283,7 +2329,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.13WIP",
+	.version = "0.14WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,

@@ -420,6 +420,7 @@
      -l filename        Query Current tone curve from RAM       [1]
      -L filename        Store Current tone curve in RAM         [1]
      -m                 Query media information
+     -Q filename        Dump image correction data              [4]
      -r                 Reset User tone curve to default        [3]
      -R                 Reset printer to factory defaults
      -s                 Query printer status
@@ -439,6 +440,9 @@
 	   '-s' command, specifically the 'Bank' output.
 
     [3]  Default printer tone curve is a linear 'val << 3'
+
+    [4]  This is used as an input to the image processing code, and is
+         only useful for debugging purposes.
 
  *************************************************************************** 
   BACKEND=shinkos6245
