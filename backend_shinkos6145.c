@@ -1418,7 +1418,7 @@ static int reset_curve(struct shinkos6145_ctx *ctx, int target)
 static int shinkos6145_dump_corrdata(struct shinkos6145_ctx *ctx, char *fname)
 {
 	int ret;
-	
+
 	ret = shinkos6145_get_imagecorr(ctx);
 	if (ret) {
 		ERROR("Failed to execute command\n");
@@ -1433,7 +1433,7 @@ static int shinkos6145_dump_corrdata(struct shinkos6145_ctx *ctx, char *fname)
 			return fd;
 		}
 
-		write(fd, ctx->corrdata, ctx->corrdatalen);
+		write(fd, ctx->corrdata, sizeof(struct shinkos6145_correctionparam));
 		close(fd);
 	}
 
@@ -1709,7 +1709,8 @@ static void shinkos6145_cmdline(void)
 	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
 	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
-	DEBUG("\t\t[ -r ]           # Reset user/NV tone curve\n");
+	DEBUG("\t\t[ -Q filename ]  # Extract image correction params\n");
+	DEBUG("\t\t[ -r ]           # Reset user/NV tone curve\n");	
 	DEBUG("\t\t[ -R ]           # Reset printer to factory defaults\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");
