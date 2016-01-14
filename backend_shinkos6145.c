@@ -50,14 +50,18 @@
 #include <signal.h>
 #include <time.h>
 
+#include <dlfcn.h>
+
 #define BACKEND shinkos6145_backend
 
 #include "backend_common.h"
 
-#if defined(WITH_6145_LIB)
-/* Note that this is a proprietary library, and *NOT* GPL compatible! */
-#include "libS6145ImageProcess.h"
-#endif
+/* Image processing library function prototypes */
+typedef int (*ImageProcessingFN)(unsigned char *, unsigned short *, void *);
+typedef int (*ImageAvrCalcFN)(unsigned char *, unsigned short, unsigned short, unsigned char *);
+
+#define LIB_NAME "libS6145ImageProcess.so"    // Official library
+#define LIB_NAME2 "libS6145ImageReProcess.so" // Reimplemented library
 
 enum {
 	S_IDLE = 0,
@@ -247,6 +251,10 @@ struct shinkos6145_ctx {
 
 	uint8_t *databuf;
 	size_t datalen;
+
+	void *dl_handle;
+	ImageProcessingFN ImageProcessing;
+	ImageAvrCalcFN ImageAvrCalc;	
 
 	struct shinkos6145_correctionparam *corrdata;
 	size_t corrdatalen;
@@ -1635,9 +1643,8 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 
 	}
 
-#if !defined(WITH_6145_LIB)	
 	/* Sanity check correction data */
-	{
+	if (!ctx->dl_handle) {
 		int i;
 		struct shinkos6145_correctionparam *corrdata = ctx->corrdata;
 
@@ -1692,7 +1699,6 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 			goto done;
 		}
 	}
-#endif
 
 done:
 	return ret;
@@ -1824,7 +1830,25 @@ static void shinkos6145_attach(void *vctx, struct libusb_device_handle *dev,
 	
 	ctx->type = lookup_printer_type(&shinkos6145_backend,
 					desc.idVendor, desc.idProduct);	
-	
+
+	/* Attempt to open the library */
+	INFO("Attempting to load image processing library\n");
+	ctx->dl_handle = dlopen(LIB_NAME, RTLD_NOW);
+	if (!ctx->dl_handle)
+		ctx->dl_handle = dlopen(LIB_NAME2, RTLD_NOW);
+	if (!ctx->dl_handle)
+		WARNING("Image processing library not found, using internal fallback code\n");
+	if (ctx->dl_handle) {
+		ctx->ImageProcessing = dlsym(ctx->dl_handle, "ImageProcessing");
+		ctx->ImageAvrCalc = dlsym(ctx->dl_handle, "ImageAvrCalc");
+		if (!ctx->ImageProcessing || !ctx->ImageAvrCalc) {
+			WARNING("Image processing library load problem\n");
+			dlclose(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+		}
+		INFO("Image processing library successfully loaded\n");
+	}
+
 	/* Ensure jobid is sane */
 	ctx->jobid = (jobid & 0x7f) + 1;
 }
@@ -1839,11 +1863,12 @@ static void shinkos6145_teardown(void *vctx) {
 		free(ctx->databuf);
 	if (ctx->corrdata)
 		free(ctx->corrdata);
-
+	if (ctx->dl_handle)
+		dlclose(ctx->dl_handle);
+	
 	free(ctx);
 }
 
-#if !defined (WITH_6145_LIB)
 static void lib6145_calc_avg(struct shinkos6145_ctx *ctx, uint16_t rows, uint16_t cols)
 {
 	uint32_t plane, i, planelen;
@@ -1934,8 +1959,6 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 		}
 	}
 }
-#endif
-
 
 static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	struct shinkos6145_ctx *ctx = vctx;
@@ -2184,24 +2207,22 @@ top:
 		}
 
 		/* Perform the actual library transform */
-#if defined(WITH_6145_LIB)
-#if defined(S6145_RE)
-		INFO("Calling Reverse-Engineered Image Processing Library...\n");
-#else
-		INFO("Calling Sinfonia Image Processing Library...\n");
-#endif		
-		if (ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
-			ERROR("Library returned error!\n");
-			return CUPS_BACKEND_FAILED;
+		if (ctx->dl_handle) {
+			INFO("Calling Image Processing Library...\n");
+
+			if (ctx->ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
+				ERROR("Library returned error!\n");
+				return CUPS_BACKEND_FAILED;
+			}
+
+			ctx->ImageProcessing(ctx->databuf, databuf2, ctx->corrdata);
+		} else {
+			INFO("Calling Internal Fallback Image Processing Library...\n");
+		
+			lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
+			lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);
 		}
 
-		ImageProcessing(ctx->databuf, databuf2, ctx->corrdata);
-#else
-		INFO("Calling Internal Fallback Image Processing Library...\n");
-		
-		lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
-		lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);
-#endif
 		free(ctx->databuf);
 		ctx->databuf = (uint8_t*) databuf2;
 		ctx->datalen = newlen;
@@ -2326,7 +2347,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.14WIP",
+	.version = "0.15WIP",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
