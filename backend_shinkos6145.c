@@ -344,6 +344,7 @@ struct s6145_print_cmd {
 #define PRINT_MODE_GLOSSY       0x02
 #define PRINT_MODE_MATTE        0x03
 
+#if 0
 static char *print_modes(uint8_t v) {
 	switch (v) {
 	case PRINT_MODE_NO_OC:
@@ -356,6 +357,7 @@ static char *print_modes(uint8_t v) {
 		return "Unknown";
 	}
 }
+#endif
 
 #define PRINT_METHOD_STD     0x00
 #define PRINT_METHOD_COMBO_2 0x02
@@ -1150,14 +1152,8 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	INFO("Lifetime Distance:     %08d inches\n", le32_to_cpu(resp2->lifetime_distance));
 	INFO("Maintainence Distance: %08d inches\n", le32_to_cpu(resp2->maint_distance));
 	INFO("Head Distance:         %08d inches\n", le32_to_cpu(resp2->head_distance));
-
+	
 	/* Query various params */
-	if ((ret = get_param(ctx, PARAM_OC_PRINT, &val))) {
-		ERROR("Failed to execute command\n");
-		return ret;
-	}
-	INFO("Last Overcoat mode:  %s\n", print_modes(val));
-
 	if ((ret = get_param(ctx, PARAM_PAPER_PRESV, &val))) {
 		ERROR("Failed to execute command\n");
 		return ret;
