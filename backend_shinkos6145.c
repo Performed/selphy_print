@@ -2347,7 +2347,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.15WIP",
+	.version = "0.15",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
@@ -2364,7 +2364,7 @@ struct dyesub_backend shinkos6145_backend = {
 	}
 };
 
-/* CHC-S6145 data format
+/* CHC-S6145 spool file format
 
   Spool file consists of an 116-byte header, followed by RGB-packed data,
   followed by a 4-byte footer.  Header appears to consist of a series of
@@ -2382,32 +2382,5 @@ struct dyesub_backend shinkos6145_backend = {
    [[Packed RGB payload of WW*HH*3 bytes]]
 
    04 03 02 01  [[ footer ]]
-
- * CIAAT Brava 21 data format  
-
-   This printer is supposed to be a variant of the S6145, but uses a 
-   different spool format -- but seems to use the same command language.
-
-   01 40 12 00  II NN NN YY  YY XX XX TT  00 00 00 00  00 00 01 MM  QQ ZZ
-
-    II == Job ID (01-255, backend fills)
-    NN NN == copies (LE)
-    YY YY == Columns (LE)
-    XX XX == Rows (LE)
-    MM == Overcoat (02 = glossy, 03 = matte, 01 = none)
-    TT == Type (00 = 4x6, 03 = 5x7, 06 = 8x6, 07 = 2x6)
-    QQ == Multicut (00 = normal, 01 = none, 02 = 2*4x6, 
-                    04 = 2*2x6, 80 = 4x6-notrim)
-    ZZ == Cyan Average (backend fills)
-
-    1844*2434  8x6
-    1844*2492  4x6*2
-    1548*2140  5x7
-    1844*1240  4x6 (and 2x6*2)
-    1844*1210  4x6-notrim (WTF?)
-    1844*634   2x6
-
-
-   [[ Followed by XX*YY*3 bytes of image data, RGB ]]
 
 */

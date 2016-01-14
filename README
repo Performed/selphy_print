@@ -37,6 +37,8 @@
    Citizen CW-01
    Mitsubishi CP-9550D/DW/DW-S/DZ/DZ-S
    Mitsubishi CP-3800DW
+   Shinko CHC-S6145 (aka Sinfonia CS2)
+   Ciaat Brava 21 (Rebadged S6145)
 
   Work-in-progress Printers:
 
@@ -50,11 +52,9 @@
    Sony UP-CR10L (aka DNP DS-SL10)
    Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S6245 (aka Sinfonia CE1)
-   Shinko CHC-S6145 (aka Sinfonia CS2)
-   Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
+   Shinko CHC-S6145-5A (aka Sinfonia CS2-c)   
    Kodak 8810
    Kodak 7000/7010/7015
-   Ciaat Brava 21 (Rebadged S6145)
 
  ***************************************************************************
 
@@ -374,41 +374,41 @@
    Low-level documentation was provided by Sinfonia and CIAAT.
    Thank you!
 
-   Mostly supported printers:
+   Verified supported printers:
 
      Shinko CHC-S6145 (aka "Sinfonia CS2")
      Ciaat Brava 21
 
    *** VERY IMPORTANT ***
 
-	In order to print properly, this backend relies on a proprietary
-	library (libS6145ImageProcess) to correctly transform the input data
-	into a format the printer can use.
+     The Sinfonia CHC-S6145 printer (and its siblings) require the input
+     data to be transformed using a proprietary library in order to generate
+     usable output.
 
-	This library was provided to the authors of this software in binary
-	form, without redistribution permissions.
+     This library (libS6145ImageProcess) was provided to the authors of
+     selphy_print in binary form, without redistribution permissions. It was
+     also only made available for x86 and x86_64 platdorms.
 
-	If you obtain this library along with *written permission* from
-	Sinfonia Technology Co. LTD to use and/or redistribute it,
-	as an additional permission under the GPLv3 section 7, you
-	may combine and/or redistribute the library along with this software.
+     Work is under way to reverse-engineer and re-implement this library.
+     the replacement is called libS6145ImageReProcess, and is not yet
+     publicly released.
 
-        For the full text of the license exception, see the comments in the
-	header of backend_shinkos6145.c
+     The backend will automatically attempt to load one of these libraries
+     at runtime.  If neither is available, it will default to a very crude
+     algorithm that generates pretty poor results not suable for
+     photographic output.
 
-	Ideally, Sinfonia could be convinced to release source code to this
-	library under a suitable license, but I have been informed they are
-	unable to do so due to legal considerations.
+     As selphy_print is released under the terms of the GPL, it cannot
+     normally be combined with proprietary libraries.
 
-	In the mean time, there is a slowly-improving reverse-engineered
-	version of the library already included.  While it is adequate to
-	demonstrate that the printer functions properly, the quality of the
-	output is poor, and not suitable for photographic output.
+     Therefore, the authors of selphy_print grant its users an additional
+     permission (under section 7 of the GPLv3) to combine and/or redistribute
+     it with the libS6145ImageProcess library.  For the full text of this
+     license exception, please see the header of backend_shinkos6145.c
 
-	If you own one of these printers, please politely contact Sinfonia
-	to inquire about access to the libS6145ImageProcess library, and
-	the possibility of obtaining its source code.
-
+     If you own a S6145 printer, libS6145ImageProcess can be obtained by
+     politely contacting your local Sinfonia distributor.
+     
    Valid commands:
 
      -c filename        Query User tone curve from flash        [1]
