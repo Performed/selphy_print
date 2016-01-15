@@ -523,15 +523,19 @@
 
    *** VERY IMPORTANT ***
 
-	The Mitsubishi CP-D70 family of printers all utilize an engine
-	that requires the host system to process the image data using
-	to convert color data and perform thermal compensation.
+	This family of printers all utilize an engine that requires the
+	host system to process the image data, converting color data and
+	performing thermal compensation via an unknown algorithm.
 
 	While Mitsibishi's proprietary Windows drivers include data tables
 	used by the image processing algorithms, the algorithms themselves 
 	are unknown. So, while the printers are demonstratably functional,
 	the quality of the output is quite poor, and not suitable for
 	photographic output.
+
+	Work is slowly underway to reverse-engineer this algorithm, but
+	there is no expectation that this effort will succeed in a reasonable
+	timeline.
 
    Valid commands:
 
