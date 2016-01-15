@@ -1257,7 +1257,9 @@ static void shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
 					desc.idVendor, desc.idProduct);	
 
 	/* Ensure jobid is sane */
-	ctx->jobid = (jobid & 0x7f) + 1;
+	ctx->jobid = jobid & 0x7f;
+	if (!ctx->jobid)
+		ctx->jobid++;
 }
 
 
@@ -1437,6 +1439,17 @@ top:
 
 		/* If the printer is "busy" check to see if there's any
 		   open memory banks so we can queue the next print */
+
+		/* make sure we're not colliding with an existing
+		   jobid */
+		while (ctx->jobid == status1.counters2.bank1_id ||
+		       ctx->jobid == status1.counters2.bank2_id) {
+			ctx->jobid++;
+			ctx->jobid &= 0x7f;
+			if (!ctx->jobid)
+				ctx->jobid++;
+		}
+
 		if (!status1.counters2.bank1_remain ||
 		    !status1.counters2.bank2_remain) {
 			state = S_PRINTER_READY_CMD;
@@ -1582,7 +1595,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.07WIP",
+	.version = "0.08WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,

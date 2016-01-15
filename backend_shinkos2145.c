@@ -1391,7 +1391,9 @@ static void shinkos2145_attach(void *vctx, struct libusb_device_handle *dev,
 					desc.idVendor, desc.idProduct);	
 
 	/* Ensure jobid is sane */
-	ctx->jobid = (jobid & 0x7f) + 1;
+	ctx->jobid = (jobid & 0x7f);
+	if (!ctx->jobid)
+		ctx->jobid++;
 }
 
 static void shinkos2145_teardown(void *vctx) {
@@ -1569,6 +1571,17 @@ top:
 	switch (state) {
 	case S_IDLE:
 		INFO("Waiting for printer idle\n");
+
+		/* make sure we're not colliding with an existing
+		   jobid */
+		while (ctx->jobid == sts->bank1_printid ||
+		       ctx->jobid == sts->bank2_printid) {
+			ctx->jobid++;
+			ctx->jobid &= 0x7f;
+			if (!ctx->jobid)
+				ctx->jobid++;
+		}
+
 		/* If either bank is free, continue */
 		if (sts->bank1_status == BANK_STATUS_FREE || 
 		    sts->bank2_status == BANK_STATUS_FREE) 
@@ -1689,7 +1702,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145",
-	.version = "0.46",
+	.version = "0.47",
 	.uri_prefix = "shinkos2145",
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

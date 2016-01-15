@@ -498,6 +498,8 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	struct libusb_device_descriptor desc;
 
 	ctx->jobid = jobid;
+	if (!ctx->jobid)
+		jobid++;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -781,6 +783,7 @@ static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
 static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
 	struct mitsu70x_jobstatus jobstatus;
+	struct mitsu70x_jobs jobs;
 	struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
 	
 	int ret;
@@ -789,6 +792,10 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_FAILED;
 
 	INFO("Waiting for printer idle...\n");
+
+	ret = mitsu70x_get_jobs(ctx, &jobs);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
 
 top:
 	/* Query job status for jobid 0 (global) */
@@ -845,6 +852,14 @@ top:
 			sleep(1);
 			goto top;
 		}
+	}
+
+	/* Make sure we don't have any jobid collisions */
+	while (hdr->jobid == be16_to_cpu(jobs.jobid_0) ||
+	       hdr->jobid == be16_to_cpu(jobs.jobid_1)) {
+		ctx->jobid++;
+		if (!ctx->jobid)
+			ctx->jobid++;
 	}
 
 	/* Set jobid */
@@ -1119,7 +1134,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.36WIP",
+	.version = "0.37WIP",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

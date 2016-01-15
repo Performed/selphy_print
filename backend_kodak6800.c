@@ -961,7 +961,9 @@ static void kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 					desc.idVendor, desc.idProduct);
 
         /* Ensure jobid is sane */
-        ctx->jobid = (jobid & 0x7f) + 1;
+        ctx->jobid = jobid & 0x7f;
+	if (!ctx->jobid)
+		ctx->jobid++;
 
 	/* Query media info */
 	if (kodak6800_get_mediainfo(ctx, ctx->media)) {
@@ -1088,6 +1090,16 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		if (status.status == STATUS_IDLE)
 			break;
 
+		/* make sure we're not colliding with an existing
+		   jobid */
+		while (ctx->jobid == status.b1_jobid ||
+		       ctx->jobid == status.b2_jobid) {
+			ctx->jobid++;
+			ctx->jobid &= 0x7f;
+			if (!ctx->jobid)
+				ctx->jobid++;
+		}
+
 		/* See if we have an open bank */
                 if (!status.b1_remain ||
                     !status.b2_remain)
@@ -1165,7 +1177,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.51",
+	.version = "0.52",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
