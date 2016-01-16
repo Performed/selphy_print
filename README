@@ -420,6 +420,7 @@
      -l filename        Query Current tone curve from RAM       [1]
      -L filename        Store Current tone curve in RAM         [1]
      -m                 Query media information
+     -q filename        Dump eeprom data
      -Q filename        Dump image correction data              [4]
      -r                 Reset User tone curve to default        [3]
      -R                 Reset printer to factory defaults

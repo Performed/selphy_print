@@ -252,6 +252,9 @@ struct shinkos6145_ctx {
 	uint8_t *databuf;
 	size_t datalen;
 
+	uint8_t *eeprom;
+	size_t eepromlen;
+
 	void *dl_handle;
 	ImageProcessingFN ImageProcessing;
 	ImageAvrCalcFN ImageAvrCalc;	
@@ -261,6 +264,7 @@ struct shinkos6145_ctx {
 };
 
 static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx);
+static int shinkos6145_get_eeprom(struct shinkos6145_ctx *ctx);
 
 /* Structs for printer */
 struct s6145_cmd_hdr {
@@ -1453,6 +1457,36 @@ static int shinkos6145_dump_corrdata(struct shinkos6145_ctx *ctx, char *fname)
 	return ret;
 }
 
+static int shinkos6145_dump_eeprom(struct shinkos6145_ctx *ctx, char *fname)
+{
+	int ret;
+
+	ret = shinkos6145_get_eeprom(ctx);
+	if (ret) {
+		ERROR("Failed to execute command\n");
+		return ret;
+	}
+
+	/* Open file and write it out */
+	{
+		int fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+		if (fd < 0) {
+			ERROR("Unable to open filename\n");
+			return fd;
+		}
+
+		write(fd, ctx->eeprom, ctx->eepromlen);
+		close(fd);
+	}
+
+	/* Free the buffers */
+	free(ctx->eeprom);
+	ctx->eeprom = NULL;
+	ctx->eepromlen = 0;
+
+	return ret;
+}
+
 static int get_tonecurve(struct shinkos6145_ctx *ctx, int type, char *fname) 
 {
 	struct s6145_readtone_cmd  cmd;
@@ -1704,6 +1738,41 @@ done:
 	return ret;
 }
 
+static int shinkos6145_get_eeprom(struct shinkos6145_ctx *ctx)
+{
+	struct s6145_cmd_hdr cmd;
+	struct s6145_geteeprom_resp *resp = (struct s6145_geteeprom_resp *) rdbuf;
+
+	int ret, num;
+	cmd.cmd = cpu_to_le16(S6145_CMD_GETEEPROM);
+	cmd.len = 0;
+
+	if (ctx->eeprom) {
+		free(ctx->eeprom);
+		ctx->eeprom = NULL;
+	}
+
+	if ((ret = s6145_do_cmd(ctx,
+				(uint8_t*)&cmd, sizeof(cmd),
+				sizeof(*resp),
+				&num)) < 0) {
+		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
+		goto done;
+	}
+
+	ctx->eepromlen = le16_to_cpu(resp->hdr.payload_len);
+	ctx->eeprom = malloc(ctx->eepromlen);
+	if (!ctx->eeprom) {
+		ERROR("Memory allocation failure\n");
+		ret = -ENOMEM;
+		goto done;
+	}
+	memcpy(ctx->eeprom, resp->data, ctx->eepromlen);
+
+done:
+	return ret;
+}
+
 static void shinkos6145_cmdline(void)
 {
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
@@ -1715,6 +1784,7 @@ static void shinkos6145_cmdline(void)
 	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
 	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
+	DEBUG("\t\t[ -q filename ]  # Extract eeprom data\n");
 	DEBUG("\t\t[ -Q filename ]  # Extract image correction params\n");
 	DEBUG("\t\t[ -r ]           # Reset user/NV tone curve\n");	
 	DEBUG("\t\t[ -R ]           # Reset printer to factory defaults\n");
@@ -1730,7 +1800,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFik:l:L:mr:Q:R:sX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFik:l:L:mr:Q:q:R:sX:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'c':
@@ -1776,6 +1846,9 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 'm':
 			j = get_mediainfo(ctx);
+			break;
+		case 'q':
+			j = shinkos6145_dump_eeprom(ctx, optarg);
 			break;
 		case 'Q':
 			j = shinkos6145_dump_corrdata(ctx, optarg);
@@ -1861,6 +1934,8 @@ static void shinkos6145_teardown(void *vctx) {
 
 	if (ctx->databuf)
 		free(ctx->databuf);
+	if (ctx->eeprom)
+		free(ctx->eeprom);
 	if (ctx->corrdata)
 		free(ctx->corrdata);
 	if (ctx->dl_handle)
@@ -1942,8 +2017,7 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 
 	/* Generate lamination plane, if desired */
 	if (oc_mode > PRINT_MODE_NO_OC) {
-		// XXX matters if we're using glossy/matte..
-		// or should we just dump over the contents of the "raw" file?
+		// XXX matters if we're using glossy/matte...
 		for (row = 0 ; row < le16_to_cpu(corrdata->height) ; row++) {
 			for (col = 0 ; col < row_lim; col++) {
 				uint16_t val;
@@ -2084,10 +2158,8 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 		ERROR("Incorrect media loaded for print!\n");
 		return CUPS_BACKEND_HOLD;
 	}
-	// XXX sanity-check media vs size
-	// don't know if media information above will catch this.
 
-	// XXX check copies against remaining media!
+	// XXX check copies against remaining media?
 
 	/* Query printer mode */
 	ret = get_param(ctx, PARAM_OC_PRINT, &cur_mode);
@@ -2142,8 +2214,6 @@ top:
 
 		break;
 	case S_PRINTER_READY_CMD: {
-		// XXX send "get eeprom backup command" ?
-
 		/* Set matte/etc */
 
 		uint32_t oc_mode = le32_to_cpu(ctx->hdr.oc_mode);
@@ -2168,6 +2238,12 @@ top:
 				return ret;
 			}
 			updated = 1;
+		}
+
+		ret = shinkos6145_get_eeprom(ctx);
+		if (ret) {
+			ERROR("Failed to execute command\n");
+			return ret;
 		}
 
 		/* Get image correction parameters if necessary */
@@ -2347,7 +2423,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.15",
+	.version = "0.16",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
