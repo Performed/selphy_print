@@ -1677,7 +1677,8 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 
 	}
 
-	/* Sanity check correction data */
+	/* Sanity check correction data -- no need if we have the real
+	   library */
 	if (!ctx->dl_handle) {
 		int i;
 		struct shinkos6145_correctionparam *corrdata = ctx->corrdata;
@@ -1713,17 +1714,17 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 			ret = -16;
 			goto done;
 		}
-		if (corrdata->val_1 > 1 ||
-		    corrdata->val_2 > 1 ||		    
-		    corrdata->printOpLevel > 0xff ||
-		    corrdata->matteMode > 1) {
+		if (le16_to_cpu(corrdata->val_1) > 1 ||
+		    le16_to_cpu(corrdata->val_2) > 1 ||
+		    le16_to_cpu(corrdata->printOpLevel) > 0xff ||
+		    le16_to_cpu(corrdata->matteMode) > 1) {
 			ret = -17;
 			goto done;
 		}
-		if (corrdata->randomBase[0] > 0xff ||
-		    corrdata->randomBase[1] > 0xff ||
-		    corrdata->randomBase[2] > 0xff ||
-		    corrdata->randomBase[3] > 0xff) {
+		if (le16_to_cpu(corrdata->randomBase[0]) > 0xff ||
+		    le16_to_cpu(corrdata->randomBase[1]) > 0xff ||
+		    le16_to_cpu(corrdata->randomBase[2]) > 0xff ||
+		    le16_to_cpu(corrdata->randomBase[3]) > 0xff) {
 			ret = -18;
 			goto done;
 		}
