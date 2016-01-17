@@ -60,8 +60,8 @@
 typedef int (*ImageProcessingFN)(unsigned char *, unsigned short *, void *);
 typedef int (*ImageAvrCalcFN)(unsigned char *, unsigned short, unsigned short, unsigned char *);
 
-#define LIB_NAME "libS6145ImageProcess.so"    // Official library
-#define LIB_NAME2 "libS6145ImageReProcess.so" // Reimplemented library
+#define LIB_NAME    "libS6145ImageProcess.so"    // Official library
+#define LIB_NAME_RE "libS6145ImageReProcess.so" // Reimplemented library
 
 enum {
 	S_IDLE = 0,
@@ -1907,16 +1907,16 @@ static void shinkos6145_attach(void *vctx, struct libusb_device_handle *dev,
 
 	/* Attempt to open the library */
 	INFO("Attempting to load image processing library\n");
-	ctx->dl_handle = dlopen(LIB_NAME, RTLD_NOW);
+	ctx->dl_handle = dlopen(LIB_NAME, RTLD_NOW); /* Try the Sinfonia one first */
 	if (!ctx->dl_handle)
-		ctx->dl_handle = dlopen(LIB_NAME2, RTLD_NOW);
+		ctx->dl_handle = dlopen(LIB_NAME_RE, RTLD_NOW); /* Then the RE one */
 	if (!ctx->dl_handle)
 		WARNING("Image processing library not found, using internal fallback code\n");
 	if (ctx->dl_handle) {
 		ctx->ImageProcessing = dlsym(ctx->dl_handle, "ImageProcessing");
 		ctx->ImageAvrCalc = dlsym(ctx->dl_handle, "ImageAvrCalc");
 		if (!ctx->ImageProcessing || !ctx->ImageAvrCalc) {
-			WARNING("Image processing library load problem\n");
+			WARNING("Problem resolving symbols in imaging processing library\n");
 			dlclose(ctx->dl_handle);
 			ctx->dl_handle = NULL;
 		}
@@ -2266,6 +2266,8 @@ top:
 		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
 		/* Convert packed RGB to planar YMC */
+		// XXX would it make more sense to have Gutenprint generate
+		// planar YMC data as an extension of the spooler format?
 		{
 			int planelen = le16_to_cpu(ctx->corrdata->width) * le16_to_cpu(ctx->corrdata->height);
 			uint8_t *databuf3 = malloc(ctx->datalen);
@@ -2285,16 +2287,16 @@ top:
 
 		/* Perform the actual library transform */
 		if (ctx->dl_handle) {
-			INFO("Calling Image Processing Library...\n");
+			INFO("Calling image processing library...\n");
 
 			if (ctx->ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
 				ERROR("Library returned error!\n");
 				return CUPS_BACKEND_FAILED;
 			}
-
 			ctx->ImageProcessing(ctx->databuf, databuf2, ctx->corrdata);
 		} else {
-			INFO("Calling Internal Fallback Image Processing Library...\n");
+			WARNING("Utilizing fallback internal image processing code\n");
+			WARNING(" *** Output quality will be poor! *** \n");
 		
 			lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
 			lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);

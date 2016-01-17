@@ -395,8 +395,7 @@
 
      The backend will automatically attempt to load one of these libraries
      at runtime.  If neither is available, it will default to a very crude
-     algorithm that generates pretty poor results not suable for
-     photographic output.
+     algorithm that generates poor results not suable for photographic output.
 
      As selphy_print is released under the terms of the GPL, it cannot
      normally be combined with proprietary libraries.
@@ -406,9 +405,9 @@
      it with the libS6145ImageProcess library.  For the full text of this
      license exception, please see the header of backend_shinkos6145.c
 
-     If you own a S6145 printer, libS6145ImageProcess can be obtained by
+     If you own a S6145 printer, libS6145ImageProcess may be obtained by
      politely contacting your local Sinfonia distributor.
-     
+
    Valid commands:
 
      -c filename        Query User tone curve from flash        [1]
