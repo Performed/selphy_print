@@ -1166,6 +1166,14 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	INFO("Head Distance:         %08d inches\n", le32_to_cpu(resp2->head_distance));
 	
 	/* Query various params */
+	if(ctx->type == P_SHINKO_S6145D) {
+		if ((ret = get_param(ctx, PARAM_REGION_CODE, &val))) {
+			ERROR("Failed to execute command\n");
+			return ret;
+		}
+		INFO("Region Code: %#x\n", val);
+
+	}
 	if ((ret = get_param(ctx, PARAM_PAPER_PRESV, &val))) {
 		ERROR("Failed to execute command\n");
 		return ret;
@@ -1821,17 +1829,17 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 'k': {
 			uint32_t i = atoi(optarg);
-			if (i < 5)
+			if (i <= 5)
 				i = 0;
-			else if (i < 15)
+			else if (i <= 15)
 				i = 1;
-			else if (i < 30)
+			else if (i <= 30)
 				i = 2;
-			else if (i < 60)
+			else if (i <= 60)
 				i = 3;
-			else if (i < 120)
+			else if (i <= 120)
 				i = 4;
-			else if (i < 240)
+			else if (i <= 240)
 				i = 5;
 			else
 				i = 5;
@@ -2426,7 +2434,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.16",
+	.version = "0.17",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
