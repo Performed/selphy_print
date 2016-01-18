@@ -48,6 +48,8 @@
 //#define USB_VID_FUJIFILM    XXXXXX
 //#define USB_PID_FUJI_ASK300 XXXXXX
 
+//#define ENABLE_CORRTABLES
+
 /* Private data stucture */
 struct mitsu70x_ctx {
 	struct libusb_device_handle *dev;
@@ -63,6 +65,11 @@ struct mitsu70x_ctx {
 	uint16_t jobid;	
 	uint16_t rows;
 	uint16_t cols;
+#ifdef ENABLE_CORRTABLES
+	struct mitsu70x_corrdata *corrdata;
+	struct mitsu70x_corrdatalens *corrdatalens;
+	char *laminatefname;
+#endif	
 };
 
 /* Printer data structures */
@@ -235,7 +242,7 @@ struct mitsu70x_hdr {
 	uint16_t rows;
 	uint16_t lamcols;
 	uint16_t lamrows;
-	uint8_t  superfine;
+	uint8_t  speed;
 	uint8_t  zero1[7];
 
 	uint8_t  deck;
@@ -249,6 +256,72 @@ struct mitsu70x_hdr {
 
 	uint8_t  pad[448];
 } __attribute__((packed));
+
+#ifdef ENABLE_CORRTABLES
+/* Correction data definitions */
+#define CORRDATA_DEF
+struct mitsu70x_corrdata {
+        uint16_t liney[2730];
+        uint16_t linem[2730];
+        uint16_t linec[2730];
+        uint16_t gnmby[256]; // B->Y conversion matrix
+        uint16_t gnmgm[256]; // G->M conversion matrix
+        uint16_t gnmrc[256]; // R->C conversion matrix
+        double fm[256];
+        double ksp[128];
+        double ksm[128];
+        double osp[128];
+        double osm[128];
+        double kp[11];
+        double km[11];
+        double hk[4];
+        uint16_t speed[3];
+        double fh[5];     /* only 4 in length on D70 Normal/Superfine */
+        double shk[72];
+        double uh[101];
+        uint16_t rolk[13]; /* Missing on D70x family */
+        uint32_t rev[76];  /* Missing on D70x and ASK300 */
+};
+
+struct mitsu70x_corrdatalens {
+        size_t liney;
+        size_t linem;
+        size_t linec;
+        size_t gnmby;
+        size_t gnmgm;
+        size_t gnmrc;
+        size_t fm;
+        size_t ksp;
+        size_t ksm;
+        size_t osp;
+        size_t osm;
+        size_t kp;
+        size_t km;
+        size_t hk;
+        size_t speed;
+        size_t fh;
+        size_t shk;
+        size_t uh;
+        size_t rolk;
+        size_t rev;
+};
+
+#include "D70/CPD70N01.h"    // Normal/Fine
+#include "D70/CPD70S01.h"    // Superfine
+#include "D70/CPD70U01.h"    // Ultrafine
+//#include "D70/CPD80E01.h"   // ???
+#include "D70/CPD80N01.h"    // Normal/Fine
+#include "D70/CPD80S01.h"    // Superfine
+#include "D70/CPD80U01.h"    // Ultrafine
+#include "D70/ASK300T1.h"    // Normal/Fine
+#include "D70/ASK300T3.h"    // Superfine/Ultrafine
+#include "D70/CPS60T01.h"    // Normal/Fine
+#include "D70/CPS60T03.h"    // Superfine/Ultrafine
+#include "D70/EK305T01.h"    // Normal/Fine
+#include "D70/EK305T03.h"    // Superfine/Ultrafine
+#endif
+
+/* Error dumps, etc */
 
 static char *mitsu70x_mechastatus(uint8_t *sts)
 {
@@ -559,8 +632,75 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	// XXX sanity-check second header chunk for destined printer.
-	
+	// XXX sanity-check second header chunk for destined printer...?
+
+#ifdef ENABLE_CORRTABLES	
+	/* Figure out the correction data table to use */
+	if (ctx->type == P_MITSU_D70X) {
+		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
+		ctx->laminatefname = "D70MAT01.raw";
+
+		if (print->speed == 3) {
+			ctx->corrdata = &CPD70S01_data;
+			ctx->corrdatalens = &CPD70S01_lengths;
+		} else if (print->speed == 4) {
+			ctx->corrdata = &CPD70U01_data;
+			ctx->corrdatalens = &CPD70U01_lengths;
+		} else {
+			ctx->corrdata = &CPD70N01_data;
+			ctx->corrdatalens = &CPD70N01_lengths;
+		}
+	} else if (ctx->type == P_MITSU_D80) {
+		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
+		ctx->laminatefname = "D80MAT01.raw";
+
+		if (print->speed == 3) {
+			ctx->corrdata = &CPD80S01_data;
+			ctx->corrdatalens = &CPD80S01_lengths;
+		} else if (print->speed == 4) {
+			ctx->corrdata = &CPD80U01_data;
+			ctx->corrdatalens = &CPD80U01_lengths;
+		} else {
+			ctx->corrdata = &CPD80N01_data;
+			ctx->corrdatalens = &CPD80N01_lengths;
+		}
+		// XXX what about CPD80**E**01?
+	} else if (ctx->type == P_MITSU_K60) {
+		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
+
+		if (print->speed == 3 || print->speed == 4) {
+			ctx->corrdata = &CPS60T03_data;
+			ctx->corrdatalens = &CPS60T03_lengths;
+		} else {
+			ctx->corrdata = &CPS60T01_data;
+			ctx->corrdatalens = &CPS60T01_lengths;
+		}
+		ctx->laminatefname = "S60MAT02.raw";
+	} else if (ctx->type == P_KODAK_305) {
+		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
+		ctx->laminatefname = "EK305MAT.raw"; // XXX same as K60
+
+		if (print->speed == 3 || print->speed == 4) {
+			ctx->corrdata = &EK305T03_data;
+			ctx->corrdatalens = &EK305T03_lengths;
+		} else {
+			ctx->corrdata = &EK305T01_data;
+			ctx->corrdatalens = &EK305T01_lengths;
+		}
+	} else if (ctx->type == P_FUJI_ASK300) {
+		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
+		ctx->laminatefname = "ASK300M2.raw"; // XXX same as D70
+
+		if (print->speed == 3 || print->speed == 4) {
+			ctx->corrdata = &ASK300T3_data;
+			ctx->corrdatalens = &ASK300T3_lengths;
+		} else {
+			ctx->corrdata = &ASK300T1_data;
+			ctx->corrdatalens = &ASK300T1_lengths;
+		}
+	}
+#endif
+
 	/* Work out printjob size */
 	ctx->cols = be16_to_cpu(mhdr->cols);
 	ctx->rows = be16_to_cpu(mhdr->rows);
@@ -875,16 +1015,16 @@ top:
 
 	/* Matte operation requires Ultrafine/superfine */
 	if (ctx->matte) {
-		if (ctx->type == P_MITSU_K60) {
-			hdr->superfine = 0x04; /* Force UltraFine */
+		if (ctx->type != P_MITSU_D70X) {
+			hdr->speed = 0x04; /* Force UltraFine */
 		} else {
-			hdr->superfine = 0x03; /* Force SuperFine */
+			hdr->speed = 0x03; /* Force SuperFine */
 		}
 	}
 
 	/* Any other fixups? */
-#if 1 // XXX is this actually needed on the K60?  K306 uses it.
-	if (ctx->type == P_MITSU_K60 && 
+#if 1 // XXX is this actually needed on the K60 and EK305?
+	if (ctx->type != P_MITSU_D70X &&
 	    ctx->cols == 0x0748 &&
 	    ctx->rows == 0x04c2) {
 		hdr->multicut = 1;
@@ -1134,7 +1274,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.37WIP",
+	.version = "0.38WIP",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -1145,11 +1285,11 @@ struct dyesub_backend mitsu70x_backend = {
 	.main_loop = mitsu70x_main_loop,
 	.query_serno = mitsu70x_query_serno,
 	.devices = {
-		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""}, //D70M
-		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, ""},   //K60M
-//	{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_K60, ""},           //D70M
-		{ USB_VID_KODAK, USB_PID_KODAK305, P_MITSU_K60, ""},    //K60M
-//	{ USB_VID_FUJIFILM, USB_PID_FUJI_ASK300, P_MITSU_D70X, ""},     //D70M
+		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""},
+		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_D80, ""},
+		{ USB_VID_KODAK, USB_PID_KODAK305, P_KODAK_305, ""},
+//	{ USB_VID_FUJIFILM, USB_PID_FUJI_ASK300, P_FUJI_ASK300, ""},
 	{ 0, 0, 0, ""}
 	}
 };
@@ -1176,7 +1316,7 @@ struct dyesub_backend mitsu70x_backend = {
 
    (padded by NULLs to a 512-byte boundary)
 
-   PP    == 0x01 on D70x/D80, 0x02 on K60, 0x90 on K305, 0x04 on DS680/480
+   PP    == 0x01 on D70x/D80, 0x02 on K60, 0x90 on K305, 0x04 on DSx80
    JJ JJ == Job ID, can leave at 00 00
    XX XX == columns
    YY YY == rows
@@ -1184,7 +1324,7 @@ struct dyesub_backend mitsu70x_backend = {
    ZZ ZZ == lamination rows (YY YY + 12)
    SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80/DSx80 only), 04 = UltraFine
             (Matte requires Superfine or Ultrafine)
-   UU    == 00 = Auto, 01 = Lower Deck (required for !D70x), 02 = Upper Decka
+   UU    == 00 = Auto, 01 = Lower Deck (required for !D70x), 02 = Upper Deck
    TT    == lamination: 00 glossy, 02 matte.
    RR    == 00 (normal), 01 = (Double-cut 4x6), 05 = (double-cut 2x6)
 
