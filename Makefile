@@ -51,3 +51,10 @@ install:
 
 clean:
 	$(RM) -f $(EXEC_NAME) $(BACKENDS)
+
+release:
+	$(RM) -Rf selphy_print-rel
+	$(MKDIR) -p selphy_print-rel
+	cp *.c *.h Makefile blacklist COPYING README selphy_print-rel
+	tar -cjvf selphy_print-rel.tar.bz2 selphy_print-rel
+	$(RM) -Rf selphy_print-rel
