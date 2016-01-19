@@ -1024,7 +1024,7 @@ top:
 
 	/* Any other fixups? */
 #if 1 // XXX is this actually needed on the K60 and EK305?
-	if (ctx->type != P_MITSU_D70X &&
+	if ((ctx->type == P_MITSU_K60 || ctx->type == P_KODAK_305) &&
 	    ctx->cols == 0x0748 &&
 	    ctx->rows == 0x04c2) {
 		hdr->multicut = 1;
