@@ -995,8 +995,8 @@ top:
 	}
 
 	/* Make sure we don't have any jobid collisions */
-	while (hdr->jobid == be16_to_cpu(jobs.jobid_0) ||
-	       hdr->jobid == be16_to_cpu(jobs.jobid_1)) {
+	while (ctx->jobid == be16_to_cpu(jobs.jobid_0) ||
+	       ctx->jobid == be16_to_cpu(jobs.jobid_1)) {
 		ctx->jobid++;
 		if (!ctx->jobid)
 			ctx->jobid++;
@@ -1032,7 +1032,7 @@ top:
 #endif
 
 	/* We're clear to send data over! */
-	INFO("Sending Print Job\n");
+	INFO("Sending Print Job (internal id %d)\n", ctx->jobid);
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     ctx->databuf + sizeof(struct mitsu70x_hdr),

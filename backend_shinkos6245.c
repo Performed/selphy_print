@@ -1727,7 +1727,7 @@ top:
 	case S_PRINTER_READY_CMD:
 		// XXX send "get eeprom backup command"
 
-		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
+		INFO("Sending print job (internal id %d)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		print->hdr.cmd = cpu_to_le16(S6245_CMD_PRINTJOB);
