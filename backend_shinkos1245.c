@@ -1478,7 +1478,7 @@ top:
 			}
 		}
 
-		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
+		INFO("Sending print job (internal id %d)\n", ctx->jobid);
 
 		shinkos1245_fill_hdr(&cmd.hdr);
 		cmd.cmd[0] = 0x0a;

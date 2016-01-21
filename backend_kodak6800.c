@@ -1126,7 +1126,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	}
 #endif
 
-	INFO("Initiating Print Job\n");
+	INFO("Sending Print Job (internal id %d)\n", ctx->jobid);
 	if ((ret = kodak6800_do_cmd(ctx, (uint8_t*) &ctx->hdr, sizeof(ctx->hdr),
 				    &status, sizeof(status),
 				    &num)))

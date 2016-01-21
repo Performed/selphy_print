@@ -2314,7 +2314,7 @@ top:
 		ctx->databuf = (uint8_t*) databuf2;
 		ctx->datalen = newlen;
 
-		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
+		INFO("Sending print job (internal id %d)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		print->hdr.cmd = cpu_to_le16(S6145_CMD_PRINTJOB);

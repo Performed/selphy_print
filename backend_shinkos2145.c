@@ -1589,7 +1589,7 @@ top:
 
 		break;
 	case S_PRINTER_READY_CMD:
-		INFO("Initiating print job (internal id %d)\n", ctx->jobid);
+		INFO("Sending print job (internal id %d)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		print->hdr.cmd = cpu_to_le16(S2145_CMD_PRINTJOB);
