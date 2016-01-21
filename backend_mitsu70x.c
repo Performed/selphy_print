@@ -1316,13 +1316,13 @@ struct dyesub_backend mitsu70x_backend = {
 
    (padded by NULLs to a 512-byte boundary)
 
-   PP    == 0x01 on D70x/D80, 0x02 on K60, 0x90 on K305, 0x04 on DSx80
+   PP    == 0x01 on D70x/D80, 0x02 on K60, 0x90 on K305
    JJ JJ == Job ID, can leave at 00 00
    XX XX == columns
    YY YY == rows
    QQ QQ == lamination columns (equal to XX XX)
    ZZ ZZ == lamination rows (YY YY + 12)
-   SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80/DSx80 only), 04 = UltraFine
+   SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80 only), 04 = UltraFine
             (Matte requires Superfine or Ultrafine)
    UU    == 00 = Auto, 01 = Lower Deck (required for !D70x), 02 = Upper Deck
    TT    == lamination: 00 glossy, 02 matte.
