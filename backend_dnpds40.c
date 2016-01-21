@@ -1197,6 +1197,31 @@ top:
 		ptr += i;
 	}
 
+	if (fast_return) {
+		INFO("Fast return mode enabled.\n");
+	} else {
+		INFO("Waiting for job to complete...\n");
+		while (1) {
+			/* Query status */
+			dnpds40_build_cmd(&cmd, "STATUS", "", 0);
+			if (resp) free(resp);
+			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+			if (!resp)
+				return CUPS_BACKEND_FAILED;
+			dnpds40_cleanup_string((char*)resp, len);
+			status = atoi((char*)resp);
+
+			/* If we're idle or there's an error..*/
+			if (status == 0)
+				break;
+			if (status >= 1000) {
+				ERROR("Printer encountered error: %s\n", dnpds40_statuses(status));
+				break;
+			}
+		}
+
+	}
+
 	/* Clean up */
 	if (terminate)
 		copies = 1;
@@ -1925,7 +1950,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.69",
+	.version = "0.70",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
