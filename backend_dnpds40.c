@@ -82,6 +82,7 @@ struct dnpds40_ctx {
 
 	uint32_t multicut;
 	uint32_t last_multicut;
+	int fullcut;	
 	int matte;
 	int cutter;
 	int can_rewind;
@@ -99,6 +100,7 @@ struct dnpds40_ctx {
 	int supports_iserial;
 	int supports_square;
 	int supports_counterp;
+	int supports_adv_fullcut;
 
 	uint8_t *qty_offset;
 	uint8_t *buffctrl_offset;
@@ -566,6 +568,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->supports_3x5x2 = 1;
 		if (FW_VER_CHECK(1,10))
 			ctx->supports_6x9 = ctx->supports_6x4_5 = 1;
+		if (FW_VER_CHECK(1,20))
+			ctx->supports_adv_fullcut = 1;
 		break;
 	default:
 		ERROR("Unknown vid/pid %04x/%04x (%d)\n", desc.idVendor, desc.idProduct, ctx->type);
@@ -641,6 +645,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	ctx->cutter = 0;
 	ctx->manual_copies = 0;
 	ctx->multicut = 0;
+	ctx->fullcut = 0;
 	ctx->can_rewind = 0;
 	ctx->buffctrl_offset = ctx->qty_offset = ctx->multicut_offset = 0;
 
@@ -723,9 +728,10 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		}
 		if(!memcmp("CNTRL FULL_CUTTER_SET", ctx->databuf + ctx->datalen+2, 21)) {
 			if (!ctx->supports_fullcut) {
-				WARNING("Printer FW does not support cutter control, please update!\n");
+				WARNING("Printer FW does not support full cutter control!\n");
 				continue;
 			}
+			ctx->fullcut = 1;
 		}
 		if(!memcmp("IMAGE YPLANE", ctx->databuf + ctx->datalen + 2, 12)) {
 			uint32_t y_ppm; /* Pixels Per Meter */
@@ -946,6 +952,12 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 
 	if (ctx->multicut == 22 && !ctx->supports_3x5x2) {
 		ERROR("Printer does not support 3.5x5*2 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if (ctx->fullcut && !ctx->supports_adv_fullcut &&
+	    ctx->multicut != 4) {
+		ERROR("Printer does not support full control on sizes other than 6x8, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1950,7 +1962,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.70",
+	.version = "0.71",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
