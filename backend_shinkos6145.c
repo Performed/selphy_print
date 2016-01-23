@@ -1657,7 +1657,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 	}
 
 	ctx->corrdatalen = le16_to_cpu(resp->total_size);
-	INFO("Fetching %lu bytes of image correction data\n", ctx->corrdatalen);
+	INFO("Fetching %zu bytes of image correction data\n", ctx->corrdatalen);
 
 	ctx->corrdata = malloc(sizeof(struct shinkos6145_correctionparam));
 	if (!ctx->corrdata) {
@@ -1681,7 +1681,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 		total += sizeof(data.data);
 
 		if (data.remain_pkt == 0)
-			DEBUG("correction block transferred (%lu/%lu total)\n", total, ctx->corrdatalen);
+			DEBUG("correction block transferred (%zu/%zu total)\n", total, ctx->corrdatalen);
 
 	}
 
