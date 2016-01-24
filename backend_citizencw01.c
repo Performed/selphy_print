@@ -1,7 +1,7 @@
 /*
  *   Citizen CW-01 Photo Printer CUPS backend -- libusb-1.0 version
  *
- *   (c) 2014-2015 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2014-2016 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *

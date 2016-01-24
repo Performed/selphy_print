@@ -1,7 +1,7 @@
 /*
  *   CUPS Backend common code
  *
- *   Copyright (c) 2007-2015 Solomon Peachy <pizza@shaftnet.org>
+ *   Copyright (c) 2007-2016 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *
@@ -648,7 +648,7 @@ static struct dyesub_backend *find_backend(char *uri_prefix)
 void print_license_blurb(void)
 {
 	const char *license = "\n\
-Copyright 2007-2015 Solomon Peachy <pizza AT shaftnet DOT org>\n\
+Copyright 2007-2016 Solomon Peachy <pizza AT shaftnet DOT org>\n\
 \n\
 This program is free software; you can redistribute it and/or modify it\n\
 under the terms of the GNU General Public License as published by the Free\n\
@@ -757,7 +757,7 @@ int main (int argc, char **argv)
 
 	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
 	      BACKEND_VERSION);
-	DEBUG("Copyright 2007-2015 Solomon Peachy\n");
+	DEBUG("Copyright 2007-2016 Solomon Peachy\n");
 	DEBUG("This free software comes with ABSOLUTELY NO WARRANTY! \n");
 	DEBUG("Licensed under the GNU GPL.  Run with '-G' for more details.\n");
 	DEBUG("\n");
