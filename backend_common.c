@@ -74,7 +74,7 @@ static char *get_device_id(struct libusb_device_handle *dev)
 		ERROR("Memory allocation failure (%d bytes)\n", ID_BUF_SIZE+1);
 		return NULL;
 	}
-	
+
 	if (libusb_kernel_driver_active(dev, iface))
 		libusb_detach_kernel_driver(dev, iface);
 
@@ -100,10 +100,10 @@ static char *get_device_id(struct libusb_device_handle *dev)
 	if (length > ID_BUF_SIZE || length < 14)
 		length = (((unsigned)buf[1] & 255) << 8) |
 			((unsigned)buf[0] & 255);
-	
+
 	if (length > ID_BUF_SIZE)
 		length = ID_BUF_SIZE;
-	
+
 	if (length < 14) {
 		*buf = '\0';
 		goto done;
@@ -212,7 +212,7 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	if (dyesub_debug) {
 		DEBUG("Received %d bytes from printer\n", *readlen);
 	}
-	
+
 	if ((dyesub_debug > 1 && buflen < 4096) ||
 	    dyesub_debug > 2) {
 		int i = *readlen;
@@ -295,7 +295,7 @@ static char *sanitize_string(char *str) {
 	return str;
 }
 
-/* 
+/*
 
    These functions are Public Domain code obtained from:
 
@@ -318,13 +318,13 @@ static char *url_encode(char *str) {
 		ERROR("Memory allocation failure (%d bytes)\n", (int) strlen(str)*3 + 1);
 		return NULL;
 	}
-		
+
 	while (*pstr) {
 		if (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' || *pstr == '~') 
 			*pbuf++ = *pstr;
-		else if (*pstr == ' ') 
+		else if (*pstr == ' ')
 			*pbuf++ = '+';
-		else 
+		else
 			*pbuf++ = '%', *pbuf++ = to_hex(*pstr >> 4), *pbuf++ = to_hex(*pstr & 15);
 		pstr++;
 	}
@@ -345,7 +345,7 @@ static char *url_decode(char *str) {
 				*pbuf++ = from_hex(pstr[1]) << 4 | from_hex(pstr[2]);
 				pstr += 2;
 			}
-		} else if (*pstr == '+') { 
+		} else if (*pstr == '+') {
 			*pbuf++ = ' ';
 		} else {
 			*pbuf++ = *pstr;
@@ -439,7 +439,7 @@ static int print_scan_output(struct libusb_device *device,
 				free(product2);
 			return -1;
 		}
-		
+
 		sprintf(descr, "%s %s", manuf3, product2);
 		free(product2);
 		free(manuf3);
@@ -499,7 +499,7 @@ static int print_scan_output(struct libusb_device *device,
 	if (dyesub_debug)
 		DEBUG("VID: %04X PID: %04X Manuf: '%s' Product: '%s' Serial: '%s'\n",
 		      desc->idVendor, desc->idProduct, manuf, product, serial);
-	
+
 	if (scan_only) {
 		int k = 0;
 
@@ -516,7 +516,7 @@ static int print_scan_output(struct libusb_device *device,
 			descr, descr,
 			ieee_id? ieee_id : "");
 	}
-	
+
 	/* If a serial number was passed down, use it. */
 	if (match_serno && strcmp(match_serno, (char*)serial)) {
 		found = -1;
@@ -630,7 +630,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 static struct dyesub_backend *find_backend(char *uri_prefix)
 {
 	int i;
-	
 
 	if (!uri_prefix)
 		return NULL;
@@ -682,7 +681,7 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 
 	if (!backend)
 		backend = find_backend(ptr);
-	
+
 	if (!backend) {
 		int i;
 		DEBUG("Environment variables:\n");
@@ -729,7 +728,7 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 	libusb_exit(ctx);
 }
 
-int main (int argc, char **argv) 
+int main (int argc, char **argv)
 {
 	struct libusb_context *ctx = NULL;
 	struct libusb_device **list = NULL;
@@ -830,7 +829,7 @@ int main (int argc, char **argv)
 		/* Always enable fast return in CUPS mode */
 		fast_return++;
 	} else {
-		/* Standalone mode */		
+		/* Standalone mode */
 
 		/* Try to guess backend from executable name */
 		if (!backend) {
@@ -841,7 +840,7 @@ int main (int argc, char **argv)
 				ptr = argv[0];
 			backend = find_backend(ptr);
 		}
-	
+
 		srand(getpid());
 		jobid = rand();
 	}
