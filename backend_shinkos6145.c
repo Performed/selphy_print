@@ -1870,8 +1870,9 @@ static void shinkos6145_attach(void *vctx, struct libusb_device_handle *dev,
 			WARNING("Problem resolving symbols in imaging processing library\n");
 			dlclose(ctx->dl_handle);
 			ctx->dl_handle = NULL;
+		} else {
+			INFO("Image processing library successfully loaded\n");
 		}
-		INFO("Image processing library successfully loaded\n");
 	}
 
 	/* Ensure jobid is sane */
