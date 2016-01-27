@@ -381,21 +381,40 @@
 
    *** VERY IMPORTANT ***
 
-     The Sinfonia CHC-S6145 printer (and its siblings) require the input
-     data to be transformed using a proprietary library in order to generate
-     usable output.
+     In order to generate usable output, the Sinfonia CHC-S6145 printer
+     (and its siblings) require the input data to be transformed using
+     specific image processing algorithms.
 
-     This library (libS6145ImageProcess) was provided to the authors of
-     selphy_print in binary form, without redistribution permissions. It was
-     also only made available for x86 and x86_64 platdorms.
+     The library that implements this processing is dynamically loaded
+     at runtime. There are three options:
 
-     Work is under way to reverse-engineer and re-implement this library.
-     the replacement is called libS6145ImageReProcess, and is not yet
-     publicly released.
+       * libS6145ImageProcess -- Supported by Sinfonia, this is a proprietary
+         library only available for x86 and x86_64 linux targets. It can be
+	 obtained by politely contacting your local Sinfonia distributor.
 
-     The backend will automatically attempt to load one of these libraries
-     at runtime.  If neither is available, it will default to a very crude
-     algorithm that generates poor results not suable for photographic output.
+         If you have the appropriate permission fron Sinfonia and its
+	 technical and legal limitations are acceptible to you, we recommend
+         you use the supported libS6145ImageProcess library, as it will
+	 generate the highest quality output.
+
+       * libS6145ImageReProcess -- GPL'd re-implementation of the Sinfonia
+         algorithms, available as source.  It is a drop-in replacement
+	 that appears to generate identical output to the proprietary
+	 Sinfonia library.
+
+	 DISCLAIMER: Sinfonia Inc was not involved in the creation of
+	 libS6145ImageReProcess and is not responsible in any way for any
+	 deficiencies in its output. They will provide no support if it is
+	 used.
+
+         Do *NOT* contact Sinfonia for support if you are using
+	 libS6146ImageReProcess.
+
+	    (Please see the full disclaimer in libS6145ImageReProcess.c)
+
+       * If neither of the above libraries are found, the backend will
+         fall back to a very crude algorithm that generates low-quality
+	 results not suitable for photographic output
 
      As selphy_print is released under the terms of the GPL, it cannot
      normally be combined with proprietary libraries.
@@ -404,9 +423,6 @@
      permission (under section 7 of the GPLv3) to combine and/or redistribute
      it with the libS6145ImageProcess library.  For the full text of this
      license exception, please see the header of backend_shinkos6145.c
-
-     If you own a S6145 printer, libS6145ImageProcess may be obtained by
-     politely contacting your local Sinfonia distributor.
 
    Valid commands:
 
