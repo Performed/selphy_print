@@ -1685,63 +1685,6 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 
 	}
 
-	/* Sanity check correction data -- no need if we have the real
-	   library */
-	if (!ctx->dl_handle) {
-		int i;
-		struct shinkos6145_correctionparam *corrdata = ctx->corrdata;
-
-		for (i = 0 ; i < 256 ; i++) {
-			if (le16_to_cpu(corrdata->pulseTransTable_Y[i]) > le16_to_cpu(corrdata->printMaxPulse_Y) ||
-			    le16_to_cpu(corrdata->pulseTransTable_M[i]) > le16_to_cpu(corrdata->printMaxPulse_M) ||
-			    le16_to_cpu(corrdata->pulseTransTable_C[i]) > le16_to_cpu(corrdata->printMaxPulse_C) ||
-			    le16_to_cpu(corrdata->pulseTransTable_O[i]) > le16_to_cpu(corrdata->printMaxPulse_O)) {
-				ret = -10;
-				goto done;
-			}
-		}
-
-		if (!corrdata->tableTankParam_Y.trdTankSize ||
-		    !corrdata->tableTankParam_M.trdTankSize ||
-		    !corrdata->tableTankParam_C.trdTankSize ||
-		    !corrdata->tableTankParam_O.trdTankSize) {
-			ret = -14;
-			goto done;
-		}
-		if (!corrdata->tableTankParam_Y.sndTankSize ||
-		    !corrdata->tableTankParam_M.sndTankSize ||
-		    !corrdata->tableTankParam_C.sndTankSize ||
-		    !corrdata->tableTankParam_O.sndTankSize) {
-			ret = -15;
-			goto done;
-		}
-		if (!corrdata->tableTankParam_Y.fstTankSize ||
-		    !corrdata->tableTankParam_M.fstTankSize ||
-		    !corrdata->tableTankParam_C.fstTankSize ||
-		    !corrdata->tableTankParam_O.fstTankSize) {
-			ret = -16;
-			goto done;
-		}
-		if (le16_to_cpu(corrdata->val_1) > 1 ||
-		    le16_to_cpu(corrdata->val_2) > 1 ||
-		    le16_to_cpu(corrdata->printOpLevel) > 0xff ||
-		    le16_to_cpu(corrdata->matteMode) > 1) {
-			ret = -17;
-			goto done;
-		}
-		if (le16_to_cpu(corrdata->randomBase[0]) > 0xff ||
-		    le16_to_cpu(corrdata->randomBase[1]) > 0xff ||
-		    le16_to_cpu(corrdata->randomBase[2]) > 0xff ||
-		    le16_to_cpu(corrdata->randomBase[3]) > 0xff) {
-			ret = -18;
-			goto done;
-		}
-		if (!corrdata->matteSize ||
-		    corrdata->matteSize > 2) {
-			ret = -19;
-			goto done;
-		}
-	}
 
 done:
 	return ret;
@@ -2434,7 +2377,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.17",
+	.version = "0.18",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
