@@ -23,7 +23,7 @@
   Supported Printers:
 
    Canon SELPHY ES series
-   Canon SELPHY CP series (except CP820 and CP910)
+   Canon SELPHY CP series (except CP820, CP910, CP1000, CP2000)
    Kodak Professional 1400
    Kodak 605 Photo Printer
    Kodak 805 Photo Printer
@@ -205,7 +205,7 @@
 
    NOT supported:  (Printer does not need any special backend)
 
-     CP820, CP910
+     CP820, CP910, CP1000, CP1200
 
    This backend does not support additional commands.
 
