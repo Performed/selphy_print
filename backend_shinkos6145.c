@@ -32,11 +32,8 @@
  *
  *   You must still adhere to all other terms of the license to this program
  *   (ie GPLv3) and the license of the libS6145ImageProcess library.
- *
- *   Please note that the authors of this program *do not* have permission to
- *   redistribute this library, which was provided only in binary form.
- *
- * */
+ * 
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
