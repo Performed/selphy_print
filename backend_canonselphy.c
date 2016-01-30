@@ -1282,7 +1282,7 @@ struct dyesub_backend canonselphy_backend = {
 
    Init func:   40 00 00 [pgcode]  00 00 00 00  00 00 00 00
    Plane func:  40 01 00 [plane]  [length, 32-bit LE]  00 00 00 00 
-   End func:    00 00 00 00      # NOTE:  CP900 only, and not necessary!
+   End func:    00 00 00 00       # NOTE: Present (and necessary) on CP900 only.
 
    Error clear: 40 10 00 00  00 00 00 00  00 00 00 00
 
@@ -1328,13 +1328,13 @@ struct dyesub_backend canonselphy_backend = {
       to signify nothing being loaded.
 
  ***************************************************************************
- Selphy CP820/CP910:
+ Selphy CP820/CP910/CP1000/CP1200:
 
   Radically different spool file format!  300dpi, same print sizes, but also
   adding a 50x50mm sticker and 22x17.3mm ministickers, though I think the
   driver treats all of those as 'C' sizes for printing purposes.
 
-  Printer does *not* apparently require use of a spooler!
+  Printer does *not* require use of a spooler!  Huzzah!
 
   32-byte header:
 
