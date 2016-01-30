@@ -103,7 +103,6 @@ struct dnpds40_ctx {
 	int supports_adv_fullcut;
 
 	uint8_t *qty_offset;
-	uint8_t *buffctrl_offset;
 	uint8_t *multicut_offset;
 
 	uint8_t *databuf;
@@ -647,7 +646,7 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	ctx->multicut = 0;
 	ctx->fullcut = 0;
 	ctx->can_rewind = 0;
-	ctx->buffctrl_offset = ctx->qty_offset = ctx->multicut_offset = 0;
+	ctx->qty_offset = ctx->multicut_offset = 0;
 
 	while (run) {
 		int remain, i, j;
@@ -696,18 +695,11 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			ctx->cutter = atoi(buf);
 		}
 		if(!memcmp("CNTRL BUFFCNTRL", ctx->databuf + ctx->datalen+2, 15)) {
-			/* If the printer doesn't support matte, it doesn't
-			   support buffcntrl.  strip it from the stream */
-			if (ctx->supports_matte) {
-				ctx->buffctrl_offset = ctx->databuf + ctx->datalen + 32;
-			} else {
-				WARNING("Printer FW does not support BUFFCNTRL, please update\n");
-				continue;
-			}
+			/* Ignore this.  We will insert our own later on
+			   if the printer and job support it. */
+			continue;
 		}
 		if(!memcmp("CNTRL OVERCOAT", ctx->databuf + ctx->datalen+2, 14)) {
-			/* If the printer doesn't support matte, it doesn't
-			   support buffcntrl.  strip it from the stream */
 			if (ctx->supports_matte) {
 				memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
 				ctx->matte = atoi(buf);
@@ -1018,17 +1010,13 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	/* Enable job resumption on correctable errors */
 	if (ctx->supports_matte) {
 		snprintf(buf, sizeof(buf), "%08d", 1);
-		if (ctx->buffctrl_offset) {
-			memcpy(ctx->buffctrl_offset, buf, 8);
-		} else {
-			/* DS80D does not support BUFFCNTRL when using
-			   cut media; all others support this */
-			if (ctx->type != P_DNP_DS80D ||
-			    ctx->multicut < 100) {
-				dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
-				if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
-					return CUPS_BACKEND_FAILED;
-			}
+		/* DS80D does not support BUFFCNTRL when using
+		   cut media; all others support this */
+		if (ctx->type != P_DNP_DS80D ||
+		    ctx->multicut < 100) {
+			dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
+			if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+				return CUPS_BACKEND_FAILED;
 		}
 	}
 
@@ -1962,7 +1950,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.71",
+	.version = "0.72",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
