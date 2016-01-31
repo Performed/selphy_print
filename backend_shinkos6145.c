@@ -47,7 +47,28 @@
 #include <signal.h>
 #include <time.h>
 
+#if defined(USE_DLOPEN)
+#define WITH_DYNAMIC
 #include <dlfcn.h>
+#define DL_INIT() do {} while(0)    
+#define DL_OPEN(__x) dlopen(__x, RTLD_NOW)
+#define DL_SYM(__x, __y) dlsym(__x, __y)
+#define DL_CLOSE(__x) dlclose(__x)
+#define DL_EXIT() do {} while(0)
+#elif defined(USE_LTDL)
+#define WITH_DYNAMIC
+#include <ltdl.h>
+#define DL_INIT() lt_dlinit()
+#define DL_OPEN(__x) lt_dlopen(__x)
+#define DL_SYM(__x, __y) lt_dlsym(__x, __y)
+#define DL_CLOSE(__x) do {} while(0)
+#define DL_EXIT() lt_dlexit()
+#else
+#define DL_INIT()     do {} while(0)
+#define DL_CLOSE(__x) do {} while(0)
+#define DL_EXIT()     do {} while(0)
+#warning "No dynamic loading support!"
+#endif
 
 #define BACKEND shinkos6145_backend
 
@@ -1833,6 +1854,8 @@ static void *shinkos6145_init(void)
 	}
 	memset(ctx, 0, sizeof(struct shinkos6145_ctx));
 
+	DL_INIT();
+	
 	return ctx;
 }
 
@@ -1854,23 +1877,27 @@ static void shinkos6145_attach(void *vctx, struct libusb_device_handle *dev,
 					desc.idVendor, desc.idProduct);	
 
 	/* Attempt to open the library */
+#if defined(WITH_DYNAMIC)	
 	INFO("Attempting to load image processing library\n");
-	ctx->dl_handle = dlopen(LIB_NAME, RTLD_NOW); /* Try the Sinfonia one first */
+	ctx->dl_handle = DL_OPEN(LIB_NAME); /* Try the Sinfonia one first */
 	if (!ctx->dl_handle)
-		ctx->dl_handle = dlopen(LIB_NAME_RE, RTLD_NOW); /* Then the RE one */
+		ctx->dl_handle = DL_OPEN(LIB_NAME_RE); /* Then the RE one */
 	if (!ctx->dl_handle)
 		WARNING("Image processing library not found, using internal fallback code\n");
 	if (ctx->dl_handle) {
-		ctx->ImageProcessing = dlsym(ctx->dl_handle, "ImageProcessing");
-		ctx->ImageAvrCalc = dlsym(ctx->dl_handle, "ImageAvrCalc");
+		ctx->ImageProcessing = DL_SYM(ctx->dl_handle, "ImageProcessing");
+		ctx->ImageAvrCalc = DL_SYM(ctx->dl_handle, "ImageAvrCalc");
 		if (!ctx->ImageProcessing || !ctx->ImageAvrCalc) {
 			WARNING("Problem resolving symbols in imaging processing library\n");
-			dlclose(ctx->dl_handle);
+			DL_CLOSE(ctx->dl_handle);
 			ctx->dl_handle = NULL;
 		} else {
 			INFO("Image processing library successfully loaded\n");
 		}
 	}
+#else
+	WARNING("Dynamic library support not enabled, using internal fallback code\n");
+#endif
 
 	/* Ensure jobid is sane */
 	ctx->jobid = (jobid & 0x7f) + 1;
@@ -1889,7 +1916,9 @@ static void shinkos6145_teardown(void *vctx) {
 	if (ctx->corrdata)
 		free(ctx->corrdata);
 	if (ctx->dl_handle)
-		dlclose(ctx->dl_handle);
+		DL_CLOSE(ctx->dl_handle);
+
+	DL_EXIT();
 	
 	free(ctx);
 }
@@ -2375,7 +2404,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.18",
+	.version = "0.19",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,

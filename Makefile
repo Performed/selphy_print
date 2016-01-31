@@ -17,13 +17,19 @@ RM ?= rm
 
 # Flags
 CFLAGS += -Wall -Wextra -g -Os -D_GNU_SOURCE -std=c99 # -Wconversion
-LDFLAGS += `pkg-config --libs libusb-1.0` -ldl
+LDFLAGS += `pkg-config --libs libusb-1.0` 
 CPPFLAGS += `pkg-config --cflags libusb-1.0`
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
 CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\"
 
 # List of backends
 BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 citizencw01 mitsu9550 shinkos6245 shinkos6145
+
+# For the s6145 backend
+CPPFLAGS += -DUSE_DLOPEN
+LDFLAGS += -ldl
+#CPPFLAGS += -DUSE_LTDL
+#LDFLAGS += -lltdl
 
 # Build stuff
 DEPS += backend_common.h
