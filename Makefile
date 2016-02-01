@@ -61,6 +61,6 @@ clean:
 release:
 	$(RM) -Rf selphy_print-rel
 	$(MKDIR) -p selphy_print-rel
-	cp *.c *.h Makefile blacklist COPYING README selphy_print-rel
-	tar -cjvf selphy_print-rel.tar.bz2 selphy_print-rel
+	cp -a *.c *.h Makefile blacklist COPYING README lib6145 D70 selphy_print-rel
+	tar -czvf selphy_print-rel.tar.gz selphy_print-rel
 	$(RM) -Rf selphy_print-rel
