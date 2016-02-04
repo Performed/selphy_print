@@ -98,7 +98,8 @@ struct dnpds40_ctx {
 	int supports_6x4_5;
 	int supports_mqty_default;
 	int supports_iserial;
-	int supports_square;
+	int supports_6x6;
+	int supports_5x5;
 	int supports_counterp;
 	int supports_adv_fullcut;
 
@@ -579,8 +580,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->supports_2x6 = 1;
 		if (FW_VER_CHECK(1,50))
 			ctx->supports_3x5x2 = 1;
-		if (FW_VER_CHECK(1,51))
-			ctx->supports_fullcut = 1;
+		if (FW_VER_CHECK(1,60))
+			ctx->supports_fullcut = ctx->supports_6x6 = 1;
 		break;
 	case P_DNP_DS80:
 	case P_DNP_DS80D:
@@ -605,7 +606,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->supports_rewind = 1;
 		ctx->supports_standby = 1;
 		ctx->supports_iserial = 1;
-		ctx->supports_square = 1;
+		ctx->supports_6x6 = 1;
+		ctx->supports_5x5 = 1;
 		if (FW_VER_CHECK(0,30))
 			ctx->supports_3x5x2 = 1;
 		if (FW_VER_CHECK(1,10))
@@ -975,9 +977,13 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	}
 
 	/* Additional santity checks, make sure printer support exists */
-	if ((ctx->multicut == MULTICUT_6x6 || ctx->multicut == MULTICUT_5x5) &&
-	    !ctx->supports_square) {
-		ERROR("Printer does not support 6x6 or 5x5 prints, aborting!\n");
+	if (!ctx->supports_6x6 && ctx->multicut == MULTICUT_6x6) {
+		ERROR("Printer does not support 6x6 prints, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if (!ctx->supports_5x5 && ctx->multicut == MULTICUT_5x5) {
+		ERROR("Printer does not support 5x5 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
