@@ -7,6 +7,7 @@
  *
  *     Marco Di Antonio and [ ilgruppodigitale.com ]
  *     LiveLink Technology [ www.livelinktechnology.net ]
+ *     An generous benefactor who wishes to remain anonymous
  *
  *   The latest version of this program can be found at:
  *
@@ -102,8 +103,6 @@ struct dnpds40_ctx {
 	int supports_5x5;
 	int supports_counterp;
 	int supports_adv_fullcut;
-
-	uint8_t *multicut_offset;
 
 	uint8_t *databuf;
 	int datalen;
@@ -227,7 +226,6 @@ static char *dnpds80_duplex_media_types(int media)
 
 	return "Unknown type";
 }
-
 
 static char *dnpds80_duplex_statuses(int status)
 {
@@ -691,7 +689,6 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	ctx->multicut = 0;
 	ctx->fullcut = 0;
 	ctx->can_rewind = 0;
-	ctx->multicut_offset = 0;
 
 	while (run) {
 		int remain, i, j;
@@ -739,6 +736,8 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		if(!memcmp("CNTRL CUTTER", ctx->databuf + ctx->datalen+2, 12)) {
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
 			ctx->cutter = atoi(buf);
+			/* We'll insert it ourselves later */
+			continue;
 		}
 		if(!memcmp("CNTRL BUFFCNTRL", ctx->databuf + ctx->datalen+2, 15)) {
 			/* Ignore this.  We will insert our own later on
@@ -751,18 +750,20 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 				ctx->matte = atoi(buf);
 			} else {
 				WARNING("Printer FW does not support matte prints, using glossy mode\n");
-				continue;
 			}
+			/* We'll insert our own later, if appropriate */
+			continue;
 		}
 		if(!memcmp("IMAGE MULTICUT", ctx->databuf + ctx->datalen+2, 14)) {
-			ctx->multicut_offset = ctx->databuf + ctx->datalen + 32;
 			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
 			ctx->multicut = atoi(buf);
-
 			/* Backend automatically handles rewind support, so
 			   ignore application requests to use it. */
 			if (ctx->multicut > 400)
 				ctx->multicut -= 400;
+
+			/* We'll insert this ourselves later. */
+			continue;
 		}
 		if(!memcmp("CNTRL FULL_CUTTER_SET", ctx->databuf + ctx->datalen+2, 21)) {
 			if (!ctx->supports_fullcut) {
@@ -1022,7 +1023,8 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 
 		/* Work around firmware bug on DS40 where if we run out
 		   of media, we can't resume the job without losing the
-		   cutter setting. XXX add version test? */
+		   cutter setting. */
+		// XXX add version test? what about other printers?
 		ctx->manual_copies = 1;
 	}
 
@@ -1047,30 +1049,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	/* Update quantity offset with count */
-	// XXX this breaks if ctx->manual_copies is set, but the job
-	// has a CNTRL QTY != 1
-	if (!ctx->manual_copies && copies > 1) {
-		snprintf(buf, sizeof(buf), "%07d\r", copies);
-		dnpds40_build_cmd(&cmd, "CNTRL", "QTY", 8);
-		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
-			return CUPS_BACKEND_FAILED;
-
-		copies = 1;
-	}
-
-	/* Enable job resumption on correctable errors */
-	if (ctx->supports_matte) {
-		snprintf(buf, sizeof(buf), "%08d", 1);
-		/* DS80D does not support BUFFCNTRL when using
-		   cut media; all others support this */
-		if (ctx->type != P_DNP_DS80D ||
-		    ctx->multicut < 100) {
-			dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
-			if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
-				return CUPS_BACKEND_FAILED;
-		}
-	}
+	/* If we switch overcoat modes, we need both buffers! */
 
 #ifdef MATTE_STATE
 	/* Check our current job's lamination vs previous job. */
@@ -1195,12 +1174,6 @@ top:
 			i = atoi((char*)resp+4);
 		}
 
-		/* Update job with new offset, if it's present.. */
-		if (ctx->multicut_offset) {
-			snprintf(buf, sizeof(buf), "%08d", ctx->multicut);
-			memcpy(ctx->multicut_offset, buf, 8);
-		}
-
 		/* If we didn't succeed with RQTY, try MQTY */
 		if (i == 0) {
 			dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
@@ -1219,23 +1192,68 @@ top:
 				i -= 50;
 		}
 
-#if 0
+#if 0 // disabled this to allow error to be reported on the printer panel
 		if (i < 1) {
 			ERROR("Printer out of media, please correct!\n");
 			return CUPS_BACKEND_STOP;
 		}
 #endif
+
 		if (i < copies) {
-			WARNING("Printer does not have sufficient remaining media to complete job..\n");
+			WARNING("Printer does not have sufficient remaining media (%d) to complete job (%d)\n", copies, i);
 		}
 	}
 
 	/* Store our last multicut state */
 	ctx->last_multicut = ctx->multicut;
 
-	/* Send the stream over as individual data chunks */
-	ptr = ctx->databuf;
+	/* Tell printer how many copies to make */
+	if (!ctx->manual_copies && copies > 1) {
+		snprintf(buf, sizeof(buf), "%07d\r", copies);
+		dnpds40_build_cmd(&cmd, "CNTRL", "QTY", 8);
+		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+			return CUPS_BACKEND_FAILED;
 
+		copies = 1;
+	}
+
+	/* Enable job resumption on correctable errors */
+	if (ctx->supports_matte) {
+		snprintf(buf, sizeof(buf), "%08d", 1);
+		/* DS80D does not support BUFFCNTRL when using
+		   cut media; all others support this */
+		if (ctx->type != P_DNP_DS80D ||
+		    ctx->multicut < 100) {
+			dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
+			if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+				return CUPS_BACKEND_FAILED;
+		}
+	}
+
+	/* Set overcoat parameters */
+	if (ctx->supports_matte) {
+		snprintf(buf, sizeof(buf), "%08d", ctx->matte);
+		dnpds40_build_cmd(&cmd, "CNTRL", "OVERCOAT", 8);
+		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+			return CUPS_BACKEND_FAILED;
+	}
+
+	/* Program in the cutter setting */
+	if (ctx->cutter) {
+		snprintf(buf, sizeof(buf), "%08d", ctx->cutter);
+		dnpds40_build_cmd(&cmd, "CNTRL", "CUTTER", 8);
+		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+			return CUPS_BACKEND_FAILED;
+	}
+
+	/* Program in the multicut setting */
+	snprintf(buf, sizeof(buf), "%08d", ctx->multicut);
+	dnpds40_build_cmd(&cmd, "IMAGE", "MULTICUT", 8);
+	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+		return CUPS_BACKEND_FAILED;
+
+	/* Finally, send the stream over as individual data chunks */
+	ptr = ctx->databuf;
 	while(ptr && ptr < (ctx->databuf + ctx->datalen)) {
 		int i;
 		buf[8] = 0;
@@ -1271,7 +1289,6 @@ top:
 				break;
 			}
 		}
-
 	}
 
 	/* Clean up */
@@ -2002,7 +2019,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.73",
+	.version = "0.74",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
