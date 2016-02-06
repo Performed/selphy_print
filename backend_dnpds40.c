@@ -1288,6 +1288,7 @@ top:
 				ERROR("Printer encountered error: %s\n", dnpds40_statuses(status));
 				break;
 			}
+			sleep(1);
 		}
 	}
 
