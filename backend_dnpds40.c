@@ -447,22 +447,6 @@ static void *dnpds40_init(void)
 
 	ctx->type = P_ANY;
 
-	ctx->last_matte = -1;	
-#ifdef STATE_DIR	
-	/* Check our current job's lamination vs previous job. */
-	{
-		/* Load last matte status from file */
-		char buf[64];
-		FILE *f;
-		snprintf(buf, sizeof(buf), STATE_DIR "/%s-last", ctx->serno);
-		f = fopen(buf, "r");
-		if (f) {
-			fscanf(f, "%d", &ctx->last_matte);
-			fclose(f);
-		}
-	}
-#endif
-
 	return ctx;
 }
 
@@ -635,6 +619,22 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ERROR("Unknown vid/pid %04x/%04x (%d)\n", desc.idVendor, desc.idProduct, ctx->type);
 		return;
 	}
+
+#ifdef STATE_DIR
+	ctx->last_matte = -1;
+	/* Check our current job's lamination vs previous job. */
+	{
+		/* Load last matte status from file */
+		char buf[64];
+		FILE *f;
+		snprintf(buf, sizeof(buf), STATE_DIR "/%s-last", ctx->serno);
+		f = fopen(buf, "r");
+		if (f) {
+			fscanf(f, "%d", &ctx->last_matte);
+			fclose(f);
+		}
+	}
+#endif
 }
 
 static void dnpds40_teardown(void *vctx) {
