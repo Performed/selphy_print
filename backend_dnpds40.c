@@ -1737,6 +1737,21 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
+	if (ctx->type == P_DNP_DS620) {
+		/* Generate command */
+		dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_HEAD", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Head Counter: '%s'\n", (char*)resp+2);
+
+		free(resp);
+	}
+
 	/* Generate command */
 	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_A", 0);
 
