@@ -31,9 +31,12 @@
  *
  */
 
-//#define MATTE_STATE
 //#define DNP_ONLY
-#define MATTE_GLOSSY_2BUF
+
+/* Enables caching of last print type to speed up 
+   job pipelining.  Without this we always have to
+   assume the worst */
+//#define STATE_DIR "/tmp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -443,7 +446,22 @@ static void *dnpds40_init(void)
 	memset(ctx, 0, sizeof(struct dnpds40_ctx));
 
 	ctx->type = P_ANY;
-	ctx->last_matte = -1;
+
+	ctx->last_matte = -1;	
+#ifdef STATE_DIR	
+	/* Check our current job's lamination vs previous job. */
+	{
+		/* Load last matte status from file */
+		char buf[64];
+		FILE *f;
+		snprintf(buf, sizeof(buf), STATE_DIR "/%s-last", ctx->serno);
+		f = fopen(buf, "r");
+		if (f) {
+			fscanf(f, "%d", &ctx->last_matte);
+			fclose(f);
+		}
+	}
+#endif
 
 	return ctx;
 }
@@ -1049,44 +1067,11 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	/* If we switch overcoat modes, we need both buffers! */
-
-#ifdef MATTE_STATE
-	/* Check our current job's lamination vs previous job. */
-	{
-		/* Load last matte status from file */
-		char buf[64];
-		FILE *f;
-		snprintf(buf, sizeof(buf), "/tmp/%s-last", ctx->serno);
-		f = fopen(buf, "r");
-		if (f) {
-			fscanf(f, "%d", &ctx->last_matte);
-			fclose(f);
-		}
-	}
-#endif
-
 	buf_needed = ctx->buf_needed;
 
-#ifdef MATTE_GLOSSY_2BUF
-	if (ctx->matte != ctx->last_matte)
-		buf_needed = 2; /* Switching needs both buffers */
-#endif
-
-	ctx->last_matte = ctx->matte;
-#ifdef MATTE_STATE
-	{
-		/* Store last matte status into file */
-		char buf[64];
-		FILE *f;
-		snprintf(buf, sizeof(buf), "/tmp/%s-last", ctx->serno);
-		f = fopen(buf, "w");
-		if (f) {
-			fprintf(f, "%08d", ctx->last_matte);
-			fclose(f);
-		}
-	}
-#endif
+	/* If we switch major overcoat modes, we need both buffers */
+	if (!!ctx->matte != ctx->last_matte)
+		buf_needed = 2;
 
 top:
 
@@ -1299,12 +1284,26 @@ top:
 	INFO("Print complete (%d copies remaining)\n", copies - 1);
 
 	if (copies && --copies) {
-#ifdef MATTE_GLOSSY_2BUF
 		/* No need to wait on buffers due to matte switching */
 		buf_needed = ctx->buf_needed;
-#endif
 		goto top;
 	}
+
+	/* Finally, account for overcoat mode of last print */
+	ctx->last_matte = !!ctx->matte;
+#ifdef STATE_DIR
+	{
+		/* Store last matte status into file */
+		char buf[64];
+		FILE *f;
+		snprintf(buf, sizeof(buf), STATE_DIR "/%s-last", ctx->serno);
+		f = fopen(buf, "w");
+		if (f) {
+			fprintf(f, "%08d", ctx->last_matte);
+			fclose(f);
+		}
+	}
+#endif
 
 	return CUPS_BACKEND_OK;
 }
@@ -2020,7 +2019,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.74",
+	.version = "0.75",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
