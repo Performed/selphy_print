@@ -7,7 +7,7 @@
  *
  *     Marco Di Antonio and [ ilgruppodigitale.com ]
  *     LiveLink Technology [ www.livelinktechnology.net ]
- *     An generous benefactor who wishes to remain anonymous
+ *     A generous benefactor who wishes to remain anonymous
  *
  *   The latest version of this program can be found at:
  *
@@ -620,8 +620,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		return;
 	}
 
-#ifdef STATE_DIR
 	ctx->last_matte = -1;
+#ifdef STATE_DIR
 	/* Check our current job's lamination vs previous job. */
 	{
 		/* Load last matte status from file */
