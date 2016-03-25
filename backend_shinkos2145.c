@@ -1365,7 +1365,7 @@ static void *shinkos2145_init(void)
 	if (!ctx) {
 		ERROR("Memory allocation failure! (%d bytes)\n",
 		      (int)sizeof(struct shinkos2145_ctx));
-		
+
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct shinkos2145_ctx));
@@ -1513,7 +1513,7 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
 		return CUPS_BACKEND_FAILED;
 	}
-	
+
 	if (le16_to_cpu(media->hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
 		return CUPS_BACKEND_FAILED;
 
@@ -1554,10 +1554,10 @@ top:
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 
-		INFO("Printer Status: 0x%02x (%s)\n", 
+		INFO("Printer Status: 0x%02x (%s)\n",
 		     sts->hdr.status, status_str(sts->hdr.status));
 		if (sts->hdr.result != RESULT_SUCCESS)
-			goto printer_error;		
+			goto printer_error;
 		if (sts->hdr.error == ERROR_PRINTER)
 			goto printer_error;
 	} else if (state == last_state) {
@@ -1566,7 +1566,7 @@ top:
 	}
 	last_state = state;
 
-	fflush(stderr);       
+	fflush(stderr);
 
 	switch (state) {
 	case S_IDLE:
@@ -1583,8 +1583,8 @@ top:
 		}
 
 		/* If either bank is free, continue */
-		if (sts->bank1_status == BANK_STATUS_FREE || 
-		    sts->bank2_status == BANK_STATUS_FREE) 
+		if (sts->bank1_status == BANK_STATUS_FREE ||
+		    sts->bank2_status == BANK_STATUS_FREE)
 			state = S_PRINTER_READY_CMD;
 
 		break;
@@ -1646,7 +1646,7 @@ top:
 
 	if (state != S_FINISHED)
 		goto top;
-	
+
 	INFO("Print complete\n");
 
 	return CUPS_BACKEND_OK;
