@@ -215,6 +215,7 @@ struct kodak68x0_media_readback {
 
 #define KODAK68x0_MEDIA_6R   0x0b
 #define KODAK68x0_MEDIA_UNK  0x03
+#define KODAK68x0_MEDIA_UNK2 0x2c
 #define KODAK68x0_MEDIA_NONE 0x00
 
 #define CMDBUF_LEN 17
@@ -1055,13 +1056,6 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	/* Printer handles generating copies.. */
 	ctx->hdr.copies = cpu_to_be16(uint16_to_packed_bcd(copies));
 
-	/* Validate media */
-	if (ctx->media->media != KODAK68x0_MEDIA_6R &&
-	    ctx->media->media != KODAK68x0_MEDIA_UNK) {
-		ERROR("Unrecognized media type %02x\n", ctx->media->media);
-		return CUPS_BACKEND_STOP;
-	}
-
 	/* Validate against supported media list */
 	for (num = 0 ; num < ctx->media->count; num++) {
 		if (ctx->media->sizes[num].height == ctx->hdr.rows &&
@@ -1177,7 +1171,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.52",
+	.version = "0.53",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
