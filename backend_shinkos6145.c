@@ -47,6 +47,11 @@
 #include <signal.h>
 #include <time.h>
 
+/* For Integration into gutenprint */
+#if defined(HAVE_CONFIG_H)
+#include <config.h>
+#endif
+
 #if defined(USE_DLOPEN)
 #define WITH_DYNAMIC
 #include <dlfcn.h>
