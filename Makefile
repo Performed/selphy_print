@@ -2,10 +2,10 @@
 BACKEND_NAME ?= gutenprint52+usb
 EXEC_NAME ?= dyesub_backend
 
-# Destination directories
-DESTDIR ?=
-CUPS_BACKEND_DIR ?= $(DESTDIR)/usr/lib/cups/backend
-CUPS_DATA_DIR ?= $(DESTDIR)/usr/share/cups
+# Destination directories (rely on CUPS to tell us where)
+PREFIX ?=
+CUPS_BACKEND_DIR ?= $(PREFIX)`cups-config --serverbin`/backend
+CUPS_DATA_DIR ?= $(PREFIX)`cups-config --datadir`
 
 # Tools
 CC ?= $(CROSS_COMPILE)gcc
