@@ -203,6 +203,8 @@ static void dnpds40_cleanup_string(char *start, int len)
 static char *dnpds40_media_types(int media)
 {
 	switch (media) {
+	case 100: return "UNKNOWN100"; // seen in driver dumps
+	case 110: return "UNKNOWN110"; // seen in driver dumps
 	case 200: return "5x3.5 (L)";
 	case 210: return "5x7 (2L)";
 	case 300: return "6x4 (PC)";
@@ -588,9 +590,13 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 	case P_DNP_DSRX1:
 		ctx->supports_counterp = 1;
 		ctx->supports_matte = 1;
-		ctx->supports_mqty_default = 1; // 1.10 does. Maybe older too?
 		if (FW_VER_CHECK(1,10))
-			ctx->supports_2x6 = 1;
+			ctx->supports_2x6 = ctx->supports_mqty_default = 1;
+		if (FW_VER_CHECK(2,00)) { /* AKA RX1HS */
+			ctx->supports_iserial = 1;
+			ctx->supports_mqty_default = 0;  /* Yes, removed! */
+			// XXX luster?
+		}
 		break;
 	case P_DNP_DS620:
 		ctx->supports_counterp = 1;
@@ -2085,7 +2091,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.78",
+	.version = "0.79",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
