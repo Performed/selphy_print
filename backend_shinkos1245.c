@@ -271,8 +271,6 @@ enum {
 	CURVE_TABLE_STATUS_CURRENT = 0x02,
 };
 
-// XXX Paper jam has 0x01 -> 0xff as error codes
-
 /* Query media info */
 struct shinkos1245_cmd_getmedia {
 	struct shinkos1245_cmd_hdr hdr;
@@ -1042,7 +1040,7 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 	struct shinkos1245_cmd_tone cmd;
 	struct shinkos1245_resp_status resp;
 
-	INFO("Read %d/%d Tone Curve from '%s'\n", type, table, fname); // XXX
+	INFO("Read %d/%d Tone Curve from '%s'\n", type, table, fname);
 
 	/* Allocate space */
 	remaining = TONE_CURVE_SIZE;
@@ -1367,8 +1365,6 @@ static int shinkos1245_main_loop(void *vctx, int copies) {
 	int i, num, last_state = -1, state = S_IDLE;
 	struct shinkos1245_resp_status status1, status2;
 
-	// XXX query printer info
-
 	/* Query Media information if necessary */
 	if (!ctx->num_medias)
 		shinkos1245_get_media(ctx);
@@ -1390,7 +1386,7 @@ static int shinkos1245_main_loop(void *vctx, int copies) {
 	}
 
 	/* Fix max print count. */
-	if (copies > 9999) // XXX test against remaining media
+	if (copies > 9999) // XXX test against remaining media?
 		copies = 9999;
 
 top:
@@ -1406,7 +1402,7 @@ top:
 
 	if (memcmp(&status1, &status2, sizeof(status1))) {
 		memcpy(&status2, &status1, sizeof(status1));
-		// status changed, check for errors and whatnot
+		// status changed.
 	} else if (state == last_state) {
 		sleep(1);
 		goto top;
@@ -1422,8 +1418,6 @@ top:
 
 	switch (state) {
 	case S_IDLE:
-		INFO("Waiting for printer idle\n");
-
 		if (status1.state.status1 == STATE_STATUS1_STANDBY) {
 			state = S_PRINTER_READY_CMD;
 			break;
@@ -1433,10 +1427,13 @@ top:
 			state = S_PRINTER_READY_CMD;
 			break;
 		}
-
-		// XXX what about STATUS_WAIT ?
-		// XXX see if printer has an empty bank?
-
+#if 0 // XXX is this necessary
+		if (status1.state.status1 == STATE_STATUS1_WAIT) {
+			INFO("Printer busy: %s\n",
+			     shinkos1245_status_str(&status1));
+			break;
+		}
+#endif
 		/* If the printer is "busy" check to see if there's any
 		   open memory banks so we can queue the next print */
 
