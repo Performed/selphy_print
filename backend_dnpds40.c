@@ -56,14 +56,12 @@
 #define USB_PID_DNP_DS40  0x0003 // Also Citizen CX
 #define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W, and Mitsubishi CP-3800DW
 #define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
+#define USB_PID_CITIZEN_CW02 0x0006
+#define USB_PID_DNP_DS80D 0x0007
+#define USB_PID_DNP_DS620_OLD 0x0008
 
 #define USB_VID_DNP       0x1452
 #define USB_PID_DNP_DS620 0x8b01
-
-//#define USB_PID_DNP_DS80D XXXX
-
-//#define USB_PID_CITIZEN_CW-02 XXXXX
-//#define USB_PID_CITIZEN_OP900II XXXXX
 
 /* Private data stucture */
 struct dnpds40_ctx {
@@ -2030,7 +2028,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.75",
+	.version = "0.76",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -2044,10 +2042,10 @@ struct dyesub_backend dnpds40_backend = {
 	{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, ""},
 	{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, ""},
 	{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, ""},
+	{ USB_VID_CITIZEN, USB_PID_DNP_DS620_OLD, P_DNP_DS620, ""},
 	{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, ""},
-//	{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80D, ""},
-//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW-02, P_DNP_DS40, ""},
-//	{ USB_VID_CITIZEN, USB_PID_CITIZEN_OP900II, P_DNP_DS40, ""},
+	{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80D, ""},
+	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_DNP_DS40, ""},
 	{ 0, 0, 0, ""}
 	}
 };

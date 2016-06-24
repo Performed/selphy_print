@@ -595,12 +595,12 @@
    Theoretically supported printers:  (Untested)
 
     Mitsubishi CP-3800DW
- 
+    Citizen CW-02/OP900II
+    DNP DS80DX
+
    Work-in-progress printers: (USB PIDs unknown)
 
-    Citizen CW-02/OP900II
     Citizen CX2 (?)
-    DNP DS80DX
 
    Development was initially sponsored by:
 
