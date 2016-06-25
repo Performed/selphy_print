@@ -1545,7 +1545,8 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		free(resp);
 	}
 
-	if (ctx->type == P_DNP_DS620) {
+	if (ctx->supports_standby) {
+		int i;
 		/* Get Standby stuff */
 		dnpds40_build_cmd(&cmd, "MNT_RD", "STANDBY_TIME", 0);
 
@@ -1554,8 +1555,9 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 			return CUPS_BACKEND_FAILED;
 
 		dnpds40_cleanup_string((char*)resp, len);
-
-		INFO("Standby Transition time: '%s' minutes\n", (char*)resp);
+		i = atoi((char*)resp);
+			
+		INFO("Standby Transition time: '%d' minutes\n", i);
 
 		free(resp);
 
@@ -1567,13 +1569,15 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 			return CUPS_BACKEND_FAILED;
 
 		dnpds40_cleanup_string((char*)resp, len);
-
-		INFO("Media End kept across power cycles: '%s'\n", (char*)resp);
+		i = atoi((char*)resp);
+		INFO("Media End kept across power cycles: '%s'\n",
+		     i ? "Yes" : "No");		     
 
 		free(resp);
 	}
 
 	if (ctx->supports_iserial) {
+		int i;
 		/* Get USB serial descriptor status */
 		dnpds40_build_cmd(&cmd, "MNT_RD", "USB_ISERI_SET", 0);
 
@@ -1582,8 +1586,10 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 			return CUPS_BACKEND_FAILED;
 
 		dnpds40_cleanup_string((char*)resp, len);
+		i = atoi((char*)resp);
 
-		INFO("Report Serial Number in USB descriptor: '%s'\n", (char*)resp);
+		INFO("Report Serial Number in USB descriptor: '%s'\n",
+		     i ? "Yes" : "No");
 
 		free(resp);
 	}
