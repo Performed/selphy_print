@@ -353,6 +353,36 @@ static int kodak68x0_canceljob(struct kodak6800_ctx *ctx,
 	return 0;
 }
 
+static int kodak68x0_reset(struct kodak6800_ctx *ctx)
+{
+	uint8_t req[16];
+	int ret, num;
+	struct kodak68x0_status_readback sts;
+
+	memset(req, 0, sizeof(req));
+
+	req[0] = 0x03;
+	req[1] = 0x1b;
+	req[2] = 0x43;
+	req[3] = 0x48;
+	req[4] = 0xc0;
+
+	/* Issue command and get response */
+	if ((ret = kodak6800_do_cmd(ctx, req, sizeof(req),
+				    &sts, sizeof(sts),
+				    &num)))
+		return ret;
+
+	/* Validate proper response */
+	if (sts.hdr != CMD_CODE_OK) {
+		ERROR("Unexpected response from job cancel!\n");
+		return -99;
+	}
+
+	return 0;
+}
+
+
 /* Structure dumps */
 static char *kodak68x0_status_str(struct kodak68x0_status_readback *resp)
 {
@@ -892,6 +922,7 @@ static void kodak6800_cmdline(void)
 	DEBUG("\t\t[ -C filename ]  # Set tone curve\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -R ]           # Reset printer\n");
 	DEBUG("\t\t[ -X jobid ]     # Cancel Job\n");	
 }
 
@@ -903,7 +934,7 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "C:c:msX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "C:c:mRsX:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'c':
@@ -914,6 +945,9 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 'm':
 			kodak68x0_dump_mediainfo(ctx->media);
+			break;
+		case 'R':
+			kodak68x0_reset(ctx);
 			break;
 		case 's': {
 			struct kodak68x0_status_readback status;
@@ -1178,7 +1212,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.54",
+	.version = "0.55",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

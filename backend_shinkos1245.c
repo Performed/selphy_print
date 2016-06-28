@@ -606,6 +606,30 @@ static int shinkos1245_canceljob(struct shinkos1245_ctx *ctx,
 	return 0;
 }
 
+static int shinkos1245_reset(struct shinkos1245_ctx *ctx)
+{
+	struct shinkos1245_cmd_reset cmd;
+	struct shinkos1245_resp_status sts;
+
+	int ret, num;
+
+	shinkos1245_fill_hdr(&cmd.hdr);
+	cmd.cmd[0] = 0xc0;
+
+	ret = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
+				 &sts, sizeof(sts), &num);
+	if (ret < 0) {
+		ERROR("Failed to execute RESET command\n");
+		return ret;
+	}
+	if (sts.code != CMD_CODE_OK) {
+		ERROR("Bad return code on RESET command\n");
+		return -99;
+	}
+	return 0;
+}
+
+
 static int shinkos1245_set_matte(struct shinkos1245_ctx *ctx,
 				 int intensity)
 {
@@ -1150,6 +1174,7 @@ static void shinkos1245_cmdline(void)
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -u ]           # Query user string\n");
 	DEBUG("\t\t[ -U sometext ]  # Set user string\n");
+	DEBUG("\t\t[ -R ]           # Reset printer\n");
 	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");
 	DEBUG("\t\t[ -F ]           # Tone curve refers to FINE mode\n");
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
@@ -1166,7 +1191,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:l:L:FmsuU:X:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:l:L:FmRsuU:X:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'F':
@@ -1188,6 +1213,9 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 			j = shinkos1245_get_media(ctx);
 			if (!j)
 				shinkos1245_dump_media(ctx->medias, ctx->num_medias);
+			break;
+		case 'R':
+			j = shinkos1245_reset(ctx);
 			break;
 		case 's': {
 			struct shinkos1245_resp_status sts;
@@ -1592,7 +1620,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.08WIP",
+	.version = "0.09WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
