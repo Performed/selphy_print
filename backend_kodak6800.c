@@ -1240,7 +1240,8 @@ struct dyesub_backend kodak6800_backend = {
 
   Header:
 
-  03 1b 43 48 43 0a 00 01        Fixed header
+  03 1b 43 48 43 0a 00           Fixed header
+  II                             Job ID (1-255)
   NN NN                          Number of copies in BCD form (0001->9999)
   WW WW                          Number of columns (Fixed at 1844 on 6800)
   HH HH                          Number of rows.
