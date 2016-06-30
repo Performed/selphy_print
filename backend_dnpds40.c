@@ -1263,6 +1263,7 @@ top:
 
 		ptr += i;
 	}
+	sleep(1);  /* Give things a moment */
 
 	if (fast_return) {
 		INFO("Fast return mode enabled.\n");
@@ -2091,7 +2092,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.79",
+	.version = "0.80",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
