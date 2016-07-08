@@ -1395,10 +1395,10 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	int len = 0;
 
 	/* Serial number already queried */
-	INFO("Serial Number: '%s'\n", ctx->serno);
+	INFO("Serial Number: %s\n", ctx->serno);
 
 	/* Firmware version already queried */
-	INFO("Firmware Version: '%s'\n", ctx->version);
+	INFO("Firmware Version: %s\n", ctx->version);
 
 	/* Figure out Duplexer */
 	if (ctx->type == P_DNP_DS80D) {
@@ -1410,7 +1410,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("Duplexer Version: '%s'\n", resp);
+		INFO("Duplexer Version: %s\n", resp);
 
 		free(resp);
 	}
@@ -1424,7 +1424,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Media Color Offset: 'Y %d M %d C %d L %d'\n", *(resp+2), *(resp+3),
+	INFO("Media Color Offset: Y %d M %d C %d L %d\n", *(resp+2), *(resp+3),
 	     *(resp+4), *(resp+5));
 
 	free(resp);
@@ -1438,7 +1438,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Media Class: '%s'\n", (char*)resp);
+	INFO("Media Class: %d\n", atoi((char*)resp + 4));
 
 	free(resp);
 
@@ -1451,12 +1451,12 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Media Lot Code: '");
+	INFO("Media Lot Code: ");
 	/* 16-byte data in a 20-byte response */
 	for (len = 0 ; len < 16 ; len++) {
 		DEBUG2("%c", *(resp+len+2));
 	}
-	DEBUG2("'\n");
+	DEBUG2("\n");
 	free(resp);
 
 	/* Get Media ID Set (?) */
@@ -1468,7 +1468,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Media ID(?): '%s'\n", (char*)resp+4);
+	INFO("Media ID: %d\n", atoi((char*)resp+4));
 
 	free(resp);
 
@@ -1481,7 +1481,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Ribbon ID(?): '%s'\n", (char*)resp+4);
+	INFO("Ribbon ID: %s\n", (char*)resp);
 
 	free(resp);
 
@@ -1496,7 +1496,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("300 DPI Color Data Version: '%s' ", (char*)resp);
+	INFO("300 DPI Color Data: %s ", (char*)resp);
 
 	free(resp);
 
@@ -1508,7 +1508,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	DEBUG2("Checksum: '%s'\n", (char*)resp);
+	DEBUG2("(%s)\n", (char*)resp);
 
 	free(resp);
 
@@ -1521,7 +1521,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("600 DPI Color Data Version: '%s' ", (char*)resp);
+	INFO("600 DPI Color Data: %s ", (char*)resp);
 
 	free(resp);
 
@@ -1533,7 +1533,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	DEBUG2("Checksum: '%s'\n", (char*)resp);
+	DEBUG2("(%s)\n", (char*)resp);
 
 	free(resp);
 
@@ -1547,7 +1547,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("Low Speed Color Data Version: '%s' ", (char*)resp);
+		INFO("Low Speed Color Data: %s ", (char*)resp);
 
 		free(resp);
 
@@ -1559,7 +1559,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		DEBUG2("Checksum: '%s'\n", (char*)resp);
+		DEBUG2("(%s)\n", (char*)resp);
 
 		free(resp);
 	}
@@ -1576,7 +1576,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		dnpds40_cleanup_string((char*)resp, len);
 		i = atoi((char*)resp);
 			
-		INFO("Standby Transition time: '%d' minutes\n", i);
+		INFO("Standby Transition time: %d minutes\n", i);
 
 		free(resp);
 
@@ -1589,7 +1589,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 		i = atoi((char*)resp);
-		INFO("Media End kept across power cycles: '%s'\n",
+		INFO("Media End kept across power cycles: %s\n",
 		     i ? "Yes" : "No");		     
 
 		free(resp);
@@ -1607,7 +1607,7 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		dnpds40_cleanup_string((char*)resp, len);
 		i = atoi((char*)resp);
 
-		INFO("Report Serial Number in USB descriptor: '%s'\n",
+		INFO("Report Serial Number in USB descriptor: %s\n",
 		     i ? "Yes" : "No");
 
 		free(resp);
@@ -1632,7 +1632,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	dnpds40_cleanup_string((char*)resp, len);
 	len = atoi((char*)resp);
 
-	INFO("Printer Status: %d => %s\n", len, dnpds40_statuses(len));
+	INFO("Printer Status: %s\n", dnpds40_statuses(len));
 
 	free(resp);
 
@@ -1647,7 +1647,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 		dnpds40_cleanup_string((char*)resp, len);
 		len = atoi((char*)resp);
 
-		INFO("Duplexer Status: %d => %s\n", len, dnpds80_duplex_statuses(len));
+		INFO("Duplexer Status: %s\n", dnpds80_duplex_statuses(len));
 
 		free(resp);
 	}
@@ -1661,7 +1661,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Prints remaining in job: '%s'\n", (char*)resp + 4);
+	INFO("Prints remaining in job: %d\n", atoi((char*)resp + 4));
 
 	free(resp);
 
@@ -1674,16 +1674,16 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Free Buffers: '%s'\n", (char*)resp + 3);
+	INFO("Free Buffers: %d\n", atoi((char*)resp + 3));
 
 	free(resp);
 
 	/* Report media */
-	INFO("Media Type: '%s'\n", dnpds40_media_types(ctx->media));
+	INFO("Media Type: %s\n", dnpds40_media_types(ctx->media));
 
 	/* Report Cut Media */
 	if (ctx->type == P_DNP_DS80D)
-		INFO("Duplex Media Type: '%s'\n", dnpds80_duplex_media_types(ctx->media));
+		INFO("Duplex Media Type: %s\n", dnpds80_duplex_media_types(ctx->media));
 
 	if (ctx->supports_mqty_default) {
 		/* Get Media remaining */
@@ -1697,7 +1697,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 		len = atoi((char*)resp+4);
 
-		INFO("Prints Available on New Media: '%d'\n", len);
+		INFO("Native Prints Available on New Media: %d\n", len);
 
 		free(resp);
 	}
@@ -1715,9 +1715,9 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	if (ctx->type != P_DNP_DS620 && len > 0)
 		len -= 50;
 
-	INFO("Prints Remaining on Media: '%d'\n", len);
-
 	free(resp);
+
+	INFO("Native Prints Remaining on Media: %d\n", len);
 
 	if (ctx->supports_rewind) {
 		/* Get Media remaining */
@@ -1729,8 +1729,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("Half-Size Prints Remaining on Media: '%s'\n", (char*)resp + 4);
-
+		INFO("Half-Size Prints Remaining on Media: %s\n", (char*)resp + 4);
 		free(resp);
 	}
 
@@ -1752,7 +1751,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("Lifetime Counter: '%s'\n", (char*)resp+2);
+	INFO("Lifetime Counter: %d\n", atoi((char*)resp+2));
 
 	free(resp);
 
@@ -1766,7 +1765,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("Head Counter: '%s'\n", (char*)resp+2);
+		INFO("Head Counter: %d\n", atoi((char*)resp+2));
 
 		free(resp);
 	}
@@ -1780,7 +1779,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("A Counter: '%s'\n", (char*)resp+2);
+	INFO("A Counter: %d\n", atoi((char*)resp+2));
 
 	free(resp);
 
@@ -1793,7 +1792,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("B Counter: '%s'\n", (char*)resp+2);
+	INFO("B Counter: %d\n", atoi((char*)resp+2));
 
 	free(resp);
 
@@ -1807,7 +1806,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("P Counter: '%s'\n", (char*)resp+2);
+		INFO("P Counter: %d\n", atoi((char*)resp+2));
 
 		free(resp);
 	}
@@ -1822,7 +1821,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("M Counter: '%s'\n", (char*)resp+2);
+		INFO("M Counter: %d\n", atoi((char*)resp+2));
 
 		free(resp);
 
@@ -1835,7 +1834,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("Matte Counter: '%s'\n", (char*)resp+4);
+		INFO("Matte Counter: %d\n", atoi((char*)resp+4));
 
 		free(resp);
 	}
@@ -1849,7 +1848,7 @@ static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("Duplexer Counter: '%s'\n", (char*)resp);
+		INFO("Duplexer Counter: %d\n", atoi((char*)resp));
 
 		free(resp);
 	}
@@ -2092,7 +2091,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.80",
+	.version = "0.81",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
