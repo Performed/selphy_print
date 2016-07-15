@@ -1729,7 +1729,8 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("Half-Size Prints Remaining on Media: %s\n", (char*)resp + 4);
+		len = atoi((char*)resp+4);
+		INFO("Half-Size Prints Remaining on Media: %d\n", len);
 		free(resp);
 	}
 
