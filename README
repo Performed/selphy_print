@@ -143,10 +143,6 @@
 	   -D                 Increment debug level                      [1]
 	   -G                 Display GPL text
 	   -f                 Enable fast return mode if possible        [2]
-	   -S serno           Use SerialNum 'serno'                      [3]
-	   -V extra_vid                                                  [4]
-	   -P extra_pid                                                  [4]
-	   -T extra_type                                                 [4]
 	   -d numcopies       Print 'numcopies' of the supplied job
 
        [1]  This argument can be repeated to increase the debug level.
@@ -164,33 +160,30 @@
 	    when using this backend with CUPS.  Not all backends support
 	    fast return.
 
-       [3]  If you have multiple models of the same printer family connected
-            simultaneously, the backend will choose the first one it finds.
-	    If you wish to target a specific device, you may specify its
-	    serial number with this switch, or using the 'SERIAL' environment
-	    variable.  For example, these are equivalent:
+      If you have multiple models of the same printer family connected
+      simultaneously, the backend will choose the first one it finds.
+      If you wish to target a specific device, you may specify its
+      serial number using the 'SERIAL' environment variable. For example:
 
-		  SERIAL=N782 backend filename [ arguments ]
-		  backend -S N782 filename [ arguments ]
+            SERIAL=N782 backend filename [ arguments ]
 
-       [4]  All backends support an additional operational mode, to test out
-            unknown models. To use this mode, specify the VID, PID and its
-	    internal device type as arguments or environment variables:
+       All backends support an additional operational mode, to test out
+       unknown models. To use this mode, specify the VID, PID and its
+       internal device type as environment variables:
 
-		  EXTRA_VID=04a9 EXTRA_PID=3ab1 EXTRA_TYPE=7 backend filename
-		  backend -V 04a9 -P 3ab1 -T 7 filename
+            EXTRA_VID=04a9 EXTRA_PID=3ab1 EXTRA_TYPE=7 backend filename
 
-	    The VID and PID are specified in hexidecimal, and the TYPE is 
-            the P_XXX enumeration defined in backend_common.h. The '7' in this
-            example corresponds to most Canon SELPHY CP models, and is what you
-            would use if you were trying to get the backend to detect an
-            otherwise unrecognized SELPHY CP model.
+       The VID and PID are specified in hexidecimal, and the TYPE is 
+       the P_XXX enumeration defined in backend_common.h. The '7' in this
+       example corresponds to most Canon SELPHY CP models, and is what you
+       would use if you were trying to get the backend to detect an
+       otherwise unrecognized SELPHY CP model.
 
-            If you are able to successfuly print using this technique,
-	    please let us know so we can add the apppriate entry to the
-	    internal database.
+       If you are able to successfuly print using this technique,
+       please let us know so we can add the apppriate entry to the
+       internal database.
 
-      Finally, some backends support additional arguments; see below:
+    Finally, some backends support additional arguments; see below:
 
  *************************************************************************** 
   BACKEND=canonselphy
