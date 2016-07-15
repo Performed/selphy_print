@@ -200,6 +200,19 @@ static void dnpds40_cleanup_string(char *start, int len)
 	}
 }
 
+static char *dnpds40_printer_type(int type)
+{
+	switch(type) {
+	case P_DNP_DS40: return "DS40";
+	case P_DNP_DS80: return "DS80";
+	case P_DNP_DS80D: return "DS80DX";
+	case P_DNP_DSRX1: return "DSRX1";
+	case P_DNP_DS620: return "DS620";
+	default: break;
+	}
+	return "Unknown";
+}
+
 static char *dnpds40_media_types(int media)
 {
 	switch (media) {
@@ -1394,6 +1407,8 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 	uint8_t *resp;
 	int len = 0;
 
+	INFO("Model: %s\n", dnpds40_printer_type(ctx->type));
+
 	/* Serial number already queried */
 	INFO("Serial Number: %s\n", ctx->serno);
 
@@ -2092,7 +2107,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.81",
+	.version = "0.82",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
