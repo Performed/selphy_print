@@ -691,9 +691,57 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->media_count_new -= ctx->mediaoffset;
 		}
 	} else {
-		// XXX look it up based on printer and media.
-		ctx->media_count_new = 0;
-		// DS40, DS80/DS80D, RX1
+		/* Look it up for legacy models & FW */
+		switch (ctx->type) {
+		case P_DNP_DS40:
+			switch (ctx->media) {
+			case 200: // L
+				ctx->media_count_new = 460;
+				break;
+			case 210: // 2L
+				ctx->media_count_new = 230;
+				break;
+			case 300: // PC
+				ctx->media_count_new = 400;
+				break;
+			case 310: // A5
+				ctx->media_count_new = 200;
+				break;
+			case 400: // A5W
+				ctx->media_count_new = 180;
+				break;
+			default:
+				ctx->media_count_new = 0;
+			}
+			break;
+		case P_DNP_DSRX1:
+			switch (ctx->media) {
+			case 300: // PC
+				ctx->media_count_new = 700;
+				break;
+			case 310: // A5
+				ctx->media_count_new = 350;
+				break;
+			default:
+				ctx->media_count_new = 0;
+			}
+			break;
+		case P_DNP_DS80:
+		case P_DNP_DS80D:
+			switch (ctx->media) {
+			case 500: // 8x10
+				ctx->media_count_new = 130;
+			case 510: // 8x12
+				ctx->media_count_new = 110;
+				break;
+			default:
+				ctx->media_count_new = 0;
+			}
+			break;
+		default:
+			ctx->media_count_new = 0;
+			break;
+		}
 	}
 }
 
