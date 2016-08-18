@@ -80,6 +80,7 @@ struct dnpds40_ctx {
 	int ver_major;
 	int ver_minor;
 	int media;
+	int media_count_new;
 	int duplex_media;
 
 	uint32_t multicut;
@@ -675,6 +676,25 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->mediaoffset = 50;
 	}
 
+	if (ctx->supports_mqty_default) {
+		struct dnpds40_cmd cmd;
+		uint8_t *resp;
+		int len = 0;
+
+		dnpds40_build_cmd(&cmd, "INFO", "MQTY_DEFAULT", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (resp) {
+			dnpds40_cleanup_string((char*)resp, len);
+			ctx->media_count_new = atoi((char*)resp+4);
+			free(resp);
+			ctx->media_count_new -= ctx->mediaoffset;
+		}
+	} else {
+		// XXX look it up based on printer and media.
+		ctx->media_count_new = 0;
+		// DS40, DS80/DS80D, RX1
+	}
 }
 
 static void dnpds40_teardown(void *vctx) {
@@ -1112,6 +1132,7 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	char buf[9];
 	int status;
 	int buf_needed;
+	int count = 0;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1122,6 +1143,13 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	if (!!ctx->matte != ctx->last_matte)
 		buf_needed = 2;
 
+	if (ctx->media_count_new) {
+		ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
+		ATTR("marker-high-levels=100\n");
+		ATTR("marker-low-levels=10\n");
+		ATTR("marker-names=Ribbon\n");
+		ATTR("marker-types=ribbon\n");
+	}
 top:
 
 	/* Query status */
@@ -1187,9 +1215,25 @@ top:
 		return CUPS_BACKEND_HOLD;
 	}
 
-	/* Verify we have sufficient media for prints */
 	{
-		int count = 0;
+		/* Figure out remaining native prints */
+		dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		count = atoi((char*)resp+4);
+		free(resp);
+
+		count -= ctx->mediaoffset;
+
+		if (ctx->media_count_new) {
+			ATTR("marker-levels=%d\n", count * 100 / ctx->media_count_new);
+			ATTR("marker-message=\"%d native prints remaining on ribbon\"\n", count);
+		}
 
 		/* See if we can rewind to save media */
 		if (ctx->can_rewind && ctx->supports_rewind) {
@@ -1208,21 +1252,7 @@ top:
 			free(resp);
 		}
 
-		/* If we didn't succeed with RQTY, try MQTY */
-		if (count == 0) {
-			dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
-
-			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-			if (!resp)
-				return CUPS_BACKEND_FAILED;
-
-			dnpds40_cleanup_string((char*)resp, len);
-
-			count = atoi((char*)resp+4);
-			free(resp);
-
-			count -= ctx->mediaoffset;
-		}
+		/* Verify we have sufficient media for prints */
 
 #if 0 // disabled this to allow error to be reported on the printer panel
 		if (count < 1) {
@@ -1303,6 +1333,7 @@ top:
 		INFO("Fast return mode enabled.\n");
 	} else {
 		INFO("Waiting for job to complete...\n");
+
 		while (1) {
 			/* Query status */
 			dnpds40_build_cmd(&cmd, "STATUS", "", 0);
@@ -1321,6 +1352,25 @@ top:
 				break;
 			}
 			sleep(1);
+		}
+
+		/* Figure out remaining native prints */
+		dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		count = atoi((char*)resp+4);
+		free(resp);
+
+		count -= ctx->mediaoffset;
+
+		if (ctx->media_count_new) {
+			ATTR("marker-levels=%d\n", count * 100 / ctx->media_count_new);
+			ATTR("marker-message=\"%d native prints remaining on ribbon\"\n", count);
 		}
 	}
 
@@ -1717,22 +1767,8 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	if (ctx->type == P_DNP_DS80D)
 		INFO("Duplex Media Type: %s\n", dnpds80_duplex_media_types(ctx->media));
 
-	if (ctx->supports_mqty_default) {
-		/* Get Media remaining */
-		dnpds40_build_cmd(&cmd, "INFO", "MQTY_DEFAULT", 0);
-
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-		if (!resp)
-			return CUPS_BACKEND_FAILED;
-
-		dnpds40_cleanup_string((char*)resp, len);
-
-		count = atoi((char*)resp+4);
-		free(resp);
-
-		count -= ctx->mediaoffset;
-		INFO("Native Prints Available on New Media: %d\n", count);
-	}
+	if (ctx->media_count_new)
+		INFO("Native Prints Available on New Media: %d\n", ctx->media_count_new);
 
 	/* Get Media remaining */
 	dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
@@ -2124,7 +2160,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.85",
+	.version = "0.86",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
