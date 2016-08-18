@@ -942,6 +942,24 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
+#if 0
+	/* Tell CUPS about the consumables we report */	
+	if (ctx->type == P_MITSU_D70X &&
+	    ctx->num_decks == 2) {
+		ATTR("marker-colors=#00FFFF#FF00FF#FFFF00,#00FFFF#FF00FF#FFFF00\n");
+		ATTR("marker-high-levels=100,100\n");
+		ATTR("marker-low-levels=10,10\n");
+		ATTR("marker-names=Ribbon,Ribbon\n");
+		ATTR("marker-types=ribbon,ribbon\n");
+	} else {
+		ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
+		ATTR("marker-high-levels=100\n");
+		ATTR("marker-low-levels=10\n");
+		ATTR("marker-names=Ribbon\n");
+		ATTR("marker-types=ribbon\n");
+	}
+#endif
+	
 top:
 	/* Query job status for jobid 0 (global) */
 	ret = mitsu70x_get_jobstatus(ctx, &jobstatus, 0x0000);
@@ -1074,6 +1092,17 @@ top:
 	INFO("Waiting for printer to acknowledge completion\n");
 
 	do {
+		sleep(1);
+
+#if 0	
+		// XXXX query printerstatus and dump deck remain/capacity..
+		if (ctx->type == P_MITSU_D70X &&
+		    ctx->num_decks == 2) {
+			ATTR("marker-levels=XXX,YYY\n");
+		} else {
+			ATTR("marker-levels=XXX\n");
+		}
+#endif		
 		/* Query job status for our used jobid */
 		ret = mitsu70x_get_jobstatus(ctx, &jobstatus, ctx->jobid);
 		if (ret)
