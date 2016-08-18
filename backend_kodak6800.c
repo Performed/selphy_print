@@ -236,6 +236,8 @@ struct kodak6800_ctx {
 	struct kodak6800_hdr hdr;
 	uint8_t *databuf;
 	int datalen;
+
+	uint8_t last_donor;
 };
 
 /* Baseline commands */
@@ -574,30 +576,34 @@ static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_st
 	INFO("Tone Curve Status: %s\n", detail);
 
 	INFO("Counters:\n");
-	INFO("\tLifetime     :  %d\n", be32_to_cpu(status->lifetime));
-	INFO("\tThermal Head :  %d\n", be32_to_cpu(status->maint));
-	INFO("\tCutter       :  %d\n", be32_to_cpu(status->cutter));
+	INFO("\tLifetime      : %d\n", be32_to_cpu(status->lifetime));
+	INFO("\tThermal Head  : %d\n", be32_to_cpu(status->maint));
+	INFO("\tCutter        : %d\n", be32_to_cpu(status->cutter));
 
 	if (ctx->type == P_KODAK_6850) {
 		int max;
 
-		INFO("\tMedia        :  %d\n", be32_to_cpu(status->media));
+		INFO("\tMedia         : %d\n", be32_to_cpu(status->media));
 
-		if (ctx->media->type == KODAK68x0_MEDIA_6R) {
+		switch(ctx->media->type) {
+		case KODAK68x0_MEDIA_6R:
+ 		case KODAK68x0_MEDIA_6TR2:
 			max = 375;
-		} else {
+			break;
+		default:
 			max = 0;
+			break;
 		}
 
 		if (max) {
-			INFO("\t  Remaining  : %d\n", max - be32_to_cpu(status->media));
+			INFO("\t  Remaining   : %d\n", max - be32_to_cpu(status->media));
 		} else {
-			INFO("\t  Remaining  : Unknown\n");
+			INFO("\t  Remaining   : Unknown\n");
 		}
 	}
-	INFO("Main FW version: %d\n", be16_to_cpu(status->main_fw));
-	INFO("DSP FW version : %d\n", be16_to_cpu(status->dsp_fw));
-	INFO("Donor          : %d%%\n", status->donor);
+	INFO("Main FW version : %d\n", be16_to_cpu(status->main_fw));
+	INFO("DSP FW version  : %d\n", be16_to_cpu(status->dsp_fw));
+	INFO("Donor           : %d%%\n", status->donor);
 	INFO("\n");
 }
 
@@ -1007,6 +1013,9 @@ static void kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 	if (!ctx->jobid)
 		ctx->jobid++;
 
+	/* Init */
+	ctx->last_donor = 255;
+
 	/* Query media info */
 	if (kodak6800_get_mediainfo(ctx, ctx->media)) {
 		ERROR("Can't query media\n");
@@ -1109,11 +1118,23 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
+        /* Tell CUPS about the consumables we report */
+        ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
+        ATTR("marker-high-levels=100\n");
+        ATTR("marker-low-levels=10\n");
+        ATTR("marker-names=Ribbon\n");
+        ATTR("marker-types=ribbon\n");
+
 	INFO("Waiting for printer idle\n");
 
 	while(1) {
 		if (kodak6800_get_status(ctx, &status))
 			return CUPS_BACKEND_FAILED;
+
+		if (ctx->last_donor != status.donor) {
+			ctx->last_donor = status.donor;
+			ATTR("marker-levels=%d\n", status.donor);
+		}
 
 		if (status.status1 == STATE_STATUS1_ERROR) {
 			INFO("Printer State: %s # %02x %08x %02x\n",
@@ -1184,6 +1205,11 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		if (kodak6800_get_status(ctx, &status))
 			return CUPS_BACKEND_FAILED;
 
+		if (ctx->last_donor != status.donor) {
+			ctx->last_donor = status.donor;
+			ATTR("marker-levels=%d\n", status.donor);
+		}
+
 		if (status.status1 == STATE_STATUS1_ERROR) {
 			INFO("Printer State: %s # %02x %08x %02x\n",
 				kodak68x0_status_str(&status),
@@ -1212,7 +1238,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.55",
+	.version = "0.56",
 	.uri_prefix = "kodak6800",
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
