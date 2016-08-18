@@ -164,6 +164,8 @@ struct kodak605_ctx {
 
 	uint8_t *databuf;
 	int datalen;
+
+	uint8_t last_donor;
 };
 
 static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_list *media)
@@ -237,6 +239,9 @@ static void kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->jobid = jobid & 0x7f;
 	if (!ctx->jobid)
 		ctx->jobid++;
+
+	/* Init */
+	ctx->last_donor = 255;
 
 	/* Query media info */
 	if (kodak605_get_media(ctx, ctx->media)) {
@@ -371,15 +376,27 @@ static int kodak605_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
+        /* Tell CUPS about the consumables we report */
+        ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
+        ATTR("marker-high-levels=100\n");
+        ATTR("marker-low-levels=10\n");
+        ATTR("marker-names=Ribbon\n");
+        ATTR("marker-types=ribbon\n");
+
 	INFO("Waiting for printer idle\n");
 
 	while(1) {
 		if ((ret = kodak605_get_status(ctx, &sts)))
 			return CUPS_BACKEND_FAILED;
 
+		if (ctx->last_donor != sts.donor) {
+			ctx->last_donor = sts.donor;
+			ATTR("marker-levels=%d\n", sts.donor);
+		}
+
 		// XXX check for errors
 
-		/* make sure we're not colliding with an existing
+		/* Make sure we're not colliding with an existing
 		   jobid */
 		while (ctx->jobid == sts.b1_id ||
 		       ctx->jobid == sts.b2_id) {
@@ -433,7 +450,12 @@ static int kodak605_main_loop(void *vctx, int copies) {
 		if ((ret = kodak605_get_status(ctx, &sts)))
 			return CUPS_BACKEND_FAILED;
 
-		// XXX check for errors ?
+		// XXX check for errors
+
+		if (ctx->last_donor != sts.donor) {
+			ctx->last_donor = sts.donor;
+			ATTR("marker-levels=%d\n", sts.donor);
+		}		// XXX check for errors ?
 
 		/* Wait for completion */
 		if (sts.b1_id == ctx->jobid && sts.b1_complete == sts.b1_total)
@@ -452,7 +474,7 @@ static int kodak605_main_loop(void *vctx, int copies) {
 	return CUPS_BACKEND_OK;
 }
 
-static void kodak605_dump_status(struct kodak605_status *sts)
+static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_status *sts)
 {
 	INFO("Bank 1: %s Job %03u @ %03u/%03u\n",
 	     bank_statuses(sts->b1_sts), sts->b1_id,
@@ -465,6 +487,26 @@ static void kodak605_dump_status(struct kodak605_status *sts)
 	INFO("Cutter actuations : %d\n", be32_to_cpu(sts->ctr_cut));
 	INFO("Head prints       : %d\n", be32_to_cpu(sts->ctr_head));
 	INFO("Media prints      : %d\n", be32_to_cpu(sts->ctr_media));
+	{
+		int max;
+
+		switch(ctx->media->type) {
+		case KODAK68x0_MEDIA_6R:
+ 		case KODAK68x0_MEDIA_6TR2:
+			max = 375;
+			break;
+		default:
+			max = 0;
+			break;
+		}
+
+		if (max) {
+			INFO("\t  Remaining   : %d\n", max - be32_to_cpu(sts->ctr_media));
+		} else {
+			INFO("\t  Remaining   : Unknown\n");
+		}
+	}
+	
 	INFO("Donor             : %d%%\n", sts->donor);
 }
 
@@ -602,7 +644,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 
 			j = kodak605_get_status(ctx, &sts);
 			if (!j)
-				kodak605_dump_status(&sts);
+				kodak605_dump_status(ctx, &sts);
 			break;
 		}
 		default:
@@ -618,7 +660,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.26",
+	.version = "0.27",
 	.uri_prefix = "kodak605",
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
