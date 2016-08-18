@@ -275,6 +275,9 @@ struct shinkos6145_ctx {
 	uint8_t *databuf;
 	size_t datalen;
 
+	uint16_t last_donor;
+	uint16_t last_remain;
+	
 	uint8_t *eeprom;
 	size_t eepromlen;
 
@@ -1906,6 +1909,9 @@ static void shinkos6145_attach(void *vctx, struct libusb_device_handle *dev,
 
 	/* Ensure jobid is sane */
 	ctx->jobid = (jobid & 0x7f) + 1;
+
+	/* Initialize donor */
+	ctx->last_donor = ctx->last_remain = 65535;
 }
 
 static void shinkos6145_teardown(void *vctx) {
@@ -2143,6 +2149,13 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
+        /* Tell CUPS about the consumables we report */
+        ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
+        ATTR("marker-high-levels=100\n");
+        ATTR("marker-low-levels=10\n");
+        ATTR("marker-names=Ribbon\n");
+        ATTR("marker-types=ribbon\n");
+	
 	// XXX check copies against remaining media?
 
 	/* Query printer mode */
@@ -2172,10 +2185,25 @@ top:
 	}
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
+		uint16_t donor, remain;
+		
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 
 		INFO("Printer Status: 0x%02x (%s)\n", 
 		     sts->hdr.status, status_str(sts->hdr.status));
+
+		/* Guessimate a percentage for the remaining media */
+		donor = le32_to_cpu(sts->count_ribbon_left) * 100 / (le32_to_cpu(sts->count_ribbon_left)+le32_to_cpu(sts->count_paper));
+		if (donor != ctx->last_donor) {
+			ctx->last_donor = donor;
+			ATTR("marker-levels=%d\n", donor);
+		}
+		remain = le32_to_cpu(sts->count_ribbon_left);
+		if (remain != ctx->last_remain) {
+			ctx->last_remain = remain;
+			ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain);
+		}
+
 		if (sts->hdr.result != RESULT_SUCCESS)
 			goto printer_error;
 		if (sts->hdr.status == ERROR_PRINTER)
@@ -2409,7 +2437,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.19",
+	.version = "0.20",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
