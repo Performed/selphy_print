@@ -106,6 +106,7 @@ struct shinkos2145_ctx {
 
 	uint16_t last_donor;
 	uint16_t last_remain;
+	uint16_t media_prints;
 };
 
 /* Structs for printer */
@@ -198,6 +199,23 @@ static char *print_sizes (uint8_t v) {
 		return "2x6";
 	default:
 		return "Unknown";
+	}
+}
+
+static int print_counts (uint8_t v) {
+	switch (v) {
+	case PRINT_MEDIA_4x6:
+		return 700;
+	case PRINT_MEDIA_5x3_5:
+		return 800;
+	case PRINT_MEDIA_5x7:
+		return 400;
+	case PRINT_MEDIA_6x9:
+		return 310;
+	case PRINT_MEDIA_6x8:
+		return 350;
+	default:
+		return 700;
 	}
 }
 
@@ -1399,7 +1417,7 @@ static void shinkos2145_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->jobid++;
 
 	/* Initialize donor */
-	ctx->last_donor = ctx->last_remain = 65535;
+	ctx->last_donor = ctx->last_remain = ctx->media_prints = 65535;
 }
 
 static void shinkos2145_teardown(void *vctx) {
@@ -1525,6 +1543,11 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
 
 	/* Validate print sizes */
 	for (i = 0; i < media->count ; i++) {
+		/* Figure out the media type... */
+		int media_prints = print_counts(media->items[i].code);
+		if (media_prints < ctx->media_prints)
+			ctx->media_prints = media_prints;
+
 		/* Look for matching media */
 		if (le16_to_cpu(media->items[i].columns) == cpu_to_le16(le32_to_cpu(ctx->hdr.columns)) &&
 		    le16_to_cpu(media->items[i].rows) == cpu_to_le16(le32_to_cpu(ctx->hdr.rows)) &&
@@ -1573,7 +1596,7 @@ top:
 		     sts->hdr.status, status_str(sts->hdr.status));
 
 		/* Guessimate a percentage for the remaining media */
-		donor = le32_to_cpu(sts->count_ribbon_left) * 100 / (le32_to_cpu(sts->count_ribbon_left)+le32_to_cpu(sts->count_paper));
+		donor = le32_to_cpu(sts->count_ribbon_left) * 100 / ctx->media_prints;
 		if (donor != ctx->last_donor) {
 			ctx->last_donor = donor;
 			ATTR("marker-levels=%d\n", donor);
