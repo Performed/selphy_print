@@ -114,6 +114,10 @@
    DEVICE_URI=someuri \
        gutenprint52+usb job-id user title num-copies options [ filename ]
 
+    The backend generates output for CUPS to parse, including logging
+    print counts, and if the printer supports it, reporting media type and
+    remaining media counts.
+
  ***************************************************************************
   Standalone usage:
 

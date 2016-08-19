@@ -240,6 +240,20 @@ struct kodak6800_ctx {
 	uint8_t last_donor;
 };
 
+static const char *kodak68xx_mediatypes(int type)
+{
+	switch(type) {
+	case KODAK68x0_MEDIA_NONE:
+		return "No media";
+	case KODAK68x0_MEDIA_6R:
+	case KODAK68x0_MEDIA_6TR2:
+		return "Kodak 6R";
+	default:
+		return "Unknown";
+	}
+	return "Unknown";
+}
+
 /* Baseline commands */
 static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
                               void *cmd, int cmd_len,
@@ -261,6 +275,8 @@ static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
 
         return 0;
 }
+
+
 
 static void kodak68x0_dump_mediainfo(struct kodak68x0_media_readback *media)
 {
@@ -1124,8 +1140,8 @@ static int kodak6800_main_loop(void *vctx, int copies) {
         ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
         ATTR("marker-high-levels=100\n");
         ATTR("marker-low-levels=10\n");
-        ATTR("marker-names=Ribbon\n");
-        ATTR("marker-types=ink-ribbon\n");
+        ATTR("marker-names='%s'\n", kodak68xx_mediatypes(ctx->media->type));
+        ATTR("marker-types=ribbonWax\n");
 
 	INFO("Waiting for printer idle\n");
 

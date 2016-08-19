@@ -1195,8 +1195,8 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
 		ATTR("marker-high-levels=100\n");
 		ATTR("marker-low-levels=10\n");
-		ATTR("marker-names=Ribbon\n");
-		ATTR("marker-types=ink-ribbon\n");
+		ATTR("marker-names='%s'\n", dnpds40_media_types(ctx->media));
+		ATTR("marker-types=ribbonWax\n");
 	}
 top:
 

@@ -106,6 +106,7 @@ struct shinkos6245_ctx {
 
 	uint16_t last_donor;
 	uint16_t last_remain;
+	uint8_t  ribbon_code;
 };
 
 /* Structs for printer */
@@ -520,7 +521,7 @@ static char *error_codes(uint8_t major, uint8_t minor)
 			return "Paper Jam: Precut Print Position Off";
 		case 0x20:
 			return "Paper Jam: Precut Print Position On";
-			
+
 		case 0x29:
 			return "Paper Jam: Printing Paper Top On";
 		case 0x2A:
@@ -703,13 +704,13 @@ struct s6245_status_resp {
 	uint32_t count_head;
 	uint32_t count_ribbon_left;
 	uint32_t reserved;
-	
+
 	uint8_t  bank1_printid;
 	uint16_t bank1_remaining;
 	uint16_t bank1_finished;
 	uint16_t bank1_specified;
 	uint8_t  bank1_status;
-	
+
 	uint8_t  bank2_printid;
 	uint16_t bank2_remaining;
 	uint16_t bank2_finished;
@@ -718,7 +719,7 @@ struct s6245_status_resp {
 
 	uint8_t  reserved2[16];
 	uint8_t  tonecurve_status;
-	uint8_t  reserved3[6];	
+	uint8_t  reserved3[6];
 } __attribute__((packed));
 
 #define BANK_STATUS_FREE  0x00
@@ -790,7 +791,7 @@ struct s6245_mediainfo_item {
 #define MEDIA_8x6_2   0x32
 #define MEDIA_8x4_3   0x40
 
-static char *print_medias (uint8_t v) {
+static const char *print_sizes (uint8_t v) {
 	switch (v) {
 	case MEDIA_8x10:
 		return "8x10";
@@ -819,9 +820,35 @@ static char *print_medias (uint8_t v) {
 
 struct s6245_mediainfo_resp {
 	struct s6245_status_hdr hdr;
-	uint8_t  count;
+	uint8_t ribbon_code;
+	uint8_t reserved;
+	uint8_t count;
 	struct s6245_mediainfo_item items[10];  /* Not all necessarily used */
 } __attribute__((packed));
+
+static const char *ribbon_sizes (uint8_t v) {
+	switch (v) {
+	case 0x00:
+		return "None";
+	case 0x11:
+		return "8x10";
+	case 0x12:
+		return "8x12";
+	default:
+		return "Unknown";
+	}
+}
+
+static int ribbon_counts (uint8_t v) {
+	switch (v) {
+	case 0x11:
+		return 120;
+	case 0x12:
+		return 100;
+	default:
+		return 120;
+	}
+}
 
 struct s6245_errorlog_resp {
 	struct s6245_status_hdr hdr;
@@ -1113,14 +1140,15 @@ static int get_mediainfo(struct shinkos6245_ctx *ctx)
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
-	
+
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6245_mediainfo_resp) - sizeof(struct s6245_status_hdr)))
 		return -2;
 
+        INFO("Loaded Media Type:  %s\n", ribbon_sizes(resp->ribbon_code));
 	INFO("Supported Media Information: %d entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: C 0x%02x (%s), %04dx%04d, P 0x%02x (%s)\n", i,
-		     resp->items[i].media_code, print_medias(resp->items[i].media_code),
+		     resp->items[i].media_code, print_sizes(resp->items[i].media_code),
 		     le16_to_cpu(resp->items[i].columns),
 		     le16_to_cpu(resp->items[i].rows), 
 		     resp->items[i].print_method, print_methods(resp->items[i].print_method));
@@ -1473,10 +1501,10 @@ static void shinkos6245_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-	
+
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
-	
+
 	ctx->type = lookup_printer_type(&shinkos6245_backend,
 					desc.idVendor, desc.idProduct);
 
@@ -1643,6 +1671,7 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
 		ERROR("Incorrect media loaded for print!\n");
 		return CUPS_BACKEND_HOLD;
 	}
+	ctx->ribbon_code = media->ribbon_code;
 
 	/* Send Set Time */
 	{
@@ -1676,9 +1705,9 @@ static int shinkos6245_main_loop(void *vctx, int copies) {
         ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
         ATTR("marker-high-levels=100\n");
         ATTR("marker-low-levels=10\n");
-        ATTR("marker-names=Ribbon\n");
-        ATTR("marker-types=ink-ribbon\n");
-	
+        ATTR("marker-names='%s'\n", ribbon_sizes(ctx->ribbon_code));
+        ATTR("marker-types=ribbonWax\n");
+
 	// XXX check copies against remaining media!
 
 top:
@@ -1709,7 +1738,7 @@ top:
 		     sts->hdr.status, status_str(sts->hdr.status));
 
 		/* Guessimate a percentage for the remaining media */
-		donor = le32_to_cpu(sts->count_ribbon_left) * 100 / (le32_to_cpu(sts->count_ribbon_left)+le32_to_cpu(sts->count_paper));
+		donor = le32_to_cpu(sts->count_ribbon_left) * 100 / ribbon_counts(ctx->ribbon_code);
 		if (donor != ctx->last_donor) {
 			ctx->last_donor = donor;
 			ATTR("marker-levels=%d\n", donor);
@@ -1721,7 +1750,7 @@ top:
 		}
 
 		if (sts->hdr.result != RESULT_SUCCESS)
-			goto printer_error;		
+			goto printer_error;
 		if (sts->hdr.error == ERROR_PRINTER)
 			goto printer_error;
 	} else if (state == last_state) {
@@ -1730,7 +1759,7 @@ top:
 	}
 	last_state = state;
 
-	fflush(stderr);       
+	fflush(stderr);
 
 	switch (state) {
 	case S_IDLE:
@@ -1866,7 +1895,7 @@ static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Shinko/Sinfonia CHC-S6245",
-	.version = "0.06WIP",
+	.version = "0.07WIP",
 	.uri_prefix = "shinkos6245",
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,

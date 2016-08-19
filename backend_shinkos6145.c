@@ -275,15 +275,17 @@ struct shinkos6145_ctx {
 	uint8_t *databuf;
 	size_t datalen;
 
+	uint8_t ribbon_type;
+
 	uint16_t last_donor;
 	uint16_t last_remain;
-	
+
 	uint8_t *eeprom;
 	size_t eepromlen;
 
 	void *dl_handle;
 	ImageProcessingFN ImageProcessing;
-	ImageAvrCalcFN ImageAvrCalc;	
+	ImageAvrCalcFN ImageAvrCalc;
 
 	struct shinkos6145_correctionparam *corrdata;
 	size_t corrdatalen;
@@ -869,13 +871,13 @@ struct s6145_status_resp {
 	uint32_t count_head;
 	uint32_t count_ribbon_left;
 	uint32_t reserved;
-	
+
 	uint8_t  bank1_printid;
 	uint16_t bank1_remaining;
 	uint16_t bank1_finished;
 	uint16_t bank1_specified;
 	uint8_t  bank1_status;
-	
+
 	uint8_t  bank2_printid;
 	uint16_t bank2_remaining;
 	uint16_t bank2_finished;
@@ -884,7 +886,7 @@ struct s6145_status_resp {
 
 	uint8_t  reserved2[16];
 	uint8_t  tonecurve_status;
-	uint8_t  reserved3[6];	
+	uint8_t  reserved3[6];
 } __attribute__((packed));
 
 #define BANK_STATUS_FREE  0x00
@@ -953,7 +955,7 @@ struct s6145_mediainfo_item {
 #define MEDIA_2x6     0x07
 #define MEDIA_6x6     0x08
 
-static char *print_medias (uint8_t v) {
+static char *print_sizes (uint8_t v) {
 	switch (v) {
 	case MEDIA_4x6:
 		return "4x6";
@@ -981,7 +983,24 @@ static char *print_medias (uint8_t v) {
 #define RIBBON_6x8    0x04
 #define RIBBON_6x9    0x05
 
-static char *print_ribbons (uint8_t v) {
+static int ribbon_sizes (uint8_t v) {
+	switch (v) {
+	case RIBBON_4x6:
+		return 300;
+	case RIBBON_3_5x5:
+		return 340;
+	case RIBBON_5x7:
+		return 170;
+	case RIBBON_6x8:
+		return 150;
+	case RIBBON_6x9:
+		return 130; // XXX guessed
+	default:
+		return 300; // don't want 0.
+	}
+}
+
+static const char *print_ribbons (uint8_t v) {
 	switch (v) {
 	case RIBBON_NONE:
 		return "None";
@@ -1330,7 +1349,7 @@ static int get_mediainfo(struct shinkos6145_ctx *ctx)
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
-	
+
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6145_mediainfo_resp) - sizeof(struct s6145_status_hdr)))
 		return -2;
 
@@ -1338,9 +1357,9 @@ static int get_mediainfo(struct shinkos6145_ctx *ctx)
 	INFO("Supported Print Sizes: %d entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: C 0x%02x (%s), %04dx%04d, P 0x%02x (%s)\n", i,
-		     resp->items[i].media_code, print_medias(resp->items[i].media_code),
+		     resp->items[i].media_code, print_sizes(resp->items[i].media_code),
 		     le16_to_cpu(resp->items[i].columns),
-		     le16_to_cpu(resp->items[i].rows), 
+		     le16_to_cpu(resp->items[i].rows),
 		     resp->items[i].print_method, print_methods(resp->items[i].print_method));
 	}
 	return 0;
@@ -2055,7 +2074,7 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 
 		return CUPS_BACKEND_CANCEL;
 	}
-	
+
 	if (ctx->databuf) {
 		free(ctx->databuf);
 		ctx->databuf = NULL;
@@ -2131,7 +2150,7 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
 		return CUPS_BACKEND_FAILED;
 	}
-	
+
 	if (le16_to_cpu(media->hdr.payload_len) != (sizeof(struct s6145_mediainfo_resp) - sizeof(struct s6145_status_hdr)))
 		return CUPS_BACKEND_FAILED;
 
@@ -2153,9 +2172,10 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
         ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
         ATTR("marker-high-levels=100\n");
         ATTR("marker-low-levels=10\n");
-        ATTR("marker-names=Ribbon\n");
-        ATTR("marker-types=ink-ribbon\n");
-	
+        ATTR("marker-names='%s'\n", print_ribbons(media->ribbon));
+        ATTR("marker-types=ribbonWax\n");
+	ctx->ribbon_type = media->ribbon;
+
 	// XXX check copies against remaining media?
 
 	/* Query printer mode */
@@ -2164,7 +2184,7 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 		ERROR("Failed to execute command\n");
 		return ret;
 	}
-	
+
 top:
 	if (state != last_state) {
 		if (dyesub_debug)
@@ -2186,14 +2206,14 @@ top:
 
 	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
 		uint16_t donor, remain;
-		
+
 		memcpy(rdbuf2, rdbuf, READBACK_LEN);
 
 		INFO("Printer Status: 0x%02x (%s)\n", 
 		     sts->hdr.status, status_str(sts->hdr.status));
 
 		/* Guessimate a percentage for the remaining media */
-		donor = le32_to_cpu(sts->count_ribbon_left) * 100 / (le32_to_cpu(sts->count_ribbon_left)+le32_to_cpu(sts->count_paper));
+		donor = le32_to_cpu(sts->count_ribbon_left) * 100 / ribbon_sizes(ctx->ribbon_type);
 		if (donor != ctx->last_donor) {
 			ctx->last_donor = donor;
 			ATTR("marker-levels=%d\n", donor);
@@ -2207,14 +2227,14 @@ top:
 		if (sts->hdr.result != RESULT_SUCCESS)
 			goto printer_error;
 		if (sts->hdr.status == ERROR_PRINTER)
-			goto printer_error;		
+			goto printer_error;
 	} else if (state == last_state) {
 		sleep(1);
 		goto top;
 	}
 	last_state = state;
 
-	fflush(stderr);       
+	fflush(stderr);
 
 	switch (state) {
 	case S_IDLE:

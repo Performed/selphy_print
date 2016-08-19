@@ -182,7 +182,7 @@ struct s2145_print_cmd {
 #define PRINT_MEDIA_6x8    0x06
 #define PRINT_MEDIA_2x6    0x07
 
-static char *print_medias (uint8_t v) {
+static char *print_sizes (uint8_t v) {
 	switch (v) {
 	case PRINT_MEDIA_4x6:
 		return "4x6";
@@ -909,7 +909,7 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 
 		if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_fwinfo_resp) - sizeof(struct s2145_status_hdr)))
 			continue;
-		
+
 		INFO(" %s\t ver %02x.%02x\n", fwinfo_targets(i),
 		     resp->major, resp->minor);
 #if 0
@@ -940,7 +940,7 @@ static int get_errorlog(struct shinkos2145_ctx *ctx)
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
-	
+
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_errorlog_resp) - sizeof(struct s2145_status_hdr)))
 		return -2;
 
@@ -948,13 +948,13 @@ static int get_errorlog(struct shinkos2145_ctx *ctx)
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: @ %08u prints : 0x%02x/0x%02x (%s)\n", i,
 		     le32_to_cpu(resp->items[i].print_counter),
-		     resp->items[i].major, resp->items[i].minor, 
+		     resp->items[i].major, resp->items[i].minor,
 		     error_codes(resp->items[i].major, resp->items[i].minor));
 	}
 	return 0;
 }
 
-static int get_mediainfo(struct shinkos2145_ctx *ctx) 
+static int get_mediainfo(struct shinkos2145_ctx *ctx)
 {
 	struct s2145_cmd_hdr cmd;
 	struct s2145_mediainfo_resp *resp = (struct s2145_mediainfo_resp *) rdbuf;
@@ -971,23 +971,23 @@ static int get_mediainfo(struct shinkos2145_ctx *ctx)
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
-	
+
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
 		return -2;
 
 	INFO("Supported Media Information: %d entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: C 0x%02x (%s), %04dx%04d, M 0x%02x (%s), P 0x%02x (%s)\n", i,
-		     resp->items[i].code, print_medias(resp->items[i].code),
+		     resp->items[i].code, print_sizes(resp->items[i].code),
 		     le16_to_cpu(resp->items[i].columns),
-		     le16_to_cpu(resp->items[i].rows), 
+		     le16_to_cpu(resp->items[i].rows),
 		     resp->items[i].media_type, media_types(resp->items[i].media_type),
 		     resp->items[i].print_type, print_methods(resp->items[i].print_type));
 	}
 	return 0;
 }
 
-static int get_user_string(struct shinkos2145_ctx *ctx) 
+static int get_user_string(struct shinkos2145_ctx *ctx)
 {
 	struct s2145_cmd_hdr cmd;
 	struct s2145_getunique_resp *resp = (struct s2145_getunique_resp*) rdbuf;
@@ -1540,8 +1540,8 @@ static int shinkos2145_main_loop(void *vctx, int copies) {
         ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
         ATTR("marker-high-levels=100\n");
         ATTR("marker-low-levels=10\n");
-        ATTR("marker-names=Ribbon\n");
-        ATTR("marker-types=ink-ribbon\n");
+        ATTR("marker-names='Color'\n");
+        ATTR("marker-types=ribbonWax\n");
 
 	// XXX check copies against remaining media!
 

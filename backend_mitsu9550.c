@@ -60,6 +60,7 @@ struct mitsu9550_ctx {
 
 	uint16_t last_donor;
 	uint16_t last_remain;
+	int marker_reported;
 };
 
 /* Spool file structures */
@@ -154,6 +155,16 @@ struct mitsu9550_status2 {
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 0, 1); \
 		if (ret < 0) \
 			return CUPS_BACKEND_FAILED; \
+		\
+		/* Tell CUPS about the consumables we report */ \
+		if (!ctx->marker_reported) { \
+			ctx->marker_reported = 1; \
+			ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");	\
+			ATTR("marker-high-levels=100\n"); \
+			ATTR("marker-low-levels=10\n");	\
+			ATTR("marker-names='%s'\n", mitsu9550_media_types(media->type)); \
+			ATTR("marker-types=ribbonWax\n"); \
+		} \
 		\
 		/* Sanity-check media response */ \
 		if (media->remain == 0 || media->max == 0) { \
@@ -334,6 +345,27 @@ static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int st
 	return 0;
 }
 
+static char *mitsu9550_media_types(uint8_t type)
+{
+	switch (type) {
+	case 0x01:
+		return "3.5x5";
+	case 0x02:
+		return "4x6";
+	case 0x03:
+		return "PC";
+	case 0x04:
+		return "5x7";
+	case 0x05:
+		return "6x9";
+	case 0x06:
+		return "V";
+	default:
+		return "Unknown";
+	}
+	return NULL;
+}
+
 static int validate_media(int type, int cols, int rows) {
 	switch(type) {
 	case 0x01: /* 3.5x5 */
@@ -375,7 +407,7 @@ static int mitsu9550_main_loop(void *vctx, int copies) {
 	struct mitsu9550_cmd cmd;
 	uint8_t rdbuf[READBACK_LEN];
 	uint8_t *ptr;
-	
+
 	int ret;
 
 	if (!ctx)
@@ -387,17 +419,10 @@ static int mitsu9550_main_loop(void *vctx, int copies) {
 
 	ptr = ctx->databuf;
 
-        /* Tell CUPS about the consumables we report */
-        ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-        ATTR("marker-high-levels=100\n");
-        ATTR("marker-low-levels=10\n");
-        ATTR("marker-names=Ribbon\n");
-        ATTR("marker-types=ink-ribbon\n");
-	
 top:
 	if (ctx->type == P_MITSU_9550S) {
 		int num;
-		
+
 		/* Send "unknown 1" command */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x53;
@@ -406,7 +431,7 @@ top:
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*) &cmd, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
-		
+
 		/* Send "unknown 2" command */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x4b;
@@ -415,7 +440,7 @@ top:
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*) &cmd, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
-		
+
 		ret = read_data(ctx->dev, ctx->endp_up,
 				rdbuf, READBACK_LEN, &num);
 		if (ret < 0)
@@ -426,7 +451,7 @@ top:
 	QUERY_STATUS();
 
 	/* Now it's time for the actual print job! */
-	
+
 	if (ctx->type == P_MITSU_9550S) {
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x44;
@@ -595,7 +620,7 @@ top:
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
-		
+
 		ret = mitsu9550_get_status(ctx, rdbuf, 1, 0, 0); // status
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
@@ -617,31 +642,10 @@ top:
 
 		sleep(1);
 	}
-	
+
 	INFO("Print complete\n");
 
 	return CUPS_BACKEND_OK;
-}
-
-static char *mitsu9550_media_types(uint8_t type)
-{
-	switch (type) {
-	case 0x01:
-		return "3.5x5";
-	case 0x02:
-		return "4x6";
-	case 0x03:
-		return "PC";
-	case 0x04:
-		return "5x7";
-	case 0x05:
-		return "6x9";
-	case 0x06:
-		return "V";
-	default:
-		return "Unknown";
-	}
-	return NULL;
 }
 
 static void mitsu9550_dump_media(struct mitsu9550_media *resp)
@@ -660,7 +664,6 @@ static void mitsu9550_dump_status(struct mitsu9550_status *resp)
 	     be16_to_cpu(resp->copies));
 	INFO("Other status      : %02x %02x %02x  %02x %02x\n",
 	     resp->sts3, resp->sts4, resp->sts5, resp->sts6, resp->sts7);
-	     
 }
 
 static int mitsu9550_query_media(struct mitsu9550_ctx *ctx)
