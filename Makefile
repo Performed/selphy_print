@@ -9,6 +9,7 @@ CUPS_DATA_DIR ?= $(PREFIX)`cups-config --datadir`
 
 # Tools
 CC ?= $(CROSS_COMPILE)gcc
+LD ?= $(CROSS_COMPILE)gcc
 CPPCHECK ?= cppcheck
 MKDIR ?= mkdir
 INSTALL ?= install
@@ -40,8 +41,11 @@ SOURCES = backend_common.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 
 all: $(EXEC_NAME) $(BACKENDS)
 
-$(EXEC_NAME): $(SOURCES) $(DEPS)
-	$(CC) -o $@ $(SOURCES)  $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
+%.o: %.c $(DEPS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+$(EXEC_NAME): $(SOURCES:.c=.o) $(DEPS)
+	$(CC) -o $@ $(SOURCES:.c=.o) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
 
 $(BACKENDS): $(EXEC_NAME)
 	$(LN) -sf $(EXEC_NAME) $@
