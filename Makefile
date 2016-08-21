@@ -23,6 +23,11 @@ CPPFLAGS += `pkg-config --cflags libusb-1.0`
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
 CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\"
 
+# If you want to use LTO..
+#CFLAGS += -flto
+# If not...
+CFLAGS += -funit-at-a-time
+
 # List of backends
 BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 citizencw01 mitsu9550 shinkos6245 shinkos6145
 
@@ -60,7 +65,7 @@ install:
 	$(INSTALL) -o root -m 644 blacklist $(CUPS_DATA_DIR)/usb/net.sf.gimp-print.usb-quirks
 
 clean:
-	$(RM) -f $(EXEC_NAME) $(BACKENDS)
+	$(RM) -f $(EXEC_NAME) $(BACKENDS) $(SOURCES:.c=.o)
 
 release:
 	$(RM) -Rf selphy_print-rel

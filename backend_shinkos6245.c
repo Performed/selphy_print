@@ -929,7 +929,7 @@ struct s6245_fwinfo_resp {
 #define READBACK_LEN 512    /* Needs to be larger than largest response hdr */
 #define CMDBUF_LEN sizeof(struct s6245_print_cmd)
 
-uint8_t rdbuf[READBACK_LEN];
+static uint8_t rdbuf[READBACK_LEN];
 
 static int s6245_do_cmd(struct shinkos6245_ctx *ctx,
 			uint8_t *cmd, int cmdlen,

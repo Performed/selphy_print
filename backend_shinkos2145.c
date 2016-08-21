@@ -805,7 +805,7 @@ struct s2145_getunique_resp {
 #define READBACK_LEN 128    /* Needs to be larger than largest response hdr */
 #define CMDBUF_LEN sizeof(struct s2145_print_cmd)
 
-uint8_t rdbuf[READBACK_LEN];
+static uint8_t rdbuf[READBACK_LEN];
 
 static int s2145_do_cmd(struct shinkos2145_ctx *ctx,
 			uint8_t *cmd, int cmdlen,
