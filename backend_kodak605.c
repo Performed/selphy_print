@@ -405,7 +405,7 @@ static int kodak605_main_loop(void *vctx, int copies) {
 
 		if (ctx->last_donor != sts.donor) {
 			ctx->last_donor = sts.donor;
-			ATTR("marker-levels=%d\n", sts.donor);
+			ATTR("marker-levels=%u\n", sts.donor);
 		}
 
 		// XXX check for errors
@@ -433,7 +433,7 @@ static int kodak605_main_loop(void *vctx, int copies) {
 	ctx->hdr.jobid = ctx->jobid;
 
 	{
-		INFO("Sending image header (internal id %d)\n", ctx->jobid);
+		INFO("Sending image header (internal id %u)\n", ctx->jobid);
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*)&ctx->hdr, sizeof(ctx->hdr))))
 			return CUPS_BACKEND_FAILED;
@@ -461,14 +461,14 @@ static int kodak605_main_loop(void *vctx, int copies) {
 	INFO("Waiting for printer to acknowledge completion\n");
 	do {
 		sleep(1);
-		if ((ret = kodak605_get_status(ctx, &sts)))
+		if ((kodak605_get_status(ctx, &sts)) != 0)
 			return CUPS_BACKEND_FAILED;
 
 		// XXX check for errors
 
 		if (ctx->last_donor != sts.donor) {
 			ctx->last_donor = sts.donor;
-			ATTR("marker-levels=%d\n", sts.donor);
+			ATTR("marker-levels=%u\n", sts.donor);
 		}		// XXX check for errors ?
 
 		/* Wait for completion */
@@ -497,10 +497,10 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 	     bank_statuses(sts->b2_sts), sts->b2_id,
 	     le16_to_cpu(sts->b2_complete), le16_to_cpu(sts->b2_total));
 
-	INFO("Lifetime prints   : %d\n", be32_to_cpu(sts->ctr_life));
-	INFO("Cutter actuations : %d\n", be32_to_cpu(sts->ctr_cut));
-	INFO("Head prints       : %d\n", be32_to_cpu(sts->ctr_head));
-	INFO("Media prints      : %d\n", be32_to_cpu(sts->ctr_media));
+	INFO("Lifetime prints   : %u\n", be32_to_cpu(sts->ctr_life));
+	INFO("Cutter actuations : %u\n", be32_to_cpu(sts->ctr_cut));
+	INFO("Head prints       : %u\n", be32_to_cpu(sts->ctr_head));
+	INFO("Media prints      : %u\n", be32_to_cpu(sts->ctr_media));
 	{
 		int max;
 
@@ -515,13 +515,13 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 		}
 
 		if (max) {
-			INFO("\t  Remaining   : %d\n", max - be32_to_cpu(sts->ctr_media));
+			INFO("\t  Remaining   : %u\n", max - be32_to_cpu(sts->ctr_media));
 		} else {
 			INFO("\t  Remaining   : Unknown\n");
 		}
 	}
 
-	INFO("Donor             : %d%%\n", sts->donor);
+	INFO("Donor             : %u%%\n", sts->donor);
 }
 
 static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
@@ -547,7 +547,7 @@ static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
 
 	DEBUG("Legal print sizes:\n");
 	for (i = 0 ; i < media->count ; i++) {
-		DEBUG("\t%d: %dx%d\n", i,
+		DEBUG("\t%d: %ux%u\n", i,
 		      le16_to_cpu(media->entries[i].cols),
 		      le16_to_cpu(media->entries[i].rows));
 	}

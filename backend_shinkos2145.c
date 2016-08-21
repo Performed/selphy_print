@@ -889,7 +889,7 @@ static int get_status(struct shinkos2145_ctx *ctx)
 	     le16_to_cpu(resp->bank1_specified),
 	     le16_to_cpu(resp->bank1_remaining));
 
-	INFO("Bank 2: 0x%02x (%s) Job %03d @ %03d/%03d (%03d remaining)\n",
+	INFO("Bank 2: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
 	     resp->bank2_status, bank_statuses(resp->bank1_status),
 	     resp->bank2_printid,
 	     le16_to_cpu(resp->bank2_finished),
@@ -962,7 +962,7 @@ static int get_errorlog(struct shinkos2145_ctx *ctx)
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_errorlog_resp) - sizeof(struct s2145_status_hdr)))
 		return -2;
 
-	INFO("Stored Error Events: %d entries:\n", resp->count);
+	INFO("Stored Error Events: %u entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: @ %08u prints : 0x%02x/0x%02x (%s)\n", i,
 		     le32_to_cpu(resp->items[i].print_counter),
@@ -993,9 +993,9 @@ static int get_mediainfo(struct shinkos2145_ctx *ctx)
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
 		return -2;
 
-	INFO("Supported Media Information: %d entries:\n", resp->count);
+	INFO("Supported Media Information: %u entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: C 0x%02x (%s), %04dx%04d, M 0x%02x (%s), P 0x%02x (%s)\n", i,
+		INFO(" %02d: C 0x%02x (%s), %04ux%04u, M 0x%02x (%s), P 0x%02x (%s)\n", i,
 		     resp->items[i].code, print_sizes(resp->items[i].code),
 		     le16_to_cpu(resp->items[i].columns),
 		     le16_to_cpu(resp->items[i].rows),
@@ -1459,7 +1459,7 @@ static int shinkos2145_read_parse(void *vctx, int data_fd) {
 	}
 
 	if (le32_to_cpu(ctx->hdr.model) != 2145) {
-		ERROR("Unrecognized printer (%d)!\n", le32_to_cpu(ctx->hdr.model));
+		ERROR("Unrecognized printer (%u)!\n", le32_to_cpu(ctx->hdr.model));
 
 		return CUPS_BACKEND_CANCEL;
 	}
@@ -1640,7 +1640,7 @@ top:
 
 		break;
 	case S_PRINTER_READY_CMD:
-		INFO("Sending print job (internal id %d)\n", ctx->jobid);
+		INFO("Sending print job (internal id %u)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		print->hdr.cmd = cpu_to_le16(S2145_CMD_PRINTJOB);

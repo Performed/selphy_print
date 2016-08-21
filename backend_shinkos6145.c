@@ -1183,7 +1183,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	     le16_to_cpu(resp->bank1_specified),
 	     le16_to_cpu(resp->bank1_remaining));
 
-	INFO("Bank 2: 0x%02x (%s) Job %03d @ %03d/%03d (%03d remaining)\n",
+	INFO("Bank 2: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
 	     resp->bank2_status, bank_statuses(resp->bank1_status),
 	     resp->bank2_printid,
 	     le16_to_cpu(resp->bank2_finished),
@@ -1206,9 +1206,9 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	if (le16_to_cpu(resp2->hdr.payload_len) != (sizeof(struct s6145_getextcounter_resp) - sizeof(struct s6145_status_hdr)))
 		return -1;
 
-	INFO("Lifetime Distance:     %08d inches\n", le32_to_cpu(resp2->lifetime_distance));
-	INFO("Maintainence Distance: %08d inches\n", le32_to_cpu(resp2->maint_distance));
-	INFO("Head Distance:         %08d inches\n", le32_to_cpu(resp2->head_distance));
+	INFO("Lifetime Distance:     %08u inches\n", le32_to_cpu(resp2->lifetime_distance));
+	INFO("Maintainence Distance: %08u inches\n", le32_to_cpu(resp2->maint_distance));
+	INFO("Head Distance:         %08u inches\n", le32_to_cpu(resp2->head_distance));
 	
 	/* Query various params */
 	if(ctx->type == P_SHINKO_S6145D) {
@@ -1322,7 +1322,7 @@ static int get_errorlog(struct shinkos6145_ctx *ctx)
 	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s6145_errorlog_resp) - sizeof(struct s6145_status_hdr)))
 		return -2;
 
-	INFO("Stored Error Events: %d entries:\n", resp->count);
+	INFO("Stored Error Events: %u entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: @ %08u prints : 0x%02x/0x%02x (%s)\n", i,
 		     le32_to_cpu(resp->items[i].print_counter),
@@ -1354,9 +1354,9 @@ static int get_mediainfo(struct shinkos6145_ctx *ctx)
 		return -2;
 
 	INFO("Loaded Media Type:  %s\n", print_ribbons(resp->ribbon));
-	INFO("Supported Print Sizes: %d entries:\n", resp->count);
+	INFO("Supported Print Sizes: %u entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: C 0x%02x (%s), %04dx%04d, P 0x%02x (%s)\n", i,
+		INFO(" %02d: C 0x%02x (%s), %04ux%04u, P 0x%02x (%s)\n", i,
 		     resp->items[i].media_code, print_sizes(resp->items[i].media_code),
 		     le16_to_cpu(resp->items[i].columns),
 		     le16_to_cpu(resp->items[i].rows),
@@ -2070,7 +2070,7 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	}
 
 	if (le32_to_cpu(ctx->hdr.model) != 6145) {
-		ERROR("Unrecognized printer (%d)!\n", le32_to_cpu(ctx->hdr.model));
+		ERROR("Unrecognized printer (%u)!\n", le32_to_cpu(ctx->hdr.model));
 
 		return CUPS_BACKEND_CANCEL;
 	}
@@ -2337,7 +2337,7 @@ top:
 		ctx->databuf = (uint8_t*) databuf2;
 		ctx->datalen = newlen;
 
-		INFO("Sending print job (internal id %d)\n", ctx->jobid);
+		INFO("Sending print job (internal id %u)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		print->hdr.cmd = cpu_to_le16(S6145_CMD_PRINTJOB);

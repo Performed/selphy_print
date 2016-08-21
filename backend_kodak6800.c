@@ -569,10 +569,10 @@ static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_st
              kodak68x0_status_str(status),
              status->status1, be32_to_cpu(status->status2), status->errcode);
 
-	INFO("Bank 1 ID: %d\n", status->b1_jobid);
+	INFO("Bank 1 ID: %u\n", status->b1_jobid);
 	INFO("\tPrints:  %d/%d complete\n",
 	     be16_to_cpu(status->b1_complete), be16_to_cpu(status->b1_total));
-	INFO("Bank 2 ID: %d\n", status->b2_jobid);
+	INFO("Bank 2 ID: %u\n", status->b2_jobid);
 	INFO("\tPrints:  %d/%d complete\n",
 	     be16_to_cpu(status->b2_complete), be16_to_cpu(status->b2_total));
 
@@ -593,14 +593,14 @@ static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_st
 	INFO("Tone Curve Status: %s\n", detail);
 
 	INFO("Counters:\n");
-	INFO("\tLifetime      : %d\n", be32_to_cpu(status->lifetime));
-	INFO("\tThermal Head  : %d\n", be32_to_cpu(status->maint));
-	INFO("\tCutter        : %d\n", be32_to_cpu(status->cutter));
+	INFO("\tLifetime      : %u\n", be32_to_cpu(status->lifetime));
+	INFO("\tThermal Head  : %u\n", be32_to_cpu(status->maint));
+	INFO("\tCutter        : %u\n", be32_to_cpu(status->cutter));
 
 	if (ctx->type == P_KODAK_6850) {
 		int max;
 
-		INFO("\tMedia         : %d\n", be32_to_cpu(status->media));
+		INFO("\tMedia         : %u\n", be32_to_cpu(status->media));
 
 		switch(ctx->media->type) {
 		case KODAK68x0_MEDIA_6R:
@@ -620,7 +620,7 @@ static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_st
 	}
 	INFO("Main FW version : %d\n", be16_to_cpu(status->main_fw));
 	INFO("DSP FW version  : %d\n", be16_to_cpu(status->dsp_fw));
-	INFO("Donor           : %d%%\n", status->donor);
+	INFO("Donor           : %u%%\n", status->donor);
 	INFO("\n");
 }
 
@@ -1151,7 +1151,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 
 		if (ctx->last_donor != status.donor) {
 			ctx->last_donor = status.donor;
-			ATTR("marker-levels=%d\n", status.donor);
+			ATTR("marker-levels=%u\n", status.donor);
 		}
 
 		if (status.status1 == STATE_STATUS1_ERROR) {
@@ -1201,7 +1201,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	}
 #endif
 
-	INFO("Sending Print Job (internal id %d)\n", ctx->jobid);
+	INFO("Sending Print Job (internal id %u)\n", ctx->jobid);
 	if ((ret = kodak6800_do_cmd(ctx, (uint8_t*) &ctx->hdr, sizeof(ctx->hdr),
 				    &status, sizeof(status),
 				    &num)))
@@ -1214,8 +1214,8 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 
 //	sleep(1); // Appears to be necessary for reliability
 	INFO("Sending image data\n");
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     ctx->databuf, ctx->datalen)))
+	if ((send_data(ctx->dev, ctx->endp_down,
+			     ctx->databuf, ctx->datalen)) != 0)
 		return CUPS_BACKEND_FAILED;
 
 	INFO("Waiting for printer to acknowledge completion\n");
@@ -1226,7 +1226,7 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 
 		if (ctx->last_donor != status.donor) {
 			ctx->last_donor = status.donor;
-			ATTR("marker-levels=%d\n", status.donor);
+			ATTR("marker-levels=%u\n", status.donor);
 		}
 
 		if (status.status1 == STATE_STATUS1_ERROR) {

@@ -950,12 +950,14 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_jobstatus jobstatus;
 	struct mitsu70x_printerstatus_resp resp;
 	struct mitsu70x_jobs jobs;
-	struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
+	struct mitsu70x_hdr *hdr;
 
 	int ret;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
+
+	hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
 
 	INFO("Waiting for printer idle...\n");
 
@@ -1098,7 +1100,7 @@ skip_status:
 #endif
 
 	/* We're clear to send data over! */
-	INFO("Sending Print Job (internal id %d)\n", ctx->jobid);
+	INFO("Sending Print Job (internal id %u)\n", ctx->jobid);
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     ctx->databuf,
@@ -1229,7 +1231,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 			continue;
 		memcpy(buf, resp->vers[i].ver, 6);
 		buf[6] = 0;
-		INFO("Component #%d ID: %s (checksum %04x)\n",
+		INFO("Component #%u ID: %s (checksum %04x)\n",
 		     i, buf, be16_to_cpu(resp->vers[i].checksum));
 	}
 
@@ -1281,9 +1283,9 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 
 	ret = mitsu70x_get_jobs(ctx, &jobs);
 	if (!ret) {
-		INFO("JOB0 ID     : %06d\n", jobs.jobid_0);
+		INFO("JOB0 ID     : %06u\n", jobs.jobid_0);
 		INFO("JOB0 status : %s\n", mitsu70x_jobstatuses(jobs.job0_status));
-		INFO("JOB1 ID     : %06d\n", jobs.jobid_1);
+		INFO("JOB1 ID     : %06u\n", jobs.jobid_1);
 		INFO("JOB1 status : %s\n", mitsu70x_jobstatuses(jobs.job1_status));
 		// XXX are there more?
 	}

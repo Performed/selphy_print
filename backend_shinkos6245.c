@@ -1014,7 +1014,7 @@ static int get_status(struct shinkos6245_ctx *ctx)
 	     le16_to_cpu(resp->bank1_specified),
 	     le16_to_cpu(resp->bank1_remaining));
 
-	INFO("Bank 2: 0x%02x (%s) Job %03d @ %03d/%03d (%03d remaining)\n",
+	INFO("Bank 2: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
 	     resp->bank2_status, bank_statuses(resp->bank1_status),
 	     resp->bank2_printid,
 	     le16_to_cpu(resp->bank2_finished),
@@ -1037,9 +1037,9 @@ static int get_status(struct shinkos6245_ctx *ctx)
 	if (le16_to_cpu(resp2->hdr.payload_len) != (sizeof(struct s6245_getextcounter_resp) - sizeof(struct s6245_status_hdr)))
 		return 0;
 
-	INFO("Lifetime Distance: %08d inches\n", le32_to_cpu(resp2->lifetime_distance));
-	INFO("Maintainence Distance: %08d inches\n", le32_to_cpu(resp2->maint_distance));
-	INFO("Head Distance: %08d inches\n", le32_to_cpu(resp2->head_distance));
+	INFO("Lifetime Distance: %08u inches\n", le32_to_cpu(resp2->lifetime_distance));
+	INFO("Maintainence Distance: %08u inches\n", le32_to_cpu(resp2->maint_distance));
+	INFO("Head Distance: %08u inches\n", le32_to_cpu(resp2->head_distance));
 
 	return 0;
 }
@@ -1110,13 +1110,13 @@ static int get_errorlog(struct shinkos6245_ctx *ctx)
 			return -2;
 
 		INFO("Stored Error ID %d:\n", i);
-		INFO(" %04d-%02d-%02d %02d:%02d:%02d @ %08u prints : 0x%02x/0x%02x (%s)\n",
+		INFO(" %04d-%02u-%02u %02u:%02u:%02u @ %08u prints : 0x%02x/0x%02x (%s)\n",
 		     resp->time_year + 2000, resp->time_month, resp->time_day,
 		     resp->time_hour, resp->time_min, resp->time_sec,
 		     le32_to_cpu(resp->print_counter),
 		     resp->error_major, resp->error_minor, 
 		     error_codes(resp->error_major, resp->error_minor));
-		INFO("  Temp: %02d/%02d Hum: %02d\n",
+		INFO("  Temp: %02u/%02u Hum: %02u\n",
 		     resp->printer_thermistor, resp->head_thermistor, resp->printer_humidity);
 	} while (++i < le16_to_cpu(resp->error_count));
 	
@@ -1145,9 +1145,9 @@ static int get_mediainfo(struct shinkos6245_ctx *ctx)
 		return -2;
 
         INFO("Loaded Media Type:  %s\n", ribbon_sizes(resp->ribbon_code));
-	INFO("Supported Media Information: %d entries:\n", resp->count);
+	INFO("Supported Media Information: %u entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: C 0x%02x (%s), %04dx%04d, P 0x%02x (%s)\n", i,
+		INFO(" %02d: C 0x%02x (%s), %04ux%04u, P 0x%02x (%s)\n", i,
 		     resp->items[i].media_code, print_sizes(resp->items[i].media_code),
 		     le16_to_cpu(resp->items[i].columns),
 		     le16_to_cpu(resp->items[i].rows), 
@@ -1556,7 +1556,7 @@ static int shinkos6245_read_parse(void *vctx, int data_fd) {
 	}
 
 	if (le32_to_cpu(ctx->hdr.model) != 6245) {
-		ERROR("Unrecognized printer (%d)!\n", le32_to_cpu(ctx->hdr.model));
+		ERROR("Unrecognized printer (%u)!\n", le32_to_cpu(ctx->hdr.model));
 
 		return CUPS_BACKEND_CANCEL;
 	}
@@ -1784,7 +1784,7 @@ top:
 	case S_PRINTER_READY_CMD:
 		// XXX send "get eeprom backup command"
 
-		INFO("Sending print job (internal id %d)\n", ctx->jobid);
+		INFO("Sending print job (internal id %u)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		print->hdr.cmd = cpu_to_le16(S6245_CMD_PRINTJOB);

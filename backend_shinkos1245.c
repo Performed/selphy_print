@@ -890,26 +890,26 @@ static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 	     shinkos1245_status_str(sts),
 	     sts->state.status1, sts->state.status2, sts->state.error);
 	INFO("Counters:\n");
-	INFO("\tLifetime     :  %d\n", be32_to_cpu(sts->counters.lifetime));
-	INFO("\tThermal Head :  %d\n", be32_to_cpu(sts->counters.maint));
-	INFO("\tMedia        :  %d\n", be32_to_cpu(sts->counters.media));
-	INFO("\tCutter       :  %d\n", be32_to_cpu(sts->counters.cutter));
+	INFO("\tLifetime     :  %u\n", be32_to_cpu(sts->counters.lifetime));
+	INFO("\tThermal Head :  %u\n", be32_to_cpu(sts->counters.maint));
+	INFO("\tMedia        :  %u\n", be32_to_cpu(sts->counters.media));
+	INFO("\tCutter       :  %u\n", be32_to_cpu(sts->counters.cutter));
 
 	INFO("Versions:\n");
-	INFO("\tUSB Boot    : %d\n", sts->counters.ver_boot);
-	INFO("\tUSB Control : %d\n", sts->counters.ver_ctrl);
-	INFO("\tMain Boot   : %d\n", be16_to_cpu(sts->versions.main_boot));
-	INFO("\tMain Control: %d\n", be16_to_cpu(sts->versions.main_control));
-	INFO("\tDSP Boot    : %d\n", be16_to_cpu(sts->versions.dsp_boot));
-	INFO("\tDSP Control : %d\n", be16_to_cpu(sts->versions.dsp_control));
+	INFO("\tUSB Boot    : %u\n", sts->counters.ver_boot);
+	INFO("\tUSB Control : %u\n", sts->counters.ver_ctrl);
+	INFO("\tMain Boot   : %u\n", be16_to_cpu(sts->versions.main_boot));
+	INFO("\tMain Control: %u\n", be16_to_cpu(sts->versions.main_control));
+	INFO("\tDSP Boot    : %u\n", be16_to_cpu(sts->versions.dsp_boot));
+	INFO("\tDSP Control : %u\n", be16_to_cpu(sts->versions.dsp_control));
 
 //	INFO("USB TypeFlag: %02x\n", sts->counters.control_flag);
 
-	INFO("Bank 1 ID: %d\n", sts->counters2.bank1_id);
+	INFO("Bank 1 ID: %u\n", sts->counters2.bank1_id);
 	INFO("\tPrints:  %d/%d complete\n",
 	     be16_to_cpu(sts->counters2.bank1_complete),
 	     be16_to_cpu(sts->counters2.bank1_spec));
-	INFO("Bank 2 ID: %d\n", sts->counters2.bank2_id);
+	INFO("Bank 2 ID: %u\n", sts->counters2.bank2_id);
 	INFO("\tPrints:  %d/%d complete\n",
 	     be16_to_cpu(sts->counters2.bank2_complete),
 	     be16_to_cpu(sts->counters2.bank2_spec));
@@ -939,7 +939,7 @@ static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
 	INFO("Supported print sizes: %d\n", count);
 
 	for (i = 0 ; i < count ; i++) {
-		INFO("\t %02x: %04d*%04d (%02x/%02d)\n",
+		INFO("\t %02x: %04u*%04u (%02x/%02u)\n",
 		     medias[i].print_type,
 		     medias[i].columns,
 		     medias[i].rows,
@@ -1326,7 +1326,7 @@ static int shinkos1245_read_parse(void *vctx, int data_fd) {
 	ctx->hdr.model = le32_to_cpu(ctx->hdr.model);
 
 	if(ctx->hdr.model != 1245) {
-		ERROR("Unrecognized printer (%d)!\n", ctx->hdr.model);
+		ERROR("Unrecognized printer (%u)!\n", ctx->hdr.model);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1503,7 +1503,7 @@ top:
 			}
 		}
 
-		INFO("Sending print job (internal id %d)\n", ctx->jobid);
+		INFO("Sending print job (internal id %u)\n", ctx->jobid);
 
 		shinkos1245_fill_hdr(&cmd.hdr);
 		cmd.cmd[0] = 0x0a;

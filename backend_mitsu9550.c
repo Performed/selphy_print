@@ -175,15 +175,15 @@ struct mitsu9550_status2 {
 		donor = be16_to_cpu(media->remain)/be16_to_cpu(media->max); \
 		if (donor != ctx->last_donor) { \
 			ctx->last_donor = donor; \
-			ATTR("marker-levels=%d\n", donor); \
+			ATTR("marker-levels=%u\n", donor); \
 		} \
 		remain = be16_to_cpu(media->remain); \
 		if (remain != ctx->last_remain) { \
 			ctx->last_remain = remain; \
-			ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain); \
+			ATTR("marker-message=\"%u prints remaining on ribbon\"\n", remain); \
 		} \
 		if (validate_media(media->type, ctx->cols, ctx->rows)) { \
-			ERROR("Incorrect media (%d) type for printjob (%dx%d)!\n", media->type, ctx->cols, ctx->rows); \
+			ERROR("Incorrect media (%u) type for printjob (%ux%u)!\n", media->type, ctx->cols, ctx->rows); \
 			return CUPS_BACKEND_HOLD; \
 		} \
 		/* status2 */ \
@@ -726,7 +726,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 	/* If response is truncated, handle it */
 	num -= (sizeof(cmd) + 1);
 	if ((unsigned int) num != rdbuf[4])
-		WARNING("Short serno read! (%d vs %d)\r\n",
+		WARNING("Short serno read! (%d vs %u)\r\n",
 			num, rdbuf[4]);
 
 	/* model and serial number are encoded as 16-bit unicode, 
