@@ -954,6 +954,12 @@ struct s6145_mediainfo_item {
 #define MEDIA_6x8     0x06
 #define MEDIA_2x6     0x07
 #define MEDIA_6x6     0x08
+#define MEDIA_89x60mm 0x10
+#define MEDIA_89x59mm 0x11
+#define MEDIA_89x58mm 0x12
+#define MEDIA_89x57mm 0x13
+#define MEDIA_89x56mm 0x14
+#define MEDIA_89x55mm 0x15
 
 static char *print_sizes (uint8_t v) {
 	switch (v) {
@@ -971,6 +977,18 @@ static char *print_sizes (uint8_t v) {
 		return "2x6";
 	case MEDIA_6x6:
 		return "6x6";
+	case MEDIA_89x60mm:
+		return "89x60mm";
+	case MEDIA_89x59mm:
+		return "89x59mm";
+	case MEDIA_89x58mm:
+		return "89x58mm";
+	case MEDIA_89x57mm:
+		return "89x57mm";
+	case MEDIA_89x56mm:
+		return "89x56mm";
+	case MEDIA_89x55mm:
+		return "89x55mm";
 	default:
 		return "Unknown";
 	}
@@ -982,6 +1000,7 @@ static char *print_sizes (uint8_t v) {
 #define RIBBON_5x7    0x03
 #define RIBBON_6x8    0x04
 #define RIBBON_6x9    0x05
+// XXX what about 89xXXXmm ribbons?
 
 static int ribbon_sizes (uint8_t v) {
 	switch (v) {
@@ -995,6 +1014,7 @@ static int ribbon_sizes (uint8_t v) {
 		return 150;
 	case RIBBON_6x9:
 		return 130; // XXX guessed
+	// XXX 89x??? rubbons.
 	default:
 		return 300; // don't want 0.
 	}
@@ -1014,6 +1034,7 @@ static const char *print_ribbons (uint8_t v) {
 		return "6x8";
 	case RIBBON_6x9:
 		return "6x9";
+	// XXX 89x??? rubbons.		
 	default:
 		return "Unknown";
 	}
@@ -2377,6 +2398,8 @@ top:
 		}
 
 		INFO("Sending image data to printer\n");
+		// XXX we shouldn't send the lamination layer over if
+		// it's not needed.  hdr->oc_mode == PRINT_MODE_NO_OC
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ctx->databuf, ctx->datalen)))
 			return CUPS_BACKEND_FAILED;
@@ -2457,7 +2480,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.20",
+	.version = "0.21",
 	.uri_prefix = "shinkos6145",
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
