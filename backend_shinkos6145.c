@@ -279,6 +279,7 @@ struct shinkos6145_ctx {
 
 	uint16_t last_donor;
 	uint16_t last_remain;
+	uint16_t last_ribbon;
 
 	uint8_t *eeprom;
 	size_t eepromlen;
@@ -2189,6 +2190,8 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
+	ctx->last_ribbon = media->ribbon;
+
         /* Tell CUPS about the consumables we report */
         ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
         ATTR("marker-high-levels=100\n");
@@ -2242,7 +2245,7 @@ top:
 		remain = le32_to_cpu(sts->count_ribbon_left);
 		if (remain != ctx->last_remain) {
 			ctx->last_remain = remain;
-			ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain);
+			ATTR("marker-message=\"%d prints remaining on '%s' ribbon\"\n", remain, print_ribbons(media->ribbon));
 		}
 
 		if (sts->hdr.result != RESULT_SUCCESS)

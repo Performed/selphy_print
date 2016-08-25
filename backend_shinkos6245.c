@@ -1746,7 +1746,7 @@ top:
 		remain = le32_to_cpu(sts->count_ribbon_left);
 		if (remain != ctx->last_remain) {
 			ctx->last_remain = remain;
-			ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain);
+			ATTR("marker-message=\"%d prints remaining on '%s' ribbon\"\n", remain, ribbon_sizes(ctx->ribbon_code));
 		}
 
 		if (sts->hdr.result != RESULT_SUCCESS)
