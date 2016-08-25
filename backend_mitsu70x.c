@@ -74,6 +74,7 @@ struct mitsu70x_ctx {
 	struct mitsu70x_corrdata *corrdata;
 	struct mitsu70x_corrdatalens *corrdatalens;
 	char *laminatefname;
+	char *lutfname;
 #endif
 };
 
@@ -664,6 +665,7 @@ repeat:
 	if (ctx->type == P_MITSU_D70X) {
 		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
 		ctx->laminatefname = "D70MAT01.raw";
+		ctx->lutfname = "CPD70L01.lut";
 
 		if (print->speed == 3) {
 			ctx->corrdata = &CPD70S01_data;
@@ -678,6 +680,7 @@ repeat:
 	} else if (ctx->type == P_MITSU_D80) {
 		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
 		ctx->laminatefname = "D80MAT01.raw";
+		ctx->lutfname = "CPD80L01.lut";
 
 		if (print->speed == 3) {
 			ctx->corrdata = &CPD80S01_data;
@@ -692,6 +695,8 @@ repeat:
 		// XXX what about CPD80**E**01?
 	} else if (ctx->type == P_MITSU_K60) {
 		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
+		ctx->laminatefname = "S60MAT02.raw";
+		ctx->lutfname = "CPS60L01.lut";
 
 		if (print->speed == 3 || print->speed == 4) {
 			ctx->corrdata = &CPS60T03_data;
@@ -700,10 +705,11 @@ repeat:
 			ctx->corrdata = &CPS60T01_data;
 			ctx->corrdatalens = &CPS60T01_lengths;
 		}
-		ctx->laminatefname = "S60MAT02.raw";
+
 	} else if (ctx->type == P_KODAK_305) {
 		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
-		ctx->laminatefname = "EK305MAT.raw"; // XXX same as K60
+		ctx->laminatefname = "EK305MAT.raw"; // Same as K60
+		ctx->lutfname = "EK305L01.lut";
 
 		if (print->speed == 3 || print->speed == 4) {
 			ctx->corrdata = &EK305T03_data;
@@ -714,7 +720,8 @@ repeat:
 		}
 	} else if (ctx->type == P_FUJI_ASK300) {
 		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
-		ctx->laminatefname = "ASK300M2.raw"; // XXX same as D70
+		ctx->laminatefname = "ASK300M2.raw"; // Same as D70
+		ctx->lutfname = "CPD70L01.lut";  // XXX guess!
 
 		if (print->speed == 3 || print->speed == 4) {
 			ctx->corrdata = &ASK300T3_data;
