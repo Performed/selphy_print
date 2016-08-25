@@ -1282,7 +1282,7 @@ top:
 
 		if (ctx->media_count_new) {
 			ATTR("marker-levels=%d\n", count * 100 / ctx->media_count_new);
-			ATTR("marker-message=\"%d native prints remaining on ribbon\"\n", count);
+			ATTR("marker-message=\"%d native prints remaining on '%s' ribbon\"\n", count, dnpds40_media_types(ctx->media));
 		}
 
 		/* See if we can rewind to save media */
@@ -1420,7 +1420,7 @@ top:
 
 		if (ctx->media_count_new) {
 			ATTR("marker-levels=%d\n", count * 100 / ctx->media_count_new);
-			ATTR("marker-message=\"%d native prints remaining on ribbon\"\n", count);
+			ATTR("marker-message=\"%d native prints remaining on '%s' ribbon\"\n", count, dnpds40_media_types(ctx->media));
 		}
 	}
 

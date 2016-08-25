@@ -180,7 +180,7 @@ struct mitsu9550_status2 {
 		remain = be16_to_cpu(media->remain); \
 		if (remain != ctx->last_remain) { \
 			ctx->last_remain = remain; \
-			ATTR("marker-message=\"%u prints remaining on ribbon\"\n", remain); \
+			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type)); \
 		} \
 		if (validate_media(media->type, ctx->cols, ctx->rows)) { \
 			ERROR("Incorrect media (%u) type for printjob (%ux%u)!\n", media->type, ctx->cols, ctx->rows); \
@@ -550,7 +550,7 @@ top:
 		remain = be16_to_cpu(media->remain);
 		if (remain != ctx->last_remain) {
 			ctx->last_remain = remain;
-			ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain);
+			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type));
 		}
 
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
@@ -614,7 +614,7 @@ top:
 		remain = be16_to_cpu(media->remain);
 		if (remain != ctx->last_remain) {
 			ctx->last_remain = remain;
-			ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain);
+			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type));			
 		}
 
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
