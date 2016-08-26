@@ -60,7 +60,7 @@ struct mitsu70x_ctx {
 	uint8_t *databuf;
 	int datalen;
 
-	int matte;
+	uint32_t matte;
 
 	uint16_t jobid;
 	uint16_t rows;
@@ -75,6 +75,8 @@ struct mitsu70x_ctx {
 	struct mitsu70x_corrdatalens *corrdatalens;
 	char *laminatefname;
 	char *lutfname;
+
+	int raw_format;
 #endif
 };
 
@@ -661,16 +663,18 @@ repeat:
 	}
 
 #ifdef ENABLE_CORRTABLES
+	ctx->raw_format = 1; // XXX until we define a new spool format for
+	                     //     the data.  Maybe reuse D90 header?
+
 	/* Figure out the correction data table to use */
 	if (ctx->type == P_MITSU_D70X) {
-		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
 		ctx->laminatefname = "D70MAT01.raw";
 		ctx->lutfname = "CPD70L01.lut";
 
-		if (print->speed == 3) {
+		if (mhdr.speed == 3) {
 			ctx->corrdata = &CPD70S01_data;
 			ctx->corrdatalens = &CPD70S01_lengths;
-		} else if (print->speed == 4) {
+		} else if (mhdr.speed == 4) {
 			ctx->corrdata = &CPD70U01_data;
 			ctx->corrdatalens = &CPD70U01_lengths;
 		} else {
@@ -678,14 +682,13 @@ repeat:
 			ctx->corrdatalens = &CPD70N01_lengths;
 		}
 	} else if (ctx->type == P_MITSU_D80) {
-		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
 		ctx->laminatefname = "D80MAT01.raw";
 		ctx->lutfname = "CPD80L01.lut";
 
-		if (print->speed == 3) {
+		if (mhdr.speed == 3) {
 			ctx->corrdata = &CPD80S01_data;
 			ctx->corrdatalens = &CPD80S01_lengths;
-		} else if (print->speed == 4) {
+		} else if (mhdr.speed == 4) {
 			ctx->corrdata = &CPD80U01_data;
 			ctx->corrdatalens = &CPD80U01_lengths;
 		} else {
@@ -694,11 +697,10 @@ repeat:
 		}
 		// XXX what about CPD80**E**01?
 	} else if (ctx->type == P_MITSU_K60) {
-		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
 		ctx->laminatefname = "S60MAT02.raw";
 		ctx->lutfname = "CPS60L01.lut";
 
-		if (print->speed == 3 || print->speed == 4) {
+		if (mhdr.speed == 3 || mhdr.speed == 4) {
 			ctx->corrdata = &CPS60T03_data;
 			ctx->corrdatalens = &CPS60T03_lengths;
 		} else {
@@ -707,11 +709,10 @@ repeat:
 		}
 
 	} else if (ctx->type == P_KODAK_305) {
-		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
 		ctx->laminatefname = "EK305MAT.raw"; // Same as K60
 		ctx->lutfname = "EK305L01.lut";
 
-		if (print->speed == 3 || print->speed == 4) {
+		if (mhdr.speed == 3 || mhdr.speed == 4) {
 			ctx->corrdata = &EK305T03_data;
 			ctx->corrdatalens = &EK305T03_lengths;
 		} else {
@@ -719,11 +720,10 @@ repeat:
 			ctx->corrdatalens = &EK305T01_lengths;
 		}
 	} else if (ctx->type == P_FUJI_ASK300) {
-		struct mitsu70x_hdr *print = (struct mitsu70x_hdr *) &hdr[512];
 		ctx->laminatefname = "ASK300M2.raw"; // Same as D70
 		ctx->lutfname = "CPD70L01.lut";  // XXX guess!
 
-		if (print->speed == 3 || print->speed == 4) {
+		if (mhdr.speed == 3 || mhdr.speed == 4) {
 			ctx->corrdata = &ASK300T3_data;
 			ctx->corrdatalens = &ASK300T3_lengths;
 		} else {
@@ -744,11 +744,10 @@ repeat:
 	if (!mhdr.laminate && mhdr.laminate_mode) {
 		i = be16_to_cpu(mhdr.lamcols) * be16_to_cpu(mhdr.lamrows) * 2;
 		i = (i + 511) / 512 * 512; /* Round to nearest 512 bytes. */
-		remain += i;
-		ctx->matte = 1;
+		ctx->matte = i;
 	}
 
-	ctx->databuf = malloc(sizeof(mhdr) + remain);
+	ctx->databuf = malloc(sizeof(mhdr) + remain + ctx->matte);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_FAILED;
@@ -756,6 +755,11 @@ repeat:
 
 	memcpy(ctx->databuf, &mhdr, sizeof(mhdr));
 	ctx->datalen += sizeof(mhdr);
+
+#ifndef ENABLE_CORRTABLES
+	/* Read matte from spool... */
+	remain += ctx->matte;
+#endif
 
 	/* Read in the spool data */
 	while(remain) {
@@ -767,6 +771,28 @@ repeat:
 		ctx->datalen += i;
 		remain -= i;
 	}
+
+#ifdef ENABLE_CORRTABLES
+	/* Read matte from matte file */
+	if (!ctx->raw_format && ctx->matte) {
+		int fd;
+		fd = open(ctx->laminatefname, O_RDONLY);
+		if (fd < 0) {
+			ERROR("Unable to open matte lamination data file '%s'\n", ctx->laminatefname);
+			return CUPS_BACKEND_CANCEL;
+		}
+		remain = ctx->matte;
+		while (remain) {
+			i = read(fd, ctx->databuf + ctx->datalen, remain);
+			if (i == 0)
+				return CUPS_BACKEND_CANCEL;
+			if (i < 0)
+				return CUPS_BACKEND_CANCEL;
+			ctx->datalen += i;
+			remain -= i;
+		}
+	}
+#endif
 
 	return CUPS_BACKEND_OK;
 }
