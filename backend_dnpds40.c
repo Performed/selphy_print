@@ -611,6 +611,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->supports_matte = 1;
 		if (FW_VER_CHECK(1,10))
 			ctx->supports_2x6 = ctx->supports_mqty_default = 1;
+                if (FW_VER_CHECK(1,20))
+			ctx->supports_3x5x2 = 1;
 		if (FW_VER_CHECK(2,00)) { /* AKA RX1HS */
 			ctx->supports_iserial = 1;
 			ctx->supports_mqty_default = 0;  /* Yes, removed! */
@@ -2210,7 +2212,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620",
-	.version = "0.86",
+	.version = "0.87",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
