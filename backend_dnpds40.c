@@ -614,9 +614,8 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
                 if (FW_VER_CHECK(1,20))
 			ctx->supports_3x5x2 = 1;
 		if (FW_VER_CHECK(2,00)) { /* AKA RX1HS */
+			ctx->supports_mediaoffset = 1;
 			ctx->supports_iserial = 1;
-			ctx->supports_mqty_default = 0;  /* Yes, removed! */
-			// XXX luster?
 		}
 		break;
 	case P_DNP_DS620:
