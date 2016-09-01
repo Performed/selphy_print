@@ -228,7 +228,7 @@ struct mitsu70x_printerstatus_resp {
 	uint8_t  unk[36];
 	int16_t  model[6]; /* LE, UTF-16 */
 	int16_t  serno[6]; /* LE, UTF-16 */
-	struct mitsu70x_status_ver vers[7];
+	struct mitsu70x_status_ver vers[7]; // components are 'LMFTR??'
 	uint8_t  null[8];
 	struct mitsu70x_status_deck lower;
 	struct mitsu70x_status_deck upper;
@@ -362,7 +362,7 @@ static char *mitsu70x_jobstatuses(uint8_t *sts)
 	case JOB_STATUS0_PRINT:		
 		switch(sts[1]) {
 		case JOB_STATUS1_PRINT_MEDIALOAD:
-			return "Media loading\n";
+			return "Media loading";
 		case JOB_STATUS1_PRINT_PRE_Y:
 			return "Waiting to print yellow plane";
 		case JOB_STATUS1_PRINT_Y:
@@ -562,9 +562,9 @@ static const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
 		return "CKD746 (4x6)";
 	else if (brand == 0xff && type == 0x0f)
 		return "CKD768 (6x8)";
-	else if (brand == 0x61 && type == 0x8f)
-		return "CKK76R (6x8)";
 	else if (brand == 0x6c && type == 0x8f)
+		return "Kodak 6R (6x8)";
+	else if (brand == 0x61 && type == 0x8f)
 		return "CKK76R (6x8)";
 	else
 		return "Unknown";
@@ -831,6 +831,7 @@ static int mitsu70x_get_jobstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs
 	return 0;
 }
 
+#ifdef BROKEN_ON_EK305 // XXX broken on EK305
 static int mitsu70x_get_jobs(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs *resp)
 {
 	uint8_t cmdbuf[CMDBUF_LEN];
@@ -863,7 +864,7 @@ static int mitsu70x_get_jobs(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs *res
 
 	return 0;
 }
-
+#endif
 
 static int mitsu70x_get_memorystatus(struct mitsu70x_ctx *ctx, struct mitsu70x_memorystatus_resp *resp)
 {
@@ -982,7 +983,9 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
 	struct mitsu70x_jobstatus jobstatus;
 	struct mitsu70x_printerstatus_resp resp;
+#ifdef BROKEN_ON_EK305	
 	struct mitsu70x_jobs jobs;
+#endif	
 	struct mitsu70x_hdr *hdr;
 
 	int ret;
@@ -990,7 +993,7 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	hdr = (struct mitsu70x_hdr*) (ctx->databuf + sizeof(struct mitsu70x_hdr));
+	hdr = (struct mitsu70x_hdr*) ctx->databuf;
 
 	INFO("Waiting for printer idle...\n");
 
@@ -1008,10 +1011,9 @@ top:
 		buf[0] = 0x1b;
 		buf[1] = 0x45;
 		buf[2] = 0x57;
-		buf[1] = 0x55;
+		buf[3] = 0x55;
 
 		INFO("Waking up printer...\n");
-		// XXX or should we only send the first 4 bytes?
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     buf, sizeof(buf))))
 			return CUPS_BACKEND_FAILED;
@@ -1091,6 +1093,7 @@ skip_status:
 		}
 	}
 
+#ifdef BROKEN_ON_EK305 // XXX broken on K305, at least.
 	/* Make sure we don't have any jobid collisions */
 	ret = mitsu70x_get_jobs(ctx, &jobs);
 	if (ret)
@@ -1102,6 +1105,7 @@ skip_status:
 		if (!ctx->jobid)
 			ctx->jobid++;
 	}
+#endif
 
 	/* Set jobid */
 	hdr->jobid = cpu_to_be16(ctx->jobid);
@@ -1128,7 +1132,7 @@ skip_status:
 	if ((ctx->type == P_MITSU_K60 || ctx->type == P_KODAK_305) &&
 	    ctx->cols == 0x0748 &&
 	    ctx->rows == 0x04c2) {
-		hdr->multicut = 1;
+		hdr->multicut = 1; // XXX only if print count even?
 	}
 #endif
 
@@ -1146,8 +1150,8 @@ skip_status:
 
 		// XXX is this special case actually needed?
 		int chunk = 256*1024 - sizeof(struct mitsu70x_hdr);
-		int sent = 1024;
-		while (ctx->datalen > 0) {
+		int sent = 512;
+		while (chunk > 0) {
 			if ((ret = send_data(ctx->dev, ctx->endp_down,
 					     ctx->databuf + sent, chunk)))
 				return CUPS_BACKEND_FAILED;
@@ -1283,6 +1287,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 	INFO("Lower Prints remaining:  %03d/%03d\n",
 	     be16_to_cpu(resp->lower.remain),
 	     be16_to_cpu(resp->lower.capacity));
+//	INFO("Lower Lifetime prints:  %d\n", be16_to_cpu(resp->lower.prints));
 
 	if (resp->upper.mecha_status[0] != MECHA_STATUS_INIT) {
 		INFO("Upper Mechanical Status: %s\n",
@@ -1306,14 +1311,16 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 {
 	struct mitsu70x_printerstatus_resp resp;
+#ifdef BROKEN_ON_EK305	
 	struct mitsu70x_jobs jobs;
+#endif
 	int ret;
 
-	// XXX only for D70 family...?
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (!ret)
 		mitsu70x_dump_printerstatus(&resp);
 
+#ifdef BROKEN_ON_EK305 // XXX broken on EK305, at least
 	ret = mitsu70x_get_jobs(ctx, &jobs);
 	if (!ret) {
 		INFO("JOB0 ID     : %06u\n", jobs.jobid_0);
@@ -1322,6 +1329,7 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 		INFO("JOB1 status : %s\n", mitsu70x_jobstatuses(jobs.job1_status));
 		// XXX are there more?
 	}
+#endif
 
 	return ret;
 }
@@ -1392,7 +1400,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.40WIP",
+	.version = "0.41WIP",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
