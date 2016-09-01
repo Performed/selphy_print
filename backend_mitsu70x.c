@@ -382,11 +382,11 @@ static char *mitsu70x_jobstatuses(uint8_t *sts)
 		case JOB_STATUS1_PRINT_EJECT:
 			return "Ejecting page";
 		default:
-			return "Unknown 'Print' status1\n";
+			return "Unknown 'Print' status1";
 		}
 		break;
 	case JOB_STATUS0_ASSIGN:
-		return "Unknown 'Assignment' status1\n";
+		return "Unknown 'Assignment' status1";
 	case JOB_STATUS0_END:
 		switch(sts[1]) {
 		case JOB_STATUS1_END_OK:
