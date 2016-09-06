@@ -1279,6 +1279,10 @@ top:
 		count = atoi((char*)resp+4);
 		free(resp);
 
+		/* Old-sk00l models report one less than they should */
+		if (!ctx->correct_count)
+			count++;
+
 		count -= ctx->mediaoffset;
 
 		if (ctx->media_count_new) {
@@ -1416,6 +1420,10 @@ top:
 
 		count = atoi((char*)resp+4);
 		free(resp);
+
+		/* Old-sk00l models report one less than they should */
+		if (!ctx->correct_count)
+			count++;
 
 		count -= ctx->mediaoffset;
 
@@ -1832,6 +1840,10 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 
 	count = atoi((char*)resp+4);
 	free(resp);
+
+	/* Old-sk00l models report one less than they should */
+	if (!ctx->correct_count)
+		count++;
 
 	count -= ctx->mediaoffset;
 	INFO("Native Prints Remaining on Media: %d\n", count);
