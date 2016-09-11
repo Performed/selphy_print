@@ -1,3 +1,9 @@
-All header files here were converted from the 'cpc' files included with 
-the windows drivers of the various members of the Mitsubishi CP-D70 
-fanmily using the perl script here.
+There are three sets of files here:
+
+ *.lut -- Color Lookup tables
+ *.raw -- Matte lamination data
+ *.h   -- Data tables derived from *.cpc
+
+All files were directly copied or derived from the 'cpc' files bundled 
+with the Windows drivers of the various members of the Mitsubishi CP-D70 
+family.  The header files were generated using the perl script here.
