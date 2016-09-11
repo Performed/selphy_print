@@ -39,7 +39,7 @@ LDFLAGS += -ldl
 #LDFLAGS += -lltdl
 
 # For the mitsu70x backend
-CPPFLAGS += -DENABLE_CORRTABLES
+#CPPFLAGS += -DENABLE_CORRTABLES
 CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 
 # Build stuff
