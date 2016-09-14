@@ -79,12 +79,14 @@ struct mitsu70x_ctx {
 	int num_decks;
 
 #ifdef ENABLE_CORRTABLES
-	struct mitsu70x_corrdata *corrdata;
-	struct mitsu70x_corrdatalens *corrdatalens;
 	char *laminatefname;
 	char *lutfname;
+	char *cpcfname;
 
 	struct CColorConv3D lut;
+	struct CPCData cpcdata;
+
+	char *last_cpcfname;
 
 	int raw_format;
 #endif
@@ -276,70 +278,6 @@ struct mitsu70x_hdr {
 
 	uint8_t  pad[448];
 } __attribute__((packed));
-
-#ifdef ENABLE_CORRTABLES
-/* Correction data definitions */
-#define CORRDATA_DEF
-struct mitsu70x_corrdata {
-        uint16_t liney[2730];
-        uint16_t linem[2730];
-        uint16_t linec[2730];
-        uint16_t gnmby[256]; // B->Y conversion matrix
-        uint16_t gnmgm[256]; // G->M conversion matrix
-        uint16_t gnmrc[256]; // R->C conversion matrix
-        double fm[256];
-        double ksp[128];
-        double ksm[128];
-        double osp[128];
-        double osm[128];
-        double kp[11];
-        double km[11];
-        double hk[4];
-        uint16_t speed[3];
-        double fh[5];     /* only 4 in length on D70 Normal/Superfine */
-        double shk[72];
-        double uh[101];
-        uint16_t rolk[13]; /* Missing on D70x family */
-        uint32_t rev[76];  /* Missing on D70x and ASK300 */
-};
-
-struct mitsu70x_corrdatalens {
-        size_t liney;
-        size_t linem;
-        size_t linec;
-        size_t gnmby;
-        size_t gnmgm;
-        size_t gnmrc;
-        size_t fm;
-        size_t ksp;
-        size_t ksm;
-        size_t osp;
-        size_t osm;
-        size_t kp;
-        size_t km;
-        size_t hk;
-        size_t speed;
-        size_t fh;
-        size_t shk;
-        size_t uh;
-        size_t rolk;
-        size_t rev;
-};
-
-#include "D70/CPD70N01.h"    // Normal/Fine
-#include "D70/CPD70S01.h"    // Superfine
-#include "D70/CPD70U01.h"    // Ultrafine
-//#include "D70/CPD80E01.h"   // ???
-#include "D70/CPD80N01.h"    // Normal/Fine
-#include "D70/CPD80S01.h"    // Superfine
-#include "D70/CPD80U01.h"    // Ultrafine
-#include "D70/ASK300T1.h"    // Normal/Fine
-#include "D70/ASK300T3.h"    // Superfine/Ultrafine
-#include "D70/CPS60T01.h"    // Normal/Fine
-#include "D70/CPS60T03.h"    // Superfine/Ultrafine
-#include "D70/EK305T01.h"    // Normal/Fine
-#include "D70/EK305T03.h"    // Superfine/Ultrafine
-#endif
 
 /* Error dumps, etc */
 
@@ -685,28 +623,22 @@ repeat:
 		ctx->lutfname = CORRTABLE_PATH "/CPD70L01.lut";
 
 		if (mhdr.speed == 3) {
-			ctx->corrdata = &CPD70S01_data;
-			ctx->corrdatalens = &CPD70S01_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/CPD70S01.cpc";
 		} else if (mhdr.speed == 4) {
-			ctx->corrdata = &CPD70U01_data;
-			ctx->corrdatalens = &CPD70U01_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/CPD70U01.cpc";
 		} else {
-			ctx->corrdata = &CPD70N01_data;
-			ctx->corrdatalens = &CPD70N01_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/CPD70N01.cpc";
 		}
 	} else if (ctx->type == P_MITSU_D80) {
 		ctx->laminatefname = CORRTABLE_PATH "/D80MAT01.raw";
 		ctx->lutfname = CORRTABLE_PATH "/CPD80L01.lut";
 
 		if (mhdr.speed == 3) {
-			ctx->corrdata = &CPD80S01_data;
-			ctx->corrdatalens = &CPD80S01_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/CPD80S01.cpc";
 		} else if (mhdr.speed == 4) {
-			ctx->corrdata = &CPD80U01_data;
-			ctx->corrdatalens = &CPD80U01_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/CPD80U01.cpc";
 		} else {
-			ctx->corrdata = &CPD80N01_data;
-			ctx->corrdatalens = &CPD80N01_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/CPD80N01.cpc";
 		}
 		// XXX what about CPD80**E**01?
 	} else if (ctx->type == P_MITSU_K60) {
@@ -714,11 +646,9 @@ repeat:
 		ctx->lutfname = CORRTABLE_PATH "/CPS60L01.lut";
 
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
-			ctx->corrdata = &CPS60T03_data;
-			ctx->corrdatalens = &CPS60T03_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/CPS60T03.cpc";
 		} else {
-			ctx->corrdata = &CPS60T01_data;
-			ctx->corrdatalens = &CPS60T01_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/CPS60T01.cpc";
 		}
 
 	} else if (ctx->type == P_KODAK_305) {
@@ -726,22 +656,18 @@ repeat:
 		ctx->lutfname = CORRTABLE_PATH "/EK305L01.lut";
 
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
-			ctx->corrdata = &EK305T03_data;
-			ctx->corrdatalens = &EK305T03_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/EK305T03.cpc";
 		} else {
-			ctx->corrdata = &EK305T01_data;
-			ctx->corrdatalens = &EK305T01_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/EK305T03.cpc";
 		}
 	} else if (ctx->type == P_FUJI_ASK300) {
 		ctx->laminatefname = CORRTABLE_PATH "/ASK300M2.raw"; // Same as D70
-		ctx->lutfname = CORRTABLE_PATH "/CPD70L01.lut";  // XXX guess, driver did not come with external LUT.
+		ctx->lutfname = CORRTABLE_PATH "/CPD70L01.lut";  // XXX guess, driver did not come with external LUT!
 
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
-			ctx->corrdata = &ASK300T3_data;
-			ctx->corrdatalens = &ASK300T3_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/ASK300T3.cpc";
 		} else {
-			ctx->corrdata = &ASK300T1_data;
-			ctx->corrdatalens = &ASK300T1_lengths;
+			ctx->cpcfname = CORRTABLE_PATH "/ASK300T1.cpc";
 		}
 	}
 	if (!mhdr.use_lut)
@@ -835,8 +761,20 @@ repeat:
 			// XXX proprietary lib also does gamma+contrast+brightness
 		}
 
-		/* Convert to YMC using corrtables */
+		/* Load in the CPC file, if needed! */
+		if (ctx->cpcfname && ctx->cpcfname != ctx->last_cpcfname) {
+			ctx->last_cpcfname = ctx->cpcfname;
+			if (load_CPCData(&ctx->cpcdata, ctx->cpcfname)) {
+				ERROR("Unable to load CPC file '%s'\n", ctx->cpcfname);
+				return CUPS_BACKEND_CANCEL;
+			}
+		}
+
 		// XXX INSERT ALGORITHM HERE...
+
+		// XXX optionally CreateInkCorrectGammaTable(...)
+
+		/* Convert to YMC using corrtables (aka CImageEffect70::DoGamma) */
 		{
 			uint32_t r, c;
 			uint32_t in = 0, out = 0;
@@ -849,14 +787,15 @@ repeat:
 			DEBUG("Running print data through BGR->YMC table (crude)\n");
 			for(r = 0 ; r < ctx->rows; r++) {
 				for (c = 0 ; c < ctx->cols ; c++) {
-					offset_y[out] = cpu_to_be16(ctx->corrdata->gnmby[spoolbuf[in]]);
-					offset_m[out] = cpu_to_be16(ctx->corrdata->gnmgm[spoolbuf[in + 1]]);
-					offset_c[out] = cpu_to_be16(ctx->corrdata->gnmrc[spoolbuf[in + 2]]);
+					offset_y[out] = cpu_to_be16(ctx->cpcdata.GNMby[spoolbuf[in]]);
+					offset_m[out] = cpu_to_be16(ctx->cpcdata.GNMgm[spoolbuf[in + 1]]);
+					offset_c[out] = cpu_to_be16(ctx->cpcdata.GNMrc[spoolbuf[in + 2]]);
 					in += 3;
 					out++;
 				}
 			}
 		}
+		// XXX then call CImageEffect70::DoConv(...) to do the final corrections..
 
 		/* Move up the pointer */
 		ctx->datalen += 3*planelen;
