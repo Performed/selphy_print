@@ -527,11 +527,11 @@
 
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
+    Kodak 305
 
-   Work-in-progress printers (bugs):
+   Untested but believed to work:
 
     Mitsubishi CP-K60DW-S
-    Kodak 305
 
    Unsupported printers (Unknown VID/PID):
 
@@ -542,7 +542,7 @@
 
 	This family of printers all utilize an engine that requires the
 	host system to process the image data, converting color data and
-	performing thermal compensation via an unknown algorithm.
+	performing thermal compensation via unknown algorithms.
 
 	While Mitsibishi's proprietary Windows drivers include data tables
 	used by the image processing algorithms, the algorithms themselves 

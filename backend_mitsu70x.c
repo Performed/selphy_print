@@ -78,6 +78,8 @@ struct mitsu70x_ctx {
 	uint16_t last_donor_u;
 	int num_decks;
 
+	int supports_jobs_query;
+
 #ifdef ENABLE_CORRTABLES
 	char *laminatefname;
 	char *lutfname;
@@ -94,9 +96,9 @@ struct mitsu70x_ctx {
 
 /* Printer data structures */
 struct mitsu70x_jobstatus {
-	uint8_t  hdr[4];
-	uint16_t jobid;
-	uint16_t mecha_no;
+	uint8_t  hdr[4]; /* E4 56 31 30 */
+	uint16_t jobid;  /* BE */
+	uint16_t mecha_no; /* BE */
 	uint8_t  job_status[4];
 	uint8_t  memory;
 	uint8_t  power;
@@ -107,11 +109,11 @@ struct mitsu70x_jobstatus {
 } __attribute__((packed));
 
 struct mitsu70x_jobs {
-	uint8_t  hdr[4];
+	uint8_t  hdr[4]; /* E4 56 31 31 */
 	uint16_t dummy;
-	uint16_t jobid_0;
+	uint16_t jobid_0;  /* BE */
 	uint8_t  job0_status[4];
-	uint16_t jobid_1;
+	uint16_t jobid_1;  /* BE */
 	uint8_t  job1_status[4];
 	// XXX are there more?
 } __attribute__((packed));
@@ -236,8 +238,10 @@ struct mitsu70x_status_ver {
 } __attribute__((packed));
 
 struct mitsu70x_printerstatus_resp {
-	uint8_t  hdr[4];
-	uint8_t  unk[36];
+	uint8_t  hdr[4];  /* E4 56 32 31 */
+	uint8_t  memory;
+	uint8_t  power;
+	uint8_t  unk[34];
 	int16_t  model[6]; /* LE, UTF-16 */
 	int16_t  serno[6]; /* LE, UTF-16 */
 	struct mitsu70x_status_ver vers[7]; // components are 'LMFTR??'
@@ -247,7 +251,7 @@ struct mitsu70x_printerstatus_resp {
 } __attribute__((packed));
 
 struct mitsu70x_memorystatus_resp {
-	uint8_t  hdr[3];
+	uint8_t  hdr[3]; /* E4 56 33 */
 	uint8_t  memory;
 	uint8_t  size;
 	uint8_t  rsvd;
@@ -556,7 +560,14 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->type = lookup_printer_type(&mitsu70x_backend,
 					desc.idVendor, desc.idProduct);
 
-	ctx->last_donor_l = ctx->last_donor_u = 65535;}
+	ctx->last_donor_l = ctx->last_donor_u = 65535;
+
+	if (ctx->type == P_KODAK_305 ||
+	    ctx->type == P_MITSU_K60)
+		ctx->supports_jobs_query = 0;
+	else
+		ctx->supports_jobs_query = 1;
+}
 
 static void mitsu70x_teardown(void *vctx) {
 	struct mitsu70x_ctx *ctx = vctx;
@@ -865,7 +876,6 @@ static int mitsu70x_get_jobstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs
 	return 0;
 }
 
-#ifdef BROKEN_ON_EK305 // XXX broken on EK305
 static int mitsu70x_get_jobs(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs *resp)
 {
 	uint8_t cmdbuf[CMDBUF_LEN];
@@ -898,7 +908,6 @@ static int mitsu70x_get_jobs(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs *res
 
 	return 0;
 }
-#endif
 
 static int mitsu70x_get_memorystatus(struct mitsu70x_ctx *ctx, struct mitsu70x_memorystatus_resp *resp)
 {
@@ -1017,9 +1026,7 @@ static int mitsu70x_main_loop(void *vctx, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
 	struct mitsu70x_jobstatus jobstatus;
 	struct mitsu70x_printerstatus_resp resp;
-#ifdef BROKEN_ON_EK305	
 	struct mitsu70x_jobs jobs;
-#endif	
 	struct mitsu70x_hdr *hdr;
 
 	int ret;
@@ -1127,19 +1134,20 @@ skip_status:
 		}
 	}
 
-#ifdef BROKEN_ON_EK305 // XXX broken on K305, at least.
-	/* Make sure we don't have any jobid collisions */
-	ret = mitsu70x_get_jobs(ctx, &jobs);
-	if (ret)
-		return CUPS_BACKEND_FAILED;
+	// XXXX ???
+	if (ctx->supports_jobs_query) {
+		/* Make sure we don't have any jobid collisions */
+		ret = mitsu70x_get_jobs(ctx, &jobs);
+		if (ret)
+			return CUPS_BACKEND_FAILED;
 
-	while (ctx->jobid == be16_to_cpu(jobs.jobid_0) ||
-	       ctx->jobid == be16_to_cpu(jobs.jobid_1)) {
-		ctx->jobid++;
-		if (!ctx->jobid)
+		while (ctx->jobid == be16_to_cpu(jobs.jobid_0) ||
+		       ctx->jobid == be16_to_cpu(jobs.jobid_1)) {
 			ctx->jobid++;
+			if (!ctx->jobid)
+				ctx->jobid++;
+		}
 	}
-#endif
 
 	/* Set jobid */
 	hdr->jobid = cpu_to_be16(ctx->jobid);
@@ -1345,25 +1353,24 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 {
 	struct mitsu70x_printerstatus_resp resp;
-#ifdef BROKEN_ON_EK305	
 	struct mitsu70x_jobs jobs;
-#endif
+
 	int ret;
 
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (!ret)
 		mitsu70x_dump_printerstatus(&resp);
 
-#ifdef BROKEN_ON_EK305 // XXX broken on EK305, at least
-	ret = mitsu70x_get_jobs(ctx, &jobs);
-	if (!ret) {
-		INFO("JOB0 ID     : %06u\n", jobs.jobid_0);
-		INFO("JOB0 status : %s\n", mitsu70x_jobstatuses(jobs.job0_status));
-		INFO("JOB1 ID     : %06u\n", jobs.jobid_1);
-		INFO("JOB1 status : %s\n", mitsu70x_jobstatuses(jobs.job1_status));
-		// XXX are there more?
+	if (ctx->supports_jobs_query) {
+		ret = mitsu70x_get_jobs(ctx, &jobs);
+		if (!ret) {
+			INFO("JOB0 ID     : %06u\n", jobs.jobid_0);
+			INFO("JOB0 status : %s\n", mitsu70x_jobstatuses(jobs.job0_status));
+			INFO("JOB1 ID     : %06u\n", jobs.jobid_1);
+			INFO("JOB1 status : %s\n", mitsu70x_jobstatuses(jobs.job1_status));
+			// XXX are there more?
+		}
 	}
-#endif
 
 	return ret;
 }
