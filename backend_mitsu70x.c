@@ -995,7 +995,7 @@ static int mitsu70x_cancel_job(struct mitsu70x_ctx *ctx, uint16_t jobid)
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x44;
 	cmdbuf[2] = (jobid >> 8) & 0xff;
-	cmdbuf[3] = jobid & 0xffl;
+	cmdbuf[3] = jobid & 0xff;
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, 4)))
 		return ret;
@@ -1022,7 +1022,27 @@ static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
 	return 0;
 }
 
-static int mitsu70x_main_loop(void *vctx, int copies) {
+static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx)
+{
+	int ret;
+	uint8_t buf[512];
+
+	memset(buf, 0, sizeof(buf));
+	buf[0] = 0x1b;
+	buf[1] = 0x45;
+	buf[2] = 0x57;
+	buf[3] = 0x55;
+
+	INFO("Waking up printer...\n");
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     buf, sizeof(buf))))
+		return CUPS_BACKEND_FAILED;
+
+	return 0;
+}
+
+static int mitsu70x_main_loop(void *vctx, int copies)
+{
 	struct mitsu70x_ctx *ctx = vctx;
 	struct mitsu70x_jobstatus jobstatus;
 	struct mitsu70x_printerstatus_resp resp;
@@ -1046,18 +1066,10 @@ top:
 
 	/* Make sure we're awake! */
 	if (jobstatus.power) {
-		uint8_t buf[512];
-
-		memset(buf, 0, sizeof(buf));
-		buf[0] = 0x1b;
-		buf[1] = 0x45;
-		buf[2] = 0x57;
-		buf[3] = 0x55;
-
-		INFO("Waking up printer...\n");
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     buf, sizeof(buf))))
+		ret = mitsu70x_wakeup(ctx);
+		if (ret)
 			return CUPS_BACKEND_FAILED;
+
 		sleep(1);
 		goto top;
 	}
@@ -1134,19 +1146,20 @@ skip_status:
 		}
 	}
 
-	// XXXX ???
+	/* Make sure we don't have any jobid collisions */
 	if (ctx->supports_jobs_query) {
-		/* Make sure we don't have any jobid collisions */
 		ret = mitsu70x_get_jobs(ctx, &jobs);
 		if (ret)
 			return CUPS_BACKEND_FAILED;
-
 		while (ctx->jobid == be16_to_cpu(jobs.jobid_0) ||
 		       ctx->jobid == be16_to_cpu(jobs.jobid_1)) {
 			ctx->jobid++;
 			if (!ctx->jobid)
 				ctx->jobid++;
 		}
+	} else {
+		while(!ctx->jobid || ctx->jobid == be16_to_cpu(jobstatus.jobid))
+			ctx->jobid++;
 	}
 
 	/* Set jobid */
@@ -1354,8 +1367,24 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 {
 	struct mitsu70x_printerstatus_resp resp;
 	struct mitsu70x_jobs jobs;
+	struct mitsu70x_jobstatus jobstatus;
 
 	int ret;
+
+top:
+	ret = mitsu70x_get_jobstatus(ctx, &jobstatus, 0x0000);
+	if (ret)
+		goto done;
+
+	/* Make sure we're awake! */
+	if (jobstatus.power) {
+		ret = mitsu70x_wakeup(ctx);
+		if (ret)
+			return CUPS_BACKEND_FAILED;
+
+		sleep(1);
+		goto top;
+	}
 
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (!ret)
@@ -1370,8 +1399,12 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 			INFO("JOB1 status : %s\n", mitsu70x_jobstatuses(jobs.job1_status));
 			// XXX are there more?
 		}
+	} else {
+		INFO("JOB0 ID     : %06u\n", jobstatus.jobid);
+		INFO("JOB0 status : %s\n", mitsu70x_jobstatuses(jobstatus.job_status));
 	}
 
+done:
 	return ret;
 }
 
@@ -1441,7 +1474,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.42WIP",
+	.version = "0.43WIP",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
