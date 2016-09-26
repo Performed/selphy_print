@@ -657,25 +657,27 @@ repeat:
 		ctx->lutfname = CORRTABLE_PATH "/CPS60L01.lut";
 
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
+			mhdr.speed = 4; /* Ultra Fine */
 			ctx->cpcfname = CORRTABLE_PATH "/CPS60T03.cpc";
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/CPS60T01.cpc";
 		}
-
 	} else if (ctx->type == P_KODAK_305) {
 		ctx->laminatefname = CORRTABLE_PATH "/EK305MAT.raw"; // Same as K60
 		ctx->lutfname = CORRTABLE_PATH "/EK305L01.lut";
 
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
+			mhdr.speed = 4; /* Ultra Fine */
 			ctx->cpcfname = CORRTABLE_PATH "/EK305T03.cpc";
 		} else {
-			ctx->cpcfname = CORRTABLE_PATH "/EK305T03.cpc";
+			ctx->cpcfname = CORRTABLE_PATH "/EK305T01.cpc";
 		}
+
 	} else if (ctx->type == P_FUJI_ASK300) {
 		ctx->laminatefname = CORRTABLE_PATH "/ASK300M2.raw"; // Same as D70
 		ctx->lutfname = CORRTABLE_PATH "/CPD70L01.lut";  // XXX guess, driver did not come with external LUT!
-
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
+			mhdr.speed = 3; /* Super Fine */
 			ctx->cpcfname = CORRTABLE_PATH "/ASK300T3.cpc";
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/ASK300T1.cpc";
