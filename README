@@ -46,6 +46,7 @@
 
    DNP DS80DX
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
+   Mitsubishi CP-9600DW
    Kodak 305
    Fuji ASK-300
    Citizen CW-02 and CX2
@@ -569,11 +570,11 @@
 
    Supported and tested printers:
 
-    Mitsubishi CP-9550DZ/DZS/DW-S
+    Mitsubishi CP-9550D/DW and CP-9550DZ/DZS/DW-S
 
    Work-in-progress printers:
 
-    Mitsubishi CP-9550D/DW
+    Mitsubishi CP-9600D/DW
 
    Valid commands:
 

@@ -42,6 +42,7 @@
 #define USB_VID_MITSU       0x06D3
 #define USB_PID_MITSU_9550D  0x03A1
 #define USB_PID_MITSU_9550DS 0x03A5  // or DZ/DZS/DZU
+#define USB_PID_MITSU_9600   0x03A9
 
 /* Private data stucture */
 struct mitsu9550_ctx {
@@ -798,6 +799,7 @@ struct dyesub_backend mitsu9550_backend = {
 	.devices = {
 	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9600, P_MITSU_9600, ""},
 	{ 0, 0, 0, ""}
 	}
 };
