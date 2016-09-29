@@ -1178,9 +1178,15 @@ skip_status:
 	/* Matte operation requires Ultrafine/superfine */
 	if (ctx->matte) {
 		if (ctx->type != P_MITSU_D70X) {
-			hdr->speed = 0x04; /* Force UltraFine */
+			if (hdr->speed != 0x03 && hdr->speed != 0x04) {
+				WARNING("Forcing Ultrafine mode for matte printing!\n");
+				hdr->speed = 0x04; /* Force UltraFine */
+			}
 		} else {
-			hdr->speed = 0x03; /* Force SuperFine */
+			if (hdr->speed != 0x03) {
+				hdr->speed = 0x03; /* Force SuperFine */
+				WARNING("Forcing Ultrafine mode for matte printing!\n");
+			}
 		}
 	}
 
