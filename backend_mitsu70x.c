@@ -802,13 +802,13 @@ repeat:
 			input.rows = ctx->rows;
 			input.cols = ctx->cols;
 			input.imgbuf = spoolbuf;
-			input.bytes_per_row = ctx->rows * ctx->cols * 3;
+			input.bytes_per_row = ctx->cols * 3;
 
 			ctx->output.origin_rows = ctx->output.origin_cols = 0;
 			ctx->output.rows = ctx->rows;
 			ctx->output.cols = ctx->cols;
 			ctx->output.imgbuf = ctx->databuf + ctx->datalen;
-			ctx->output.bytes_per_row = ctx->rows * ctx->cols * 3 * 2;
+			ctx->output.bytes_per_row = ctx->cols * 3 * 2;
 
 			do_image_effect(&ctx->cpcdata, &input, &ctx->output, ctx->sharpen);
 		}
