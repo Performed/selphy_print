@@ -49,6 +49,7 @@
 //#define USB_PID_FUJI_ASK300 XXXXXX
 
 //#define ENABLE_CORRTABLES
+//#define USE_REAL_LIBRARY
 
 #ifndef CORRTABLE_PATH
 #define CORRTABLE_PATH "D70"
@@ -91,6 +92,11 @@ struct mitsu70x_ctx {
 	char *last_cpcfname;
 
 	int raw_format;
+	int sharpen; /* ie mhdr.sharpen - 1 */
+
+#ifdef USE_REAL_LIBRARY
+	struct BandImage output;
+#endif
 #endif
 };
 
@@ -276,7 +282,8 @@ struct mitsu70x_hdr {
 	uint8_t  zero3[6];
 
 	uint8_t  multicut;
-	uint8_t  zero4[13];
+	uint8_t  zero4[12];
+	uint8_t  sharpen;  /* 0-9.  5 is "normal", 0 is "off" */
 	uint8_t  mode;     /* 0 for cooked YMC planar, 1 for packed BGR */
 	uint8_t  use_lut;  /* in BGR mode, 0 disables, 1 enables */
 
@@ -672,7 +679,7 @@ repeat:
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/EK305T01.cpc";
 		}
-
+		// XXX what about using K60 media if we read back the proper code?
 	} else if (ctx->type == P_FUJI_ASK300) {
 		ctx->laminatefname = CORRTABLE_PATH "/ASK300M2.raw"; // Same as D70
 		ctx->lutfname = CORRTABLE_PATH "/CPD70L01.lut";  // XXX guess, driver did not come with external LUT!
@@ -686,9 +693,12 @@ repeat:
 	if (!mhdr.use_lut)
 		ctx->lutfname = NULL;
 
+	ctx->sharpen = mhdr.sharpen - 1;
+
 	/* Clean up header back to pristine. */
 	mhdr.use_lut = 0;
 	mhdr.mode = 0;
+	mhdr.sharpen = 0;
 #endif
 
 	/* Work out total printjob size */
@@ -783,10 +793,26 @@ repeat:
 			}
 		}
 
-		// XXX INSERT ALGORITHM HERE...
+#ifdef USE_REAL_LIBRARY
+		/* Convert using image processing library */
+		{
+			struct BandImage input;
 
-		// XXX optionally CreateInkCorrectGammaTable(...)
+			input.origin_rows = input.origin_cols = 0;
+			input.rows = ctx->rows;
+			input.cols = ctx->cols;
+			input.imgbuf = spoolbuf;
+			input.bytes_per_row = ctx->rows * ctx->cols * 3;
 
+			ctx->output.origin_rows = ctx->output.origin_cols = 0;
+			ctx->output.rows = ctx->rows;
+			ctx->output.cols = ctx->cols;
+			ctx->output.imgbuf = ctx->databuf + ctx->datalen;
+			ctx->output.bytes_per_row = ctx->rows * ctx->cols * 3 * 2;
+
+			do_image_effect(&ctx->cpcdata, &input, &ctx->output, ctx->sharpen);
+		}
+#else
 		/* Convert to YMC using corrtables (aka CImageEffect70::DoGamma) */
 		{
 			uint32_t r, c;
@@ -808,15 +834,15 @@ repeat:
 				}
 			}
 		}
-		// XXX then call CImageEffect70::DoConv(...) to do the final corrections..
+#endif // !USE_REAL_LIBRARY
 
-		/* Move up the pointer */
+		/* Move up the pointer to after the image data */
 		ctx->datalen += 3*planelen;
 
 		/* Clean up */
 		free(spoolbuf);
 
-		/* Now that we've filled everything in, read latte from file */
+		/* Now that we've filled everything in, read matte from file */
 		if (ctx->matte) {
 			int fd;
 			DEBUG("Reading %d bytes of matte data from disk\n", ctx->matte);
@@ -840,7 +866,7 @@ repeat:
 			}
 		}
 	}
-#endif
+#endif // ENABLE_CORRTABLES
 	return CUPS_BACKEND_OK;
 }
 
@@ -1043,6 +1069,15 @@ static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx)
 	return 0;
 }
 
+#ifdef USE_REAL_LIBRARY
+static int d70_library_callback(void *context, void *buffer, uint32_t len)
+{
+	struct mitsu70x_ctx *ctx = context;
+
+	return send_data(ctx->dev, ctx->endp_down, buffer, len);
+}
+#endif
+
 static int mitsu70x_main_loop(void *vctx, int copies)
 {
 	struct mitsu70x_ctx *ctx = vctx;
@@ -1207,6 +1242,16 @@ skip_status:
 			     sizeof(struct mitsu70x_hdr))))
 		return CUPS_BACKEND_FAILED;
 
+#ifdef USE_REAL_LIBRARY
+	{
+		if (send_image_data(&ctx->output, ctx, d70_library_callback))
+			return CUPS_BACKEND_FAILED;
+
+		if (ctx->matte)
+			if (d70_library_callback(ctx, ctx->databuf + ctx->datalen - ctx->matte, ctx->matte))
+			    return CUPS_BACKEND_FAILED;
+	}
+#else
 	{
 		/* K60 and 305 need data sent in 256K chunks, but the first
 		   chunk needs to subtract the length of the 512-byte header */
@@ -1224,6 +1269,7 @@ skip_status:
 				chunk = 256*1024;
 		}
 	}
+#endif // ! USE_REAL_LIBRARY
 
 	/* Then wait for completion, if so desired.. */
 	INFO("Waiting for printer to acknowledge completion\n");
