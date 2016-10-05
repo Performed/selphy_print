@@ -49,7 +49,6 @@
 //#define USB_PID_FUJI_ASK300 XXXXXX
 
 //#define ENABLE_CORRTABLES
-//#define USE_REAL_LIBRARY
 
 #ifndef CORRTABLE_PATH
 #define CORRTABLE_PATH "D70"
@@ -94,9 +93,7 @@ struct mitsu70x_ctx {
 	int raw_format;
 	int sharpen; /* ie mhdr.sharpen - 1 */
 
-#ifdef USE_REAL_LIBRARY
 	struct BandImage output;
-#endif
 #endif
 };
 
@@ -793,7 +790,6 @@ repeat:
 			}
 		}
 
-#ifdef USE_REAL_LIBRARY
 		/* Convert using image processing library */
 		{
 			struct BandImage input;
@@ -810,31 +806,10 @@ repeat:
 			ctx->output.imgbuf = ctx->databuf + ctx->datalen;
 			ctx->output.bytes_per_row = ctx->cols * 3 * 2;
 
+
+			DEBUG("Running print data through processing library\n");
 			do_image_effect(&ctx->cpcdata, &input, &ctx->output, ctx->sharpen);
 		}
-#else
-		/* Convert to YMC using corrtables (aka CImageEffect70::DoGamma) */
-		{
-			uint32_t r, c;
-			uint32_t in = 0, out = 0;
-
-			uint16_t *offset_y = (uint16_t*)(ctx->databuf + ctx->datalen);
-			uint16_t *offset_m = offset_y + planelen/2;
-			uint16_t *offset_c = offset_m + planelen/2;
-//			uint16_t *offset_l = offset_c + planelen/2;
-
-			DEBUG("Running print data through BGR->YMC table (crude)\n");
-			for(r = 0 ; r < ctx->rows; r++) {
-				for (c = 0 ; c < ctx->cols ; c++) {
-					offset_y[out] = cpu_to_be16(ctx->cpcdata.GNMby[spoolbuf[in]]);
-					offset_m[out] = cpu_to_be16(ctx->cpcdata.GNMgm[spoolbuf[in + 1]]);
-					offset_c[out] = cpu_to_be16(ctx->cpcdata.GNMrc[spoolbuf[in + 2]]);
-					in += 3;
-					out++;
-				}
-			}
-		}
-#endif // !USE_REAL_LIBRARY
 
 		/* Move up the pointer to after the image data */
 		ctx->datalen += 3*planelen;
@@ -1069,14 +1044,12 @@ static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx)
 	return 0;
 }
 
-#ifdef USE_REAL_LIBRARY
 static int d70_library_callback(void *context, void *buffer, uint32_t len)
 {
 	struct mitsu70x_ctx *ctx = context;
 
 	return send_data(ctx->dev, ctx->endp_down, buffer, len);
 }
-#endif
 
 static int mitsu70x_main_loop(void *vctx, int copies)
 {
@@ -1242,7 +1215,6 @@ skip_status:
 			     sizeof(struct mitsu70x_hdr))))
 		return CUPS_BACKEND_FAILED;
 
-#ifdef USE_REAL_LIBRARY
 	{
 		if (send_image_data(&ctx->output, ctx, d70_library_callback))
 			return CUPS_BACKEND_FAILED;
@@ -1251,25 +1223,6 @@ skip_status:
 			if (d70_library_callback(ctx, ctx->databuf + ctx->datalen - ctx->matte, ctx->matte))
 			    return CUPS_BACKEND_FAILED;
 	}
-#else
-	{
-		/* K60 and 305 need data sent in 256K chunks, but the first
-		   chunk needs to subtract the length of the 512-byte header */
-
-		// XXX is this special case actually needed?
-		int chunk = 256*1024 - sizeof(struct mitsu70x_hdr);
-		int sent = 512;
-		while (chunk > 0) {
-			if ((ret = send_data(ctx->dev, ctx->endp_down,
-					     ctx->databuf + sent, chunk)))
-				return CUPS_BACKEND_FAILED;
-			sent += chunk;
-			chunk = ctx->datalen - sent;
-			if (chunk > 256*1024)
-				chunk = 256*1024;
-		}
-	}
-#endif // ! USE_REAL_LIBRARY
 
 	/* Then wait for completion, if so desired.. */
 	INFO("Waiting for printer to acknowledge completion\n");
@@ -1528,7 +1481,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.44WIP",
+	.version = "0.45",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
