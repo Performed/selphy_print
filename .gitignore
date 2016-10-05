@@ -1,5 +1,6 @@
 *~
 *.o
+*.so
 
 sonyupdr150
 kodak6800
