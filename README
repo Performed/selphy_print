@@ -541,19 +541,32 @@
 
    *** VERY IMPORTANT ***
 
-	This family of printers all utilize an engine that requires the
-	host system to process the image data, converting color data and
-	performing thermal compensation via unknown algorithms.
+        In order to generate usable output, this family of printers require
+	the input data to be transformed using specific image processing
+	algorithms.
 
-	While Mitsibishi's proprietary Windows drivers include data tables
-	used by the image processing algorithms, the algorithms themselves 
-	are unknown. So, while the printers are demonstratably functional,
-	the quality of the output is quite poor, and not suitable for
-	photographic output.
+	The library that implements this processing is dynamically loaded
+	at runtime.  There is currently only one option:
 
-	Work is slowly underway to reverse-engineer this algorithm, but
-	there is no expectation that this effort will succeed in a reasonable
-	timeline.
+	 * libMitsuD70ImageReProcess -- GPL'd re-implementation of the
+	   Mitsubishi algorithms, available as source.  No guaranteees are
+	   made about its output quality as compared to Mitsubishi's
+	   proprietary drivers, but it is generally considered quite good.
+
+	   DISCLAIMER:  Mitsubishi was not involved in the creation of
+	   libMitsuD70ImageReProcess and is not responsible in any way for
+	   any deficiencies in its output.  They will provide no support if
+	   it is used.
+
+	   Do *NOT* contact Mitsubishi for support if you are using
+	   any combination of gutenprint, selphy_print or
+	   libMitsuD80ImageReProcess.
+
+ 	      (Please see the full disclaimer in libMitsuD70ImageReProcess.c)
+
+	 * If the above library is not found, the backend will fall back to
+	   a very crude algorithm that generates low-quality results not
+	   suitable for photographic output.
 
    Valid commands:
 

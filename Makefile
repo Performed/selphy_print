@@ -68,12 +68,6 @@ install:
 	$(INSTALL) -o root -m 700 $(EXEC_NAME) $(CUPS_BACKEND_DIR)/$(BACKEND_NAME)
 	$(MKDIR) -p $(CUPS_DATA_DIR)/usb
 	$(INSTALL) -o root -m 644 blacklist $(CUPS_DATA_DIR)/usb/net.sf.gimp-print.usb-quirks
-ifneq ($(BACKEND_DATA_DIR),)
-	$(MKDIR) -p $(BACKEND_DATA_DIR)
-	$(INSTALL) -o root -m 644 D70/*raw $(BACKEND_DATA_DIR)
-	$(INSTALL) -o root -m 644 D70/*lut $(BACKEND_DATA_DIR)
-	$(INSTALL) -o root -m 644 D70/*cpc $(BACKEND_DATA_DIR)
-endif
 
 clean:
 	$(RM) -f $(EXEC_NAME) $(BACKENDS) $(SOURCES:.c=.o)

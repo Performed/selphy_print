@@ -1,9 +1,10 @@
 # Basic stuff
-LIBS6145_NAME ?= S6145ImageReProcess
+LIBMITSUD70_NAME ?= MitsuD70ImageReProcess
 
 # Destination directories
 DESTDIR ?=
 LIBDIR ?= $(DESTDIR)/usr/local/lib
+BACKEND_DATA_DIR ?= $(PREFIX)/usr/share/gutenprint/backend_data
 
 # Tools
 CC ?= $(CROSS_COMPILE)gcc
@@ -19,23 +20,28 @@ CFLAGS += -Wall -Wextra -g -Os -std=c99 -fPIC --no-strict-overflow # -Wconversio
 CFLAGS += -funit-at-a-time
 
 # Build stuff
-SOURCES = libS6145ImageReProcess.c
+SOURCES = libMitsuD70ImageReProcess.c
 
 # And now the rules!
 .PHONY: clean all install cppcheck
 
-all: lib$(LIBS6145_NAME).so
+all: lib$(LIBMITSUD70_NAME).so
 
 cppcheck:
 	$(CPPCHECK) -q -v --std=c99 --enable=all -I/usr/include $(CPPFLAGS) $(SOURCES)
 
 install:
 	$(MKDIR) -p $(LIBDIR)
-	$(INSTALL) -o root -m 755 lib$(LIBS6145_NAME).so $(LIBDIR)
-clean:
-	$(RM) -f lib$(LIBS6145_NAME).so *.o
+	$(INSTALL) -o root -m 755 lib$(LIBMITSUD70_NAME).so $(LIBDIR)
+	$(MKDIR) -p $(BACKEND_DATA_DIR)
+	$(INSTALL) -o root -m 644 data/*raw $(BACKEND_DATA_DIR)
+	$(INSTALL) -o root -m 644 data/*lut $(BACKEND_DATA_DIR)
+	$(INSTALL) -o root -m 644 data/*cpc $(BACKEND_DATA_DIR)
 
-lib$(LIBS6145_NAME).so:  $(SOURCES:.c=.o)
+clean:
+	$(RM) -f lib$(LIBMITSUD70_NAME).so *.o
+
+lib$(LIBMITSUD70_NAME).so:  $(SOURCES:.c=.o)
 	$(CC) $(LDFLAGS) -g -shared -o $@ $^
 
 %.o: %.c

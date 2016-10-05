@@ -1,0 +1,43 @@
+   LibMitsuD70ImageReProcess -- Re-implemented image processing library for
+                                the Mitsubishi CP-D70 family of printers
+
+   Copyright (c) 2016 Solomon Peachy <pizza@shaftnet.org>
+
+   ** ** ** ** Do NOT contact Mitsubishi about this library! ** ** ** **
+
+   This library is a platform-independent reimplementation of the image
+   processing algorithms that are necessary to utilize the Mitsubishi
+   CP-D70 family of printers.
+
+   Mitsubishi was *NOT* involved in the creation of this library, and is
+   not responsible in any way for the library or any deficiencies in its
+   output.  They will provide no support if it is used.
+
+   However, without this library, it is nearly impossible to utilize the
+   D70 family of printers under Linux and similar operating systems.
+
+   The following printers are known (or expected) to function with this
+   library:
+
+     * Mitsubishi CP-D70DW
+     * Mitsubishi CP-D707DW
+     * Mitsubishi CP-K60DW-S
+     * Mitsubishi CP-D80DW
+     * Kodak 305
+     * Fuji ASK-300
+
+   ** ** ** **
+
+   This library is released under the GNU GPL version 3.  Unfortunately
+   this means that it cannot be bundled with Gutenprint.
+
+   In order to utilize this library with Gutenprint, you will need:
+
+	* Gutenprint 5.2.12-pre4 or newer
+	* Current selphy_print backend
+	* This library
+
+   To build this library:
+
+	make
+	make install
