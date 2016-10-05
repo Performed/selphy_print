@@ -581,10 +581,12 @@ static void mitsu70x_teardown(void *vctx) {
 
 	if (ctx->databuf)
 		free(ctx->databuf);
+#ifdef USE_CORRTABLES	
 	if (ctx->cpcdata)
 		destroy_CPCData(ctx->cpcdata);
 	if (ctx->lut)
 		CColorConv3D_Destroy3DColorTable(ctx->lut);
+#endif
 
 	free(ctx);
 }
@@ -1057,12 +1059,14 @@ static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx)
 	return 0;
 }
 
+#ifdef USE_CORRTABLES
 static int d70_library_callback(void *context, void *buffer, uint32_t len)
 {
 	struct mitsu70x_ctx *ctx = context;
 
 	return send_data(ctx->dev, ctx->endp_down, buffer, len);
 }
+#endif
 
 static int mitsu70x_main_loop(void *vctx, int copies)
 {
@@ -1228,6 +1232,7 @@ skip_status:
 			     sizeof(struct mitsu70x_hdr))))
 		return CUPS_BACKEND_FAILED;
 
+#ifdef USE_CORRTABLES	
 	{
 		if (send_image_data(&ctx->output, ctx, d70_library_callback))
 			return CUPS_BACKEND_FAILED;
@@ -1236,6 +1241,25 @@ skip_status:
 			if (d70_library_callback(ctx, ctx->databuf + ctx->datalen - ctx->matte, ctx->matte))
 			    return CUPS_BACKEND_FAILED;
 	}
+#else
+       {
+               /* K60 and 305 need data sent in 256K chunks, but the first
+                  chunk needs to subtract the length of the 512-byte header */
+
+               // XXX is this special case actually needed?
+               int chunk = 256*1024 - sizeof(struct mitsu70x_hdr);
+               int sent = 512;
+               while (chunk > 0) {
+                       if ((ret = send_data(ctx->dev, ctx->endp_down,
+                                            ctx->databuf + sent, chunk)))
+                               return CUPS_BACKEND_FAILED;
+                       sent += chunk;
+                       chunk = ctx->datalen - sent;
+                       if (chunk > 256*1024)
+                               chunk = 256*1024;
+               }
+       }
+#endif // ! USE_CORRTABLES
 
 	/* Then wait for completion, if so desired.. */
 	INFO("Waiting for printer to acknowledge completion\n");
