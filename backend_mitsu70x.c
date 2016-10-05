@@ -85,8 +85,8 @@ struct mitsu70x_ctx {
 	char *lutfname;
 	char *cpcfname;
 
-	struct CColorConv3D lut;
-	struct CPCData cpcdata;
+	struct CColorConv3D *lut;
+	struct CPCData *cpcdata;
 
 	char *last_cpcfname;
 
@@ -581,6 +581,10 @@ static void mitsu70x_teardown(void *vctx) {
 
 	if (ctx->databuf)
 		free(ctx->databuf);
+	if (ctx->cpcdata)
+		destroy_CPCData(ctx->cpcdata);
+	if (ctx->lut)
+		CColorConv3D_Destroy3DColorTable(ctx->lut);
 
 	free(ctx);
 }
@@ -764,7 +768,7 @@ repeat:
 		}
 
 		/* Run through basic LUT, if present and enabled */
-		if (ctx->lutfname) {
+		if (ctx->lutfname && !ctx->lut) {  /* printer-specific, it is fixed per-job */
 			DEBUG("Running print data through LUT\n");
 			uint8_t *buf = malloc(LUT_LEN);
 			if (!buf) {
@@ -775,16 +779,22 @@ repeat:
 				ERROR("Unable to open LUT file '%s'\n", ctx->lutfname);
 				return CUPS_BACKEND_CANCEL;
 			}
-			CColorConv3D_Load3DColorTable(&ctx->lut, buf);
+			ctx->lut = CColorConv3D_Load3DColorTable(buf);
 			free(buf);
-			CColorConv3D_DoColorConv(&ctx->lut, spoolbuf, ctx->cols, ctx->rows, ctx->cols * 3, 1);
-			// XXX proprietary lib also does gamma+contrast+brightness
+			if (!ctx->lut) {
+				ERROR("Unable to parse LUT file '%s'!\n", ctx->lutfname);
+				return CUPS_BACKEND_CANCEL;
+			}
+			CColorConv3D_DoColorConv(ctx->lut, spoolbuf, ctx->cols, ctx->rows, ctx->cols * 3, COLORCONV_BGR);
 		}
 
 		/* Load in the CPC file, if needed! */
 		if (ctx->cpcfname && ctx->cpcfname != ctx->last_cpcfname) {
 			ctx->last_cpcfname = ctx->cpcfname;
-			if (load_CPCData(&ctx->cpcdata, ctx->cpcfname)) {
+			if (ctx->cpcdata)
+				destroy_CPCData(ctx->cpcdata);
+			ctx->cpcdata = get_CPCData(ctx->cpcfname);
+			if (!ctx->cpcdata) {
 				ERROR("Unable to load CPC file '%s'\n", ctx->cpcfname);
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -808,7 +818,10 @@ repeat:
 
 
 			DEBUG("Running print data through processing library\n");
-			do_image_effect(&ctx->cpcdata, &input, &ctx->output, ctx->sharpen);
+			if (do_image_effect(ctx->cpcdata, &input, &ctx->output, ctx->sharpen)) {
+				ERROR("Image Processing failed, aborting!\n");
+				return CUPS_BACKEND_CANCEL;
+			}
 		}
 
 		/* Move up the pointer to after the image data */
