@@ -55,7 +55,7 @@
 #endif
 
 #ifdef ENABLE_CORRTABLES
-#include "D70/Mitsu_D70.c"
+#include "libMitsu/libMitsuD70ImageReProcess.c"
 #endif
 
 /* Private data stucture */
