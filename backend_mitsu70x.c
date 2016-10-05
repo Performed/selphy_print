@@ -903,7 +903,7 @@ repeat:
 			}
 		} else {
 			// XXXFALLBACK write fallback code?
-			ERROR("!!! Image Processing not found, aborting!\n");
+			ERROR("!!! Image Processing Library not found, aborting!\n");
 			return CUPS_BACKEND_CANCEL;
 		}
 
@@ -1315,7 +1315,7 @@ skip_status:
 		if (ctx->matte)
 			if (d70_library_callback(ctx, ctx->databuf + ctx->datalen - ctx->matte, ctx->matte))
 			    return CUPS_BACKEND_FAILED;
-	} else { // XXXFALLBACK fallback code..
+	} else { // Fallback code..
                /* K60 and 305 need data sent in 256K chunks, but the first
                   chunk needs to subtract the length of the 512-byte header */
 
