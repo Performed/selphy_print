@@ -32,14 +32,13 @@ CFLAGS += -funit-at-a-time
 # List of backends
 BACKENDS = sonyupdr150 kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 citizencw01 mitsu9550 shinkos6245 shinkos6145
 
-# For the s6145 backend
+# For the s6145 and mitsu70x backends
 CPPFLAGS += -DUSE_DLOPEN
 LDFLAGS += -ldl
 #CPPFLAGS += -DUSE_LTDL
 #LDFLAGS += -lltdl
 
 # For the mitsu70x backend
-#CPPFLAGS += -DENABLE_CORRTABLES
 CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 
 # Build stuff

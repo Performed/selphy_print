@@ -562,7 +562,7 @@
 	   any combination of gutenprint, selphy_print or
 	   libMitsuD80ImageReProcess.
 
- 	      (Please see the full disclaimer in libMitsuD70ImageReProcess.c)
+             (Please see the full disclaimer in libMitsuD70ImageReProcess.c)
 
 	 * If the above library is not found, the backend will fall back to
 	   a very crude algorithm that generates low-quality results not
