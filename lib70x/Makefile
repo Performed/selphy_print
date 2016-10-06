@@ -4,7 +4,7 @@ LIBMITSUD70_NAME ?= MitsuD70ImageReProcess
 # Destination directories
 DESTDIR ?=
 LIBDIR ?= $(DESTDIR)/usr/local/lib
-BACKEND_DATA_DIR ?= $(PREFIX)/usr/share/gutenprint/backend_data
+BACKEND_DATA_DIR ?= $(PREFIX)/usr/local/share/gutenprint/backend_data
 
 # Tools
 CC ?= $(CROSS_COMPILE)gcc

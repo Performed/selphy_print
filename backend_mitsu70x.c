@@ -67,7 +67,22 @@
 
 #include "backend_common.h"
 
-#include "lib70x/libMitsuD70ImageReProcess.h"
+// #include "lib70x/libMitsuD70ImageReProcess.h"
+
+#ifndef LUT_LEN
+#define COLORCONV_RGB 0
+#define COLORCONV_BGR 1
+
+#define LUT_LEN 14739
+struct BandImage {
+	   void  *imgbuf;
+	 int32_t bytes_per_row;
+	uint16_t origin_cols;
+	uint16_t origin_rows;
+	uint16_t cols;
+	uint16_t rows;
+};
+#endif
 
 /* Image processing library function prototypes */
 #define LIB_NAME_RE "libMitsuD70ImageReProcess.so" // Reimplemented library

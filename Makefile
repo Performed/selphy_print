@@ -6,7 +6,7 @@ EXEC_NAME ?= dyesub_backend
 PREFIX ?=
 CUPS_BACKEND_DIR ?= $(PREFIX)`cups-config --serverbin`/backend
 CUPS_DATA_DIR ?= $(PREFIX)`cups-config --datadir`
-BACKEND_DATA_DIR ?= $(PREFIX)/usr/share/gutenprint/backend_data
+BACKEND_DATA_DIR ?= $(PREFIX)/usr/local/share/gutenprint/backend_data
 
 # Tools
 CC ?= $(CROSS_COMPILE)gcc
@@ -38,12 +38,12 @@ LDFLAGS += -ldl
 #CPPFLAGS += -DUSE_LTDL
 #LDFLAGS += -lltdl
 
-# For the mitsu70x backend
-CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
-
 # Build stuff
 DEPS += backend_common.h
 SOURCES = backend_common.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
+
+# Backend-specific joy:
+backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
 
 # And now the rules!
 .PHONY: clean all install cppcheck
