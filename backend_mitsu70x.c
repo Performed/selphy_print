@@ -98,7 +98,11 @@ typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 			       int (*callback_fn)(void *context, void *buffer, uint32_t len));
 
 #ifndef CORRTABLE_PATH
-#error "Must define CORRTABLE_PATH!"
+#ifdef PACKAGE_DATA_DIR
+#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
+#else
+#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
+#endif
 #endif
 
 #define USB_VID_MITSU       0x06D3
