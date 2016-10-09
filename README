@@ -30,7 +30,7 @@
    Kodak 805 Photo Printer
    Kodak 6800 Photo Printer
    Kodak 6850 Photo Printer
-   Shinko CHC-S2145 (aka "Sinfonia S2")
+   Shinko CHC-S2145 (aka Sinfonia S2)
    Sony UP-DR150
    Sony UP-DR200
    DNP DS40 / Citizen CX
@@ -48,16 +48,16 @@
    DNP DS80DX
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
    Mitsubishi CP-9600DW
-   Fuji ASK-300
+   Fujifilm ASK-300
    Citizen CW-02 and CX2
-   Olmec OP900/OP900II
+   Olmec OP900 and OP900II
    ICI Imagedata OP900
    Sony UP-CR10L (aka DNP DS-SL10)
    Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)   
    Kodak 8810
-   Kodak 7000/7010/7015
+   Kodak 7000, 7010, and 7015
 
  ***************************************************************************
 
@@ -537,7 +537,7 @@
    Unsupported printers (Unknown VID/PID):
 
     Mitsubishi CP-D80DW
-    Fuji ASK-300
+    Fujifilm ASK-300
 
    *** VERY IMPORTANT ***
 
