@@ -471,8 +471,9 @@ static int print_scan_output(struct libusb_device *device,
 			int i;
 			uint8_t endp_up = 0, endp_down = 0;
 			libusb_get_active_config_descriptor(device, &config);
+			// XXX loop through interfaces and altettings!
 			for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
-				if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
+				if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_BULK) {
 					if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
 						endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
 					else
@@ -919,8 +920,9 @@ int main (int argc, char **argv)
 		goto done_close;
 	}
 
+	// XXX loop through interfaces and altettings!
 	for (i = 0 ; i < config->interface[0].altsetting[0].bNumEndpoints ; i++) {
-		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & 3) == LIBUSB_TRANSFER_TYPE_BULK) {
+		if ((config->interface[0].altsetting[0].endpoint[i].bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_BULK) {
 			if (config->interface[0].altsetting[0].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
 				endp_up = config->interface[0].altsetting[0].endpoint[i].bEndpointAddress;
 			else
