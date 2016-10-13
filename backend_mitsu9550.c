@@ -43,29 +43,11 @@
 #define USB_PID_MITSU_9550D  0x03A1
 #define USB_PID_MITSU_9550DS 0x03A5  // or DZ/DZS/DZU
 #define USB_PID_MITSU_9600D  0x03A9
+//#define USB_PID_MITSU_9600DS  XXXXXX
 //#define USB_PID_MITSU_9800D   XXXXXX
+//#define USB_PID_MITSU_9800DS  XXXXXX
 //#define USB_PID_MITSU_9810D   XXXXXX
 //#define USB_PID_MITSU_9810DS  XXXXXX
-
-/* Private data stucture */
-struct mitsu9550_ctx {
-	struct libusb_device_handle *dev;
-	uint8_t endp_up;
-	uint8_t endp_down;
-	int type;
-
-	uint8_t *databuf;
-	int datalen;
-
-	int is_s_variant;
-
-	uint16_t rows;
-	uint16_t cols;
-
-	uint16_t last_donor;
-	uint16_t last_remain;
-	int marker_reported;
-};
 
 /* Spool file structures */
 
@@ -105,6 +87,7 @@ struct mitsu9550_hdr4 {
 	uint8_t  unk[46]; /* 00 70 00 00 00 00 00 00 01 01 00 [...] */
 } __attribute__((packed));
 
+/* Data plane header */
 struct mitsu9550_plane {
 	uint8_t  cmd[4]; /* 1b 5a 54 00 */
 	uint8_t  null[2];
@@ -116,6 +99,35 @@ struct mitsu9550_plane {
 struct mitsu9550_cmd {
 	uint8_t cmd[4];
 } __attribute__((packed));
+
+/* Private data stucture */
+struct mitsu9550_ctx {
+	struct libusb_device_handle *dev;
+	uint8_t endp_up;
+	uint8_t endp_down;
+	int type;
+
+	uint8_t *databuf;
+	uint32_t datalen;
+
+	uint16_t rows;
+	uint16_t cols;
+	uint32_t plane_len;
+
+	uint16_t last_donor;
+	uint16_t last_remain;
+	int marker_reported;
+
+	/* Parse headers separately */
+	struct mitsu9550_hdr1 hdr1;
+	int hdr1_present;
+	struct mitsu9550_hdr2 hdr2;
+	int hdr2_present;
+	struct mitsu9550_hdr3 hdr3;
+	int hdr3_present;
+	struct mitsu9550_hdr4 hdr4;
+	int hdr4_present;
+};
 
 /* Printer data structures */
 struct mitsu9550_media {
@@ -260,7 +272,7 @@ static void mitsu9550_teardown(void *vctx) {
 
 static int mitsu9550_read_parse(void *vctx, int data_fd) {
 	struct mitsu9550_ctx *ctx = vctx;
-	struct mitsu9550_hdr1 hdr;
+	uint8_t buf[sizeof(struct mitsu9550_hdr1)];
 
 	int remain, i;
 
@@ -272,10 +284,16 @@ static int mitsu9550_read_parse(void *vctx, int data_fd) {
 		ctx->databuf = NULL;
 	}
 
+	ctx->hdr1_present = 0;
+	ctx->hdr2_present = 0;
+	ctx->hdr3_present = 0;
+	ctx->hdr4_present = 0;
+
+top:
 	/* Read in initial header */
-	remain = sizeof(hdr);
+	remain = sizeof(buf);
 	while (remain > 0) {
-		i = read(data_fd, ((uint8_t*)&hdr) + sizeof(hdr) - remain, remain);
+		i = read(data_fd, buf + sizeof(buf) - remain, remain);
 		if (i == 0)
 			return CUPS_BACKEND_CANCEL;
 		if (i < 0)
@@ -284,31 +302,73 @@ static int mitsu9550_read_parse(void *vctx, int data_fd) {
 	}
 
 	/* Sanity check */
-	if (hdr.cmd[0] != 0x1b ||
-	    hdr.cmd[1] != 0x57 ||
-	    hdr.cmd[2] != 0x20 ||
-	    hdr.cmd[3] != 0x2e) {
-		ERROR("Unrecognized data format!\n");
+	if (buf[0] != 0x1b || buf[1] != 0x57 || buf[3] != 0x2e) {
+		if (!ctx->hdr1_present || !ctx->hdr2_present) {
+			ERROR("Unrecognized data format!\n");
+			return CUPS_BACKEND_CANCEL;
+		} else if (buf[0] == 0x1b && buf[1] == 0x57 &&
+			   buf[2] == 0x54 && buf[3] == 0x00) {
+			/* We've hit the data portion */
+			goto hdr_done;
+		} else {
+			ERROR("Unrecognized data format!\n");
+			return CUPS_BACKEND_CANCEL;
+		}
+	}
+
+	switch(buf[2]) {
+	case 0x20: /* header 1 */
+		memcpy(&ctx->hdr1, buf, sizeof(ctx->hdr1));
+		ctx->hdr1_present = 1;
+		break;
+	case 0x21: /* header 2 */
+		memcpy(&ctx->hdr2, buf, sizeof(ctx->hdr2));
+		ctx->hdr2_present = 1;
+		break;
+	case 0x22: /* header 3 */
+		memcpy(&ctx->hdr3, buf, sizeof(ctx->hdr3));
+		ctx->hdr3_present = 1;
+		break;
+	case 0x26: /* header 4 */
+		memcpy(&ctx->hdr4, buf, sizeof(ctx->hdr4));
+		ctx->hdr4_present = 1;
+		break;
+	default:
+		ERROR("Unrecognized header format (%02x)!\n", buf[2]);
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	/* Work out printjob size */
-	ctx->rows = be16_to_cpu(hdr.rows);
-	ctx->cols = be16_to_cpu(hdr.cols);
+	/* Read in the next chunk */
+	goto top;
 
-	remain = ctx->rows * ctx->cols + sizeof(struct mitsu9550_plane);
-	remain *= 3;
-	remain += sizeof(struct mitsu9550_hdr2) + sizeof(struct mitsu9550_hdr3)+ sizeof(struct mitsu9550_hdr4) + sizeof(struct mitsu9550_cmd);
+hdr_done:
+
+	/* Work out printjob size */
+	ctx->rows = be16_to_cpu(ctx->hdr1.rows);
+	ctx->cols = be16_to_cpu(ctx->hdr1.cols);
+
+	ctx->plane_len = ctx->rows * ctx->cols;
+	if (ctx->type == P_MITSU_98x0)
+		ctx->plane_len *= 2;
+
+	/* We have three planes and the final command to read */
+	remain = 3 * (ctx->plane_len + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+
+	/* On the 9810, don't forget the matte plane! */
+	if (ctx->hdr1.matte) {
+		remain += ctx->plane_len + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
+	}
 
 	/* Allocate buffer */
-	ctx->databuf = malloc(remain + sizeof(struct mitsu9550_hdr1));
+	ctx->databuf = malloc(remain);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_FAILED;
 	}
 
-	memcpy(ctx->databuf, &hdr, sizeof(struct mitsu9550_hdr1));
-	ctx->datalen = sizeof(struct mitsu9550_hdr1);
+	/* Copy over first chunk into buffer */
+	memcpy(ctx->databuf, buf, sizeof(buf));
+	ctx->datalen = sizeof(buf);
 
 	/* Read in the spool data */
 	while(remain) {
@@ -319,6 +379,13 @@ static int mitsu9550_read_parse(void *vctx, int data_fd) {
 			return CUPS_BACKEND_CANCEL;
 		ctx->datalen += i;
 		remain -= i;
+	}
+
+	/* Finally, 9550-S doesn't sent over hdr4! */
+	if (ctx->type == P_MITSU_9550S) {
+		/* XXX Has to do with error policy, but not sure what.  Mitsu9550-S will set this 
+		   based on a command, but it's not part of the standard job spool */
+		ctx->hdr4_present = 0;
 	}
 
 	return CUPS_BACKEND_OK;
@@ -417,7 +484,6 @@ static int validate_media(int type, int cols, int rows) {
 
 static int mitsu9550_main_loop(void *vctx, int copies) {
 	struct mitsu9550_ctx *ctx = vctx;
-	struct mitsu9550_hdr2 *hdr2;
 	struct mitsu9550_cmd cmd;
 	uint8_t rdbuf[READBACK_LEN];
 	uint8_t *ptr;
@@ -428,9 +494,9 @@ static int mitsu9550_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_FAILED;
 
 	/* Update printjob header to reflect number of requested copies */
-	hdr2 = (struct mitsu9550_hdr2 *) (ctx->databuf + sizeof(struct mitsu9550_hdr1));
-	hdr2->copies = cpu_to_be16(copies);
+	ctx->hdr2.copies = cpu_to_be16(copies);
 
+	/* Okay, let's do this thing */
 	ptr = ctx->databuf;
 
 top:
@@ -479,25 +545,22 @@ top:
 	QUERY_STATUS();
 
 	/* Send printjob headers from spool data */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr1))))
-		return CUPS_BACKEND_FAILED;
-	ptr += sizeof(struct mitsu9550_hdr1);
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr2))))
-		return CUPS_BACKEND_FAILED;
-	ptr += sizeof(struct mitsu9550_hdr2);
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr3))))
-		return CUPS_BACKEND_FAILED;
-	ptr += sizeof(struct mitsu9550_hdr3);
-	if (ctx->type != P_MITSU_9550S) {
-		// XXX need to investigate what hdr4 is about
+	if (ctx->hdr1_present)
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) ptr, sizeof(struct mitsu9550_hdr4))))
+				     (uint8_t*) &ctx->hdr1, sizeof(ctx->hdr1))))
+			return CUPS_BACKEND_FAILED;
+	if (ctx->hdr2_present)
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &ctx->hdr2, sizeof(ctx->hdr2))))
+			return CUPS_BACKEND_FAILED;
+	if (ctx->hdr3_present)
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &ctx->hdr3, sizeof(ctx->hdr3))))
+			return CUPS_BACKEND_FAILED;
+	if (ctx->hdr4_present)
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &ctx->hdr4, sizeof(struct mitsu9550_hdr4))))
 			return CUPS_BACKEND_FAILED;		
-	}
-	ptr += sizeof(struct mitsu9550_hdr4);
 	
 	if (ctx->type == P_MITSU_9550S) {
 		/* Send "start data" command */
@@ -510,34 +573,34 @@ top:
 				     (uint8_t*) &cmd, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
 	}
+
 	/* Send plane data */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
 		return CUPS_BACKEND_FAILED;
 	ptr += sizeof(struct mitsu9550_plane);
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*) ptr, ctx->rows * ctx->cols)))
+			     (uint8_t*) ptr, ctx->plane_len)))
 		return CUPS_BACKEND_FAILED;
-	ptr += ctx->rows * ctx->cols;
+	ptr += ctx->plane_len;
 	
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
 		return CUPS_BACKEND_FAILED;
 	ptr += sizeof(struct mitsu9550_plane);
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*) ptr, ctx->rows * ctx->cols)))
+			     (uint8_t*) ptr, ctx->plane_len)))
 		return CUPS_BACKEND_FAILED;
-	ptr += ctx->rows * ctx->cols;
-	
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
-		return CUPS_BACKEND_FAILED;
-	ptr += sizeof(struct mitsu9550_plane);
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*) ptr, ctx->rows * ctx->cols)))
-		return CUPS_BACKEND_FAILED;
-	ptr += ctx->rows * ctx->cols;
+	ptr += ctx->plane_len;
 
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
+		return CUPS_BACKEND_FAILED;
+	ptr += sizeof(struct mitsu9550_plane);
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) ptr, ctx->plane_len)))
+		return CUPS_BACKEND_FAILED;
+	ptr += ctx->plane_len;
 
 	/* Query statuses */
 	{
@@ -597,6 +660,25 @@ top:
 			return CUPS_BACKEND_FAILED;
 	} else {
 		/* Send "end data" command from spool file */
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     ptr, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+		ptr += sizeof(cmd);
+	}
+
+	/* Don't forget the 9810's matte plane */
+	if (ctx->hdr1.matte) {
+		// XXX include a status loop here too?
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
+			return CUPS_BACKEND_FAILED;
+		ptr += sizeof(struct mitsu9550_plane);
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) ptr, ctx->plane_len)))
+			return CUPS_BACKEND_FAILED;
+		ptr += ctx->plane_len;
+
+		/* Send "lamination end data" command from spool file */
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ptr, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
@@ -794,8 +876,8 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
-	.name = "Mitsubishi CP-9550DW-S",
-	.version = "0.17",
+	.name = "Mitsubishi CP-9550 family",
+	.version = "0.18",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -806,12 +888,14 @@ struct dyesub_backend mitsu9550_backend = {
 	.main_loop = mitsu9550_main_loop,
 	.query_serno = mitsu9550_query_serno,
 	.devices = {
-	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9xxx, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9810DS, P_MITSU_9810S, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9xxx, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600S, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_98x0, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_98x0S, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_98x0, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9810DS, P_MITSU_98x0S, ""},
 	{ 0, 0, 0, ""}
 	}
 };
