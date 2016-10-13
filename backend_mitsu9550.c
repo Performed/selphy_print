@@ -381,10 +381,12 @@ hdr_done:
 		remain -= i;
 	}
 
-	/* Finally, 9550-S doesn't sent over hdr4! */
-	if (ctx->type == P_MITSU_9550S) {
-		/* XXX Has to do with error policy, but not sure what.  Mitsu9550-S will set this 
-		   based on a command, but it's not part of the standard job spool */
+	/* Finally, 9550S/9800S doesn't sent over hdr4! */
+	if (ctx->type == P_MITSU_9550S ||
+	    ctx->type == P_MITSU_9800S) {
+		/* XXX Has to do with error policy, but not sure what.
+		   Mitsu9550-S/9800-S will set this based on a command,
+		   but it's not part of the standard job spool */
 		ctx->hdr4_present = 0;
 	}
 
@@ -508,7 +510,8 @@ static int mitsu9550_main_loop(void *vctx, int copies) {
 	ptr = ctx->databuf;
 
 top:
-	if (ctx->type == P_MITSU_9550S) {
+	if (ctx->type == P_MITSU_9550S ||
+	    ctx->type == P_MITSU_9800S) {
 		int num;
 
 		/* Send "unknown 1" command */
@@ -536,11 +539,31 @@ top:
 		// seen so far: eb 4b 7f 00  02 00 5e
 	}
 
+	if (ctx->type == P_MITSU_9800S) {
+		int num;
+
+		/* Send "unknown 3" command */
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x4b;
+		cmd.cmd[2] = 0x01;
+		cmd.cmd[3] = 0x00;
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+
+		ret = read_data(ctx->dev, ctx->endp_up,
+				rdbuf, READBACK_LEN, &num);
+		if (ret < 0)
+			return CUPS_BACKEND_FAILED;
+		// seen so far: e4 4b 01 00 02 00 78
+	}
+
 	QUERY_STATUS();
 
 	/* Now it's time for the actual print job! */
 
-	if (ctx->type == P_MITSU_9550S) {
+	if (ctx->type == P_MITSU_9550S ||
+	    ctx->type == P_MITSU_9800S) {
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x44;
 		cmd.cmd[2] = 0;
@@ -570,7 +593,8 @@ top:
 				     (uint8_t*) &ctx->hdr4, sizeof(struct mitsu9550_hdr4))))
 			return CUPS_BACKEND_FAILED;		
 	
-	if (ctx->type == P_MITSU_9550S) {
+	if (ctx->type == P_MITSU_9550S ||
+	    ctx->type == P_MITSU_9800S) {
 		/* Send "start data" command */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x5a;
@@ -662,7 +686,16 @@ top:
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x50;
 		cmd.cmd[2] = 0x47;
-		cmd.cmd[3] = 0x00;			
+		cmd.cmd[3] = 0x00;
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+	} else if (ctx->type == P_MITSU_9800S) {
+		/* Send "end data" command */
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x50;
+		cmd.cmd[2] = 0x4e;
+		cmd.cmd[3] = 0x00;
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*) &cmd, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
@@ -885,7 +918,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.18",
+	.version = "0.19",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -929,18 +962,18 @@ struct dyesub_backend mitsu9550_backend = {
    XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 00 00 :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
    00 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600
 
-   ~~~ Header 3 (9550 only)
+   ~~~ Header 3 (9550 and 9800-S only..)
 
    1b 57 22 2e 00 40 00 00  00 00 00 XX 00 00 00 00 :: XX = 00 normal, 01 FineDeep
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
    00 00 
 
-   ~~~ Header 4 (all but 9550-S, involves error policy?)
+   ~~~ Header 4 (all but 9550-S and 9800-S, involves error policy?)
 
-   1b 57 26 2e 00 70 00 00  00 00 00 00 RR 01 00 00 :: QQ = 0x70 on 9550/98x0, 0x60 on 9600
+   1b 57 26 2e 00 QQ 00 00  00 00 00 SS RR 01 00 00 :: QQ = 0x70 on 9550/98x0, 0x60 on 9600 or 9800S
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: RR = 0x01 on 9550/98x0, 0x00 on 9600
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: SS = 0x01 on 9800S
    00 00  
 
   ~~~~ Data follows:   Data is packed BGR (8bpp for 9550/9600, 16/12bpp for 98x0)
@@ -981,7 +1014,7 @@ struct dyesub_backend mitsu9550_backend = {
 
  ***********************************************************************
 
- * Mitsubishi ** CP-9550DW-S ** Communications Protocol:
+ * Mitsubishi ** CP-9550DW-S/9800DW-S ** Communications Protocol:
 
   [[ Unknown ]]
 
@@ -1011,6 +1044,11 @@ struct dyesub_backend mitsu9550_backend = {
  <- 24 2e 00 00 00 00 00 00  00 00 00 00 00 00 TT 00 :: TT = Type
     00 00 00 00 00 00 00 00  00 00 00 00 MM MM 00 00 :: MM MM = Max prints
     NN NN 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: NN NN = Remaining
+
+  [[ unknown, 9800-only ]]
+
+ -> 1b 4b 01 00
+ <- e4 4b 01 00 02 00 78
 
   Status Query
  
@@ -1066,7 +1104,8 @@ struct dyesub_backend mitsu9550_backend = {
 
   [[ Unknown -- End Data aka START print? ]]
 
- -> 1b 50 47 00
+ -> 1b 50 47 00  [9550S]
+ -> 1b 50 4e 00  [9800S]
 
   [[ At this point, loop status/status b/media queries until printer idle ]]
 
