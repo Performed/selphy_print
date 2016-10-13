@@ -1,5 +1,5 @@
 /*
- *   Mitsubishi CP-9550DW[-S] Photo Printer CUPS backend
+ *   Mitsubishi CP-9xxx Photo Printer Family CUPS backend
  *
  *   (c) 2014-2016 Solomon Peachy <pizza@shaftnet.org>
  *
@@ -348,7 +348,7 @@ hdr_done:
 	ctx->cols = be16_to_cpu(ctx->hdr1.cols);
 
 	ctx->plane_len = ctx->rows * ctx->cols;
-	if (ctx->type == P_MITSU_98x0)
+	if (ctx->type == P_MITSU_9800 || ctx->type == P_MITSU_9810)
 		ctx->plane_len *= 2;
 
 	/* We have three planes and the final command to read */
@@ -388,7 +388,6 @@ hdr_done:
 		ctx->hdr4_present = 0;
 	}
 
-#if 0
 	/* XXX force matte off */
 	if (ctx->type != P_MITSU_9810) {
 		if (ctx->hdr1.matte) {
@@ -396,7 +395,7 @@ hdr_done:
 			ctx->hdr1.matte = 0;			
 		}
 	}
-#endif
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -901,10 +900,10 @@ struct dyesub_backend mitsu9550_backend = {
 	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9xxx, ""},
 //	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600S, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_98x0, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_98x0S, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_98x0, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9810DS, P_MITSU_98x0S, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9810DS, P_MITSU_9810S, ""},
 	{ 0, 0, 0, ""}
 	}
 };
