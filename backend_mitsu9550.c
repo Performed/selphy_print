@@ -388,6 +388,15 @@ hdr_done:
 		ctx->hdr4_present = 0;
 	}
 
+#if 0
+	/* XXX force matte off */
+	if (ctx->type != P_MITSU_9810) {
+		if (ctx->hdr1.matte) {
+			WARNING("Matte not supported on this printer, disabling\n");
+			ctx->hdr1.matte = 0;			
+		}
+	}
+#endif
 	return CUPS_BACKEND_OK;
 }
 
@@ -970,8 +979,6 @@ struct dyesub_backend mitsu9550_backend = {
    * Lamination control?
    * Other 9550 multi-cut modes (on 6x9 media: 4x6*2, 4.4x6*2, 3x6*3, 2x6*4)
    * 9600/98x0 multi-cut modes?
-
-
 
  ***********************************************************************
 
