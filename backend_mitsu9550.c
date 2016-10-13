@@ -42,7 +42,10 @@
 #define USB_VID_MITSU       0x06D3
 #define USB_PID_MITSU_9550D  0x03A1
 #define USB_PID_MITSU_9550DS 0x03A5  // or DZ/DZS/DZU
-#define USB_PID_MITSU_9600   0x03A9
+#define USB_PID_MITSU_9600D  0x03A9
+//#define USB_PID_MITSU_9800D   XXXXXX
+//#define USB_PID_MITSU_9810D   XXXXXX
+//#define USB_PID_MITSU_9810DS  XXXXXX
 
 /* Private data stucture */
 struct mitsu9550_ctx {
@@ -65,15 +68,18 @@ struct mitsu9550_ctx {
 };
 
 /* Spool file structures */
+
+/* Print parameters1 */
 struct mitsu9550_hdr1 {
 	uint8_t  cmd[4]; /* 1b 57 20 2e */
-	uint8_t  unk[10];
+	uint8_t  unk[10]; /* 00 0a 10 00 [...] */
 	uint16_t cols; /* BE */
 	uint16_t rows; /* BE */
 	uint8_t  matte;  /* CP9810 only. 01 for matte, 00 glossy */
 	uint8_t  null[31];
 } __attribute__((packed));
 
+/* Print parameters2 */
 struct mitsu9550_hdr2 {
 	uint8_t  cmd[4]; /* 1b 57 21 2e */
 	uint8_t  unk[24]; /* 00 80 00 22 08 03 00 [...] */
@@ -81,10 +87,11 @@ struct mitsu9550_hdr2 {
 	uint8_t  null[2];
 	uint8_t  cut; /* 00 == normal, 83 == 2x6*2 */
 	uint8_t  unkb[5];
-	uint8_t  mode; /* 00 == normal, 80 == fine */
+	uint8_t  mode; /* 00 == fine, 80 == superfine */
 	uint8_t  unkc[11]; /* 00 [...] 00 01 */
 } __attribute__((packed));
 
+/* Fine Deep selection (9550 only) */
 struct mitsu9550_hdr3 {
 	uint8_t  cmd[4]; /* 1b 57 22 2e */
 	uint8_t  unk[7]; /* 00 40 00 [...] */
@@ -92,6 +99,7 @@ struct mitsu9550_hdr3 {
 	uint8_t  null[38];
 } __attribute__((packed));
 
+/* Error policy? */
 struct mitsu9550_hdr4 {
 	uint8_t  cmd[4]; /* 1b 57 26 2e */
 	uint8_t  unk[46]; /* 00 70 00 00 00 00 00 00 01 01 00 [...] */
@@ -800,43 +808,52 @@ struct dyesub_backend mitsu9550_backend = {
 	.devices = {
 	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9600, P_MITSU_9600, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9810DS, P_MITSU_9810S, ""},
 	{ 0, 0, 0, ""}
 	}
 };
 
-/* Mitsubish CP-9550D/DW spool data format 
+/* Mitsubish CP-9550/9600/9800/9810 spool format:
 
-   Spool file consists of four 50-byte headers, followed by three image
-   planes (BGR, each with a 12-byte header), and a 4-byte footer.
+   Spool file consists of 3 (or 4) 50-byte headers, followed by three
+   image planes, each with a 12-byte header, then a 4-byte footer.
 
    All multi-byte numbers are big endian.
 
-   ~~~ Printer Init: 4x 50-byte blocks:
+   ~~~ Header 1
 
-   1b 57 20 2e 00 0a 10 00  00 00 00 00 00 00 07 14 :: 0714 = 1812 = X res
-   04 d8 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: 04d8 = 1240 = Y res
+   1b 57 20 2e 00 QQ QQ 00  00 00 00 00 00 00 XX XX :: XX XX == columns
+   YY YY 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: YY YY == rows
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ == 0x0a90 on 9810, 0x0a10 on all others.
+   00 00 
+
+   ~~~ Header 2
+
+   1b 57 21 2e 00 80 00 22  QQ QQ 00 00 00 00 00 00 :: ZZ ZZ = num copies (>= 0x01)
+   00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY = 00/80 Fine/SuperFine (9550), 10/80 Fine/Superfine (98x0), 00 (9600)
+   XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 00 00 :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
+   00 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600
+
+   ~~~ Header 3 (9550 only)
+
+   1b 57 22 2e 00 40 00 00  00 00 00 XX 00 00 00 00 :: XX = 00 normal, 01 FineDeep
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-   00 00 
-
-   1b 57 21 2e 00 80 00 22  08 03 00 00 00 00 00 00 :: ZZ = num copies (>= 0x01)
-   00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY 00 = normal, 80 = Fine
-   XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 00 00 :: XX 00 = normal, 83 = Cut 2x6
-   00 01 
-
-   1b 57 22 2e 00 40 00 00  00 00 00 XX 00 00 00 00 :: 00 = normal, 01 = FineDeep
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
    00 00 
 
-   1b 57 26 2e 00 70 00 00  00 00 00 00 01 01 00 00 
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
+   ~~~ Header 4 (all but 9550-S, involves error policy?)
+
+   1b 57 26 2e 00 70 00 00  00 00 00 00 RR 01 00 00 :: QQ = 0x70 on 9550/98x0, 0x60 on 9600
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: RR = 0x01 on 9550/98x0, 0x00 on 9600
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
    00 00  
 
-  ~~~~ Data follows:   Data is 8-bit BGR.
+  ~~~~ Data follows:   Data is packed BGR (8bpp for 9550/9600, 16/12bpp for 98x0)
 
-   1b 5a 54 00 00 00 00 00  07 14 04 d8  :: 0714 == row len, 04d8 == rows
+   1b 5a 54 00 00 00 00 00  07 14 04 d8  :: 0714 == columns, 04d8 == rows
                      ^^ ^^               :: 0000 == remaining rows
 
    Data follows immediately, no padding.
@@ -851,12 +868,26 @@ struct dyesub_backend mitsu9550_backend = {
 
   ~~~~ Footer:
 
-   1b 50 46 00
+   1b 50 46 00  (9550)
+   1b 50 47 00  (9550-S)
+   1b 50 48 00  (9600)
+   1b 50 4c 00  (98x0)
+
+  ~~~~ Lamination data follows (on 9810 only, if matte selected)
+
+   1b 5a 54 10 00 00  00 00 06 24 04 34
+
+   Data follows immediately, no padding.
+
+   1b 50 56 00  (Lamination footer)
 
   ~~~~ QUESTIONS:
 
    * Lamination control?
-   * Other multi-cut modes (on 6x9 media: 4x6*2, 4.4x6*2, 3x6*3, 2x6*4)
+   * Other 9550 multi-cut modes (on 6x9 media: 4x6*2, 4.4x6*2, 3x6*3, 2x6*4)
+   * 9600/98x0 multi-cut modes?
+
+
 
  ***********************************************************************
 
@@ -1004,9 +1035,9 @@ struct dyesub_backend mitsu9550_backend = {
 
   [[ Set error policy ?? aka "header 4" ]]
 
- -> 1b 57 26 2e 00 QQ 00 00  00 00 00 00 RR SS 00 00 :: QQ/RR 00 00 00 [9550S]
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::       20 01 00 [9550S w/ ignore failures on]
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::       70 01 01 [9550]
+ -> 1b 57 26 2e 00 QQ 00 00  00 00 00 00 RR SS 00 00 :: QQ/RR/SS 00 00 00 [9550S]
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::          20 01 00 [9550S w/ ignore failures on]
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::          70 01 01 [9550]
     00 00
 
  */

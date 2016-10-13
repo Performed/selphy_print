@@ -47,7 +47,7 @@
 
    DNP DS80DX
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
-   Mitsubishi CP-9600DW
+   Mitsubishi CP-9600DW, CP-9800DW, CP-9810DW
    Fujifilm ASK-300
    Citizen CW-02 and CX2
    Olmec OP900 and OP900II
@@ -588,6 +588,8 @@
    Work-in-progress printers:
 
     Mitsubishi CP-9600D/DW
+    Mitsubishi CP-9800D/DW
+    Mitsubishi CP-9810D/DW
 
    Valid commands:
 
@@ -633,14 +635,15 @@
      -s                 Query printer status
      -k num		Specify standby delay (1-99 minutes, 0 disables)    [1]
      -K num		Keep Media Status Across Power Cycles (1 yes, 0 no) [1]
-     -x num             Set USB iSerialNumber reporting (1 yes, 0 no)       [1]
+     -x num             Set USB iSerialNumber reporting (1 yes, 0 no)       [3]
      -X                 Cancel current job
      -R                 Reset printer to defaults
 
 Notes:
 
-     [1] Only supported by DNP-DS620
+     [1] Only supported by DS620
      [2] Certain printer features may require updating the printer firmware
+     [3] Only supported by DS620 and RX1HS
 
  *************************************************************************** 
   BACKEND=citizencw01
