@@ -70,7 +70,8 @@ struct mitsu9550_hdr1 {
 	uint8_t  unk[10];
 	uint16_t cols; /* BE */
 	uint16_t rows; /* BE */
-	uint8_t  null[32];
+	uint8_t  matte;  /* CP9810 only. 01 for matte, 00 glossy */
+	uint8_t  null[31];
 } __attribute__((packed));
 
 struct mitsu9550_hdr2 {
