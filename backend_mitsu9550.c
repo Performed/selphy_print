@@ -997,6 +997,7 @@ struct dyesub_backend mitsu9550_backend = {
    1b 50 47 00  (9550-S)
    1b 50 48 00  (9600)
    1b 50 4c 00  (98x0)
+   1b 50 4e 00  (9800-S)
 
   ~~~~ Lamination data follows (on 9810 only, if matte selected)
 
