@@ -47,7 +47,7 @@
 //#define USB_PID_MITSU_9800D   XXXXXX
 #define USB_PID_MITSU_9800DS 0x03AE
 //#define USB_PID_MITSU_9810D   XXXXXX
-//#define USB_PID_MITSU_9810DS  XXXXXX
+//#define USB_PID_MITSU_9820DS  XXXXXX
 
 /* Spool file structures */
 
@@ -106,6 +106,7 @@ struct mitsu9550_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 	int type;
+	int is_s;
 
 	uint8_t *databuf;
 	uint32_t datalen;
@@ -184,7 +185,7 @@ struct mitsu9550_status2 {
 			ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");	\
 			ATTR("marker-high-levels=100\n"); \
 			ATTR("marker-low-levels=10\n");	\
-			ATTR("marker-names='%s'\n", mitsu9550_media_types(media->type)); \
+			ATTR("marker-names='%s'\n", mitsu9550_media_types(media->type, ctx->is_s)); \
 			ATTR("marker-types=ribbonWax\n"); \
 		} \
 		\
@@ -202,7 +203,7 @@ struct mitsu9550_status2 {
 		remain = be16_to_cpu(media->remain); \
 		if (remain != ctx->last_remain) { \
 			ctx->last_remain = remain; \
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type)); \
+			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s)); \
 		} \
 		if (validate_media(media->type, ctx->cols, ctx->rows)) { \
 			ERROR("Incorrect media (%u) type for printjob (%ux%u)!\n", media->type, ctx->cols, ctx->rows); \
@@ -255,6 +256,10 @@ static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->type = lookup_printer_type(&mitsu9550_backend,
 					desc.idVendor, desc.idProduct);
 
+	if (ctx->type == P_MITSU_9550S ||
+	    ctx->type == P_MITSU_9800S)
+		ctx->is_s = 1;
+
 	ctx->last_donor = ctx->last_remain = 65535;
 }
 
@@ -306,8 +311,8 @@ top:
 		if (!ctx->hdr1_present || !ctx->hdr2_present) {
 			ERROR("Unrecognized data format!\n");
 			return CUPS_BACKEND_CANCEL;
-		} else if (buf[0] == 0x1b && buf[1] == 0x57 &&
-			   buf[2] == 0x54 && buf[3] == 0x00) {
+		} else if (buf[0] == 0x1b && buf[1] == 0x5a &&
+			   buf[2] == 0x54) {
 			/* We've hit the data portion */
 			goto hdr_done;
 		} else {
@@ -432,8 +437,22 @@ static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int st
 	return 0;
 }
 
-static char *mitsu9550_media_types(uint8_t type)
+static char *mitsu9550_media_types(uint8_t type, uint8_t is_s)
 {
+	if (is_s) {
+		switch (type & 0xf) { /* values can be 0x0? or 0x4? */
+		case 0x02:
+			return "CK9015 (4x6)";
+		case 0x04:
+			return "CK9318 (5x7)";
+		case 0x05:
+			return "CK9523 (6x9)";
+		default:
+			return "Unknown";
+		}
+		return NULL;
+	}
+	
 	switch (type & 0xf) { /* values can be 0x0? or 0x4? */
 	case 0x01:
 		return "CK9035 (3.5x5)";
@@ -510,8 +529,7 @@ static int mitsu9550_main_loop(void *vctx, int copies) {
 	ptr = ctx->databuf;
 
 top:
-	if (ctx->type == P_MITSU_9550S ||
-	    ctx->type == P_MITSU_9800S) {
+	if (ctx->is_s) {
 		int num;
 
 		/* Send "unknown 1" command */
@@ -562,8 +580,7 @@ top:
 
 	/* Now it's time for the actual print job! */
 
-	if (ctx->type == P_MITSU_9550S ||
-	    ctx->type == P_MITSU_9800S) {
+	if (ctx->is_s) {
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x44;
 		cmd.cmd[2] = 0;
@@ -593,8 +610,7 @@ top:
 				     (uint8_t*) &ctx->hdr4, sizeof(struct mitsu9550_hdr4))))
 			return CUPS_BACKEND_FAILED;		
 	
-	if (ctx->type == P_MITSU_9550S ||
-	    ctx->type == P_MITSU_9800S) {
+	if (ctx->is_s) {
 		/* Send "start data" command */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x5a;
@@ -659,7 +675,7 @@ top:
 		remain = be16_to_cpu(media->remain);
 		if (remain != ctx->last_remain) {
 			ctx->last_remain = remain;
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type));
+			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s));
 		}
 
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
@@ -751,7 +767,7 @@ top:
 		remain = be16_to_cpu(media->remain);
 		if (remain != ctx->last_remain) {
 			ctx->last_remain = remain;
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type));			
+			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s));
 		}
 
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
@@ -785,10 +801,10 @@ top:
 	return CUPS_BACKEND_OK;
 }
 
-static void mitsu9550_dump_media(struct mitsu9550_media *resp)
+static void mitsu9550_dump_media(struct mitsu9550_media *resp, int is_s)
 {
 	INFO("Media type       : %02x (%s)\n",
-	     resp->type, mitsu9550_media_types(resp->type));
+	     resp->type, mitsu9550_media_types(resp->type, is_s));
 	INFO("Media remaining  : %03d/%03d\n",
 	     be16_to_cpu(resp->remain), be16_to_cpu(resp->max));
 }
@@ -811,7 +827,7 @@ static int mitsu9550_query_media(struct mitsu9550_ctx *ctx)
 	ret = mitsu9550_get_status(ctx, (uint8_t*) &resp, 0, 0, 1);
 
 	if (!ret)
-		mitsu9550_dump_media(&resp);
+		mitsu9550_dump_media(&resp, ctx->is_s);
 
 	return ret;
 }
@@ -918,7 +934,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.19",
+	.version = "0.20",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -936,7 +952,7 @@ struct dyesub_backend mitsu9550_backend = {
 //	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, ""},
 //	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9810DS, P_MITSU_9810S, ""},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9820DS, P_MITSU_9820S, ""},
 	{ 0, 0, 0, ""}
 	}
 };
@@ -978,8 +994,9 @@ struct dyesub_backend mitsu9550_backend = {
 
   ~~~~ Data follows:   Data is packed BGR (8bpp for 9550/9600, 16/12bpp for 98x0)
 
-   1b 5a 54 00 00 00 00 00  07 14 04 d8  :: 0714 == columns, 04d8 == rows
+   1b 5a 54 ?? 00 00 00 00  07 14 04 d8  :: 0714 == columns, 04d8 == rows
                      ^^ ^^               :: 0000 == remaining rows
+		                         :: ?? == 0x00 for 8bpp, 0x10 for 16/12bpp.
 
    Data follows immediately, no padding.
 
