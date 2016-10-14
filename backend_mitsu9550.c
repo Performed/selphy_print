@@ -354,7 +354,10 @@ hdr_done:
 	ctx->cols = be16_to_cpu(ctx->hdr1.cols);
 
 	ctx->plane_len = ctx->rows * ctx->cols;
-	if (ctx->type == P_MITSU_9800 || ctx->type == P_MITSU_9810)
+	if (buf[3] == 0x10 ||
+	    ctx->type == P_MITSU_9800 ||
+	    ctx->type == P_MITSU_9810 ||
+	    ctx->type == P_MITSU_9800S)
 		ctx->plane_len *= 2;
 
 	/* We have three planes and the final command to read */
@@ -1035,7 +1038,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.21",
+	.version = "0.22",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
