@@ -195,17 +195,18 @@ struct mitsu9550_status2 {
 			ATTR("marker-levels=%d\n", 0); \
 			return CUPS_BACKEND_HOLD; \
 		} \
-		donor = be16_to_cpu(media->remain)/be16_to_cpu(media->max); \
+		remain = be16_to_cpu(media->remain); \
+		donor = be16_to_cpu(media->max); \
+		donor = remain/donor; \
 		if (donor != ctx->last_donor) { \
 			ctx->last_donor = donor; \
 			ATTR("marker-levels=%u\n", donor); \
 		} \
-		remain = be16_to_cpu(media->remain); \
 		if (remain != ctx->last_remain) { \
 			ctx->last_remain = remain; \
 			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s)); \
 		} \
-		if (validate_media(media->type, ctx->cols, ctx->rows)) { \
+		if (validate_media(ctx->type, media->type, ctx->cols, ctx->rows)) { \
 			ERROR("Incorrect media (%u) type for printjob (%ux%u)!\n", media->type, ctx->cols, ctx->rows); \
 			return CUPS_BACKEND_HOLD; \
 		} \
@@ -472,40 +473,139 @@ static char *mitsu9550_media_types(uint8_t type, uint8_t is_s)
 	return NULL;
 }
 
-static int validate_media(int type, int cols, int rows) {
+static int validate_media(int type, int media, int cols, int rows)
+{
 	switch(type) {
-	case 0x01: /* 3.5x5 */
-		if (cols != 1812 && rows != 1240)
-			return 1;
+	case P_MITSU_9550:
+	case P_MITSU_9550S:
+		switch(media & 0xf) {
+		case 0x01: /* 3.5x5 */
+			if (cols != 1812 && rows != 1240)
+				return 1;
+			break;
+		case 0x02: /* 4x6 */
+		case 0x03: /* 4x6 postcard */ 
+			if (cols != 2152)
+				return 1;
+			if (rows != 1416 && rows != 1184 && rows != 1240)
+				return 1;
+			break;
+		case 0x04: /* 5x7 */
+			if (cols != 1812)
+				return 1;
+			if (rows != 1240 && rows != 2452)
+				return 1;
+			break;
+		case 0x05: /* 6x9 */
+			if (cols != 2152)
+				return 1;
+			if (rows != 1416 && rows != 2792 &&
+			    rows != 2956 && rows != 3146)
+				return 1;
+			break;
+		case 0x06: /* V (6x8??) */
+			if (cols != 2152)
+				return 1;
+			if (rows != 1416 && rows != 2792)
+				return 1;
+			break;
+		default: /* Unknown */
+			WARNING("Unknown media type %02x\n", media);
+			break;
+		}
 		break;
-	case 0x02: /* 4x6 */
-	case 0x03: /* 4x6 postcard */ 
-		if (cols != 2152)
+	case P_MITSU_9600:
+		switch(media & 0xf) {
+		case 0x01: /* 3.5x5 */
+			if (cols == 1572) {
+				if (rows == 1076)
+					break;
+			} else if (cols == 3144) {
+				if (rows == 2152)
+					break;
+			}
 			return 1;
-		if (rows != 1416 && rows != 1184 &&
-		    rows != 1240)
+		case 0x02: /* 4x6 */
+		case 0x03: /* 4x6 postcard */
+			if (cols == 1868) {
+				if (rows == 1228)
+					break;
+			} else if (cols == 3736) {
+				if (rows == 2458)
+					break;
+			}
 			return 1;
+		case 0x04: /* 5x7 */
+			if (cols == 1572) {
+				if (rows == 1076 || rows == 2128)
+					break;
+			} else if (cols == 3144) {
+				if (rows == 2152 || rows == 4256)
+					break;
+			}
+			return 1;
+		case 0x05: /* 6x9 */
+			if (cols == 1868) {
+				if (rows == 1228 || rows == 2442 || rows == 2564 || rows == 2730)
+					break;
+			} else if (cols == 3736) {
+				if (rows == 2458 || rows == 4846 || rows == 5130 || rows == 5462)
+					break;
+			}
+			return 1;
+		case 0x06: /* V (6x8??) */
+			if (cols == 1868) {
+				if (rows == 1228 || rows == 2442)
+					break;
+			} else if (cols == 3736) {
+				if (rows == 2458 || rows == 4846)
+					break;
+			}
+			return 1;
+		default: /* Unknown */
+			WARNING("Unknown media type %02x\n", media);
+			break;
+		}
 		break;
-	case 0x04: /* 5x7 */
-		if (cols != 1812)
-			return 1;
-		if (rows != 1240 && rows != 2452)
-			return 1;
+	case P_MITSU_9800:
+	case P_MITSU_9800S:
+	case P_MITSU_9810:
+		switch(media & 0xf) {
+		case 0x01: /* 3.5x5 */
+			if (cols != 1572 && rows != 1076)
+				return 1;
+			break;
+		case 0x02: /* 4x6 */
+		case 0x03: /* 4x6 postcard */ 
+			if (cols != 1868 && rows != 1228)
+				return 1;
+			break;
+		case 0x04: /* 5x7 */
+			if (cols != 1572)
+				return 1;
+			if (rows != 1076 && rows != 2128)
+				return 1;
+			break;
+		case 0x05: /* 6x9 */
+			if (cols != 1868)
+				return 1;
+			if (rows != 1228 && rows != 2442 &&
+			    rows != 2564 && rows != 2730)
+				return 1;
+			break;
+		case 0x06: /* V (6x8??) */
+			if (cols != 1868)
+				return 1;
+			if (rows != 1228 && rows != 2442)
+				return 1;
+			break;
+		default: /* Unknown */
+			WARNING("Unknown media type %02x\n", media);
+			break;
+		}
 		break;
-	case 0x05: /* 6x9 */
-		if (cols != 2152)
-			return 1;
-		if (rows != 1416 && rows != 2792 &&
-		    rows != 2956 && rows != 3146)
-			return 1;
-		break;
-	case 0x06: /* V (6x8??) */
-		if (cols != 2152)
-			return 1;
-		if (rows != 1416 && rows != 2792)
-			return 1;
-		break;
-	default: /* Unknown */
+	default:
+		WARNING("Unknown printer type %d\n", type);
 		break;
 	}
 	return 0;
@@ -667,17 +767,17 @@ top:
 			ATTR("marker-levels=%d\n", 0);
 			return CUPS_BACKEND_HOLD;
 		}
-		donor = be16_to_cpu(media->remain)/be16_to_cpu(media->max);
+		remain = be16_to_cpu(media->remain);
+		donor = be16_to_cpu(media->max);
+		donor = remain/donor;
 		if (donor != ctx->last_donor) {
 			ctx->last_donor = donor;
-			ATTR("marker-levels=%d\n", donor);
+			ATTR("marker-levels=%u\n", donor);
 		}
-		remain = be16_to_cpu(media->remain);
 		if (remain != ctx->last_remain) {
 			ctx->last_remain = remain;
 			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s));
 		}
-
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
@@ -759,17 +859,17 @@ top:
 			ATTR("marker-levels=%d\n", 0);
 			return CUPS_BACKEND_HOLD;
 		}
-		donor = be16_to_cpu(media->remain)/be16_to_cpu(media->max);
+		remain = be16_to_cpu(media->remain);
+		donor = be16_to_cpu(media->max);
+		donor = remain/donor;
 		if (donor != ctx->last_donor) {
 			ctx->last_donor = donor;
-			ATTR("marker-levels=%d\n", donor);
+			ATTR("marker-levels=%u\n", donor);
 		}
-		remain = be16_to_cpu(media->remain);
 		if (remain != ctx->last_remain) {
 			ctx->last_remain = remain;
 			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s));
 		}
-
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
@@ -934,7 +1034,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.20",
+	.version = "0.21",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -945,9 +1045,9 @@ struct dyesub_backend mitsu9550_backend = {
 	.main_loop = mitsu9550_main_loop,
 	.query_serno = mitsu9550_query_serno,
 	.devices = {
-	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9xxx, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9xxx, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, ""},
 //	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600S, ""},
 //	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, ""},
