@@ -797,32 +797,6 @@ top:
 		}
 	}
 	
-	if (ctx->type == P_MITSU_9550S) {
-		/* Send "end data" command */
-		cmd.cmd[0] = 0x1b;
-		cmd.cmd[1] = 0x50;
-		cmd.cmd[2] = 0x47;
-		cmd.cmd[3] = 0x00;
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) &cmd, sizeof(cmd))))
-			return CUPS_BACKEND_FAILED;
-	} else if (ctx->type == P_MITSU_9800S) {
-		/* Send "end data" command */
-		cmd.cmd[0] = 0x1b;
-		cmd.cmd[1] = 0x50;
-		cmd.cmd[2] = 0x4e;
-		cmd.cmd[3] = 0x00;
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) &cmd, sizeof(cmd))))
-			return CUPS_BACKEND_FAILED;
-	} else {
-		/* Send "end data" command from spool file */
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ptr, sizeof(cmd))))
-			return CUPS_BACKEND_FAILED;
-		ptr += sizeof(cmd);
-	}
-
 	/* Don't forget the 9810's matte plane */
 	if (ctx->hdr1.matte) {
 		// XXX include a status loop here too?
@@ -836,6 +810,33 @@ top:
 		ptr += ctx->plane_len;
 
 		/* Send "lamination end data" command from spool file */
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     ptr, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+		ptr += sizeof(cmd);
+	}
+
+	/* Send "end data" command */
+	if (ctx->type == P_MITSU_9550S) {
+		/* Override spool, which may be wrong */
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x50;
+		cmd.cmd[2] = 0x47;
+		cmd.cmd[3] = 0x00;
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+	} else if (ctx->type == P_MITSU_9800S) {
+		/* Override spool, which may be wrong */
+		cmd.cmd[0] = 0x1b;
+		cmd.cmd[1] = 0x50;
+		cmd.cmd[2] = 0x4e;
+		cmd.cmd[3] = 0x00;
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &cmd, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+	} else {
+		/* Send from spool file */
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ptr, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
