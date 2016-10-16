@@ -799,25 +799,6 @@ top:
 			return CUPS_BACKEND_FAILED;
 		}
 	}
-	
-	/* Don't forget the 9810's matte plane */
-	if (ctx->hdr1.matte) {
-		// XXX include a status loop here too?
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
-			return CUPS_BACKEND_FAILED;
-		ptr += sizeof(struct mitsu9550_plane);
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) ptr, ctx->plane_len)))
-			return CUPS_BACKEND_FAILED;
-		ptr += ctx->plane_len;
-
-		/* Send "lamination end data" command from spool file */
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ptr, sizeof(cmd))))
-			return CUPS_BACKEND_FAILED;
-		ptr += sizeof(cmd);
-	}
 
 	/* Send "end data" command */
 	if (ctx->type == P_MITSU_9550S) {
@@ -840,6 +821,25 @@ top:
 			return CUPS_BACKEND_FAILED;
 	} else {
 		/* Send from spool file */
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     ptr, sizeof(cmd))))
+			return CUPS_BACKEND_FAILED;
+		ptr += sizeof(cmd);
+	}
+
+	/* Don't forget the 9810's matte plane */
+	if (ctx->hdr1.matte) {
+		// XXX include a status loop here too?
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) ptr, sizeof(struct mitsu9550_plane))))
+			return CUPS_BACKEND_FAILED;
+		ptr += sizeof(struct mitsu9550_plane);
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) ptr, ctx->plane_len)))
+			return CUPS_BACKEND_FAILED;
+		ptr += ctx->plane_len;
+
+		/* Send "lamination end data" command from spool file */
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ptr, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
