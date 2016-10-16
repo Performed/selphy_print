@@ -378,6 +378,7 @@ hdr_done:
 	/* Copy over first chunk into buffer */
 	memcpy(ctx->databuf, buf, sizeof(buf));
 	ctx->datalen = sizeof(buf);
+	remain -= sizeof(buf);
 
 	/* Read in the spool data */
 	while(remain) {
@@ -1038,7 +1039,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.22",
+	.version = "0.23",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
