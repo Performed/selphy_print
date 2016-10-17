@@ -481,7 +481,6 @@ static int validate_media(int type, int media, int cols, int rows)
 {
 	switch(type) {
 	case P_MITSU_9550:
-	case P_MITSU_9550S:
 		switch(media & 0xf) {
 		case 0x01: /* 3.5x5 */
 			if (cols != 1812 && rows != 1240)
@@ -518,7 +517,38 @@ static int validate_media(int type, int media, int cols, int rows)
 			break;
 		}
 		break;
-	case P_MITSU_9600:
+	case P_MITSU_9550S:
+		switch(media & 0xf) {
+		case 0x02: /* 4x6 */
+		case 0x03: /* 4x6 postcard */
+			if (cols != 2152)
+				return 1;
+			if (rows != 1416 && rows != 1184 && rows != 1240)
+				return 1;
+			break;
+		case 0x04: /* 5x7 */
+			if (cols != 1812 && rows != 2452)
+				return 1;
+			break;
+		case 0x05: /* 6x9 */
+			if (cols != 2152)
+				return 1;
+			if (rows != 1416 && rows != 2792 &&
+			    rows != 2956 && rows != 3146)
+				return 1;
+			break;
+		case 0x06: /* V (6x8??) */
+			if (cols != 2152)
+				return 1;
+			if (rows != 1416 && rows != 2792)
+				return 1;
+			break;
+		default: /* Unknown */
+			WARNING("Unknown media type %02x\n", media);
+			break;
+		}
+		break;
+	case P_MITSU_9600: // XXX 9600S doesn't support 5" media at all!
 		switch(media & 0xf) {
 		case 0x01: /* 3.5x5 */
 			if (cols == 1572) {
@@ -572,22 +602,48 @@ static int validate_media(int type, int media, int cols, int rows)
 		}
 		break;
 	case P_MITSU_9800:
-	case P_MITSU_9800S:
-	case P_MITSU_9810:
+	case P_MITSU_9810: // XXX and don't forget the 9820S
 		switch(media & 0xf) {
 		case 0x01: /* 3.5x5 */
 			if (cols != 1572 && rows != 1076)
 				return 1;
 			break;
 		case 0x02: /* 4x6 */
+		case 0x03: /* 4x6 postcard */
+			if (cols != 1868 && rows != 1228)
+				return 1;
+			break;
+		case 0x04: /* 5x7 */
+			if (cols != 1572 && rows != 2128)
+				return 1;
+			break;
+		case 0x05: /* 6x9 */
+			if (cols != 1868)
+				return 1;
+			if (rows != 1228 && rows != 2442 &&
+			    rows != 2564 && rows != 2730)
+				return 1;
+			break;
+		case 0x06: /* V (6x8??) */
+			if (cols != 1868)
+				return 1;
+			if (rows != 1228 && rows != 2442)
+				return 1;
+			break;
+		default: /* Unknown */
+			WARNING("Unknown media type %02x\n", media);
+			break;
+		}
+		break;
+	case P_MITSU_9800S:
+		switch(media & 0xf) {
+		case 0x02: /* 4x6 */
 		case 0x03: /* 4x6 postcard */ 
 			if (cols != 1868 && rows != 1228)
 				return 1;
 			break;
 		case 0x04: /* 5x7 */
-			if (cols != 1572)
-				return 1;
-			if (rows != 1076 && rows != 2128)
+			if (cols != 1572 && rows != 2128)
 				return 1;
 			break;
 		case 0x05: /* 6x9 */
@@ -1039,7 +1095,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.23",
+	.version = "0.24",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
