@@ -39,6 +39,7 @@
    DNP DS620
    Citizen CW-01
    Mitsubishi CP-9550D/DW/DW-S/DZ/DZ-S
+   Mitsubishi CP-9800DW-S/DZ/DZ-S
    Mitsubishi CP-3800DW
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Ciaat Brava 21
@@ -47,7 +48,7 @@
 
    DNP DS80DX
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
-   Mitsubishi CP-9600DW, CP-9800DW, CP-9810DW
+   Mitsubishi CP-9600DW/DW-S, CP-9800DW, CP-9810DW, CP9820-DW-S
    Fujifilm ASK-300
    Citizen CW-02 and CX2
    Olmec OP900 and OP900II
@@ -585,12 +586,17 @@
 
     Mitsubishi CP-9550D/DW and CP-9550DZ/DZS/DW-S
     Mitsubishi CP-9800DZ/DZS/DW-S
-
+    
    Work-in-progress printers:
 
     Mitsubishi CP-9600D/DW
+
+   Unsupported (unknown VID/PID):
+
+    Mitsubishi CP-9600DW-S/DZ/DZ-S
     Mitsubishi CP-9800D/DW
     Mitsubishi CP-9810D/DW
+    Mitsubishi CP-9820DW-S
 
    Valid commands:
 
