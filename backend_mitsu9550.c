@@ -40,6 +40,8 @@
 #include "backend_common.h"
 
 #define USB_VID_MITSU       0x06D3
+#define USB_PID_MITSU_9000D  0x0393
+#define USB_PID_MITSU_9500D  0x0394
 #define USB_PID_MITSU_9550D  0x03A1
 #define USB_PID_MITSU_9550DS 0x03A5  // or DZ/DZS/DZU
 #define USB_PID_MITSU_9600D  0x03A9
@@ -1095,7 +1097,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.24",
+	.version = "0.25",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -1106,6 +1108,8 @@ struct dyesub_backend mitsu9550_backend = {
 	.main_loop = mitsu9550_main_loop,
 	.query_serno = mitsu9550_query_serno,
 	.devices = {
+	{ USB_VID_MITSU, USB_PID_MITSU_9000D, P_MITSU_9550, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_9500D, P_MITSU_9550, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, ""},

@@ -48,7 +48,8 @@
 
    DNP DS80DX
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
-   Mitsubishi CP-9600DW/DW-S, CP-9800DW, CP-9810DW, CP9820-DW-S
+   Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW/DW-S
+   Mitsubishi CP-9800DW, CP-9810DW, and CP-9820DW-S
    Fujifilm ASK-300
    Citizen CW-02 and CX2
    Olmec OP900 and OP900II
@@ -591,6 +592,8 @@
     
    Work-in-progress printers:
 
+    Mitsubishi CP-9000D/DW
+    Mitsubishi CP-9500D/DW
     Mitsubishi CP-9600D/DW
 
    Unsupported (unknown VID/PID):
