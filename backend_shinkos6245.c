@@ -1892,10 +1892,12 @@ static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t end
 /* Exported */
 #define USB_VID_SHINKO       0x10CE
 #define USB_PID_SHINKO_S6245 0x001D
+#define USB_VID_HITI         0x0D16
+#define USB_PID_HITI_P910L   0x000E
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Shinko/Sinfonia CHC-S6245",
-	.version = "0.07WIP",
+	.version = "0.08WIP",
 	.uri_prefix = "shinkos6245",
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,
@@ -1907,6 +1909,7 @@ struct dyesub_backend shinkos6245_backend = {
 	.query_serno = shinkos6245_query_serno,
 	.devices = {
 	{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, ""},
+	{ USB_VID_HITI, USB_PID_HITI_P910L, P_SHINKO_S6245, ""},	
 	{ 0, 0, 0, ""}
 	}
 };

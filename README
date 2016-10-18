@@ -56,6 +56,7 @@
    Sony UP-CR10L (aka DNP DS-SL10)
    Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S6245 (aka Sinfonia CE1)
+   HiTi P910L
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)   
    Kodak 8810
    Kodak 7000, 7010, and 7015
@@ -471,6 +472,7 @@
    Work-in-process printers:
 
      Shinko CHC-S6245 (aka "Sinfonia CE1")
+     HiTi P910L
 
    Unsupported printers (Unknown VID/PID):
 
