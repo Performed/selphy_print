@@ -39,7 +39,6 @@
    DNP DS620
    Citizen CW-01
    Mitsubishi CP-9550D/DW/DW-S/DZ/DZ-S
-   Mitsubishi CP-9800DW-S/DZ/DZ-S
    Mitsubishi CP-3800DW
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Ciaat Brava 21
@@ -49,7 +48,7 @@
    DNP DS80DX
    Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW/DW-S
-   Mitsubishi CP-9800DW, CP-9810DW, and CP-9820DW-S
+   Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Fujifilm ASK-300
    Citizen CW-02 and CX2
    Olmec OP900 and OP900II
@@ -588,7 +587,7 @@
    Supported and tested printers:
 
     Mitsubishi CP-9550D/DW and CP-9550DZ/DZS/DW-S
-    Mitsubishi CP-9800DZ/DZS/DW-S
+    Mitsubishi CP-9800DZ/DZS/DW-S                     [1]
     
    Work-in-progress printers:
 
@@ -599,14 +598,27 @@
    Unsupported (unknown VID/PID):
 
     Mitsubishi CP-9600DW-S/DZ/DZ-S
-    Mitsubishi CP-9800D/DW
-    Mitsubishi CP-9810D/DW
-    Mitsubishi CP-9820DW-S
+    Mitsubishi CP-9800D/DW                            [1]
+    Mitsubishi CP-9810D/DW                            [1]
+    Mitsubishi CP-9820DW-S                            [1]
 
    Valid commands:
 
      -s                 Query printer status
      -m                 Query printer media
+
+  Notes:
+
+      **** VERY IMPORTANT ****
+
+    The CP-98xx family is similar to the CP-D70 family in that it requires
+    the input data to be gamma corrected (and likely transformed in other
+    ways) before it is sent to the printer.  Currently, Gutenprint performs
+    a relatively crude linear conversion that results in poor quality output.
+
+    Unlike the D70 family, the data tables used are embedded into the driver
+    instead of being bundled separately, further complicating the process
+    of figuring out how this all works.
 
  *************************************************************************** 
   BACKEND=dnpds40
