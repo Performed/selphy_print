@@ -46,7 +46,7 @@
 
 */
 
-#define LIB_VERSION "0.1"
+#define LIB_VERSION "0.2"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -174,9 +174,11 @@ struct CPCData {
 	/* Used for YMC6 */
 	double   UH[101];        // @41276
 	                         // @42084
-	/* Unused */
-	uint32_t ROLK[13];       // NOT USED by D70 lib!
-	uint32_t REV[76];        // NOT USED by D70 lib (and missing in D70/ASK300 CPC)
+	
+	/* Used by roller mark correction (K60/D80/EK305 */
+	uint32_t ROLK[13];       //
+	/* Used by reverse/skip logic (K60/D80/EK305) */
+	 int32_t REV[76];        //
 };
 
 /*** 3D color Lookup table ****/
@@ -369,6 +371,11 @@ struct CPCData *get_CPCData(const char *filename)
 		if (fgets(buf, sizeof(buf), f) == NULL)
 			goto abort;
 	}
+
+	/* Init the REV and ROLK first rows */
+	data->REV[0] = 0;
+	data->ROLK[0] = 0;
+
 	/* Start reading in data */
 	for (line = 0 ; line < CPC_DATA_ROWS ; line++) {
 		if (fgets(buf, sizeof(buf), f) == NULL)
@@ -909,6 +916,201 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 	}
 }
 
+static void CImageEffect70_CalcSA(struct BandImage *img,
+				  int always_1, int32_t *ptr1, int32_t revX, int32_t *ptr2)
+{
+  int v6; // eax@1
+  int v7; // edi@1
+  int v8; // ebx@1
+  unsigned int v9; // ecx@2
+  unsigned int v10; // ecx@3
+  unsigned int v11; // ecx@6
+  int v12; // edx@9
+  int v13; // eax@9
+  int v14; // edi@17
+  int v15; // esi@17
+  int v16; // ebx@17
+  int v17; // edx@18
+  int16_t *v18; // ecx@18
+  int v19; // al@19
+  int16_t *v21; // [sp+0h] [bp-2Ch]@6
+  int v22; // [sp+4h] [bp-28h]@17
+  int v23; // [sp+8h] [bp-24h]@17
+  int v24; // [sp+Ch] [bp-20h]@13
+  int v25; // [sp+10h] [bp-1Ch]@15
+  int v26; // [sp+14h] [bp-18h]@17
+  int v27; // [sp+18h] [bp-14h]@15
+  int16_t *v28; // [sp+1Ch] [bp-10h]@17
+  
+  v6 = img->bytes_per_row;
+  v7 = img->cols - img->origin_cols;
+  v8 = img->rows - img->origin_rows;
+
+  if ( v6 >= 0 )
+  {
+    if ( always_1 )
+    {
+      v10 = img->bytes_per_row;
+      goto LABEL_6;
+    }
+    v9 = -v6;
+  }
+  else
+  {
+    v9 = img->bytes_per_row;
+    if ( !always_1 )
+    {
+      v10 = -v6;
+LABEL_6:
+      v11 = v10 >> 1;
+      v21 = img->imgbuf + v11 * (2 * v8 - 2);
+      goto LABEL_9;
+    }
+  }
+  v11 = v9 >> 1;
+  v21 = img->imgbuf;
+LABEL_9:
+  v12 = ptr1[1];
+  v13 = 0;
+  if ( v12 < 0 )
+    v12 = 0;
+  if ( v8 >= ptr1[3] )
+    v8 = ptr1[3];
+  v24 = v8;
+  if ( ptr1[0] >= 0 )
+    v13 = ptr1[0];
+  v25 = v13;
+  v27 = v12;
+  if ( v7 > ptr1[2] )
+    v7 = ptr1[2];
+  v26 = v7;
+  v14 = 0;
+  v23 = 2 * v11;
+  v15 = 0;
+  v28 = v21 - v12 * v11;
+  v16 = 0;
+  v22 = 3 * v13;
+  while ( v24 > v27 )
+  {
+    v17 = v25;
+    v18 = v22 + v28;
+    while ( v26 > v17 )
+    {
+      v16 += revX <= v18[0];
+      v15 += revX <= v18[1];
+      v19 = revX <= v18[2];
+      v18 += 3;
+      ++v17;
+      v14 += v19;
+    }
+    v28 -= v23;
+    ++v27;
+  }
+  ptr2[0] = v16;
+  ptr2[1] = v15;
+  ptr2[2] = v14;
+}
+
+static int CImageEffect70_JudgeReverseSkipRibbon_int(struct BandImage *img,
+						     int32_t *REV,
+						     int always_1)
+{
+	int32_t v4, v5, v6, v7, v8;
+
+  int32_t v15; // [sp+4Ch] [bp-8Ch]@1  
+
+  v4 = img->rows - img->origin_rows;
+  v5 = img->cols - img->origin_cols;
+  v6 = REV[0];
+  v7 = REV[1];
+  v8 = REV[2];
+
+  int32_t v16[4] = { v6, v8, v7, v4 };
+  int32_t v20[4] = { v7, 0, v5, v4 };
+  int32_t v24[4] = { 0, 0, v6, v4 };
+  int32_t v28[4] = { v6, 0, v7, v8 };
+
+  int32_t v32[3] = { 0, 0, 0 };
+  int32_t v35[3] = { 0, 0, 0 };
+  int32_t v38[3] = { 0, 0, 0 };
+  int32_t v41[3] = { 0, 0, 0 };
+
+  CImageEffect70_CalcSA(img, always_1, v24, REV[3], v32);
+  CImageEffect70_CalcSA(img, always_1, v20, REV[7], v41);
+  CImageEffect70_CalcSA(img, always_1, v16, REV[11], v38);
+  CImageEffect70_CalcSA(img, always_1, v28, REV[15], v35);
+
+  for (v15 = 0 ; v15 < 4 ; v15++) {
+    int32_t v10 = v32[v15];
+    int32_t v11 = v41[v15];
+    int32_t v12 = v38[v15];
+    int32_t v13 = v35[v15];
+
+    if ( v10 >= REV[4]
+	 && (v10 >= REV[5]
+	     || v38[v15] >= REV[14]
+	     || v35[v15] >= REV[18]) )
+    {
+	    return 0;
+    }
+
+    if ( v11 >= REV[8]
+	 && (v11 >= REV[9]
+	     || v38[v15] >= REV[14]
+	     || v35[v15] >= REV[18]) )
+    {
+	    return 0;
+    }
+
+    if ( v12 >= REV[12]
+	 && (v12 >= REV[13]
+	     || v10 >= REV[6]
+	     || v11 >= REV[10]
+	     || v35[v15] >= REV[18]) )
+    {
+	    return 0;
+    }
+
+    if ( v13 >= REV[16]
+	 && (v13 >= REV[17]
+	     || v10 >= REV[6]
+	     || v11 >= REV[10]
+	     || v12 >= REV[14]) )
+    {
+	    return 0;
+    }
+  }
+  return 1;
+}
+
+// called twice, once with param1 == 1, once with param1 == 2.
+static int CImageEffect70_JudgeReverseSkipRibbon(struct CPCData *cpc,						 
+						 struct BandImage *img,
+						 int is_6inch,
+						 int param1)
+{
+	int offset = -1;
+
+	if (param1 == 1) {
+		if (is_6inch) {
+			offset = 0;
+		} else {
+			offset = 19;
+		}
+	} else if (param1 == 2) {
+		if (is_6inch) {
+			offset = 38;
+		} else {
+			offset = 57;
+		}
+	}
+	if (offset != -1) {
+		CImageEffect70_JudgeReverseSkipRibbon_int(img, &cpc->REV[offset], 1);
+	}
+	
+	return 0;
+}
+
 static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 				  struct CPCData *cpc,
 				  struct BandImage *in,
@@ -1036,8 +1238,7 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 	}
 }
 
-int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandImage *output,
-		     int sharpen)
+int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2])
 {
 	struct CImageEffect70 *data;
 
@@ -1053,6 +1254,24 @@ int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandIma
 	
 	CImageEffect70_DoGamma(data, input, output);
 	CImageEffect70_DoConv(data, cpc, output, output, sharpen);
+
+	/* Figure out if we can get away with rewinding, or not... */
+	rew[0] = 1;
+	rew[1] = 1;	
+	if (/* XXX cpc->REV[0]*/ 0) {
+		int is_6 = -1;
+
+		/* Only allow rewinds for 4x6 and 5x3.5" prints */
+		if (input->cols == 0x0620 && input->rows == 0x0434)
+			is_6 = 0;
+		else if (input->cols == 0x0748 && input->rows == 0x04c2)
+			is_6 = 1;
+		
+		if (is_6 != -1) {
+			rew[0] = CImageEffect70_JudgeReverseSkipRibbon(cpc, output, is_6, 1);
+			rew[1] = CImageEffect70_JudgeReverseSkipRibbon(cpc, output, is_6, 2);
+		}
+	}
 	CImageEffect70_Destroy(data);
 	
 	return 0;

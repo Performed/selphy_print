@@ -93,7 +93,7 @@ typedef void (*Destroy3DColorTableFN)(struct CColorConv3D *this);
 typedef void (*DoColorConvFN)(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t bytes_per_row, int rgb_bgr);
 typedef struct CPCData *(*get_CPCDataFN)(const char *filename);
 typedef void (*destroy_CPCDataFN)(struct CPCData *data);
-typedef int (*do_image_effectFN)(struct CPCData *cpc, struct BandImage *input, struct BandImage *output, int sharpen);
+typedef int (*do_image_effectFN)(struct CPCData *cpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2]);
 typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 			       int (*callback_fn)(void *context, void *buffer, uint32_t len));
 
@@ -158,6 +158,8 @@ struct mitsu70x_ctx {
 	int raw_format;
 	int sharpen; /* ie mhdr.sharpen - 1 */
 
+	uint8_t rew[2]; /* 1 for rewind ok */
+	
 	struct BandImage output;
 };
 
@@ -327,7 +329,8 @@ struct mitsu70x_memorystatus_resp {
 struct mitsu70x_hdr {
 	uint8_t  hdr[4]; /* 1b 5a 54 XX */
 	uint16_t jobid;
-	uint8_t  zero0[10];
+	uint8_t  rewind[2];  /* XXX K60/EK305/D80 only, 0 normally, 1 for "skip" ??? */
+	uint8_t  zero0[8];
 
 	uint16_t cols;
 	uint16_t rows;
@@ -916,7 +919,7 @@ repeat:
 
 
 			DEBUG("Running print data through processing library\n");
-			if (ctx->DoImageEffect(ctx->cpcdata, &input, &ctx->output, ctx->sharpen)) {
+			if (ctx->DoImageEffect(ctx->cpcdata, &input, &ctx->output, ctx->sharpen, ctx->rew)) {
 				ERROR("Image Processing failed, aborting!\n");
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -1297,6 +1300,13 @@ skip_status:
 		hdr->deck = 1;  /* All others only have a "lower" deck. */
 	}
 
+
+	/* Twiddle rewind stuff if needed */
+	if (ctx->type != P_MITSU_D70X) {
+		hdr->rewind[0] = !ctx->rew[0];
+		hdr->rewind[1] = !ctx->rew[1];
+	}
+	
 	/* Matte operation requires Ultrafine/superfine */
 	if (ctx->matte) {
 		if (ctx->type != P_MITSU_D70X) {
@@ -1608,7 +1618,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.46",
+	.version = "0.47",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

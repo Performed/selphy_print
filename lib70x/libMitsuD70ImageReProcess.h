@@ -75,7 +75,7 @@ void destroy_CPCData(struct CPCData *data);
    fully-corrected 16bpp YMC packed output image.
    Returns 0 if successful, non-zero for error */
 int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandImage *output,
-		    int sharpen);
+		    int sharpen, uint8_t rew[2]);
 
 /* Converts the packed 16bpp YMC image into 16bpp YMC planes, with 
    proper padding after each plane.  Calls the callback function for each
