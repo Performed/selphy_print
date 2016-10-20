@@ -329,8 +329,10 @@ struct mitsu70x_memorystatus_resp {
 	uint8_t  rsvd;
 } __attribute__((packed));
 
+// XXX also seen commands 0x67, 0x72, 0x54, 0x6e 
+
 struct mitsu70x_hdr {
-	uint8_t  hdr[4]; /* 1b 5a 54 XX */
+	uint8_t  hdr[4]; /* 1b 5a 54 XX */  // XXX also, seen 1b 5a 43!
 	uint16_t jobid;
 	uint8_t  rewind[2];  /* XXX K60/EK305/D80 only, 0 normally, 1 for "skip" ??? */
 	uint8_t  zero0[8];
@@ -1148,7 +1150,7 @@ static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
 	memset(cmdbuf, 0, 4);
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x53;
-	cmdbuf[2] = 0x53;
+	cmdbuf[2] = 0x53; // XXX also, 0x4e and 0x50 are other params.
 	cmdbuf[3] = time;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -1166,7 +1168,7 @@ static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx)
 	memset(buf, 0, sizeof(buf));
 	buf[0] = 0x1b;
 	buf[1] = 0x45;
-	buf[2] = 0x57;
+	buf[2] = 0x57; // XXX also, 0x53, 0x54 seen.
 	buf[3] = 0x55;
 
 	INFO("Waking up printer...\n");
