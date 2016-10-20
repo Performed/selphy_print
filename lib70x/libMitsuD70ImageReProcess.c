@@ -917,7 +917,8 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 }
 
 static void CImageEffect70_CalcSA(struct BandImage *img,
-				  int always_1, int32_t *ptr1, int32_t revX, int32_t *ptr2)
+				  int always_1, int32_t *ptr1,
+				  int32_t revX, int32_t *ptr2)
 {
   int v6; // eax@1
   int v7; // edi@1
@@ -935,7 +936,6 @@ static void CImageEffect70_CalcSA(struct BandImage *img,
   int v19; // al@19
   int16_t *v21; // [sp+0h] [bp-2Ch]@6
   int v22; // [sp+4h] [bp-28h]@17
-  int v23; // [sp+8h] [bp-24h]@17
   int v24; // [sp+Ch] [bp-20h]@13
   int v25; // [sp+10h] [bp-1Ch]@15
   int v26; // [sp+14h] [bp-18h]@17
@@ -963,12 +963,13 @@ static void CImageEffect70_CalcSA(struct BandImage *img,
       v10 = -v6;
 LABEL_6:
       v11 = v10 >> 1;
-      v21 = img->imgbuf + v11 * (2 * v8 - 2);
+      v21 = (int16_t*)img->imgbuf + v11 * (v8 - 1);
       goto LABEL_9;
     }
   }
   v11 = v9 >> 1;
   v21 = img->imgbuf;
+
 LABEL_9:
   v12 = ptr1[1];
   v13 = 0;
@@ -985,17 +986,14 @@ LABEL_9:
     v7 = ptr1[2];
   v26 = v7;
   v14 = 0;
-  v23 = 2 * v11;
   v15 = 0;
   v28 = v21 - v12 * v11;
   v16 = 0;
   v22 = 3 * v13;
-  while ( v24 > v27 )
-  {
+  while ( v24 > v27 ) {
     v17 = v25;
     v18 = v22 + v28;
-    while ( v26 > v17 )
-    {
+    while ( v26 > v17 ) {
       v16 += revX <= v18[0];
       v15 += revX <= v18[1];
       v19 = revX <= v18[2];
@@ -1003,7 +1001,7 @@ LABEL_9:
       ++v17;
       v14 += v19;
     }
-    v28 -= v23;
+    v28 -= v11;
     ++v27;
   }
   ptr2[0] = v16;
@@ -1040,7 +1038,7 @@ static int CImageEffect70_JudgeReverseSkipRibbon_int(struct BandImage *img,
   CImageEffect70_CalcSA(img, always_1, v16, REV[11], v38);
   CImageEffect70_CalcSA(img, always_1, v28, REV[15], v35);
 
-  for (v15 = 0 ; v15 < 4 ; v15++) {
+  for (v15 = 0 ; v15 < 3 ; v15++) {
     int32_t v10 = v32[v15];
     int32_t v11 = v41[v15];
     int32_t v12 = v38[v15];
@@ -1105,7 +1103,7 @@ static int CImageEffect70_JudgeReverseSkipRibbon(struct CPCData *cpc,
 		}
 	}
 	if (offset != -1) {
-		CImageEffect70_JudgeReverseSkipRibbon_int(img, &cpc->REV[offset], 1);
+		return CImageEffect70_JudgeReverseSkipRibbon_int(img, &cpc->REV[offset], 1);
 	}
 	
 	return 0;
@@ -1258,7 +1256,7 @@ int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandIma
 	/* Figure out if we can get away with rewinding, or not... */
 	rew[0] = 1;
 	rew[1] = 1;	
-	if (/* XXX cpc->REV[0]*/ 0) {
+	if (cpc->REV[0]) {
 		int is_6 = -1;
 
 		/* Only allow rewinds for 4x6 and 5x3.5" prints */
