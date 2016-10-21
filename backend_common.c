@@ -42,8 +42,6 @@ int extra_vid = -1;
 int extra_pid = -1;
 int extra_type = -1;
 int copies = 1;
-char *use_serno = NULL;
-int current_page = 0;
 
 /* Support Functions */
 static int backend_claim_interface(struct libusb_device_handle *dev, int iface)
@@ -714,8 +712,7 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("Standalone %s backend version %s\n",
 		      backend->name, backend->version);
 		DEBUG("\t%s\n", backend->uri_prefix);
-		DEBUG("\t[ -D ] [ -G ] \n");
-		DEBUG("\t[ -V extra_vid ] [ -P extra_pid ] [ -T extra_type ] \n");
+		DEBUG("\t[ -D ] [ -G ] [ -f ]\n");
 		if (backend->cmdline_usage)
 			backend->cmdline_usage();
 		DEBUG("\t[ -d copies ] [ infile | - ]\n");
@@ -754,9 +751,11 @@ int main (int argc, char **argv)
 	int iface = 0;
 	int found = -1;
 	int jobid = 0;
+	int current_page = 0;
 
 	char *uri;
 	char *fname = NULL;
+	char *use_serno = NULL;
 
 	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
 	      BACKEND_VERSION);
