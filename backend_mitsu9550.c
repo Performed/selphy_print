@@ -410,7 +410,7 @@ hdr_done:
 			planelen *= 2;
 
 		/* Copy plane header into buffer */
-		memcpy(ctx->databuf, buf, sizeof(buf));
+		memcpy(ctx->databuf + ctx->datalen, buf, sizeof(buf));
 		ctx->datalen += sizeof(buf);
 		planelen -= sizeof(buf) - sizeof(struct mitsu9550_plane);
 
