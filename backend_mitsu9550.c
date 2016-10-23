@@ -323,7 +323,7 @@ top:
 
 			goto hdr_done;
 		} else {
-			ERROR("Unrecognized data format!\n");
+			ERROR("Unrecognized data block!\n");
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
@@ -393,7 +393,7 @@ hdr_done:
 
 	/* Load up the data blocks.*/
 	while(1) {
-		/* Note that 'buf' needs to be filled here! */
+		/* Note that 'buf' needs to be already filled here! */
 		struct mitsu9550_plane *plane = (struct mitsu9550_plane *)buf;
 
 		/* Sanity check header... */
@@ -412,6 +412,7 @@ hdr_done:
 		/* Copy plane header into buffer */
 		memcpy(ctx->databuf, buf, sizeof(buf));
 		ctx->datalen += sizeof(buf);
+		planelen -= sizeof(buf) - sizeof(struct mitsu9550_plane);
 
 		/* Read in the spool data */
 		while(planelen > 0) {
@@ -463,7 +464,7 @@ hdr_done:
 	}
 
 	/* Disable matte if the printer doesn't support it */
-	if (ctx->type != P_MITSU_9810) {
+	if (ctx->hdr1.matte && ctx->type != P_MITSU_9810) {
 		WARNING("Matte not supported on this printer, disabling\n");
 		ctx->hdr1.matte = 0;
 	}
@@ -1154,7 +1155,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.26",
+	.version = "0.27",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
