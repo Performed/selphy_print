@@ -759,6 +759,10 @@ repeat:
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/CPD70N01.cpc";
 		}
+		if (mhdr.hdr[3] != 0x01) {
+			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
+			mhdr.hdr[3] = 0x01;
+		}
 	} else if (ctx->type == P_MITSU_D80) {
 		ctx->laminatefname = CORRTABLE_PATH "/D80MAT01.raw";
 		ctx->lutfname = CORRTABLE_PATH "/CPD80L01.lut";
@@ -771,6 +775,10 @@ repeat:
 			ctx->cpcfname = CORRTABLE_PATH "/CPD80N01.cpc";
 		}
 		// XXX what about CPD80**E**01?
+		if (mhdr.hdr[3] != 0x01) {
+			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
+			mhdr.hdr[3] = 0x01;
+		}
 	} else if (ctx->type == P_MITSU_K60) {
 		ctx->laminatefname = CORRTABLE_PATH "/S60MAT02.raw";
 		ctx->lutfname = CORRTABLE_PATH "/CPS60L01.lut";
@@ -780,6 +788,10 @@ repeat:
 			ctx->cpcfname = CORRTABLE_PATH "/CPS60T03.cpc";
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/CPS60T01.cpc";
+		}
+		if (mhdr.hdr[3] != 0x02) {
+			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
+			mhdr.hdr[3] = 0x02;
 		}
 	} else if (ctx->type == P_KODAK_305) {
 		ctx->laminatefname = CORRTABLE_PATH "/EK305MAT.raw"; // Same as K60
@@ -792,6 +804,10 @@ repeat:
 			ctx->cpcfname = CORRTABLE_PATH "/EK305T01.cpc";
 		}
 		// XXX what about using K60 media if we read back the proper code?
+		if (mhdr.hdr[3] != 0x90) {
+			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
+			mhdr.hdr[3] = 0x90;
+		}
 	} else if (ctx->type == P_FUJI_ASK300) {
 		ctx->laminatefname = CORRTABLE_PATH "/ASK300M2.raw"; // Same as D70
 		ctx->lutfname = CORRTABLE_PATH "/CPD70L01.lut";  // XXX guess, driver did not come with external LUT!
@@ -800,6 +816,10 @@ repeat:
 			ctx->cpcfname = CORRTABLE_PATH "/ASK300T3.cpc";
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/ASK300T1.cpc";
+		}
+		if (mhdr.hdr[3] != 0x01) {
+			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
+			mhdr.hdr[3] = 0x01;
 		}
 	}
 	if (!mhdr.use_lut)
