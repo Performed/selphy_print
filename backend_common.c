@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.67"
+#define BACKEND_VERSION "0.68"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -51,6 +51,8 @@ static int backend_claim_interface(struct libusb_device_handle *dev, int iface)
 	do {
 		ret = libusb_claim_interface(dev, iface);
 		if (!ret)
+			break;
+		if (ret != LIBUSB_ERROR_BUSY)
 			break;
 		sleep(1);
 	} while (--attempts > 0);
@@ -485,8 +487,8 @@ static int print_scan_output(struct libusb_device *device,
 			/* Ignore result since a failure isn't critical here */
 			backend->query_serno(dev, endp_up, endp_down, buf, STR_LEN_MAX);
 			libusb_release_interface(dev, iface);
+			serial = url_encode(buf);
 		}
-		serial = url_encode(buf);
 
 		if (config)
 			libusb_free_config_descriptor(config);
