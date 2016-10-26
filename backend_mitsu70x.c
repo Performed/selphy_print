@@ -161,7 +161,7 @@ struct mitsu70x_ctx {
 	int raw_format;
 	int sharpen; /* ie mhdr.sharpen - 1 */
 
-	uint8_t rew[2]; /* 1 for rewind ok */
+	uint8_t rew[2]; /* 1 for rewind ok (default!) */
 	
 	struct BandImage output;
 };
@@ -714,6 +714,8 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 	}
 
 	ctx->matte = 0;
+	ctx->rew[0] = 1;
+	ctx->rew[1] = 1;
 
 repeat:
 	/* Read in initial header */
@@ -1636,7 +1638,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.48",
+	.version = "0.49",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
