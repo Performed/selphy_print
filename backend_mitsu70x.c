@@ -789,9 +789,9 @@ repeat:
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/CPS60T01.cpc";
 		}
-		if (mhdr.hdr[3] != 0x02) {
+		if (mhdr.hdr[3] != 0x00) {
 			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
-			mhdr.hdr[3] = 0x02;
+			mhdr.hdr[3] = 0x00;
 		}
 	} else if (ctx->type == P_KODAK_305) {
 		ctx->laminatefname = CORRTABLE_PATH "/EK305MAT.raw"; // Same as K60
@@ -1694,19 +1694,20 @@ struct dyesub_backend mitsu70x_backend = {
 
    Header 2:  (Print Header)
 
-   1b 5a 54 PP JJ JJ 00 00  00 00 00 00 00 00 00 00
+   1b 5a 54 PP JJ JJ RR RR  00 00 00 00 00 00 00 00
    XX XX YY YY QQ QQ ZZ ZZ  SS 00 00 00 00 00 00 00
    UU 00 00 00 00 00 00 00  LL TT 00 00 00 00 00 00
    RR 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
 
    (padded by NULLs to a 512-byte boundary)
 
-   PP    == 0x01 on D70x/D80/ASK300, 0x02 on K60, 0x90 on K305
+   PP    == 0x01 on D70x/D80/ASK300, 0x00 on K60, 0x90 on K305
    JJ JJ == Job ID, can leave at 00 00
    XX XX == columns
    YY YY == rows
    QQ QQ == lamination columns (equal to XX XX)
-   ZZ ZZ == lamination rows (YY YY + 12)
+   ZZ ZZ == lamination rows (YY YY + 12 on D70x/D80/ASK300, YY YY on others)
+   RR RR == "rewind inhibit", 01 01 enabled, normally 00 00
    SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80 only), 04 = UltraFine
             (Matte requires Superfine or Ultrafine)
    UU    == 00 = Auto, 01 = Lower Deck (required for !D70x), 02 = Upper Deck
