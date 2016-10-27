@@ -1377,7 +1377,7 @@ skip_status:
 			     sizeof(struct mitsu70x_hdr))))
 		return CUPS_BACKEND_FAILED;
 
-	if (ctx->dl_handle) {
+	if (ctx->dl_handle && !ctx->raw_format) {
 		if (ctx->SendImageData(&ctx->output, ctx, d70_library_callback))
 			return CUPS_BACKEND_FAILED;
 
@@ -1658,7 +1658,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.50",
+	.version = "0.51",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
