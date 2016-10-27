@@ -1040,6 +1040,11 @@ static void mitsu9550_dump_status(struct mitsu9550_status *resp)
 	     resp->sts3, resp->sts4, resp->sts5, resp->sts6, resp->sts7);
 }
 
+static void mitsu9550_dump_status2(struct mitsu9550_status2 *resp)
+{
+	UNUSED(resp);
+}
+
 static int mitsu9550_query_media(struct mitsu9550_ctx *ctx)
 {
 	struct mitsu9550_media resp;
@@ -1062,6 +1067,19 @@ static int mitsu9550_query_status(struct mitsu9550_ctx *ctx)
 
 	if (!ret)
 		mitsu9550_dump_status(&resp);
+
+	return ret;
+}
+
+static int mitsu9550_query_status2(struct mitsu9550_ctx *ctx)
+{
+	struct mitsu9550_status2 resp;
+	int ret;
+	
+	ret = mitsu9550_get_status(ctx, (uint8_t*) &resp, 0, 1, 0);
+
+	if (!ret)
+		mitsu9550_dump_status2(&resp);
 
 	return ret;
 }
@@ -1141,6 +1159,8 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 's':
 			j = mitsu9550_query_status(ctx);
+			if (!j)
+				j = mitsu9550_query_status2(ctx);
 			break;
 		default:
 			break;  /* Ignore completely */
@@ -1155,7 +1175,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.27",
+	.version = "0.28",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
