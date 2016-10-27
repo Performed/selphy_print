@@ -41,13 +41,14 @@
    Mitsubishi CP-9550D/DW/DW-S/DZ/DZ-S
    Mitsubishi CP-9600D/DW
    Mitsubishi CP-3800DW
+   Mitsubishi CP-K60DW-S
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Ciaat Brava 21
 
   Work-in-progress Printers:
 
    DNP DS80DX
-   Mitsubishi CP-D70DW, CP-D707DW, CP-K60DW-S, and CP-D80DW
+   Mitsubishi CP-D70DW, CP-D707DW, and CP-D80DW
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Fujifilm ASK-300
@@ -531,12 +532,12 @@
    Supported and tested printers:
 
     Kodak 305
+    Mitsubishi CP-K60DW-S
 
    Untested but believed to work:
 
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
-    Mitsubishi CP-K60DW-S
 
    Unsupported printers (Unknown VID/PID):
 
