@@ -161,6 +161,7 @@ void print_license_blurb(void);
 void print_help(char *argv0, struct dyesub_backend *backend);
 
 uint16_t uint16_to_packed_bcd(uint16_t val);
+uint32_t packed_bcd_to_uint32(char *in, int len);
 
 /* Global data */
 extern int terminate;

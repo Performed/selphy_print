@@ -1084,3 +1084,17 @@ uint16_t uint16_to_packed_bcd(uint16_t val)
 
         return bcd;
 }
+
+uint32_t packed_bcd_to_uint32(char *in, int len)
+{
+	uint32_t out = 0;
+
+	while (len--) {
+		out *= 10;
+		out += (*in >> 4);
+		out *= 10;
+		out += (*in & 0xf);
+		in++;
+	}
+        return out;
+}
