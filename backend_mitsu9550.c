@@ -150,7 +150,8 @@ struct mitsu9550_status {
 	uint8_t  sts1; // MM
 	uint8_t  nullb[1];
 	uint16_t copies; // BE, NN
-	uint8_t  nullc[6];
+	uint8_t  sts2; // ZZ  (9600 only?)
+	uint8_t  nullc[5];
 	uint8_t  sts3; // QQ
 	uint8_t  sts4; // RR
 	uint8_t  sts5; // SS
@@ -164,7 +165,7 @@ struct mitsu9550_status2 {
 	uint8_t  hdr[2]; /* 21 2e */
 	uint8_t  unk[39];
 	uint16_t remain; /* BE, media remaining */
-	uint8_t  unkb[4];
+	uint8_t  unkb[4]; /* 0a 00 00 01 */
 } __attribute__((packed));
 
 #define CMDBUF_LEN   64
@@ -225,6 +226,11 @@ struct mitsu9550_status2 {
 		if (sts->sts5 != 0) {  /* Printer ready for another job */ \
 			sleep(1); \
 			goto top; \
+		} \
+		/* Check for known errors */ \
+		if (sts->sts2 != 0) {  \
+			ERROR("Printer cover open!\n");	\
+			return CUPS_BACKEND_STOP; \
 		} \
 	} while (0);
 
@@ -909,6 +915,11 @@ top:
 			ERROR("Unexpected response (sts3 %02x)\n", sts->sts3);
 			return CUPS_BACKEND_FAILED;
 		}
+		/* Check for known errors */
+		if (sts->sts2 != 0) {
+			ERROR("Printer cover open!\n");
+			return CUPS_BACKEND_STOP;
+		}
 	}
 
 	/* Send "end data" command */
@@ -1013,7 +1024,11 @@ top:
 			INFO("Fast return mode enabled.\n");
 			break;
 		}
-
+		/* Check for known errors */
+		if (sts->sts2 != 0) {
+			ERROR("Printer cover open!\n");
+			return CUPS_BACKEND_STOP;
+		}
 		sleep(1);
 	}
 
@@ -1036,13 +1051,15 @@ static void mitsu9550_dump_status(struct mitsu9550_status *resp)
 	     resp->sts1, resp->sts1 ? "Printing": "Idle");
 	INFO("Pages remaining   : %03d\n",
 	     be16_to_cpu(resp->copies));
-	INFO("Other status      : %02x %02x %02x  %02x %02x\n",
-	     resp->sts3, resp->sts4, resp->sts5, resp->sts6, resp->sts7);
+	INFO("Other status      : %02x %02x %02x %02x  %02x %02x\n",
+	     resp->sts2, resp->sts3, resp->sts4,
+	     resp->sts5, resp->sts6, resp->sts7);
 }
 
 static void mitsu9550_dump_status2(struct mitsu9550_status2 *resp)
 {
-	UNUSED(resp);
+	INFO("Prints remaining on media : %03d\n",
+	     be16_to_cpu(resp->remain));
 }
 
 static int mitsu9550_query_media(struct mitsu9550_ctx *ctx)
@@ -1175,7 +1192,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9550 family",
-	.version = "0.28",
+	.version = "0.29",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -1318,7 +1335,7 @@ struct dyesub_backend mitsu9550_backend = {
   Status Query
  
  -> 1b 56 30 00
- -> 30 2e 00 00 00 00 MM 00  NN NN 00 00 00 00 00 00 :: MM, NN
+ -> 30 2e 00 00 00 00 MM 00  NN NN ZZ 00 00 00 00 00 :: MM, NN, ZZ
     QQ RR SS 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ, RR, SS
     00 00 00 00 00 00 00 00  00 00 00 00 TT UU 00 00 :: TT, UU 
 
@@ -1415,10 +1432,7 @@ struct dyesub_backend mitsu9550_backend = {
 
   Seen on 9600DW
 
-    ??  3e 00 00  8a 44  :: scrap bin?
-    ??  3e 00 00  8a 45  :: No scrap bin | no paper?
-    ??  3e 00 00  8a 46  :: no ribbon
-    ??  3e 00 00  8a 47  :: Cover open
+    ZZ == 08  Door open
 
  Working theory of interpreting the status flags:
 
