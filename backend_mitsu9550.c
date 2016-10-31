@@ -162,8 +162,8 @@ struct mitsu9550_status {
 
 struct mitsu9550_status2 {
 	uint8_t  hdr[2]; /* 21 2e */
-	uint8_t  unk[40];
-	uint8_t  remain; /* BE, media remaining */
+	uint8_t  unk[39];
+	uint16_t remain; /* BE, media remaining */
 	uint8_t  unkb[4];
 } __attribute__((packed));
 
