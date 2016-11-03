@@ -586,14 +586,24 @@ static char *mitsu70x_errors(uint8_t *err)
 
 static const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
 {
-	if (brand == 0xff && type == 0x02)
-		return "CKD746 (4x6)";
+	if (brand == 0xff && type == 0x01)
+		return "CK-D735 (3.5x5)";
+	else if (brand == 0xff && type == 0x02)
+		return "CK-D746 (4x6)";
+	else if (brand == 0xff && type == 0x04)
+		return "CK-D757 (5x7)";
+	else if (brand == 0xff && type == 0x05)
+		return "CK-D769 (6x9)";
 	else if (brand == 0xff && type == 0x0f)
-		return "CKD768 (6x8)";
+		return "CK-D768 (6x8)";
+	else if (brand == 0x6c && type == 0x84)
+		return "Kodak 5R (5x7)";
 	else if (brand == 0x6c && type == 0x8f)
 		return "Kodak 6R (6x8)";
+	else if (brand == 0x61 && type == 0x84)
+		return "CK-K57R (5x7)";
 	else if (brand == 0x61 && type == 0x8f)
-		return "CKK76R (6x8)";
+		return "CK-K76R (6x8)";
 	else
 		return "Unknown";
 }
@@ -1665,7 +1675,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.52",
+	.version = "0.53",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
