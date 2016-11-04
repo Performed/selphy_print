@@ -608,6 +608,9 @@ top:
 #define USB_VID_KODAK       0x040A
 #define USB_PID_KODAK_1400  0x4022
 #define USB_PID_KODAK_805   0x4034
+#define USB_VID_MITSU        0x06D3
+#define USB_PID_MITSU_3020D  0x038B
+#define USB_PID_MITSU_3020DA 0x03AA
 
 struct dyesub_backend kodak1400_backend = {
 	.name = "Kodak 1400/805",
@@ -623,6 +626,8 @@ struct dyesub_backend kodak1400_backend = {
 	.devices = {
 	{ USB_VID_KODAK, USB_PID_KODAK_1400, P_KODAK_1400_805, "Kodak"},
 	{ USB_VID_KODAK, USB_PID_KODAK_805, P_KODAK_1400_805, "Kodak"},
+	{ USB_VID_MITSU, USB_PID_MITSU_3020D, P_KODAK_1400_805, ""},
+	{ USB_VID_MITSU, USB_PID_MITSU_3020DA, P_KODAK_1400_805, ""},
 	{ 0, 0, 0, ""}
 	}
 };

@@ -48,6 +48,7 @@
   Work-in-progress Printers:
 
    DNP DS80DX
+   Mitsubishi CP-3020D/DE and CP-3020DA/DAE
    Mitsubishi CP-D70DW, CP-D707DW, and CP-D80DW
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
@@ -220,6 +221,11 @@
 
      Kodak 1400
      Kodak 805
+
+   Work-in-progress printers:
+
+     Mitsubishi CP3020D/DE
+     Mitsubishi CP3020DA/DAE
 
    Valid commands:
 
@@ -538,11 +544,14 @@
 
     Mitsubishi CP-D70DW
     Mitsubishi CP-D707DW
+    Mitsubishi CP-D80DW
 
    Unsupported printers (Unknown VID/PID):
 
-    Mitsubishi CP-D80DW
     Fujifilm ASK-300
+    Mitsubishi CP-D70DW-S
+    Mitsubishi CP-D707DW-S
+    Mitsubishi CP-D80DW-S
 
    *** VERY IMPORTANT ***
 
@@ -592,6 +601,12 @@
     Mitsubishi CP-9800DZ/DZS/DW-S                     [1]
     Mitsubishi CP-9600D/DW
     
+   Unverified/untested, but should work:  (let us know, please!)
+
+    Mitsubishi CP-9800D/DW                            [1]
+    Mitsubishi CP-9810D/DW                            [1]
+    Mitsubishi CP-9820DW-S                            [1]
+
    Work-in-progress printers:
 
     Mitsubishi CP-9000D/DW
@@ -600,9 +615,6 @@
    Unsupported (unknown VID/PID):
 
     Mitsubishi CP-9600DW-S/DZ/DZ-S
-    Mitsubishi CP-9800D/DW                            [1]
-    Mitsubishi CP-9810D/DW                            [1]
-    Mitsubishi CP-9820DW-S                            [1]
 
    Valid commands:
 
