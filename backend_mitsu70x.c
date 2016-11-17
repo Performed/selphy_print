@@ -1217,9 +1217,6 @@ static int mitsu70x_main_loop(void *vctx, int copies)
 	struct mitsu70x_ctx *ctx = vctx;
 	struct mitsu70x_jobstatus jobstatus;
 	struct mitsu70x_printerstatus_resp resp;
-#if 0	
-	struct mitsu70x_jobs jobs;
-#endif
 	struct mitsu70x_hdr *hdr;
 
 	int ret;
@@ -1323,6 +1320,7 @@ skip_status:
 	/* Make sure we don't have any jobid collisions */
 	{
 		int i;
+		struct mitsu70x_jobs jobs;
 		
 		ret = mitsu70x_get_jobs(ctx, &jobs);
 		if (ret)
@@ -1572,7 +1570,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 {
 	struct mitsu70x_printerstatus_resp resp;
-#if 0	
+#if 0
 	struct mitsu70x_jobs jobs;
 #endif	
 	struct mitsu70x_jobstatus jobstatus;
@@ -1601,11 +1599,13 @@ top:
 	INFO("JOB00 ID     : %06u\n", jobstatus.jobid);
 	INFO("JOB00 status : %s\n", mitsu70x_jobstatuses(jobstatus.job_status));
 
-#if 0	
+#if 0
 	ret = mitsu70x_get_jobs(ctx, &jobs);
 	if (!ret) {
 		int i;
 		for (i = 0 ; i < NUM_JOBS ; i++) {
+			if (jobs.jobs[i].id == 0)
+				break;
 			INFO("JOB%02d ID     : %06u\n", i, jobs.jobs[i].id);
 			INFO("JOB%02d status : %s\n", i, mitsu70x_jobstatuses(jobs.jobs[i].status));
 		}
