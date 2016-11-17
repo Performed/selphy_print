@@ -107,10 +107,12 @@
      Consequently, your distribution package for libusb-1.0 may be 
      called libusbx instead.
 
+     Additionally, you will need the CUPS develment packages installed.
+
      Fedora/RedHat:
-	yum install libusbx-devel libusb1-devel
+	yum install libusbx-devel libusb1-devel cups-devel
      Debian/Ubuntu
-	apt-get install libusbx-dev libusb-1.0-0-dev
+	apt-get install libusbx-dev libusb-1.0-0-dev libcups2-dev
 
    And all you need to do after that is type 'make'
 
