@@ -187,6 +187,10 @@ struct mitsu70x_jobs {
 	uint8_t  job0_status[4];
 	uint16_t jobid_1;  /* BE */
 	uint8_t  job1_status[4];
+	uint16_t jobid_2;  /* BE */
+	uint8_t  job2_status[4];
+	uint16_t jobid_3;  /* BE */
+	uint8_t  job3_status[4];
 	// XXX are there more?
 } __attribute__((packed));
 
@@ -1327,7 +1331,9 @@ skip_status:
 		if (ret)
 			return CUPS_BACKEND_FAILED;
 		while (ctx->jobid == be16_to_cpu(jobs.jobid_0) ||
-		       ctx->jobid == be16_to_cpu(jobs.jobid_1)) {
+		       ctx->jobid == be16_to_cpu(jobs.jobid_1) ||
+		       ctx->jobid == be16_to_cpu(jobs.jobid_2) ||
+		       ctx->jobid == be16_to_cpu(jobs.jobid_3)) {
 			ctx->jobid++;
 			if (!ctx->jobid)
 				ctx->jobid++;
@@ -1598,6 +1604,10 @@ top:
 			INFO("JOB0 status : %s\n", mitsu70x_jobstatuses(jobs.job0_status));
 			INFO("JOB1 ID     : %06u\n", jobs.jobid_1);
 			INFO("JOB1 status : %s\n", mitsu70x_jobstatuses(jobs.job1_status));
+			INFO("JOB2 ID     : %06u\n", jobs.jobid_2);
+			INFO("JOB2 status : %s\n", mitsu70x_jobstatuses(jobs.job2_status));
+			INFO("JOB3 ID     : %06u\n", jobs.jobid_3);
+			INFO("JOB3 status : %s\n", mitsu70x_jobstatuses(jobs.job3_status));
 			// XXX are there more?
 		}
 	} else {
@@ -1675,7 +1685,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.53",
+	.version = "0.54",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
