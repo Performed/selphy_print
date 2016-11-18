@@ -109,7 +109,7 @@
      Consequently, your distribution package for libusb-1.0 may be 
      called libusbx instead.
 
-     Additionally, you will need the CUPS develment packages installed.
+     Additionally, you will need the CUPS development packages installed.
 
      Fedora/RedHat:
 	yum install libusbx-devel libusb1-devel cups-devel
@@ -168,11 +168,11 @@
 		DYESUB_DEBUG=3		Dump contents of all messages
 
        [2]  This terminates the backend as soon as the printer has
-            acknowledged the print job, without waiting for the print job
-	    to complete.  This can also be enabled by setting the
-	    'FAST_RETURN' environment variable.  This is the default behavior
-	    when using this backend with CUPS.  Not all backends support
-	    fast return.
+	    acknowledged the print job, without waiting for the print job
+	    to complete.  Not all printers support this feature. This 
+	    can also be enabled by setting the 'FAST_RETURN' environment
+	    variable.  This is the default behavior when using this backend
+	    with CUPS. 
 
       If you have multiple models of the same printer family connected
       simultaneously, the backend will choose the first one it finds.
@@ -251,7 +251,7 @@
      Kodak 6800
      Kodak 6850
 
-   Development was sponsored by:
+   Development was sponsored in part by:
 
         LiveLink Technology [ www.livelinktechnology.net ]
 
@@ -309,7 +309,7 @@
 
      Shinko CHC-S2145 (aka "Sinfonia S2")
 
-   Development was initially sponsored by:
+   Development was sponsored in part by:
 
         LiveLink Technology [ www.livelinktechnology.net ]
 
@@ -557,6 +557,11 @@
     Mitsubishi CP-D707DW-S
     Mitsubishi CP-D80DW-S
 
+   Development was sponsored in part by:
+
+	Schreiber & Freunde GmbH & Co. KG
+	A generous benefactor who wishes to remain anonymous
+
    *** VERY IMPORTANT ***
 
         In order to generate usable output, this family of printers require
@@ -636,7 +641,7 @@
 
     Unlike the D70 family, the data tables used are embedded into the driver
     instead of being bundled separately, further complicating the process
-    of figuring out how this all works.
+    of figuring out how everything works. Progress is limited.
 
  *************************************************************************** 
   BACKEND=dnpds40
@@ -658,10 +663,11 @@
 
     Citizen CX2 (?)
 
-   Development was initially sponsored by:
+   Development was sponsored in part by:
 
-        Marco Di Antonio
-        LiveLink Technology [ www.livelinktechnology.net ]
+	Marco Di Antonio
+	LiveLink Technology [ www.livelinktechnology.net ]
+	A generous benefactor who wishes to remain anonymous
 
    This backend supports additional commands:
 
