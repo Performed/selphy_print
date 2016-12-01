@@ -368,7 +368,7 @@ static int print_scan_output(struct libusb_device *device,
 	char *ieee_id = NULL;
 	int i;
 
-	uint8_t endp_up = 0, endp_down = 0;
+	uint8_t endp_up, endp_down;
 
 	DEBUG("Probing VID: %04X PID: %04x\n", desc->idVendor, desc->idProduct);
 
@@ -392,6 +392,7 @@ static int print_scan_output(struct libusb_device *device,
 	}
 
 	/* Find the endpoints */
+	endp_up = endp_down = 0;
 	for (i = 0 ; i < config->interface[iface].altsetting[altset].bNumEndpoints ; i++) {
 		if ((config->interface[iface].altsetting[altset].endpoint[i].bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_BULK) {
 			if (config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
@@ -746,8 +747,7 @@ int main (int argc, char **argv)
 	struct dyesub_backend *backend = NULL;
 	void * backend_ctx = NULL;
 
-	uint8_t endp_up = 0;
-	uint8_t endp_down = 0;
+	uint8_t endp_up, endp_down;
 
 	int iface = 0; // XXX loop through interfaces
 	int altset = 0; // XXX loop through altsetting
@@ -929,6 +929,7 @@ int main (int argc, char **argv)
 		goto done_close;
 	}
 
+	endp_up = endp_down = 0;
 	for (i = 0 ; i < config->interface[iface].altsetting[altset].bNumEndpoints ; i++) {
 		if ((config->interface[iface].altsetting[altset].endpoint[i].bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_BULK) {
 			if (config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
