@@ -315,11 +315,14 @@ struct mitsu70x_printerstatus_resp {
 	uint8_t  unk[34];
 	int16_t  model[6]; /* LE, UTF-16 */
 	int16_t  serno[6]; /* LE, UTF-16 */
-	struct mitsu70x_status_ver vers[7]; // components are 'LMFTR??'
+	struct mitsu70x_status_ver vers[7]; // components are 'MLRTF'
 	uint8_t  null[8];
 	struct mitsu70x_status_deck lower;
 	struct mitsu70x_status_deck upper;
 } __attribute__((packed));
+
+#define EK305_0104_M_CSUM  0x2878  /* 1.04 316F8 3 2878 */
+#define MD70X_0112_M_CSUM  0x9FC3  /* 1.12 316W1 1 9FC3 */
 
 struct mitsu70x_memorystatus_resp {
 	uint8_t  hdr[3]; /* E4 56 33 */
@@ -1293,6 +1296,15 @@ top:
 		ATTR("marker-names='%s'\n",
 		     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type));
 		ATTR("marker-types=ribbonWax\n");
+	}
+	
+	/* FW sanity checking */
+	if (ctx->type == P_KODAK_305) {
+		if (be16_to_cpu(resp.vers[0].checksum) != EK305_0104_M_CSUM)
+			WARNING("Printer FW out of date. Highly recommend upgrading EK305 to v1.04!\n");
+	} else if (ctx->type == P_MITSU_D70X) {
+		if (be16_to_cpu(resp.vers[0].checksum) != MD70X_0112_M_CSUM)
+			WARNING("Printer FW out of date. Highly recommend upgrading D70/D707 to v1.12!\n");
 	}
 
 skip_status:
