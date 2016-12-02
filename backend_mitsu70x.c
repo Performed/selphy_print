@@ -303,7 +303,8 @@ struct mitsu70x_status_deck {
 } __attribute__((packed));
 
 struct mitsu70x_status_ver {
-	char     ver[6];
+	char     ver[5];
+	char     ver2;     /* Printed as part of the checksum..? */
 	uint16_t checksum; /* Presumably BE */
 } __attribute__((packed));
 
@@ -1513,13 +1514,21 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 	}
 	DEBUG2("\n");
 	for (i = 0 ; i < 7 ; i++) {
-		char buf[7];
-		if (resp->vers[i].ver[5] == '@')  /* "DUMMY@" */
+		char buf[6];
+		char type;
+		if (resp->vers[i].ver2 == '@')  /* "DUMMY@" */
 			continue;
-		memcpy(buf, resp->vers[i].ver, 6);
-		buf[6] = 0;
-		INFO("Component #%u ID: %s (checksum %04x)\n",
-		     i, buf, be16_to_cpu(resp->vers[i].checksum));
+		memcpy(buf, resp->vers[i].ver, 5);
+		buf[5] = 0;
+		if (i == 0) type = 'M';
+		else if (i == 1) type = 'L';
+		else if (i == 2) type = 'R';
+		else if (i == 3) type = 'T';
+		else if (i == 4) type = 'F';
+		else type = i + 0x30;
+
+		INFO("FW Component: %c %s %c%04x\n",
+		     type, buf, resp->vers[i].ver2, be16_to_cpu(resp->vers[i].checksum));
 	}
 
 	INFO("Lower Mechanical Status: %s\n",
@@ -1682,7 +1691,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.54",
+	.version = "0.55",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
