@@ -344,7 +344,7 @@ static int selphyneo_cmdline_arg(void *vctx, int argc, char **argv)
 
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CPneo",
-	.version = "0.01wip",
+	.version = "0.02",
 	.uri_prefix = "canonselphyneo",
 	.cmdline_arg = selphyneo_cmdline_arg,
 	.init = selphyneo_init,
