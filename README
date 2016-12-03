@@ -23,7 +23,7 @@
   Supported Printers:
 
    Canon SELPHY ES series
-   Canon SELPHY CP series (except CP820, CP910, CP1000, CP1200)
+   Canon SELPHY CP series
    Kodak Professional 1400
    Kodak 305 Photo Printer
    Kodak 605 Photo Printer
@@ -54,6 +54,7 @@
    Mitsubishi CP-D707DW
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
+   Canon SELPHY CP820 and CP1000
    Fujifilm ASK-300
    Citizen CW-02 and CX2
    Olmec OP900 and OP900II
@@ -212,9 +213,22 @@
 
      ES20, CP-220, CP520, CP530, CP600, CP810
 
-   NOT supported:  (Printer does not need any special backend)
+   This backend does not support additional commands.
 
-     CP820, CP910, CP1000, CP1200
+ *************************************************************************** 
+  BACKEND=canonselphyneo
+
+   Verified supported printers:
+  
+     CP1200
+
+   Untested, but expected to work:
+
+     CP910
+
+   Unknown VID/PIDs, but should work:
+
+     CP820, CP1000
 
    This backend does not support additional commands.
 
