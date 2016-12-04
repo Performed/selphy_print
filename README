@@ -44,6 +44,7 @@
    Mitsubishi CP-K60DW-S
    Mitsubishi CP-D70DW
    Mitsubishi CP-D80DW
+   Mitsubishi P95DW
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Ciaat Brava 21
 
@@ -656,6 +657,15 @@
     Unlike the D70 family, the data tables used are embedded into the driver
     instead of being bundled separately, further complicating the process
     of figuring out how everything works. Progress is limited.
+
+ *************************************************************************** 
+  BACKEND=mitsup95d
+
+   Verified supported printers:
+  
+     Mitsubishi P95DW
+
+   This backend does not support additional commands.
 
  *************************************************************************** 
   BACKEND=dnpds40
