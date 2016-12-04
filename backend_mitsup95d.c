@@ -254,7 +254,7 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 	if (ctx->hdr1[18] == 0x00)
 		ctx->hdr1[18] = 0x01;
 	
-	INFO("Waiting for printer idle\n");	
+	INFO("Waiting for printer idle\n");
 
         /* Query Status to make sure printer is idle */
 	do {
@@ -276,6 +276,8 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 		
 		sleep(1);
 	} while (1);
+
+	INFO("Sending print job\n");
 	
 	/* Send over Memory Clear, if present */
 	if (ctx->mem_clr_present) {
@@ -334,6 +336,8 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 			     ctx->ftr, sizeof(ctx->ftr))))
 		return CUPS_BACKEND_FAILED;
 
+	INFO("Waiting for completion\n");
+
 	/* Query status until we're done.. */
 	do {
 		sleep(1);
@@ -389,7 +393,7 @@ static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsup95d_backend = {
 	.name = "Mitsubishi P95D",
-	.version = "0.01",
+	.version = "0.02",
 	.uri_prefix = "mitsup95d",
 	.cmdline_arg = mitsup95d_cmdline_arg,
 	.init = mitsup95d_init,
