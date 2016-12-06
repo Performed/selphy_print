@@ -3,6 +3,10 @@
  *
  *   (c) 2016 Solomon Peachy <pizza@shaftnet.org>
  *
+ *   Development of this backend was sponsored by:
+ *
+ *     A benefactor who wishes to remain anonymous
+ *
  *   The latest version of this program can be found at:
  *
  *     http://git.shaftnet.org/cgit/selphy_print.git
