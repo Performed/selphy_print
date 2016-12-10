@@ -214,7 +214,9 @@
 
      ES20, CP-220, CP520, CP530, CP600, CP810
 
-   This backend does not support additional commands.
+   Valid commands:
+   
+     -R                 Reset printer to factory defaults
 
  *************************************************************************** 
   BACKEND=canonselphyneo
@@ -230,8 +232,10 @@
    Unknown VID/PIDs, but should work:
 
      CP820, CP1000
-
-   This backend does not support additional commands.
+ 
+   Valid commands:
+   
+     -R                 Reset printer to factory defaults
 
  *************************************************************************** 
   BACKEND=kodak1400
