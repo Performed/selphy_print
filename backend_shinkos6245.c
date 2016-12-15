@@ -178,7 +178,7 @@ static char *cmd_names(uint16_t v) {
 	default:
 		return "Unknown Command";
 	}
-};
+}
 
 struct s6245_print_cmd {
 	struct s6245_cmd_hdr hdr;

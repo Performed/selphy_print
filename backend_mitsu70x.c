@@ -181,7 +181,7 @@ struct mitsu70x_jobstatus {
 struct mitsu70x_job {
 	uint16_t id; /* BE */
 	uint8_t status[4];
-} __attribute__((packed));;
+} __attribute__((packed));
 
 #define NUM_JOBS 170
 

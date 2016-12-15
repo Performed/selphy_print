@@ -168,7 +168,7 @@ static int parse1284_data(const char *device_id, struct deviceid_dict* dict)
 			break;
 	}
 	return num;
-};
+}
 
 static char *dict_find(const char *key, int dlen, struct deviceid_dict* dict)
 {
