@@ -1221,7 +1221,7 @@ struct dyesub_backend mitsu9550_backend = {
 	}
 };
 
-/* Mitsubish CP-9550/9600/9800/9810 spool format:
+/* Mitsubish CP-9500/9550/9600/9800/9810 spool format:
 
    Spool file consists of 3 (or 4) 50-byte headers, followed by three
    image planes, each with a 12-byte header, then a 4-byte footer.
@@ -1240,12 +1240,12 @@ struct dyesub_backend mitsu9550_backend = {
    1b 57 21 2e 00 80 00 22  QQ QQ 00 00 00 00 00 00 :: ZZ ZZ = num copies (>= 0x01)
    00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY = 00/80 Fine/SuperFine (9550), 10/80 Fine/Superfine (98x0), 00 (9600)
    XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 00 00 :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
-   00 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600
+   00 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500
 
    ~~~ Header 3 (9550 and 9800-S only..)
 
-   1b 57 22 2e 00 40 00 00  00 00 00 XX 00 00 00 00 :: XX = 00 normal, 01 FineDeep
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+   1b 57 22 2e 00 QQ 00 00  00 00 00 XX 00 00 00 00 :: XX = 00 normal, 01 FineDeep
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ = 0xf0 on 9500, 0x40 on the rest
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
    00 00 
 
@@ -1278,6 +1278,7 @@ struct dyesub_backend mitsu9550_backend = {
 
   ~~~~ Footer:
 
+   1b 50 57 00  (9500)
    1b 50 46 00  (9550)
    1b 50 47 00  (9550-S)
    1b 50 48 00  (9600)
