@@ -50,7 +50,7 @@
 
   Work-in-progress Printers:
 
-   Canon SELPHY CP820 and CP1000
+   Canon SELPHY CP820
    Citizen CW-02 and CX2
    DNP DS80DX
    Fujifilm ASK-300
@@ -223,7 +223,7 @@
 
    Verified supported printers:
   
-     CP1200
+     CP1000, CP1200
 
    Untested, but expected to work:
 
@@ -231,8 +231,8 @@
 
    Unknown VID/PIDs, but should work:
 
-     CP820, CP1000
- 
+     CP820
+
    Valid commands:
    
      -R                 Reset printer to factory defaults
