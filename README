@@ -29,7 +29,8 @@
    DNP DS40 / Citizen CX
    DNP DS80 / Citizen CX-W
    DNP DS-RX1 / DS-RX1HS / Citizen CY 
-   DNP DS620
+   DNP DS620 / DS620A
+   DNP DS820 / DS820A
    Kodak Professional 1400
    Kodak 305 Photo Printer
    Kodak 605 Photo Printer
@@ -682,7 +683,8 @@
 
     DNP DS40 (aka Citizen CX)
     DNP DS80 (aka Citizen CX-W)
-    DNP DS620
+    DNP DS620 / DS620A
+    DNP DS820 / DS820A
     DNP DS-RX1 / DNP DS-RX1HS (aka Citizen CY)
 
    Theoretically supported printers:  (Untested)
@@ -693,7 +695,7 @@
 
    Work-in-progress printers: (USB PIDs unknown)
 
-    Citizen CX2 (?)
+    Citizen CX2
 
    Development was sponsored in part by:
 
