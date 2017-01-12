@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.70"
+#define BACKEND_VERSION "0.71"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -1016,7 +1016,8 @@ newpage:
 		goto done_claimed;
 
 	/* Log the completed page */
-	PAGE("%d %d\n", current_page, copies);
+	if (!uri)
+		PAGE("%d %d\n", current_page, copies);
 
 	/* Since we have no way of telling if there's more data remaining
 	   to be read (without actually trying to read it), always assume
@@ -1027,7 +1028,8 @@ done_multiple:
 	close(data_fd);
 
 	/* Done printing, log the total number of pages */
-	PAGE("total %d\n", current_page * copies);
+	if (!uri)
+		PAGE("total %d\n", current_page * copies);
 	ret = CUPS_BACKEND_OK;
 
 done_claimed:
