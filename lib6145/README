@@ -26,14 +26,21 @@
 
    In order to utilize this library with Gutenprint, you will need:
 
-	* Gutenprint 5.2.11
+	* Gutenprint 5.2.11 or later
 	* Current selphy_print backend
 	* This library
 
    Gutenprint 5.2.12-pre and newer already include up-to-date backend
-   code, so you will only need to compile and install this library.
+   code, so if you have that version installed you will only need to 
+   compile and install this library.
 
    To build this library:
 
 	make
 	make install
+
+    You may also need to add the library to the search path:
+
+        echo "/usr/local/lib" >> /etc/ld.so.conf
+        ldconfig
+

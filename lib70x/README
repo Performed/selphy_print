@@ -41,3 +41,9 @@
 
 	make
 	make install
+
+    You may also need to add the library to the search path:
+
+	echo "/usr/local/lib" >> /etc/ld.so.conf
+	ldconfig
+
