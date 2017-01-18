@@ -291,7 +291,7 @@ struct shinkos1245_mediadesc {
 
 struct shinkos1245_resp_media {
 	uint8_t  code;
-	uint8_t  reserved[5];
+	uint8_t  reserved[6];
 	uint8_t  count;  /* 1-5? */
 	struct shinkos1245_mediadesc data[NUM_MEDIAS];
 } __attribute__((packed));
