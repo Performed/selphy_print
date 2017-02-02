@@ -44,6 +44,7 @@
 #include "backend_common.h"
 
 #define USB_VID_MITSU       0x06D3
+#define USB_PID_MITSU_P93D  0x0398
 #define USB_PID_MITSU_P95D  0x3b10
 
 /* Private data stucture */
@@ -397,7 +398,7 @@ static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsup95d_backend = {
 	.name = "Mitsubishi P95D",
-	.version = "0.02",
+	.version = "0.03",
 	.uri_prefix = "mitsup95d",
 	.cmdline_arg = mitsup95d_cmdline_arg,
 	.init = mitsup95d_init,
@@ -406,6 +407,7 @@ struct dyesub_backend mitsup95d_backend = {
 	.read_parse = mitsup95d_read_parse,
 	.main_loop = mitsup95d_main_loop,
 	.devices = {
+	{ USB_VID_MITSU, USB_PID_MITSU_P93D, P_MITSU_P93D, ""},
 	{ USB_VID_MITSU, USB_PID_MITSU_P95D, P_MITSU_P95D, ""},
 	{ 0, 0, 0, ""}
 	}

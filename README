@@ -63,6 +63,7 @@
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Mitsubishi CP-D707DW
+   Mitsubishi P93D
    Olmec OP900 and OP900II
    Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S6245 (aka Sinfonia CE1)
@@ -674,7 +675,11 @@
   
      Mitsubishi P95DW
 
-   This backend does not support additional commands.
+   Work-in-progress printers:
+
+     Mitsubishi P93D
+
+This backend does not support additional commands.
 
  *************************************************************************** 
   BACKEND=dnpds40
