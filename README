@@ -48,6 +48,7 @@
    Mitsubishi CP-D80DW
    Mitsubishi CP-K60DW-S
    Mitsubishi P95DW
+   Mitsubishi P93DW
 
   Work-in-progress Printers:
 
@@ -63,7 +64,6 @@
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Mitsubishi CP-D707DW
-   Mitsubishi P93D
    Olmec OP900 and OP900II
    Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S6245 (aka Sinfonia CE1)
@@ -674,10 +674,7 @@
    Verified supported printers:
   
      Mitsubishi P95DW
-
-   Work-in-progress printers:
-
-     Mitsubishi P93D
+     Mitsubishi P93DW
 
 This backend does not support additional commands.
 
