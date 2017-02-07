@@ -1,5 +1,5 @@
 /*
- *   Mitsubishi P95D Monochrome Thermal Photo Printer CUPS backend
+ *   Mitsubishi P93D/P95D Monochrome Thermal Photo Printer CUPS backend
  *
  *   (c) 2016-2017 Solomon Peachy <pizza@shaftnet.org>
  *
@@ -126,7 +126,7 @@ static int mitsup95d_read_parse(void *vctx, int data_fd) {
 	int i;
 	int remain;
 	int ptr_offset;
-	
+
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
@@ -135,7 +135,7 @@ static int mitsup95d_read_parse(void *vctx, int data_fd) {
 		ctx->databuf = NULL;
 	}
 	ctx->mem_clr_present = 0;
-		
+
 top:
 	i = read(data_fd, buf, sizeof(buf));
 
@@ -143,7 +143,6 @@ top:
 		return CUPS_BACKEND_CANCEL;
 	if (i < 0)
 		return CUPS_BACKEND_CANCEL;
-	printf(">--> %02x %02x\n", buf[0], buf[1]);
 	if (buf[0] != 0x1b) {
 		ERROR("malformed data stream\n");
 		return CUPS_BACKEND_CANCEL;
@@ -172,7 +171,7 @@ top:
 		break;
 	case 0x5a: /* Plane header OR printer reset */
 		// XXX read in next character.
-		
+
 		// buf[2] is 0x43 for reset, 0x74 for plane.
 //		remain = 4;
 //		ptr = ctx->mem_clr;
@@ -190,7 +189,7 @@ top:
 	memcpy(ptr, buf, sizeof(buf));
 	remain -= sizeof(buf);
 	ptr_offset = sizeof(buf);
-	
+
 	while (remain) {
 		i = read(data_fd, ptr + ptr_offset, remain);
 		if (i == 0)
@@ -200,7 +199,7 @@ top:
 		remain -= i;
 		ptr_offset += i;
 	}
-	
+
 	if (ptr == tmphdr) {
 		if (tmphdr[3] != 46) {
 			ERROR("Unexpected header chunk: %02x %02x %02x %02x\n",
@@ -257,7 +256,7 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 	struct mitsup95d_ctx *ctx = vctx;
 	uint8_t querycmd[4] = { 0x1b, 0x72, 0x00, 0x00 };
 	uint8_t queryresp[9];
-	
+
 	int ret;
 	int num;
 
@@ -279,7 +278,7 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 		if (ctx->hdr1[18] == 0x00)
 			ctx->hdr1[18] = 0x01;
 	}
-	
+
 	INFO("Waiting for printer idle\n");
 
         /* Query Status to make sure printer is idle */
@@ -312,12 +311,12 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 			if (queryresp[6] == 0x30)
 				break;
 		}
-		
+
 		sleep(1);
 	} while (1);
 
 	INFO("Sending print job\n");
-	
+
 	/* Send over Memory Clear, if present */
 	if (ctx->mem_clr_present) {
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -402,7 +401,7 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 	/* Query status until we're done.. */
 	do {
 		sleep(1);
-		
+
 		/* Query Status */
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     querycmd, sizeof(querycmd))))
@@ -447,8 +446,8 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 			}
 		}
 	} while(1);
-	
-	INFO("Print complete\n");	
+
+	INFO("Print complete\n");
 	return CUPS_BACKEND_OK;
 }
 
@@ -656,7 +655,7 @@ struct dyesub_backend mitsup95d_backend = {
 
   ? could be 0x00 or 0x03.  Seen both.
 
-Seen:   30 30 30 
+Seen:   30 30 30
         30 43 01   <- 1 copies remaining
         30 43 00   <- 0 copies remaining
            ^^
@@ -664,8 +663,8 @@ Seen:   30 30 30
 
         30 45 6f  <- door open
         30 45 50  <- no paper
-            
-           45 == error?  
+
+           45 == error?
  ****************************
 
 UNKNOWNS:
