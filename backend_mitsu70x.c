@@ -117,6 +117,9 @@ typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 /* Width of the laminate data file */
 #define LAMINATE_STRIDE 1864
 
+/* Max size of data chunk sent over */
+#define CHUNK_LEN (256*1024)
+
 /* Private data stucture */
 struct mitsu70x_ctx {
 	struct libusb_device_handle *dev;
@@ -1210,9 +1213,25 @@ static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx)
 
 static int d70_library_callback(void *context, void *buffer, uint32_t len)
 {
+	uint32_t chunk = len;
+	uint32_t offset = 0;
+	int ret = 0;
+
 	struct mitsu70x_ctx *ctx = context;
 
-	return send_data(ctx->dev, ctx->endp_down, buffer, len);
+	while (chunk > 0) {
+		if (chunk > CHUNK_LEN)
+			chunk = CHUNK_LEN;
+
+		ret = send_data(ctx->dev, ctx->endp_down, buffer + offset, chunk);
+		if (ret < 0)
+			break;
+
+		offset += chunk;
+		chunk = len - offset;
+	}
+
+	return ret;
 }
 
 static int mitsu70x_main_loop(void *vctx, int copies)
@@ -1411,7 +1430,7 @@ skip_status:
                /* K60 and 305 need data sent in 256K chunks, but the first
                   chunk needs to subtract the length of the 512-byte header */
 
-		int chunk = 256*1024 - sizeof(struct mitsu70x_hdr);
+		int chunk = CHUNK_LEN - sizeof(struct mitsu70x_hdr);
 		int sent = 512;
 		while (chunk > 0) {
 			if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -1419,8 +1438,8 @@ skip_status:
 				return CUPS_BACKEND_FAILED;
 			sent += chunk;
 			chunk = ctx->datalen - sent;
-			if (chunk > 256*1024)
-				chunk = 256*1024;
+			if (chunk > CHUNK_LEN)
+				chunk = CHUNK_LEN;
 		}
        }
 
@@ -1702,7 +1721,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.55",
+	.version = "0.56",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
