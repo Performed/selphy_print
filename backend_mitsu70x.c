@@ -612,6 +612,13 @@ static const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
 		return "CK-K76R (6x8)";
 	else
 		return "Unknown";
+
+// Also CK-D715, CK-D718, CK-D720, CK-D723 (4x6,5x8,6x8,6x9) for D70-S model
+//      CK-D746-U for D70-U model
+//      CK-D820 (6x8) for D80-S model
+//      CK-D868 (6x8) for D80 (non-S)
+// D90 can use _all_ of htese types except for the -U!
+
 }
 
 #define CMDBUF_LEN 512

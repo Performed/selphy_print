@@ -429,7 +429,7 @@ static int print_scan_output(struct libusb_device *device,
 	}
 	if (!manuf || !strlen(manuf)) {  /* Last-ditch */
 		if (manuf) free(manuf);
-		manuf = url_encode("Unknown");
+		manuf = url_encode("Unknown"); // XXX use USB VID?
 	}
 
 	/* Look up model number */
@@ -446,7 +446,7 @@ static int print_scan_output(struct libusb_device *device,
 
 	if (!product || !strlen(product)) { /* Last-ditch */
 		if (!product) free(product);
-		product = url_encode("Unknown");
+		product = url_encode("Unknown"); // XXX Use USB PID?
 	}
 
 	/* Look up description */
