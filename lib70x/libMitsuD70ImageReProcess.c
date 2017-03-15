@@ -46,7 +46,8 @@
 
 */
 
-#define LIB_VERSION "0.2"
+#define LIB_VERSION "0.3"
+#define LIB_APIVERSION 2
 
 #include <stdio.h>
 #include <stdint.h>
@@ -96,6 +97,8 @@
 
 #define LUT_LEN 14739
 #define CPC_DATA_ROWS 2730
+
+#define CHUNK_LEN (256*1024)
 
 struct CColorConv3D {
 	uint8_t lut[17][17][17][3];
@@ -179,6 +182,12 @@ struct CPCData {
 	 int32_t REV[76];        // @42136
 	                         // @42440
 };
+
+/*** Version ***/
+int lib70x_getapiversion(void)
+{
+	return LIB_APIVERSION;
+}
 
 /*** 3D color Lookup table ****/
 
@@ -1236,7 +1245,7 @@ int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandIma
 {
 	struct CImageEffect70 *data;
 
-	fprintf(stderr, "INFO: libMitsuD70ImageReProcess version '%s'\n", LIB_VERSION);
+	fprintf(stderr, "INFO: libMitsuD70ImageReProcess version '%s' API %d\n", LIB_VERSION, LIB_APIVERSION);
 	fprintf(stderr, "INFO: Copyright (c) 2016 Solomon Peachy\n");  
 	fprintf(stderr, "INFO: This free software comes with ABSOLUTELY NO WARRANTY!\n");
 	fprintf(stderr, "INFO: Licensed under the GNU GPL.\n");
@@ -1278,45 +1287,50 @@ int send_image_data(struct BandImage *out, void *context,
 	uint16_t *buf;
 	uint32_t i, j, k;
 	int ret = 1;
-	uint16_t *v15, *v9;
+	uint16_t *v15;
 	size_t count;
 	
 	cols = out->cols - out->origin_cols;
 	rows = out->rows - out->origin_rows;
-	buf = malloc(256*1024);
+	buf = malloc(CHUNK_LEN);
 	if (!buf)
 		goto done;
 	if (!callback_fn)
 		goto done;
-	if (out->bytes_per_row < 0) { // XXX backwards
+
+	// XXX hacky workaround.  Doing this right results in the image
+	// being incorrectly mirrored. There's a missing step somewhere
+	// that flips each row. Until then, this stays in.
+	out->bytes_per_row = -out->bytes_per_row;
+
+	if (out->bytes_per_row > 0) {
 		v15 = out->imgbuf + ((rows - 1) * out->bytes_per_row);
 	} else {
 		v15 = out->imgbuf;
 	}
 
 	for ( i = 0 ; i < 3 ; i++) {
-		uint16_t *v13, *v12;
+		uint16_t *v13 = &v15[i];
+		uint16_t *outptr = buf;
 
-		v13 = &v15[i];
-		v12 = buf;
 		count = 0;
-		memset(buf, 0, 256*1024);
+		memset(buf, 0, CHUNK_LEN);
 		for (j = 0 ; j < rows ; j++) {
-			v9 = v13;
+			uint16_t *v9 = v13;
 			for (k = 0 ; k < cols ; k++) {
-				*v12++ = cpu_to_be16(*v9);
+				*outptr++ = cpu_to_be16(*v9);
 				v9 += 3;
 				count += 2;
-				if ( count == 256*1024 )
+				if ( count == CHUNK_LEN )
 				{
 					if (callback_fn(context, buf, count))
 						goto done;
 					count = 0;
-					v12 = buf;
-					memset(buf, 0, 256*1024);
+					outptr = buf;
+					memset(buf, 0, CHUNK_LEN);
 				}
 			}
-			v13 += out->bytes_per_row / 2; // XXX backwards
+			v13 -= out->bytes_per_row / 2;
 		}
 		if (count) {
 			if (callback_fn(context, buf, (count + 511) / 512 * 512))

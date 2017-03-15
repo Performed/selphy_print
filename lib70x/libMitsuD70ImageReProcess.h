@@ -62,6 +62,9 @@ struct BandImage {
 	                       // @24
 };
 
+/* Get version */
+int lib70x_getapiversion(void);
+
 /* Forward-declaration */
 struct CPCData;
 
