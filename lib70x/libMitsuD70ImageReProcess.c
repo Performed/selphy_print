@@ -103,9 +103,9 @@ struct CColorConv3D {
 
 /* Defines an image.  Note that origin_cols/origin_rows should always = 0 */
 struct BandImage {
-	   void  *imgbuf;      //  @0
-	 int32_t bytes_per_row;//  @4  bytes per row (respect 8bpp and 16bpp!)
-	uint16_t origin_cols;  // @8  origin_cols
+	   void  *imgbuf;      // @ 0
+	 int32_t bytes_per_row;// @ 4  bytes per row (respect 8bpp and 16bpp!)
+	uint16_t origin_cols;  // @ 8  origin_cols
 	uint16_t origin_rows;  // @12  origin_rows
 	uint16_t cols;         // @16  cols
 	uint16_t rows;         // @20  rows
@@ -120,8 +120,8 @@ struct CImageEffect70 {
 	  double *unk_0003;      // @12/3     
 	  double *unk_0004;      // @16/4     
 	  double unk_0005[3];    // @20/5     
-	uint32_t unk_0011[384];  // @44/11    
-	  double unk_0395[384];  // @1580/395
+	uint32_t unk_0011[384];  // @44/11      // 3 * uint32[128]
+	  double unk_0395[384];  // @1580/395   // 3 * double[128]
 	  double *unk_1163;      // @4652/1163
 	uint16_t *unk_1164;      // @4656/1164
 	uint16_t *unk_1165[11];  // @4660/1165
@@ -132,7 +132,7 @@ struct CImageEffect70 {
 	uint32_t columns;        // @4788/1197
 	uint32_t rows;           // @4792/1198
 	uint32_t pixel_count;    // @4796/1199
-	uint32_t row_count;      // @4800/1200
+	uint32_t cur_row;        // @4800/1200
 	uint32_t band_pixels;    // @4804/1201
 	uint32_t unk_1202;       // @4808/1202   // band_pixels + 6
 	double   unk_1203;       // @4812/1203   // FH[0]
@@ -167,18 +167,17 @@ struct CPCData {
 	double   HK[4];          // @40616
 	
 	uint32_t Speed[3];       // @40648
-	/* Used for FCC */
 	double   FH[5];          // @40660
 	/* Used for sharpening */
 	double   SHK[72];        // @40700
 	/* Used for YMC6 */
 	double   UH[101];        // @41276
-	                         // @42084
 	
-	/* Used by roller mark correction (K60/D80/EK305 */
-	uint32_t ROLK[13];       //
+	/* Used by roller mark correction (K60/D80/EK305) -- Unused! */
+	uint32_t ROLK[13];       // @42084
 	/* Used by reverse/skip logic (K60/D80/EK305) */
-	 int32_t REV[76];        //
+	 int32_t REV[76];        // @42136
+	                         // @42440
 };
 
 /*** 3D color Lookup table ****/
@@ -598,7 +597,7 @@ static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 }
 
 static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
-				   int a2, uint16_t *row, int a4)
+					  int a2, const uint16_t *row, int a4)
 {
 	uint16_t *src, *v5;
 
@@ -613,7 +612,7 @@ static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
 }
 
 static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
-					     uint16_t *row)
+					     const uint16_t *row)
 {
 	int n;
 	uint32_t i;
@@ -649,7 +648,8 @@ static void CImageEffect70_Sharp_SetRefPtr(struct CImageEffect70 *data)
 	data->unk_1187[7] = data->unk_1165[6] + 3; // 6 bytes
 }
 
-static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data, double *a2, uint16_t *imgdata)
+static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data,
+				    const double *a2, uint16_t *imgdata)
 {
 	uint16_t i, j;
 	uint32_t offset;	
@@ -658,7 +658,7 @@ static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data, double *a2, uin
 	double uh_val;
 
 	offset = 0;
-	uh_offset = data->rows - 1 - data->row_count;
+	uh_offset = data->rows - 1 - data->cur_row;
 	if ( uh_offset > 100 )
 		uh_offset = 100;
 
@@ -687,12 +687,10 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	double *v6;
 	double v5;
 	int v3;
-	int v7;
 	int i, j;
 	double *v12, *v11, *v10;
 	
-	v7 = data->row_count;
-	v6 = &data->unk_1163[3*v7];
+	v6 = &data->unk_1163[3*data->cur_row];
 
 	for (i = 0 ; i < 3 ; i++) {
 		v6[i] = 127 * data->unk_0011[127 + 128*i];
@@ -703,15 +701,15 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 			data->unk_0011[j*16+i] = data->unk_0011[j*128+i+1];
 		}
 	}
-	if (v7 > 2) {
+	if (data->cur_row > 2) {
 		v12 = v6 - 3;
 		v11 = v6 - 6;
 		v10 = v6 - 9;
-	} else if (v7 == 2) {
+	} else if (data->cur_row == 2) {
 		v12 = v6 - 3;
 		v11 = v6 - 6;
 		v10 = v6 - 6;;		
-	} else if (v7 == 1) {
+	} else if (data->cur_row == 1) {
 		v12 = v6 - 3;
 		v11 = v6 - 3;
 		v10 = v6 - 3;;
@@ -748,7 +746,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	}
 }
 
-static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, double *a2, double *a3)
+static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *a2, double *a3)
 {
 	int v10, v16;
 	double *v9, *v7;
@@ -763,8 +761,8 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, double *a2, doub
 	v9 = data->cpc->HK;
 	src = data->unk_0002;
 	v7 = data->unk_0004;
-	memset(data->unk_0011, 0, 1536);
-	v16 = data->row_count;
+	memset(data->unk_0011, 0, sizeof(data->unk_0011));
+	v16 = data->cur_row;
 	if (v16 > 2729)
 		v16 = 2729;
 	for (i = 0 ; i < 3 ; i++) {
@@ -812,7 +810,7 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, double *a2, doub
 }
 
 static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
-			    uint16_t *a2, double *a3)
+				   const uint16_t *a2, double *a3)
 {
 	double *v11, *v12, *v13, *v14, *v15, *v16;
 	double *v34;
@@ -920,9 +918,8 @@ static void CImageEffect70_CalcSA(struct BandImage *img,
 				  int always_1, int32_t *ptr1,
 				  int32_t revX, int32_t *ptr2)
 {
-  int v6; // eax@1
-  int v7; // edi@1
-  int v8; // ebx@1
+  int cols; // edi@1
+  int rows; // ebx@1
   unsigned int v9; // ecx@2
   unsigned int v10; // ecx@3
   unsigned int v11; // ecx@6
@@ -942,28 +939,27 @@ static void CImageEffect70_CalcSA(struct BandImage *img,
   int v27; // [sp+18h] [bp-14h]@15
   int16_t *v28; // [sp+1Ch] [bp-10h]@17
   
-  v6 = img->bytes_per_row;
-  v7 = img->cols - img->origin_cols;
-  v8 = img->rows - img->origin_rows;
+  cols = img->cols - img->origin_cols;
+  rows = img->rows - img->origin_rows;
 
-  if ( v6 >= 0 )
+  if ( img->bytes_per_row >= 0 )
   {
     if ( always_1 )
     {
       v10 = img->bytes_per_row;
       goto LABEL_6;
     }
-    v9 = -v6;
+    v9 = -img->bytes_per_row;
   }
   else
   {
     v9 = img->bytes_per_row;
     if ( !always_1 )
     {
-      v10 = -v6;
+      v10 = -img->bytes_per_row;
 LABEL_6:
       v11 = v10 >> 1;
-      v21 = (int16_t*)img->imgbuf + v11 * (v8 - 1);
+      v21 = (int16_t*)img->imgbuf + v11 * (rows - 1);
       goto LABEL_9;
     }
   }
@@ -975,16 +971,16 @@ LABEL_9:
   v13 = 0;
   if ( v12 < 0 )
     v12 = 0;
-  if ( v8 >= ptr1[3] )
-    v8 = ptr1[3];
-  v24 = v8;
+  if ( rows >= ptr1[3] )
+    rows = ptr1[3];
+  v24 = rows;
   if ( ptr1[0] >= 0 )
     v13 = ptr1[0];
   v25 = v13;
   v27 = v12;
-  if ( v7 > ptr1[2] )
-    v7 = ptr1[2];
-  v26 = v7;
+  if ( cols > ptr1[2] )
+    cols = ptr1[2];
+  v26 = cols;
   v14 = 0;
   v15 = 0;
   v28 = v21 - v12 * v11;
@@ -1013,20 +1009,17 @@ static int CImageEffect70_JudgeReverseSkipRibbon_int(struct BandImage *img,
 						     int32_t *REV,
 						     int always_1)
 {
-	int32_t v4, v5, v6, v7, v8;
+  int32_t rows, cols;
 
   int32_t v15; // [sp+4Ch] [bp-8Ch]@1  
 
-  v4 = img->rows - img->origin_rows;
-  v5 = img->cols - img->origin_cols;
-  v6 = REV[0];
-  v7 = REV[1];
-  v8 = REV[2];
+  rows = img->rows - img->origin_rows;
+  cols = img->cols - img->origin_cols;
 
-  int32_t v16[4] = { v6, v8, v7, v4 };
-  int32_t v20[4] = { v7, 0, v5, v4 };
-  int32_t v24[4] = { 0, 0, v6, v4 };
-  int32_t v28[4] = { v6, 0, v7, v8 };
+  int32_t v16[4] = { REV[0], REV[2], REV[1], rows };
+  int32_t v20[4] = { REV[1], 0, cols, rows };
+  int32_t v24[4] = { 0, 0, REV[0], rows };
+  int32_t v28[4] = { REV[0], 0, REV[1], REV[2] };
 
   int32_t v32[3] = { 0, 0, 0 };
   int32_t v35[3] = { 0, 0, 0 };
@@ -1121,9 +1114,9 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 
 	uint32_t i, j;
 	int v12;
-	int v14;
-	uint16_t *v15;
-	uint16_t *v16;
+	int outstride;
+	uint16_t *outptr;
+	uint16_t *inptr;
 	
 	CImageEffect70_InitMidData(data);
 
@@ -1146,19 +1139,19 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 	    cpc->FH[0] < 1.0 || cpc->FH[1] < 1.0)
 		return;
 
+	// XXX this whole if..else is seemingly inverted.
 	if (in->bytes_per_row >= 0) {
 		data->pixel_count = in->bytes_per_row / 2; // numbers of pixels per input band
 
-		v14 = out->bytes_per_row / 2; // pixels per dest band (negative!)
-		v16 = (uint16_t*) in->imgbuf + data->pixel_count * (data->rows - 1); // ie last row of input buffer
-		v15 = (uint16_t*) out->imgbuf + v14 * (data->rows - 1); // end of output buffer?
+		outstride = out->bytes_per_row / 2; // pixels per dest band
+		inptr = (uint16_t*) in->imgbuf + data->pixel_count * (data->rows - 1); // ie last row of input buffer
+		outptr = (uint16_t*) out->imgbuf + outstride * (data->rows - 1); // last row of output buffer
 	} else {
 		data->pixel_count = in->bytes_per_row / 2;
-		v14 = out->bytes_per_row / 2;
-		v16 = in->imgbuf;
-		v15 = out->imgbuf;
+		outstride = out->bytes_per_row / 2;
+		inptr = in->imgbuf;
+		outptr = out->imgbuf;
 	}
-
 	
 	CImageEffect70_CreateMidData(data);
 
@@ -1177,20 +1170,20 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 		}
 	}
 	
-	CImageEffect70_Sharp_PrepareLine(data, v16);
+	CImageEffect70_Sharp_PrepareLine(data, inptr);
 
 	if (data->sharpen >= 0)
 		CImageEffect70_Sharp_SetRefPtr(data);
 
-	for (data->row_count = 0 ; data->row_count < data->rows ; data->row_count++) {
-		if (data->row_count + 5 < data->rows)
-			CImageEffect70_Sharp_CopyLine(data, 5, v16, 5);
-		CImageEffect70_CalcTTD(data, v16, v10);
+	for (data->cur_row = 0 ; data->cur_row < data->rows ; data->cur_row++) {
+		if (data->cur_row + 5 < data->rows)
+			CImageEffect70_Sharp_CopyLine(data, 5, inptr, 5);
+		CImageEffect70_CalcTTD(data, inptr, v10);
 		CImageEffect70_CalcHTD(data, v10, v9);
 		CImageEffect70_CalcFCC(data);
-		CImageEffect70_CalcYMC6(data, v9, v15);
-		v16 -= data->pixel_count; // work backwards one input row
-		v15 -= v14;               // work backwards one output row
+		CImageEffect70_CalcYMC6(data, v9, outptr);
+		inptr -= data->pixel_count; // work backwards one input row
+		outptr -= outstride;        // work backwards one output row
 		CImageEffect70_Sharp_ShiftLine(data);
 	}
 	CImageEffect70_DeleteMidData(data);
@@ -1207,13 +1200,16 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 	int cols, rows;
 	int i, j;
 
-	uint16_t *outptr;	
-	uint8_t *inptr;
+	uint8_t *outptr, *inptr;
+	uint32_t in_stride, out_stride;
 
 	struct CPCData *cpc = data->cpc;
 	
 	cols = input->cols - input->origin_cols;
 	rows = input->rows - input->origin_rows;
+
+	in_stride = abs(input->bytes_per_row);
+	out_stride = abs(out->bytes_per_row);
 
 	if (cols <= 0 || rows <= 0)
 	    return;
@@ -1223,7 +1219,7 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 
 	for (i = 0; i < rows; i++) {
 		uint8_t *v10 = inptr;
-		uint16_t *v9 = outptr;
+		uint16_t *v9 = (uint16_t*)outptr;
 		for (j = 0 ; j < cols ; j++) {
 			v9[0] = cpc->GNMby[v10[0]];
 			v9[1] = cpc->GNMgm[v10[1]];
@@ -1231,8 +1227,8 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 			v10 += 3;
 			v9 += 3;
 		}
-		inptr += input->bytes_per_row;
-		outptr += out->bytes_per_row >> 1;
+		inptr += in_stride;
+		outptr += out_stride;
 	}
 }
 
@@ -1285,15 +1281,15 @@ int send_image_data(struct BandImage *out, void *context,
 	uint16_t *v15, *v9;
 	size_t count;
 	
-	rows = out->cols - out->origin_cols;
-	cols = out->rows - out->origin_rows;
+	cols = out->cols - out->origin_cols;
+	rows = out->rows - out->origin_rows;
 	buf = malloc(256*1024);
 	if (!buf)
 		goto done;
 	if (!callback_fn)
 		goto done;
-	if (out->bytes_per_row < 0) { // XXX note this is reversed.
-		v15 = out->imgbuf + ((cols - 1) * out->bytes_per_row);
+	if (out->bytes_per_row < 0) { // XXX backwards
+		v15 = out->imgbuf + ((rows - 1) * out->bytes_per_row);
 	} else {
 		v15 = out->imgbuf;
 	}
@@ -1305,9 +1301,9 @@ int send_image_data(struct BandImage *out, void *context,
 		v12 = buf;
 		count = 0;
 		memset(buf, 0, 256*1024);
-		for (j = 0 ; j < cols ; j++) {
+		for (j = 0 ; j < rows ; j++) {
 			v9 = v13;
-			for (k = 0 ; k < rows ; k++) {
+			for (k = 0 ; k < cols ; k++) {
 				*v12++ = cpu_to_be16(*v9);
 				v9 += 3;
 				count += 2;
@@ -1320,7 +1316,7 @@ int send_image_data(struct BandImage *out, void *context,
 					memset(buf, 0, 256*1024);
 				}
 			}
-			v13 += out->bytes_per_row / 2; // XXX here too.
+			v13 += out->bytes_per_row / 2; // XXX backwards
 		}
 		if (count) {
 			if (callback_fn(context, buf, (count + 511) / 512 * 512))
