@@ -84,9 +84,12 @@ struct BandImage {
 };
 #endif
 
+#define MIN_LIB_APIVERSION 2
+
 /* Image processing library function prototypes */
 #define LIB_NAME_RE "libMitsuD70ImageReProcess.so" // Reimplemented library
 
+typedef int (*lib70x_getapiversionFN)(void);
 typedef int (*Get3DColorTableFN)(uint8_t *buf, const char *filename);
 typedef struct CColorConv3D *(*Load3DColorTableFN)(const uint8_t *ptr);
 typedef void (*Destroy3DColorTableFN)(struct CColorConv3D *this);
@@ -145,6 +148,7 @@ struct mitsu70x_ctx {
 	char *cpcfname;
 
 	void *dl_handle;
+	lib70x_getapiversionFN GetAPIVersion;
 	Get3DColorTableFN Get3DColorTable;
 	Load3DColorTableFN Load3DColorTable;
 	Destroy3DColorTableFN Destroy3DColorTable;
@@ -668,6 +672,20 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	if (!ctx->dl_handle)
 		WARNING("Image processing library not found, using internal fallback code\n");
 	if (ctx->dl_handle) {
+		ctx->GetAPIVersion = DL_SYM(ctx->dl_handle, "lib70x_getapiversion");
+		if (!ctx->GetAPIVersion) {
+			WARNING("Problem resolving API Version symbol in imaging processing library, too old or not installed?\n");
+			DL_CLOSE(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+			return;
+		}
+		if (ctx->GetAPIVersion() < MIN_LIB_APIVERSION) {
+			ERROR("Image processing library API version too old!\n");
+			DL_CLOSE(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+			return;
+		}
+		
 		ctx->Get3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Get3DColorTable");
 		ctx->Load3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Load3DColorTable");
 		ctx->Destroy3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Destroy3DColorTable");
@@ -1728,7 +1746,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.56",
+	.version = "0.57",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
