@@ -1,7 +1,7 @@
 /* LibMitsuD70ImageReProcess -- Re-implemented image processing library for
                                 the Mitsubishi CP-D70 family of printers
 
-   Copyright (c) 2016 Solomon Peachy <pizza@shaftnet.org>
+   Copyright (c) 2016-2017 Solomon Peachy <pizza@shaftnet.org>
 
    ** ** ** ** Do NOT contact Mitsubishi about this library! ** ** ** **
 
@@ -46,7 +46,7 @@
 
 */
 
-#define LIB_VERSION "0.3"
+#define LIB_VERSION "0.4"
 #define LIB_APIVERSION 2
 
 #include <stdio.h>
@@ -118,17 +118,17 @@ struct BandImage {
 /* State for image processing algorithm */
 struct CImageEffect70 {
 	uint32_t pad;            // @0
-	  double *unk_0001;      // @4/1      
-	  double *unk_0002;      // @8/2      
-	  double *unk_0003;      // @12/3     
-	  double *unk_0004;      // @16/4     
-	  double unk_0005[3];    // @20/5     
-	uint32_t unk_0011[384];  // @44/11      // 3 * uint32[128]
-	  double unk_0395[384];  // @1580/395   // 3 * double[128]
-	  double *unk_1163;      // @4652/1163
-	uint16_t *unk_1164;      // @4656/1164
-	uint16_t *unk_1165[11];  // @4660/1165
-	uint16_t *unk_1176[11];  // @4704/1176
+	  double *unk_0001;      // @4/1         // array [(cols+6) * 3],
+	  double *unk_0002;      // @8/2         // pointer into _0001, used in HTD/TTD
+	  double *unk_0003;      // @12/3        // pointer into _0002, used in HTD/TTD
+	  double *unk_0004;      // @16/4        // array [band_pixels], HTD generates, TTD consumes
+	  double unk_0005[3];    // @20/5        // FCC generates, YMC consumes. final scaling factor for thermal compensation?
+	uint32_t unk_0011[3][128];  // @44/11    // HTD generates, FCC consumes.
+	  double unk_0395[3][128];  // @1580/395 // FCC generates, used by YMC
+	  double *unk_1163;      // @4652/1163   // array of [3 * row_count], used by FCC.  Per-row correction factor.
+	uint16_t *unk_1164;      // @4656/1164   // array of [22 * _1202], sharpening buffer
+	uint16_t *unk_1165[11];  // @4660/1165   // sharpening state?
+	uint16_t *unk_1176[11];  // @4704/1176   // sharpening state?
 	uint16_t *unk_1187[8];   // @4748/1187   // sharpening state?
 	struct CPCData *cpc;     // @4780/1195
 	 int32_t sharpen;        // @4784/1196   // -1 off, max 8.
@@ -137,7 +137,7 @@ struct CImageEffect70 {
 	uint32_t pixel_count;    // @4796/1199
 	uint32_t cur_row;        // @4800/1200
 	uint32_t band_pixels;    // @4804/1201
-	uint32_t unk_1202;       // @4808/1202   // band_pixels + 6
+	uint32_t unk_1202;       // @4808/1202   // band_pixels + 6 (sharpening state?)
 	double   unk_1203;       // @4812/1203   // FH[0]
 	double   unk_1205;       // @4820/1205   // FH[1]
 	double   unk_1207;       // @4828/1207   // FH[2]
@@ -567,7 +567,7 @@ static void CImageEffect70_CreateMidData(struct CImageEffect70 *data)
 	data->unk_1165[0] = data->unk_1176[0] + 3; // ie 6 bytes.
 
 	for (i = 1 ; i < 11 ; i++ ) {
-		data->unk_1176[i] = data->unk_1176[i-1] + /* 2* */ data->unk_1202; 
+		data->unk_1176[i] = data->unk_1176[i-1] + /* 2* */ data->unk_1202;
 		data->unk_1165[i] = data->unk_1176[i] + 3; // ie 6 bytes
 	}
 	memset(data->unk_0011, 0, sizeof(data->unk_0011));
@@ -611,25 +611,22 @@ static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
 	uint16_t *src, *v5;
 
 	src = data->unk_1165[a2 + 5];
-	v5 = src + 3 * (data->columns - 1);
+	v5 = src + 3 * data->columns;
 
 	memcpy(src, row -(a4 * data->pixel_count), 2 * data->band_pixels);
 	
 	memcpy(src -3, src, 6);
-	memcpy(v5 + 3, v5, 6);	
-	
+	memcpy(v5, v5 - 3, 6);
 }
 
 static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
 					     const uint16_t *row)
 {
-	int n;
 	uint32_t i;
 	
 	CImageEffect70_Sharp_CopyLine(data, 0, row, 0);
-	n = 2 * data->unk_1202;
 	for (i = 0 ; i < 5 ; i++) {
-		memcpy(data->unk_1176[i], data->unk_1176[5], n);
+		memcpy(data->unk_1176[i], data->unk_1176[5], 2 * data->unk_1202);
 	}
 	for (i = 1 ; i <= 5 ; i++) {
 		if (data->rows -1 >= i)
@@ -657,37 +654,32 @@ static void CImageEffect70_Sharp_SetRefPtr(struct CImageEffect70 *data)
 	data->unk_1187[7] = data->unk_1165[6] + 3; // 6 bytes
 }
 
+/* Applies the final correction factor to a row. */
 static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data,
 				    const double *a2, uint16_t *imgdata)
 {
 	uint16_t i, j;
 	uint32_t offset;	
-	uint16_t uh_offset;
-	
 	double uh_val;
 
+	offset = data->rows - 1 - data->cur_row;
+	if ( offset > 100 )
+		offset = 100;
+	uh_val = data->cpc->UH[offset];
+
 	offset = 0;
-	uh_offset = data->rows - 1 - data->cur_row;
-	if ( uh_offset > 100 )
-		uh_offset = 100;
-
-	uh_val = data->cpc->UH[uh_offset];
-
 	for ( i = 0; i < data->columns; i++ ) {
 		for ( j = 0; j < 3; j++ ) {
-			double v4 = data->unk_0005[j] * data->unk_0395[j*128 + ((int)a2[offset] >> 9)] * a2[offset] * uh_val;
-			if ( v4 <= 65535.0 ) {
-				if ( v4 >= 0.0 )
-					imgdata[offset] = (int)v4;
-				else
-					imgdata[offset] = 0;
-			} else {
+			double v4 = data->unk_0005[j] * data->unk_0395[j][((int)a2[offset] >> 9)] * a2[offset] * uh_val;
+			if ( v4 > 65535.0)
 				imgdata[offset] = -1;
-			}
+			else if ( v4 < 0.0)
+				imgdata[offset] = 0;
+			else
+				imgdata[offset] = (int)v4;
 			++offset;
 		}
 	}
-
 }
 
 static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
@@ -701,13 +693,13 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	
 	v6 = &data->unk_1163[3*data->cur_row];
 
-	for (i = 0 ; i < 3 ; i++) {
-		v6[i] = 127 * data->unk_0011[127 + 128*i];
+	for (j = 0 ; j < 3 ; j++) {
+		v6[j] = 127 * data->unk_0011[j][127];
 	}
 	for (i = 126 ; i >= 0 ; i--) {
 		for (j = 0 ; j < 3 ; j++) {
-			v6[j] += i * data->unk_0011[j*128 + i];
-			data->unk_0011[j*16+i] = data->unk_0011[j*128+i+1];
+			v6[j] += i * data->unk_0011[j][i];
+			data->unk_0011[j][i] = data->unk_0011[j][i+1]; // XXX
 		}
 	}
 	if (data->cur_row > 2) {
@@ -717,11 +709,11 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	} else if (data->cur_row == 2) {
 		v12 = v6 - 3;
 		v11 = v6 - 6;
-		v10 = v6 - 6;;		
+		v10 = v6 - 6;
 	} else if (data->cur_row == 1) {
 		v12 = v6 - 3;
 		v11 = v6 - 3;
-		v10 = v6 - 3;;
+		v10 = v6 - 3;
 	} else {
 		v12 = v6;
 		v11 = v6;
@@ -731,10 +723,10 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	for (i = 0 ; i < 3 ; i++) {
 		v6[i] /= data->columns;
 
-		v5 = data->unk_1207 * v6[i] *
-			data->unk_1209 * v12[i] *
-			data->unk_1211 * v11[i] *
-			data->unk_1213 * v10[i];
+		v5 = data->unk_1207 * v6[i]
+			+ data->unk_1209 * v12[i]
+			+ data->unk_1211 * v11[i]
+			- data->unk_1213 * v10[i];
 		if (v5 > 0.0) {
 			data->unk_0005[i] = v5 / data->unk_1203 + 1.0;
 		} else {
@@ -746,30 +738,29 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	
 	for (i = 0 ; i < 128 ; i++) {
 		for (j = 0 ; j < 3 ; j++) {
-			v3 = 255 * data->unk_0011[j*128 + i] / 1864;
+			v3 = 255 * data->unk_0011[j][i] / 1864;
 			if (v3 > 255)
 				v3 = 255;
 			s[j] += data->cpc->FM[v3];
-			data->unk_0395[i + j*128] = s[j] / (i + 1);
+			data->unk_0395[j][i] = s[j] / (i + 1);
 		}
 	}
 }
 
 static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *a2, double *a3)
 {
-	int v10, v16;
-	double *v9, *v7;
+	int v16;
+	double *v9;
 	double *v5;
 	double *src;
-	int v13;
-	int i, k;
+	int offset;
+	unsigned int i, k;
 	int v4[3];
 	int v11;
 
-	v10 = data->columns;
 	v9 = data->cpc->HK;
 	src = data->unk_0002;
-	v7 = data->unk_0004;
+
 	memset(data->unk_0011, 0, sizeof(data->unk_0011));
 	v16 = data->cur_row;
 	if (v16 > 2729)
@@ -790,30 +781,30 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *a2
 	memcpy(v5 + 3, v5, 0x18);
 	memcpy(v5 + 6, v5, 0x18);
 	memcpy(v5 + 9, v5, 0x18);
-	v13 = 0;
-	for (i = 0; i < v10; i++) {
+	offset = 0;
+	for (i = 0; i < data->columns; i++) {
 		for (k = 0; k < 3 ; k++) {
-			v7[13] = v9[0] * (src[v13] + src[v13]) +
-				v9[1] * (src[v13 - 3] + src[v13 + 3]) +
-				v9[2] * (src[v13 - 6] + src[v13 + 6]) +
-				v9[3] * (src[v13 - 9] + src[v13 + 9]);
+			data->unk_0004[13] = v9[0] * (src[offset] + src[offset]) +
+				v9[1] * (src[offset - 3] + src[offset + 3]) +
+				v9[2] * (src[offset - 6] + src[offset + 6]) +
+				v9[3] * (src[offset - 9] + src[offset + 9]);
 
-			a3[v13] = a2[v13] + v4[k];
-			v11 = a3[v13];
-			if ( a3[v13] < 65535.0 ) {
-				if (a3[v13] >= 0.0) {
+			a3[offset] = a2[offset] + v4[k];
+			v11 = a3[offset];
+			if ( a3[offset] < 65535.0 ) {
+				if (a3[offset] >= 0.0) {
 					v11 >>= 9;
 				} else {
-					a3[v13] = 0.0;
+					a3[offset] = 0.0;
 					v11 = 0;
 				}
 			} else {
-				a3[v13] = 65535.0;
+				a3[offset] = 65535.0;
 				v11 = 127;
 			}
 
-			data->unk_0011[k*128 + v11] ++;  // ???
-			v13++;
+			data->unk_0011[k][v11]++;
+			offset++;
 		}
 	}
 }
@@ -849,35 +840,27 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 		v7 = data->unk_0004[i] - v8;
 		v29 = v7;
 		if (v29 >= 0) {
-			int v31;
+			int v31 = 127;
 			if (v29 <= 65535)
-				v31 = -v29 >> 9;
-			else
-				v31 = 127;
+				v31 = v29 >> 9;
 			v32 = v16[v31];
 		} else {
-			int v30;
+			int v30 = 127;
 			if (-v29 <= 65535)
 				v30 = -v29 >> 9;
-			else
-				v30 = 127;
 			v32 = v15[v30];
 		}
 		v6 = v7 * v32 + v8 - v8;  // WTF?
 		v25 = v6;
 		if (v25 >= 0) {
-			int v27;
+			int v27 = 127;
 			if (v25 <= 65535)
 				v27 = v25 >> 9;
-			else
-				v27 = 127;
 			v28 = v14[v27];
 		} else {
-			int v26;
+			int v26 = 127;
 			if (-v25 <= 65535)
 				v26 = -v25 >> 9;
-			else
-				v26 = 127;
 			v28 = v13[v26];
 		}
 		v24 = 0.0;
@@ -903,20 +886,16 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 
 		if ( v17 >= 0 )
 		{
-			int v19;
+			int v19 = 127;
 			if ( v17 <= 65535 )
 				v19 = v17 >> 9;
-			else
-				v19 = 127;
 			v20 = v16[v19];
 		}
 		else
 		{
-			int v18;
+			int v18 = 127;
 			if ( -v17 <= 65535 )
 				v18 = -v17 >> 9;
-			else
-				v18 = 127;
 			v20 = v15[v18];
 		}
 		data->unk_0002[i] = a3[i] + v4 * v20;
@@ -1246,7 +1225,7 @@ int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandIma
 	struct CImageEffect70 *data;
 
 	fprintf(stderr, "INFO: libMitsuD70ImageReProcess version '%s' API %d\n", LIB_VERSION, LIB_APIVERSION);
-	fprintf(stderr, "INFO: Copyright (c) 2016 Solomon Peachy\n");  
+	fprintf(stderr, "INFO: Copyright (c) 2016-2017 Solomon Peachy\n");
 	fprintf(stderr, "INFO: This free software comes with ABSOLUTELY NO WARRANTY!\n");
 	fprintf(stderr, "INFO: Licensed under the GNU GPL.\n");
 	fprintf(stderr, "INFO: *** This code is NOT supported or endorsed by Mitsubishi! ***\n");
