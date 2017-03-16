@@ -802,12 +802,12 @@ repeat:
 
 		if (mhdr.speed == 3) {
 			ctx->cpcfname = CORRTABLE_PATH "/CPD80S01.cpc";
+			// XXX ctx->cpcfname = CORRTABLE_PATH "/CPD80E01.cpc"; for Superfine w/ Rewind, "depending on contents of image"
 		} else if (mhdr.speed == 4) {
 			ctx->cpcfname = CORRTABLE_PATH "/CPD80U01.cpc";
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/CPD80N01.cpc";
 		}
-		// XXX what about CPD80**E**01?
 		if (mhdr.hdr[3] != 0x01) {
 			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
 			mhdr.hdr[3] = 0x01;
