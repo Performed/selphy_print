@@ -667,7 +667,7 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 
 	/* Attempt to open the library */
 #if defined(WITH_DYNAMIC)
-	INFO("Attempting to load image processing library\n");
+	DEBUG("Attempting to load image processing library\n");
 	ctx->dl_handle = DL_OPEN(LIB_NAME_RE);
 	if (!ctx->dl_handle)
 		WARNING("Image processing library not found, using internal fallback code\n");
@@ -702,7 +702,7 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 			DL_CLOSE(ctx->dl_handle);
 			ctx->dl_handle = NULL;
 		} else {
-			INFO("Image processing library successfully loaded\n");
+			DEBUG("Image processing library successfully loaded\n");
 		}
 	}
 #else
