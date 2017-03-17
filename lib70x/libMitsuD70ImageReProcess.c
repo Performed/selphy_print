@@ -46,7 +46,7 @@
 
 */
 
-#define LIB_VERSION "0.4"
+#define LIB_VERSION "0.5"
 #define LIB_APIVERSION 2
 
 #include <stdio.h>
@@ -121,7 +121,7 @@ struct CImageEffect70 {
 	  double *unk_0001;      // @4/1         // array [(cols+6) * 3],
 	  double *unk_0002;      // @8/2         // pointer into _0001, used in HTD/TTD
 	  double *unk_0003;      // @12/3        // pointer into _0002, used in HTD/TTD
-	  double *unk_0004;      // @16/4        // array [band_pixels], HTD generates, TTD consumes
+	  double *unk_0004;      // @16/4        // array [band_pixels], HTD generates, TTD consumes for the next line.
 	  double unk_0005[3];    // @20/5        // FCC generates, YMC consumes. final scaling factor for thermal compensation?
 	uint32_t unk_0011[3][128];  // @44/11    // HTD generates, FCC consumes.
 	  double unk_0395[3][128];  // @1580/395 // FCC generates, used by YMC
@@ -165,11 +165,11 @@ struct CPCData {
 	double   OSP[128];       // @38392
 	double   OSM[128];       // @39416
 	double   KP[11];         // @40440
-	double   KM[11];         // @40536
+	double   KM[11];         // @40528
 	/* Used for HTD */
 	double   HK[4];          // @40616
 	
-	uint32_t Speed[3];       // @40648
+	uint32_t Speed[3];       // @40648 -- Unused!
 	double   FH[5];          // @40660
 	/* Used for sharpening */
 	double   SHK[72];        // @40700
@@ -481,14 +481,14 @@ struct CPCData *get_CPCData(const char *filename)
 				goto abort;
 			data->UH[line] = strtod(ptr, NULL);
 		}
-		if (line < 13) { // ROLK, optional?
+		if (line < 13) { // ROLK, not present on D70
 			ptr = strtok(NULL, delim);
 			if (!ptr)
 				continue;
 			data->ROLK[line] = strtol(ptr, NULL, 10);
 
 		}
-		if (line < 76) { // REV, optional?
+		if (line < 76) { // REV, not present on D70
 			ptr = strtok(NULL, delim);
 			if (!ptr)
 				continue;
@@ -561,8 +561,8 @@ static void CImageEffect70_CreateMidData(struct CImageEffect70 *data)
 	data->unk_1163 = malloc(3 * sizeof(double) * data->rows);
 	memset(data->unk_1163, 0, (3 * sizeof(double) * data->rows));
 	data->unk_1202 = data->band_pixels + 6;
-	data->unk_1164 = malloc(22 * data->unk_1202);
-	memset(data->unk_1164, 0, (22 * data->unk_1202));
+	data->unk_1164 = malloc(11 * sizeof(uint16_t) * data->unk_1202);
+	memset(data->unk_1164, 0, (11 * sizeof(uint16_t) * data->unk_1202));
 	data->unk_1176[0] = data->unk_1164;
 	data->unk_1165[0] = data->unk_1176[0] + 3; // ie 6 bytes.
 
@@ -611,12 +611,12 @@ static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
 	uint16_t *src, *v5;
 
 	src = data->unk_1165[a2 + 5];
-	v5 = src + 3 * data->columns;
+	v5 = src + 3 * (data->columns - 1);
 
 	memcpy(src, row -(a4 * data->pixel_count), 2 * data->band_pixels);
 	
-	memcpy(src -3, src, 6);
-	memcpy(v5, v5 - 3, 6);
+	memcpy(src - 3, src, 6);
+	memcpy(v5 + 3, v5, 6);
 }
 
 static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
@@ -672,7 +672,7 @@ static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data,
 		for ( j = 0; j < 3; j++ ) {
 			double v4 = data->unk_0005[j] * data->unk_0395[j][((int)a2[offset] >> 9)] * a2[offset] * uh_val;
 			if ( v4 > 65535.0)
-				imgdata[offset] = -1;
+				imgdata[offset] = 65535;
 			else if ( v4 < 0.0)
 				imgdata[offset] = 0;
 			else
@@ -685,45 +685,44 @@ static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data,
 static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 {
 	double s[3];
-	double *v6;
-	double v5;
-	int v3;
+	double *cur_ptr;
 	int i, j;
 	double *v12, *v11, *v10;
 	
-	v6 = &data->unk_1163[3*data->cur_row];
+	cur_ptr = &data->unk_1163[3*data->cur_row];
 
 	for (j = 0 ; j < 3 ; j++) {
-		v6[j] = 127 * data->unk_0011[j][127];
+		cur_ptr[j] = 127 * data->unk_0011[j][127];
 	}
 	for (i = 126 ; i >= 0 ; i--) {
 		for (j = 0 ; j < 3 ; j++) {
-			v6[j] += i * data->unk_0011[j][i];
-			data->unk_0011[j][i] = data->unk_0011[j][i+1]; // XXX
+			cur_ptr[j] += i * data->unk_0011[j][i];
+			data->unk_0011[j][i] += data->unk_0011[j][i+1];
 		}
 	}
 	if (data->cur_row > 2) {
-		v12 = v6 - 3;
-		v11 = v6 - 6;
-		v10 = v6 - 9;
+		v12 = cur_ptr - 3;
+		v11 = cur_ptr - 6;
+		v10 = cur_ptr - 9;
 	} else if (data->cur_row == 2) {
-		v12 = v6 - 3;
-		v11 = v6 - 6;
-		v10 = v6 - 6;
+		v12 = cur_ptr - 3;
+		v11 = cur_ptr - 6;
+		v10 = cur_ptr - 6;
 	} else if (data->cur_row == 1) {
-		v12 = v6 - 3;
-		v11 = v6 - 3;
-		v10 = v6 - 3;
+		v12 = cur_ptr - 3;
+		v11 = cur_ptr - 3;
+		v10 = cur_ptr - 3;
 	} else {
-		v12 = v6;
-		v11 = v6;
-		v10 = v6;
+		v12 = cur_ptr;
+		v11 = cur_ptr;
+		v10 = cur_ptr;
 	}
 
 	for (i = 0 ; i < 3 ; i++) {
-		v6[i] /= data->columns;
+		double v5;
+		cur_ptr[i] /= data->columns;
 
-		v5 = data->unk_1207 * v6[i]
+		v5 = data->unk_1207 * cur_ptr[i]
 			+ data->unk_1209 * v12[i]
 			+ data->unk_1211 * v11[i]
 			- data->unk_1213 * v10[i];
@@ -738,7 +737,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	
 	for (i = 0 ; i < 128 ; i++) {
 		for (j = 0 ; j < 3 ; j++) {
-			v3 = 255 * data->unk_0011[j][i] / 1864;
+			int v3 = 255 * data->unk_0011[j][i] / 1864;
 			if (v3 > 255)
 				v3 = 255;
 			s[j] += data->cpc->FM[v3];
@@ -747,6 +746,16 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	}
 }
 
+/* Heat Transfer compensation (I think)
+
+   Take the raw data
+   add in the scaling factor from the adoining rows, using HK[]
+   add in the fixed overhead from LINEy/m/c[]
+   cap at 0-65535.
+
+   Also populates unk_0004, which informs the NEXT CalcTTD run what to do.
+*/
+   
 static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *a2, double *a3)
 {
 	int v16;
@@ -765,14 +774,10 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *a2
 	v16 = data->cur_row;
 	if (v16 > 2729)
 		v16 = 2729;
-	for (i = 0 ; i < 3 ; i++) {
-		if (i == 0)
-			v4[i] = data->cpc->LINEy[v16];
-		else if (i == 1)
-			v4[i] = data->cpc->LINEm[v16];
-		else if (i == 2)
-			v4[i] = data->cpc->LINEc[v16];
-	}
+
+	v4[0] = data->cpc->LINEy[v16];
+	v4[1] = data->cpc->LINEm[v16];
+	v4[2] = data->cpc->LINEc[v16];
 
 	v5 = data->unk_0003;
 	memcpy(src - 9, src, 0x18);
@@ -784,7 +789,7 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *a2
 	offset = 0;
 	for (i = 0; i < data->columns; i++) {
 		for (k = 0; k < 3 ; k++) {
-			data->unk_0004[13] = v9[0] * (src[offset] + src[offset]) +
+			data->unk_0004[offset] = v9[0] * (src[offset] + src[offset]) +
 				v9[1] * (src[offset - 3] + src[offset + 3]) +
 				v9[2] * (src[offset - 6] + src[offset + 6]) +
 				v9[3] * (src[offset - 9] + src[offset + 9]);
@@ -812,28 +817,26 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *a2
 static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 				   const uint16_t *a2, double *a3)
 {
-	double *v11, *v12, *v13, *v14, *v15, *v16;
-	double *v34;
+	double *km, *kp, *osm, *osp, *ksm, *ksp;
+	double *sharp = NULL;
 	uint32_t i;
-	v16 = data->cpc->KSP;
-	v15 = data->cpc->KSM;
-	v14 = data->cpc->OSP;
-	v13 = data->cpc->OSM;
-	v12 = data->cpc->KP;
-	v11 = data->cpc->KM;
+	ksp = data->cpc->KSP;  // KS Plus
+	ksm = data->cpc->KSM;  // KS Minus
+	osp = data->cpc->OSP;  // OS Plus
+	osm = data->cpc->OSM;  // OS Minus
+	kp = data->cpc->KP;    // K  Plus
+	km = data->cpc->KM;    // K  Minus
 
-	v34 = NULL;
+	if (data->sharpen >= 0)
+		sharp = &data->cpc->SHK[8 * data->sharpen];
 
-	if (data->sharpen >= 0) {
-		v34 = &data->cpc->SHK[8 * data->sharpen];
-	}
 	for (i = 0 ; i < data->band_pixels ; i++) {
 		int v5;
 		double v4, v6, v7, v8;
 		int v29;
 		int v25;
 		int v17;
-		double v20, v24, v32, v28, v22;
+		double v20, k_comp, ks_comp, os_comp, sharp_comp;
 		int j, k;
 
 		v8 = a2[i];
@@ -843,44 +846,44 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 			int v31 = 127;
 			if (v29 <= 65535)
 				v31 = v29 >> 9;
-			v32 = v16[v31];
+			ks_comp = ksp[v31];
 		} else {
 			int v30 = 127;
 			if (-v29 <= 65535)
 				v30 = -v29 >> 9;
-			v32 = v15[v30];
+			ks_comp = ksm[v30];
 		}
-		v6 = v7 * v32 + v8 - v8;  // WTF?
+		v6 = v7 * ks_comp + v8 - v8;  // XXX WTF?
 		v25 = v6;
 		if (v25 >= 0) {
 			int v27 = 127;
 			if (v25 <= 65535)
 				v27 = v25 >> 9;
-			v28 = v14[v27];
+			os_comp = osp[v27];
 		} else {
 			int v26 = 127;
 			if (-v25 <= 65535)
 				v26 = -v25 >> 9;
-			v28 = v13[v26];
+			os_comp = osm[v26];
 		}
-		v24 = 0.0;
+		k_comp = 0.0;
 		for ( j = 0 ; j < 11 ; j++) {
 			if (j == 5)
 				continue;
 
 			v5 = a2[i] - data->unk_1165[j][i];
 			if (v5 >= 0)
-				v24 += v11[j] * v5;
+				k_comp += kp[j] * v5;
 			else
-				v24 += v12[j] * v5;
+				k_comp += km[j] * v5;
 		}
-		v22 = 0.0;
-		if (v34) {
+		sharp_comp = 0.0;
+		if (sharp) {
 			for (k = 0 ; k < 8 ; k++) {
-				v22 += v34[k] * (a2[i] - data->unk_1187[k][i]);
+				sharp_comp += sharp[k] * (a2[i] - data->unk_1187[k][i]);
 			}
 		}
-		a3[i] = v8 - v6 * v28 + v24 + v22;
+		a3[i] = v8 - v6 * os_comp + k_comp + sharp_comp;
 		v4 = data->unk_0004[i] - a3[i];
 		v17 = v4;
 
@@ -889,14 +892,12 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 			int v19 = 127;
 			if ( v17 <= 65535 )
 				v19 = v17 >> 9;
-			v20 = v16[v19];
-		}
-		else
-		{
+			v20 = ksp[v19];
+		} else {
 			int v18 = 127;
 			if ( -v17 <= 65535 )
 				v18 = -v17 >> 9;
-			v20 = v15[v18];
+			v20 = ksm[v18];
 		}
 		data->unk_0002[i] = a3[i] + v4 * v20;
 	}
@@ -1127,7 +1128,6 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 	    cpc->FH[0] < 1.0 || cpc->FH[1] < 1.0)
 		return;
 
-	// XXX this whole if..else is seemingly inverted.
 	if (in->bytes_per_row >= 0) {
 		data->pixel_count = in->bytes_per_row / 2; // numbers of pixels per input band
 
@@ -1181,7 +1181,6 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 	if (v9)
 		free(v9);
 }
-
 
 static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage *input, struct BandImage *out)
 {
