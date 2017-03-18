@@ -204,6 +204,7 @@ struct mitsu70x_jobs {
 #define MECHA_STATUS_INIT   0x80
 #define MECHA_STATUS_FEED   0x50
 #define MECHA_STATUS_LOAD   0x40
+#define MECHA_STATUS_LOAD2  0x30
 #define MECHA_STATUS_PRINT  0x20
 #define MECHA_STATUS_IDLE   0x00
 
@@ -251,7 +252,7 @@ struct mitsu70x_jobs {
 #define ERROR_STATUS0_RIBBONEND      0x09
 #define ERROR_STATUS0_DOOROPEN_IDLE  0x0A
 #define ERROR_STATUS0_DOOROPEN_PRNT  0x0B
-#define ERROR_STATUS0_POWEROFF       0x0C // nonsense.. heh.
+#define ERROR_STATUS0_POWEROFF       0x0C // Powered off during printing..?
 #define ERROR_STATUS0_NOMCOP         0x0D
 #define ERROR_STATUS0_RIBBONSKIP1    0x0E
 #define ERROR_STATUS0_RIBBONSKIP2    0x0F
@@ -377,6 +378,7 @@ static char *mitsu70x_mechastatus(uint8_t *sts)
 	case MECHA_STATUS_FEED:
 		return "Paper Feeding/Cutting";
 	case MECHA_STATUS_LOAD:
+	case MECHA_STATUS_LOAD2:
 		return "Media Loading";
 	case MECHA_STATUS_PRINT:
 		return "Printing";
