@@ -84,7 +84,7 @@ struct BandImage {
 };
 #endif
 
-#define MIN_LIB_APIVERSION 2
+#define REQUIRED_LIB_APIVERSION 3
 
 /* Image processing library function prototypes */
 #define LIB_NAME_RE "libMitsuD70ImageReProcess.so" // Reimplemented library
@@ -96,7 +96,7 @@ typedef void (*Destroy3DColorTableFN)(struct CColorConv3D *this);
 typedef void (*DoColorConvFN)(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t bytes_per_row, int rgb_bgr);
 typedef struct CPCData *(*get_CPCDataFN)(const char *filename);
 typedef void (*destroy_CPCDataFN)(struct CPCData *data);
-typedef int (*do_image_effectFN)(struct CPCData *cpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2]);
+typedef int (*do_image_effectFN)(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2]);
 typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 			       int (*callback_fn)(void *context, void *buffer, uint32_t len));
 
@@ -146,6 +146,7 @@ struct mitsu70x_ctx {
 	char *laminatefname;
 	char *lutfname;
 	char *cpcfname;
+	char *ecpcfname;
 
 	void *dl_handle;
 	lib70x_getapiversionFN GetAPIVersion;
@@ -155,13 +156,18 @@ struct mitsu70x_ctx {
 	DoColorConvFN DoColorConv;
 	get_CPCDataFN GetCPCData;
 	destroy_CPCDataFN DestroyCPCData;
+	do_image_effectFN DoImageEffect60;
+	do_image_effectFN DoImageEffect70;
+	do_image_effectFN DoImageEffect80;
 	do_image_effectFN DoImageEffect;
 	send_image_dataFN SendImageData;
 
 	struct CColorConv3D *lut;
 	struct CPCData *cpcdata;
+	struct CPCData *ecpcdata;
 
 	char *last_cpcfname;
+	char *last_ecpcfname;
 
 	int raw_format;
 	int sharpen; /* ie mhdr.sharpen - 1 */
@@ -676,13 +682,13 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	if (ctx->dl_handle) {
 		ctx->GetAPIVersion = DL_SYM(ctx->dl_handle, "lib70x_getapiversion");
 		if (!ctx->GetAPIVersion) {
-			WARNING("Problem resolving API Version symbol in imaging processing library, too old or not installed?\n");
+			ERROR("Problem resolving API Version symbol in imaging processing library, too old or not installed?\n");
 			DL_CLOSE(ctx->dl_handle);
 			ctx->dl_handle = NULL;
 			return;
 		}
-		if (ctx->GetAPIVersion() < MIN_LIB_APIVERSION) {
-			ERROR("Image processing library API version too old!\n");
+		if (ctx->GetAPIVersion() != REQUIRED_LIB_APIVERSION) {
+			ERROR("Image processing library API version mismatch!\n");
 			DL_CLOSE(ctx->dl_handle);
 			ctx->dl_handle = NULL;
 			return;
@@ -694,18 +700,34 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->DoColorConv = DL_SYM(ctx->dl_handle, "CColorConv3D_DoColorConv");
 		ctx->GetCPCData = DL_SYM(ctx->dl_handle, "get_CPCData");
 		ctx->DestroyCPCData = DL_SYM(ctx->dl_handle, "destroy_CPCData");
-		ctx->DoImageEffect = DL_SYM(ctx->dl_handle, "do_image_effect");
+		ctx->DoImageEffect60 = DL_SYM(ctx->dl_handle, "do_image_effect60");
+		ctx->DoImageEffect70 = DL_SYM(ctx->dl_handle, "do_image_effect70");
+		ctx->DoImageEffect80 = DL_SYM(ctx->dl_handle, "do_image_effect80");
 		ctx->SendImageData = DL_SYM(ctx->dl_handle, "send_image_data");
 		if (!ctx->Get3DColorTable || !ctx->Load3DColorTable ||
 		    !ctx->Destroy3DColorTable || !ctx->DoColorConv ||
 		    !ctx->GetCPCData || !ctx->DestroyCPCData ||
-		    !ctx->DoImageEffect || !ctx->SendImageData) {
-			WARNING("Problem resolving symbols in imaging processing library\n");
+		    !ctx->DoImageEffect60 || !ctx->DoImageEffect70 ||
+		    !ctx->DoImageEffect80 || !ctx->SendImageData) {
+			ERROR("Problem resolving symbols in imaging processing library\n");
 			DL_CLOSE(ctx->dl_handle);
 			ctx->dl_handle = NULL;
 		} else {
 			DEBUG("Image processing library successfully loaded\n");
 		}
+	}
+
+	switch (ctx->type) {
+	case P_MITSU_D80:
+		ctx->DoImageEffect = ctx->DoImageEffect80;
+		break;
+	case P_MITSU_K60:
+	case P_KODAK_305:
+		ctx->DoImageEffect = ctx->DoImageEffect60;
+		break;
+	default:
+		ctx->DoImageEffect = ctx->DoImageEffect70;
+		break;
 	}
 #else
 	WARNING("Dynamic library support not enabled, using internal fallback code\n");
@@ -724,6 +746,8 @@ static void mitsu70x_teardown(void *vctx) {
 	if (ctx->dl_handle) {
 		if (ctx->cpcdata)
 			ctx->DestroyCPCData(ctx->cpcdata);
+		if (ctx->ecpcdata)
+			ctx->DestroyCPCData(ctx->ecpcdata);
 		if (ctx->lut)
 			ctx->Destroy3DColorTable(ctx->lut);
 		DL_CLOSE(ctx->dl_handle);
@@ -819,11 +843,13 @@ repeat:
 
 		if (mhdr.speed == 3) {
 			ctx->cpcfname = CORRTABLE_PATH "/CPD80S01.cpc";
-			// XXX ctx->cpcfname = CORRTABLE_PATH "/CPD80E01.cpc"; for Superfine w/ Rewind, "depending on contents of image"
+			ctx->ecpcfname = CORRTABLE_PATH "/CPD80E01.cpc";
 		} else if (mhdr.speed == 4) {
 			ctx->cpcfname = CORRTABLE_PATH "/CPD80U01.cpc";
+			ctx->ecpcfname = NULL;
 		} else {
 			ctx->cpcfname = CORRTABLE_PATH "/CPD80N01.cpc";
+			ctx->ecpcfname = NULL;
 		}
 		if (mhdr.hdr[3] != 0x01) {
 			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
@@ -966,7 +992,7 @@ repeat:
 			ctx->DoColorConv(ctx->lut, spoolbuf, ctx->cols, ctx->rows, ctx->cols * 3, COLORCONV_BGR);
 		}
 
-		/* Load in the CPC file, if needed! */
+		/* Load in the CPC file(s), if needed! */
 		if (ctx->dl_handle) {
 			struct BandImage input;
 
@@ -978,6 +1004,22 @@ repeat:
 				if (!ctx->cpcdata) {
 					ERROR("Unable to load CPC file '%s'\n", ctx->cpcfname);
 					return CUPS_BACKEND_CANCEL;
+				}
+			}
+
+			/* Secondary CPC, if needed */
+			if (ctx->ecpcfname != ctx->last_ecpcfname) {
+				ctx->last_ecpcfname = ctx->ecpcfname;
+				if (ctx->ecpcdata)
+					ctx->DestroyCPCData(ctx->ecpcdata);
+				if (ctx->ecpcfname) {
+					ctx->ecpcdata = ctx->GetCPCData(ctx->ecpcfname);
+					if (!ctx->ecpcdata) {
+						ERROR("Unable to load CPC file '%s'\n", ctx->cpcfname);
+						return CUPS_BACKEND_CANCEL;
+					}
+				} else {
+					ctx->ecpcdata = NULL;
 				}
 			}
 
@@ -997,7 +1039,10 @@ repeat:
 
 
 			DEBUG("Running print data through processing library\n");
-			if (ctx->DoImageEffect(ctx->cpcdata, &input, &ctx->output, ctx->sharpen, ctx->rew)) {
+			ctx->rew[0] = 1;
+			ctx->rew[1] = 1;
+			if (ctx->DoImageEffect(ctx->cpcdata, ctx->ecpcdata,
+					       &input, &ctx->output, ctx->sharpen, ctx->rew)) {
 				ERROR("Image Processing failed, aborting!\n");
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -1748,7 +1793,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.57",
+	.version = "0.58",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

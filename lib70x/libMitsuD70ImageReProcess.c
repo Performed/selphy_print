@@ -46,8 +46,8 @@
 
 */
 
-#define LIB_VERSION "0.5"
-#define LIB_APIVERSION 2
+#define LIB_VERSION "0.6"
+#define LIB_APIVERSION 3
 
 #include <stdio.h>
 #include <stdint.h>
@@ -55,7 +55,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 
-//#include "Mitsu_D70.h"
+#define UNUSED(expr) do { (void)(expr); } while (0)
 
 //-------------------------------------------------------------------------
 // Endian Manipulation macros
@@ -118,26 +118,26 @@ struct BandImage {
 /* State for image processing algorithm */
 struct CImageEffect70 {
 	uint32_t pad;            // @0
-	  double *unk_0001;      // @4/1         // array [(cols+6) * 3],
-	  double *unk_0002;      // @8/2         // pointer into _0001, used in HTD/TTD
-	  double *unk_0003;      // @12/3        // pointer into _0002, used in HTD/TTD
-	  double *unk_0004;      // @16/4        // array [band_pixels], HTD generates, TTD consumes for the next line.
-	  double unk_0005[3];    // @20/5        // FCC generates, YMC consumes. final scaling factor for thermal compensation?
-	uint32_t unk_0011[3][128];  // @44/11    // HTD generates, FCC consumes.
-	  double unk_0395[3][128];  // @1580/395 // FCC generates, used by YMC
-	  double *unk_1163;      // @4652/1163   // array of [3 * row_count], used by FCC.  Per-row correction factor.
-	uint16_t *unk_1164;      // @4656/1164   // array of [22 * _1202], sharpening buffer
-	uint16_t *unk_1165[11];  // @4660/1165   // sharpening state?
-	uint16_t *unk_1176[11];  // @4704/1176   // sharpening state?
-	uint16_t *unk_1187[8];   // @4748/1187   // sharpening state?
-	struct CPCData *cpc;     // @4780/1195
-	 int32_t sharpen;        // @4784/1196   // -1 off, max 8.
-	uint32_t columns;        // @4788/1197
-	uint32_t rows;           // @4792/1198
-	uint32_t pixel_count;    // @4796/1199
-	uint32_t cur_row;        // @4800/1200
-	uint32_t band_pixels;    // @4804/1201
-	uint32_t unk_1202;       // @4808/1202   // band_pixels + 6 (sharpening state?)
+	  double *ttd_htd_scratch;  // @4/1         // array [(cols+6) * 3], single row, plus padding.  processing buffer from TTD->HTD
+	  double *ttd_htd_first; // @8/2         // first pixel of ttd_htd_scratch
+	  double *ttd_htd_last;  // @12/3        // last pixel of ttd_htd_scratch
+	  double *htd_ttdnext;   // @16/4        // array [band_pixels], state from HTD->TTDnext.
+	  double fcc_ymc_scale[3];  // @20/5   // FCC generates, YMC consumes. per-row scaling factor for thermal compensation.
+	uint32_t htd_fcc_scratch[3][128];  // @44/11    // state from HTD->FCC
+	  double fcc_ymc_scratch[3][128];  // @1580/395 // state from FCC->YMC6
+	  double *fcc_rowcomps;  // @4652/1163   // array of [3 * row_count], Per-row/color correction factor?  Used internally by FCC code.
+	uint16_t *linebuf;       // @4656/1164   // array of [11 * sizeof(uint16_t) * linebuf_stride], Historical line buffer
+	uint16_t *linebuf_row[11];  // @4660/1165   // Pointers into rows in line buffer, minus padding!
+	uint16_t *linebuf_line[11]; // @4704/1176   // Pointers to raw rows in line buffer (w/ padding on either side)
+	uint16_t *linebuf_shrp[8];  // @4748/1187   // Pointers into line buffer, for pixels used for sharpening
+	struct CPCData *cpc;     // @4780/1195   // Loaded from disk..
+	 int32_t sharpen;        // @4784/1196   // -1 off, 0-8, "normal" is 4.
+	uint32_t columns;        // @4788/1197   // columns in image
+	uint32_t rows;           // @4792/1198   // rows in image
+	uint32_t pixel_count;    // @4796/1199   // pixels per input band (ie input stride / 2)
+	uint32_t cur_row;        // @4800/1200   // row index.
+	uint32_t band_pixels;    // @4804/1201   // pixels per output band (always columns * 3)
+	uint32_t linebuf_stride; // @4808/1202   // band_pixels + 6 -- line buffer row stride
 	double   unk_1203;       // @4812/1203   // FH[0]
 	double   unk_1205;       // @4820/1205   // FH[1]
 	double   unk_1207;       // @4828/1207   // FH[2]
@@ -154,9 +154,9 @@ struct CPCData {
 	uint32_t LINEm[2730];    // @10920  // can be uint16?
 	uint32_t LINEc[2730];    // @21840  // can be uint16?
 	/* Maps input color to gamma-corrected 16bpp inverse */
-	uint16_t GNMby[256];     // @32760
-	uint16_t GNMgm[256];     // @33272
-	uint16_t GNMrc[256];     // @33784
+	uint16_t GNMby[256];     // @32760  // Gamma map Blue->Yellow
+	uint16_t GNMgm[256];     // @33272  // Gamma map Green->Magenta
+	uint16_t GNMrc[256];     // @33784  // Gamma map Red->Cyan
 	/* Used for FCC */
 	double   FM[256];        // @34296
 	/* Used for TTD */
@@ -164,22 +164,22 @@ struct CPCData {
 	double   KSM[128];       // @37368
 	double   OSP[128];       // @38392
 	double   OSM[128];       // @39416
-	double   KP[11];         // @40440
-	double   KM[11];         // @40528
+	double   KP[11];         // @40440 // weights for line buffer!
+	double   KM[11];         // @40528 // weights for line buffer!
 	/* Used for HTD */
 	double   HK[4];          // @40616
 	
 	uint32_t Speed[3];       // @40648 -- Unused!
 	double   FH[5];          // @40660
 	/* Used for sharpening */
-	double   SHK[72];        // @40700
+	double   SHK[72];        // @40700 // sharpening coefficients, actually double[9][8]
 	/* Used for YMC6 */
 	double   UH[101];        // @41276
 	
 	/* Used by roller mark correction (K60/D80/EK305) -- Unused! */
 	uint32_t ROLK[13];       // @42084
 	/* Used by reverse/skip logic (K60/D80/EK305) */
-	 int32_t REV[76];        // @42136
+	 int32_t REV[76];        // @42136 // ACtually int32_t[4][19]
 	                         // @42440
 };
 
@@ -532,85 +532,85 @@ static void CImageEffect70_Destroy(struct CImageEffect70 *data)
 
 static void CImageEffect70_InitMidData(struct CImageEffect70 *data)
 {
-	data->unk_0002 = NULL;
-	data->unk_0001 = NULL;
-	data->unk_0004 = NULL;
-	data->unk_1163 = NULL;
-	data->unk_1164 = NULL;
+	data->ttd_htd_first = NULL;
+	data->ttd_htd_scratch = NULL;
+	data->htd_ttdnext = NULL;
+	data->fcc_rowcomps = NULL;
+	data->linebuf = NULL;
 
-	data->unk_0005[0] = 1.0;
-	data->unk_0005[1] = 1.0;
-	data->unk_0005[2] = 1.0;
-	
-	memset(data->unk_1165, 0, sizeof(data->unk_1165));
-	memset(data->unk_1176, 0, sizeof(data->unk_1176));
-	memset(data->unk_0011, 0, sizeof(data->unk_0011));
-	memset(data->unk_0395, 0, sizeof(data->unk_0395));
+	data->fcc_ymc_scale[0] = 1.0;
+	data->fcc_ymc_scale[1] = 1.0;
+	data->fcc_ymc_scale[2] = 1.0;
+
+	memset(data->linebuf_row, 0, sizeof(data->linebuf_row));
+	memset(data->linebuf_line, 0, sizeof(data->linebuf_line));
+//	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch));  // redundant
+//	memset(data->fcc_ymc_scratch, 0, sizeof(data->fcc_ymc_scratch)); // redundant
 }
 
 static void CImageEffect70_CreateMidData(struct CImageEffect70 *data)
 {
 	int i;
 	
-	data->unk_0001 = malloc(sizeof(double) * 3 * (data->columns + 6));
-	memset(data->unk_0001, 0, (sizeof(double) * 3 * (data->columns + 6)));
-	data->unk_0002 = data->unk_0001 + 9;
-	data->unk_0003 = data->unk_0002 + 3 * (data->columns - 1);
-	data->unk_0004 = malloc(sizeof(double) * data->band_pixels);
-	memset(data->unk_0004, 0, (sizeof(double) * data->band_pixels));
-	data->unk_1163 = malloc(3 * sizeof(double) * data->rows);
-	memset(data->unk_1163, 0, (3 * sizeof(double) * data->rows));
-	data->unk_1202 = data->band_pixels + 6;
-	data->unk_1164 = malloc(11 * sizeof(uint16_t) * data->unk_1202);
-	memset(data->unk_1164, 0, (11 * sizeof(uint16_t) * data->unk_1202));
-	data->unk_1176[0] = data->unk_1164;
-	data->unk_1165[0] = data->unk_1176[0] + 3; // ie 6 bytes.
+	data->ttd_htd_scratch = malloc(sizeof(double) * 3 * (data->columns + 6));
+	memset(data->ttd_htd_scratch, 0, (sizeof(double) * 3 * (data->columns + 6)));
+	data->ttd_htd_first = data->ttd_htd_scratch + 9;
+	data->ttd_htd_last = data->ttd_htd_first + 3 * (data->columns - 1);
+	data->htd_ttdnext = malloc(sizeof(double) * data->band_pixels);
+	memset(data->htd_ttdnext, 0, (sizeof(double) * data->band_pixels));
+	data->fcc_rowcomps = malloc(3 * sizeof(double) * data->rows);
+	memset(data->fcc_rowcomps, 0, (3 * sizeof(double) * data->rows));
+	data->linebuf_stride = data->band_pixels + 6;
+	data->linebuf = malloc(11 * sizeof(uint16_t) * data->linebuf_stride);
+	memset(data->linebuf, 0, (11 * sizeof(uint16_t) * data->linebuf_stride));
+	data->linebuf_line[0] = data->linebuf;
+	data->linebuf_row[0] = data->linebuf_line[0] + 3; // ie 6 bytes.
 
 	for (i = 1 ; i < 11 ; i++ ) {
-		data->unk_1176[i] = data->unk_1176[i-1] + /* 2* */ data->unk_1202;
-		data->unk_1165[i] = data->unk_1176[i] + 3; // ie 6 bytes
+		data->linebuf_line[i] = data->linebuf_line[i-1] + /* 2* */ data->linebuf_stride;
+		data->linebuf_row[i] = data->linebuf_line[i] + 3; // ie 6 bytes
 	}
-	memset(data->unk_0011, 0, sizeof(data->unk_0011));
-	memset(data->unk_0395, 0, sizeof(data->unk_0395));	
+	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch));
+	memset(data->fcc_ymc_scratch, 0, sizeof(data->fcc_ymc_scratch));
 }
 
 static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 {
 	int i;
 
-	if (data->unk_0001) {
-		free(data->unk_0001);
-		data->unk_0001 = NULL;
-		data->unk_0002 = NULL;		
+	if (data->ttd_htd_scratch) {
+		free(data->ttd_htd_scratch);
+		data->ttd_htd_scratch = NULL;
+		data->ttd_htd_first = NULL;		
 	}
-	if (data->unk_0004) {
-		free(data->unk_0004);
-		data->unk_0004 = NULL;
+	if (data->htd_ttdnext) {
+		free(data->htd_ttdnext);
+		data->htd_ttdnext = NULL;
 	}
-	if (data->unk_1163) {
-		free(data->unk_1163);
-		data->unk_1163 = NULL;
+	if (data->fcc_rowcomps) {
+		free(data->fcc_rowcomps);
+		data->fcc_rowcomps = NULL;
 	}
-	if (data->unk_1164) {
-		free(data->unk_1164);
-		data->unk_1164 = NULL;
+	if (data->linebuf) {
+		free(data->linebuf);
+		data->linebuf = NULL;
 	}
 
 	for (i = 0 ; i < 3 ; i++) {
-		data->unk_0005[i] = 0.0;
+		data->fcc_ymc_scale[i] = 0.0;
 	}
-	memset(data->unk_1165, 0, sizeof(data->unk_1165));
-	memset(data->unk_1176, 0, sizeof(data->unk_1176));
-	memset(data->unk_0011, 0, sizeof(data->unk_0011));
-	memset(data->unk_0395, 0, sizeof(data->unk_0395));	
+	memset(data->linebuf_row, 0, sizeof(data->linebuf_row));
+	memset(data->linebuf_line, 0, sizeof(data->linebuf_line));
+	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch));
+	memset(data->fcc_ymc_scratch, 0, sizeof(data->fcc_ymc_scratch));	
 }
 
 static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
-					  int a2, const uint16_t *row, int a4)
+					  int offset, const uint16_t *row, int a4)
 {
 	uint16_t *src, *v5;
 
-	src = data->unk_1165[a2 + 5];
+	src = data->linebuf_row[offset + 5];
 	v5 = src + 3 * (data->columns - 1);
 
 	memcpy(src, row -(a4 * data->pixel_count), 2 * data->band_pixels);
@@ -626,7 +626,7 @@ static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
 	
 	CImageEffect70_Sharp_CopyLine(data, 0, row, 0);
 	for (i = 0 ; i < 5 ; i++) {
-		memcpy(data->unk_1176[i], data->unk_1176[5], 2 * data->unk_1202);
+		memcpy(data->linebuf_line[i], data->linebuf_line[5], 2 * data->linebuf_stride);
 	}
 	for (i = 1 ; i <= 5 ; i++) {
 		if (data->rows -1 >= i)
@@ -638,45 +638,49 @@ static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
 
 static void CImageEffect70_Sharp_ShiftLine(struct CImageEffect70 *data)
 {
-	memmove(data->unk_1176[0], data->unk_1176[1], 20 * data->unk_1202);
-	// XXX was memcpy..
+	// XXX was memcpy, but src and dest definitely overlap!
+	memmove(data->linebuf_line[0], data->linebuf_line[1], 10 * sizeof(uint16_t) * data->linebuf_stride);
 }
 
+/* Sets up reference pointers for the sharpening algorithm */
 static void CImageEffect70_Sharp_SetRefPtr(struct CImageEffect70 *data)
 {
-	data->unk_1187[0] = data->unk_1165[4] - 3; // 6 bytes
-	data->unk_1187[1] = data->unk_1165[4];
-	data->unk_1187[2] = data->unk_1165[4] + 3; // 6 bytes
-	data->unk_1187[3] = data->unk_1165[5] - 3; // 6 bytes
-	data->unk_1187[4] = data->unk_1165[5] + 3; // 6 bytes
-	data->unk_1187[5] = data->unk_1165[6] - 3; // 6 bytes
-	data->unk_1187[6] = data->unk_1165[6];
-	data->unk_1187[7] = data->unk_1165[6] + 3; // 6 bytes
+	data->linebuf_shrp[0] = data->linebuf_row[4] - 3; // 6 bytes
+	data->linebuf_shrp[1] = data->linebuf_row[4];
+	data->linebuf_shrp[2] = data->linebuf_row[4] + 3; // 6 bytes
+	data->linebuf_shrp[3] = data->linebuf_row[5] - 3; // 6 bytes
+	data->linebuf_shrp[4] = data->linebuf_row[5] + 3; // 6 bytes
+	data->linebuf_shrp[5] = data->linebuf_row[6] - 3; // 6 bytes
+	data->linebuf_shrp[6] = data->linebuf_row[6];
+	data->linebuf_shrp[7] = data->linebuf_row[6] + 3; // 6 bytes
 }
 
 /* Applies the final correction factor to a row. */
 static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data,
-				    const double *a2, uint16_t *imgdata)
+				    const double *in, uint16_t *imgdata)
 {
 	uint16_t i, j;
 	uint32_t offset;	
 	double uh_val;
 
+	/* Work out the UH value we need based on our row count */
 	offset = data->rows - 1 - data->cur_row;
 	if ( offset > 100 )
 		offset = 100;
 	uh_val = data->cpc->UH[offset];
 
+	/* Now apply the final correction to each pixel in the row */
 	offset = 0;
 	for ( i = 0; i < data->columns; i++ ) {
 		for ( j = 0; j < 3; j++ ) {
-			double v4 = data->unk_0005[j] * data->unk_0395[j][((int)a2[offset] >> 9)] * a2[offset] * uh_val;
-			if ( v4 > 65535.0)
+			/* Per-row scaling * per-bucket scaling * input pixel * uh_factor */
+			double pixel = data->fcc_ymc_scale[j] * data->fcc_ymc_scratch[j][((int)in[offset] >> 9)] * in[offset] * uh_val;
+			if ( pixel > 65535.0)
 				imgdata[offset] = 65535;
-			else if ( v4 < 0.0)
+			else if ( pixel < 0.0)
 				imgdata[offset] = 0;
 			else
-				imgdata[offset] = (int)v4;
+				imgdata[offset] = (int)pixel;
 			++offset;
 		}
 	}
@@ -685,63 +689,70 @@ static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data,
 static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 {
 	double s[3];
-	double *cur_ptr;
+	double *row_comp;
 	int i, j;
 	double *v12, *v11, *v10;
-	
-	cur_ptr = &data->unk_1163[3*data->cur_row];
 
+	/* Initialize correction factor for this row based on the
+	   buckets of HTD.. */
+	row_comp = &data->fcc_rowcomps[3*data->cur_row];
 	for (j = 0 ; j < 3 ; j++) {
-		cur_ptr[j] = 127 * data->unk_0011[j][127];
+		row_comp[j] = 127 * data->htd_fcc_scratch[j][127];
 	}
 	for (i = 126 ; i >= 0 ; i--) {
 		for (j = 0 ; j < 3 ; j++) {
-			cur_ptr[j] += i * data->unk_0011[j][i];
-			data->unk_0011[j][i] += data->unk_0011[j][i+1];
+			row_comp[j] += i * data->htd_fcc_scratch[j][i];
+			data->htd_fcc_scratch[j][i] += data->htd_fcc_scratch[j][i+1];
 		}
 	}
+
+	/* Set up pointers to adjacent rows */
 	if (data->cur_row > 2) {
-		v12 = cur_ptr - 3;
-		v11 = cur_ptr - 6;
-		v10 = cur_ptr - 9;
+		v12 = row_comp - 3;
+		v11 = row_comp - 6;
+		v10 = row_comp - 9;
 	} else if (data->cur_row == 2) {
-		v12 = cur_ptr - 3;
-		v11 = cur_ptr - 6;
-		v10 = cur_ptr - 6;
+		v12 = row_comp - 3;
+		v11 = row_comp - 6;
+		v10 = row_comp - 6;
 	} else if (data->cur_row == 1) {
-		v12 = cur_ptr - 3;
-		v11 = cur_ptr - 3;
-		v10 = cur_ptr - 3;
+		v12 = row_comp - 3;
+		v11 = row_comp - 3;
+		v10 = row_comp - 3;
 	} else {
-		v12 = cur_ptr;
-		v11 = cur_ptr;
-		v10 = cur_ptr;
+		v12 = row_comp;
+		v11 = row_comp;
+		v10 = row_comp;
 	}
 
+	/* Foreach plane in the row, work out the global scaling factor. */
 	for (i = 0 ; i < 3 ; i++) {
 		double v5;
-		cur_ptr[i] /= data->columns;
+		/* Average it out over the number of columns */
+		row_comp[i] /= data->columns;
 
-		v5 = data->unk_1207 * cur_ptr[i]
+		v5 = data->unk_1207 * row_comp[i]
 			+ data->unk_1209 * v12[i]
 			+ data->unk_1211 * v11[i]
 			- data->unk_1213 * v10[i];
+		/* Different factors for scaling up vs down */
 		if (v5 > 0.0) {
-			data->unk_0005[i] = v5 / data->unk_1203 + 1.0;
+			data->fcc_ymc_scale[i] = v5 / data->unk_1203 + 1.0;
 		} else {
-			data->unk_0005[i] = v5 / data->unk_1205 + 1.0;
+			data->fcc_ymc_scale[i] = v5 / data->unk_1205 + 1.0;
 		}
 	}
 
+	/* Update the output buckets based on the input buckets plus
+	   the FM correction factor */
 	memset(s, 0, sizeof(s));
-	
 	for (i = 0 ; i < 128 ; i++) {
 		for (j = 0 ; j < 3 ; j++) {
-			int v3 = 255 * data->unk_0011[j][i] / 1864;
+			int v3 = 255 * data->htd_fcc_scratch[j][i] / 1864;
 			if (v3 > 255)
 				v3 = 255;
 			s[j] += data->cpc->FM[v3];
-			data->unk_0395[j][i] = s[j] / (i + 1);
+			data->fcc_ymc_scratch[j][i] = s[j] / (i + 1);
 		}
 	}
 }
@@ -753,69 +764,77 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
    add in the fixed overhead from LINEy/m/c[]
    cap at 0-65535.
 
-   Also populates unk_0004, which informs the NEXT CalcTTD run what to do.
+   Also populates htd_ttdnext, which informs the NEXT CalcTTD run what to do.
 */
    
-static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *a2, double *a3)
+static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in, double *out)
 {
-	int v16;
-	double *v9;
-	double *v5;
-	double *src;
-	int offset;
+	int cur_row, offset;
+	double *hk;
+	double *last, *first;
 	unsigned int i, k;
-	int v4[3];
-	int v11;
+	uint32_t line_comp[3];
 
-	v9 = data->cpc->HK;
-	src = data->unk_0002;
+	hk = data->cpc->HK;
+	first = data->ttd_htd_first;
 
-	memset(data->unk_0011, 0, sizeof(data->unk_0011));
-	v16 = data->cur_row;
-	if (v16 > 2729)
-		v16 = 2729;
+	/* Clean out correction buckets */
+	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch));
 
-	v4[0] = data->cpc->LINEy[v16];
-	v4[1] = data->cpc->LINEm[v16];
-	v4[2] = data->cpc->LINEc[v16];
+	cur_row = data->cur_row;
+	if (cur_row > 2729)
+		cur_row = 2729;
 
-	v5 = data->unk_0003;
-	memcpy(src - 9, src, 0x18);
-	memcpy(src - 6, src, 0x18);
-	memcpy(src - 3, src, 0x18);
-	memcpy(v5 + 3, v5, 0x18);
-	memcpy(v5 + 6, v5, 0x18);
-	memcpy(v5 + 9, v5, 0x18);
+	/* Fixed compensation per-line */
+	line_comp[0] = data->cpc->LINEy[cur_row];
+	line_comp[1] = data->cpc->LINEm[cur_row];
+	line_comp[2] = data->cpc->LINEc[cur_row];
+
+	/* Fill in shoulders of the row */
+	last = data->ttd_htd_last;
+	memcpy(first - 9, first, 0x18);   // Copy first pixel to pre-buffer
+	memcpy(first - 6, first, 0x18);
+	memcpy(first - 3, first, 0x18);
+	memcpy(last + 3, last, 0x18);     // Copy last pixel to post-buffer
+	memcpy(last + 6, last, 0x18);
+	memcpy(last + 9, last, 0x18);
+
+	/* Work out the compensation factors for each pixel in the row */
 	offset = 0;
 	for (i = 0; i < data->columns; i++) {
 		for (k = 0; k < 3 ; k++) {
-			data->unk_0004[offset] = v9[0] * (src[offset] + src[offset]) +
-				v9[1] * (src[offset - 3] + src[offset + 3]) +
-				v9[2] * (src[offset - 6] + src[offset + 6]) +
-				v9[3] * (src[offset - 9] + src[offset + 9]);
+			int v11;
 
-			a3[offset] = a2[offset] + v4[k];
-			v11 = a3[offset];
-			if ( a3[offset] < 65535.0 ) {
-				if (a3[offset] >= 0.0) {
-					v11 >>= 9;
-				} else {
-					a3[offset] = 0.0;
-					v11 = 0;
-				}
-			} else {
-				a3[offset] = 65535.0;
+			/* Compute starting point for next TTD row, weighing the adjacent pixels based on the HK factor.. */
+			data->htd_ttdnext[offset] = hk[0] * (first[offset] + first[offset]) +
+				hk[1] * (first[offset - 3] + first[offset + 3]) +
+				hk[2] * (first[offset - 6] + first[offset + 6]) +
+				hk[3] * (first[offset - 9] + first[offset + 9]);
+
+			/* Add in fixed per-line compensation */
+			out[offset] = in[offset] + line_comp[k];
+
+			/* Cap and Scale */
+			v11 = out[offset];
+			if ( out[offset] > 65535.0 ) {
+				out[offset] = 65535.0;
 				v11 = 127;
+			} else if (out[offset] < 0.0) {
+				out[offset] = 0.0;
+				v11 = 0;
+			} else {
+				v11 >>= 9;
 			}
 
-			data->unk_0011[k][v11]++;
+			/* Increment buckets */
+			data->htd_fcc_scratch[k][v11]++;
 			offset++;
 		}
 	}
 }
 
 static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
-				   const uint16_t *a2, double *a3)
+				   const uint16_t *in, double *out)
 {
 	double *km, *kp, *osm, *osp, *ksm, *ksp;
 	double *sharp = NULL;
@@ -827,20 +846,23 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 	kp = data->cpc->KP;    // K  Plus
 	km = data->cpc->KM;    // K  Minus
 
+	/* If we have sharpening turned on, set up the state */
 	if (data->sharpen >= 0)
 		sharp = &data->cpc->SHK[8 * data->sharpen];
 
+	/* For each pixel in the row... */
 	for (i = 0 ; i < data->band_pixels ; i++) {
-		int v5;
 		double v4, v6, v7, v8;
 		int v29;
 		int v25;
 		int v17;
-		double v20, k_comp, ks_comp, os_comp, sharp_comp;
+		double ks_comp_f, k_comp, ks_comp, os_comp, sharp_comp;
 		int j, k;
 
-		v8 = a2[i];
-		v7 = data->unk_0004[i] - v8;
+		/* Starting point is the carry-over from the last row plus
+		   the new pixel */
+		v8 = in[i];
+		v7 = data->htd_ttdnext[i] - v8;
 		v29 = v7;
 		if (v29 >= 0) {
 			int v31 = 127;
@@ -853,6 +875,7 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 				v30 = -v29 >> 9;
 			ks_comp = ksm[v30];
 		}
+
 		v6 = v7 * ks_comp + v8 - v8;  // XXX WTF?
 		v25 = v6;
 		if (v25 >= 0) {
@@ -866,201 +889,162 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 				v26 = -v25 >> 9;
 			os_comp = osm[v26];
 		}
+
 		k_comp = 0.0;
 		for ( j = 0 ; j < 11 ; j++) {
+			int v5;
 			if (j == 5)
 				continue;
 
-			v5 = a2[i] - data->unk_1165[j][i];
+			v5 = in[i] - data->linebuf_row[j][i];
 			if (v5 >= 0)
 				k_comp += kp[j] * v5;
 			else
 				k_comp += km[j] * v5;
 		}
+
 		sharp_comp = 0.0;
 		if (sharp) {
 			for (k = 0 ; k < 8 ; k++) {
-				sharp_comp += sharp[k] * (a2[i] - data->unk_1187[k][i]);
+				sharp_comp += sharp[k] * (in[i] - data->linebuf_shrp[k][i]);
 			}
 		}
-		a3[i] = v8 - v6 * os_comp + k_comp + sharp_comp;
-		v4 = data->unk_0004[i] - a3[i];
-		v17 = v4;
+		/* Update output state based on input plus the
+		   various correction factors */
+		out[i] = v8 - v6 * os_comp + k_comp + sharp_comp;
 
+		/* Work out the state for HTD operation */
+		v4 = data->htd_ttdnext[i] - out[i];
+		v17 = v4;
 		if ( v17 >= 0 )
 		{
 			int v19 = 127;
 			if ( v17 <= 65535 )
 				v19 = v17 >> 9;
-			v20 = ksp[v19];
+			ks_comp_f = ksp[v19];
 		} else {
 			int v18 = 127;
 			if ( -v17 <= 65535 )
 				v18 = -v17 >> 9;
-			v20 = ksm[v18];
+			ks_comp_f = ksm[v18];
 		}
-		data->unk_0002[i] = a3[i] + v4 * v20;
+		data->ttd_htd_first[i] = out[i] + v4 * ks_comp_f;
 	}
 }
 
+/* Work out the number of times the density of a given color in 
+   a given area exceeds a threshold */
 static void CImageEffect70_CalcSA(struct BandImage *img,
-				  int always_1, int32_t *ptr1,
-				  int32_t revX, int32_t *ptr2)
+				  int invert, int32_t *in,
+				  int32_t revX, int32_t *out)
 {
-  int cols; // edi@1
-  int rows; // ebx@1
-  unsigned int v9; // ecx@2
-  unsigned int v10; // ecx@3
-  unsigned int v11; // ecx@6
-  int v12; // edx@9
-  int v13; // eax@9
-  int v14; // edi@17
-  int v15; // esi@17
-  int v16; // ebx@17
-  int v17; // edx@18
-  int16_t *v18; // ecx@18
-  int v19; // al@19
-  int16_t *v21; // [sp+0h] [bp-2Ch]@6
-  int v22; // [sp+4h] [bp-28h]@17
-  int v24; // [sp+Ch] [bp-20h]@13
-  int v25; // [sp+10h] [bp-1Ch]@15
-  int v26; // [sp+14h] [bp-18h]@17
-  int v27; // [sp+18h] [bp-14h]@15
-  int16_t *v28; // [sp+1Ch] [bp-10h]@17
+	int cols, rows;
+	int16_t *buf, *ptr;
+	int stride;
+	int start_row, row, start_col, col;
+
+	cols = img->cols - img->origin_cols;
+	rows = img->rows - img->origin_rows;
+
+	if ( img->bytes_per_row >= 0 ) {
+		if ( invert ) {
+			stride = img->bytes_per_row >> 1;
+			buf = (int16_t*)img->imgbuf + stride * (rows - 1);
+		} else {
+			stride = -img->bytes_per_row >> 1;
+			buf = img->imgbuf;
+		}
+	} else {
+		if ( invert ) {
+			stride = img->bytes_per_row >> 1;
+			buf = img->imgbuf;
+		} else {
+			stride = -img->bytes_per_row >> 1;
+			buf = (int16_t*)img->imgbuf + stride * (rows - 1);
+		}
+	}
+
+	start_col = in[0];
+	start_row = in[1];
+	if ( cols > in[2] )
+		cols = in[2];
+	if ( rows > in[3] )
+		rows = in[3];
+	if ( start_row < 0 )
+		start_row = 0;
+	if ( start_col < 0 )
+		start_col = 0;
+
+	out[2] = 0;
+	out[1] = 0;
+	out[0] = 0;
   
-  cols = img->cols - img->origin_cols;
-  rows = img->rows - img->origin_rows;
+	row = start_row;
 
-  if ( img->bytes_per_row >= 0 )
-  {
-    if ( always_1 )
-    {
-      v10 = img->bytes_per_row;
-      goto LABEL_6;
-    }
-    v9 = -img->bytes_per_row;
-  }
-  else
-  {
-    v9 = img->bytes_per_row;
-    if ( !always_1 )
-    {
-      v10 = -img->bytes_per_row;
-LABEL_6:
-      v11 = v10 >> 1;
-      v21 = (int16_t*)img->imgbuf + v11 * (rows - 1);
-      goto LABEL_9;
-    }
-  }
-  v11 = v9 >> 1;
-  v21 = img->imgbuf;
-
-LABEL_9:
-  v12 = ptr1[1];
-  v13 = 0;
-  if ( v12 < 0 )
-    v12 = 0;
-  if ( rows >= ptr1[3] )
-    rows = ptr1[3];
-  v24 = rows;
-  if ( ptr1[0] >= 0 )
-    v13 = ptr1[0];
-  v25 = v13;
-  v27 = v12;
-  if ( cols > ptr1[2] )
-    cols = ptr1[2];
-  v26 = cols;
-  v14 = 0;
-  v15 = 0;
-  v28 = v21 - v12 * v11;
-  v16 = 0;
-  v22 = 3 * v13;
-  while ( v24 > v27 ) {
-    v17 = v25;
-    v18 = v22 + v28;
-    while ( v26 > v17 ) {
-      v16 += revX <= v18[0];
-      v15 += revX <= v18[1];
-      v19 = revX <= v18[2];
-      v18 += 3;
-      ++v17;
-      v14 += v19;
-    }
-    v28 -= v11;
-    ++v27;
-  }
-  ptr2[0] = v16;
-  ptr2[1] = v15;
-  ptr2[2] = v14;
+	ptr = buf - start_row * stride;
+	for ( row = start_row ; row < rows ; row++ ) {
+		int16_t *v18 = ptr + 3 * start_col;
+		col = start_col;
+		for ( col = start_col ; col < cols ; col++) {
+			out[0] += (revX <= v18[0]);
+			out[1] += (revX <= v18[1]);
+			out[2] += (revX <= v18[2]);
+			v18 += 3;
+		}
+		ptr -= stride;
+	}
 }
 
 static int CImageEffect70_JudgeReverseSkipRibbon_int(struct BandImage *img,
 						     int32_t *REV,
-						     int always_1)
+						     int invert)
 {
-  int32_t rows, cols;
+	int32_t rows, cols;
 
-  int32_t v15; // [sp+4Ch] [bp-8Ch]@1  
+	int j;
 
-  rows = img->rows - img->origin_rows;
-  cols = img->cols - img->origin_cols;
+	rows = img->rows - img->origin_rows;
+	cols = img->cols - img->origin_cols;
 
-  int32_t v16[4] = { REV[0], REV[2], REV[1], rows };
-  int32_t v20[4] = { REV[1], 0, cols, rows };
-  int32_t v24[4] = { 0, 0, REV[0], rows };
-  int32_t v28[4] = { REV[0], 0, REV[1], REV[2] };
+	int32_t v16[4] = { REV[0], REV[2], REV[1], rows };
+	int32_t v20[4] = { REV[1], 0, cols, rows };
+	int32_t v24[4] = { 0, 0, REV[0], rows };
+	int32_t v28[4] = { REV[0], 0, REV[1], REV[2] };
 
-  int32_t v32[3] = { 0, 0, 0 };
-  int32_t v35[3] = { 0, 0, 0 };
-  int32_t v38[3] = { 0, 0, 0 };
-  int32_t v41[3] = { 0, 0, 0 };
+	/* Output buffers */
+	int32_t v32[3] = { 0, 0, 0 };
+	int32_t v35[3] = { 0, 0, 0 };
+	int32_t v38[3] = { 0, 0, 0 };
+	int32_t v41[3] = { 0, 0, 0 };
 
-  CImageEffect70_CalcSA(img, always_1, v24, REV[3], v32);
-  CImageEffect70_CalcSA(img, always_1, v20, REV[7], v41);
-  CImageEffect70_CalcSA(img, always_1, v16, REV[11], v38);
-  CImageEffect70_CalcSA(img, always_1, v28, REV[15], v35);
+	/* Work out the density inherent in these areas */
+	CImageEffect70_CalcSA(img, invert, v24, REV[3], v32);
+	CImageEffect70_CalcSA(img, invert, v20, REV[7], v41);
+	CImageEffect70_CalcSA(img, invert, v16, REV[11], v38);
+	CImageEffect70_CalcSA(img, invert, v28, REV[15], v35);
 
-  for (v15 = 0 ; v15 < 3 ; v15++) {
-    int32_t v10 = v32[v15];
-    int32_t v11 = v41[v15];
-    int32_t v12 = v38[v15];
-    int32_t v13 = v35[v15];
+	for (j = 0 ; j < 3 ; j++) {
+		if ( v32[j] >= REV[4] &&
+		     (v32[j] >= REV[5] || v38[j] >= REV[14] || v35[j] >= REV[18]) ) {
+			return 0;
+		}
 
-    if ( v10 >= REV[4]
-	 && (v10 >= REV[5]
-	     || v38[v15] >= REV[14]
-	     || v35[v15] >= REV[18]) )
-    {
-	    return 0;
-    }
+		if ( v41[j] >= REV[8] &&
+		     (v41[j] >= REV[9] || v38[j] >= REV[14] || v35[j] >= REV[18]) ) {
+			return 0;
+		}
 
-    if ( v11 >= REV[8]
-	 && (v11 >= REV[9]
-	     || v38[v15] >= REV[14]
-	     || v35[v15] >= REV[18]) )
-    {
-	    return 0;
-    }
+		if ( v38[j] >= REV[12] &&
+		     (v38[j] >= REV[13] || v32[j] >= REV[6] || v41[j] >= REV[10] || v35[j] >= REV[18]) ) {
+			return 0;
+		}
 
-    if ( v12 >= REV[12]
-	 && (v12 >= REV[13]
-	     || v10 >= REV[6]
-	     || v11 >= REV[10]
-	     || v35[v15] >= REV[18]) )
-    {
-	    return 0;
-    }
-
-    if ( v13 >= REV[16]
-	 && (v13 >= REV[17]
-	     || v10 >= REV[6]
-	     || v11 >= REV[10]
-	     || v12 >= REV[14]) )
-    {
-	    return 0;
-    }
-  }
-  return 1;
+		if ( v35[j] >= REV[16] &&
+		     (v35[j] >= REV[17] || v32[j] >= REV[6] || v41[j] >= REV[10] || v38[j] >= REV[14]) ) {
+			return 0;
+		}
+	}
+	return 1;
 }
 
 // called twice, once with param1 == 1, once with param1 == 2.
@@ -1073,15 +1057,15 @@ static int CImageEffect70_JudgeReverseSkipRibbon(struct CPCData *cpc,
 
 	if (param1 == 1) {
 		if (is_6inch) {
-			offset = 0;
+			offset = 0; // REV[0][0]
 		} else {
-			offset = 19;
+			offset = 19; // REV[1][0]
 		}
 	} else if (param1 == 2) {
 		if (is_6inch) {
-			offset = 38;
+			offset = 38; // REV[2][0]
 		} else {
-			offset = 57;
+			offset = 57; // REV[3][0]
 		}
 	}
 	if (offset != -1) {
@@ -1154,7 +1138,7 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 	v12 = 0;
 	for(j = 0; j < data->columns ; j++) {
 		for (i = 0 ; i < 3 ; i++) {
-			data->unk_0001[v12++] = v8[i];
+			data->ttd_htd_scratch[v12++] = v8[i];
 		}
 	}
 	
@@ -1219,26 +1203,80 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 	}
 }
 
-int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2])
+static void dump_announce(void)
 {
-	struct CImageEffect70 *data;
-
 	fprintf(stderr, "INFO: libMitsuD70ImageReProcess version '%s' API %d\n", LIB_VERSION, LIB_APIVERSION);
 	fprintf(stderr, "INFO: Copyright (c) 2016-2017 Solomon Peachy\n");
 	fprintf(stderr, "INFO: This free software comes with ABSOLUTELY NO WARRANTY!\n");
 	fprintf(stderr, "INFO: Licensed under the GNU GPL.\n");
 	fprintf(stderr, "INFO: *** This code is NOT supported or endorsed by Mitsubishi! ***\n");
-	
+}
+
+int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2])
+{
+	struct CImageEffect70 *data;
+
+	dump_announce();
+
 	data = CImageEffect70_Create(cpc);
 	if (!data)
 		return -1;
-	
+
+	CImageEffect70_DoGamma(data, input, output);
+
+	/* Figure out if we can get away with rewinding, or not... */
+	if (cpc->REV[0]) {
+		int is_6 = -1;
+
+		/* Only allow rewinds for 4x6 and 5x3.5" prints */
+		if (input->cols == 0x0620 && input->rows == 0x0434)
+			is_6 = 0;
+		else if (input->cols == 0x0748 && input->rows == 0x04c2)
+			is_6 = 1;
+
+		rew[1] = 1;
+		if (ecpc == NULL)  /* IOW, only do the rewind check for SuperFine */
+			rew[0] = 1;
+		else if (is_6 != -1) {
+			rew[0] = CImageEffect70_JudgeReverseSkipRibbon(cpc, output, is_6, 1);
+		} else {
+			rew[0] = 1;
+		}
+	}
+
+	/* If we're rewinding, we have to switch to the other CPC file and restart the process */
+	if (! rew[0] ) {
+		CImageEffect70_Destroy(data);
+		data = CImageEffect70_Create(ecpc);
+		if (!data)
+			return -1;
+
+		CImageEffect70_DoGamma(data, input, output);
+	}
+
+	CImageEffect70_DoConv(data, cpc, output, output, sharpen);
+
+	CImageEffect70_Destroy(data);
+
+	return 0;
+}
+
+int do_image_effect60(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2])
+{
+	struct CImageEffect70 *data;
+
+	UNUSED(ecpc);
+
+	dump_announce();
+
+	data = CImageEffect70_Create(cpc);
+	if (!data)
+		return -1;
+
 	CImageEffect70_DoGamma(data, input, output);
 	CImageEffect70_DoConv(data, cpc, output, output, sharpen);
 
 	/* Figure out if we can get away with rewinding, or not... */
-	rew[0] = 1;
-	rew[1] = 1;	
 	if (cpc->REV[0]) {
 		int is_6 = -1;
 
@@ -1253,6 +1291,27 @@ int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandIma
 			rew[1] = CImageEffect70_JudgeReverseSkipRibbon(cpc, output, is_6, 2);
 		}
 	}
+
+	CImageEffect70_Destroy(data);
+
+	return 0;
+}
+
+int do_image_effect70(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2])
+{
+	struct CImageEffect70 *data;
+
+	UNUSED(ecpc);
+	UNUSED(rew);
+
+	dump_announce();
+
+	data = CImageEffect70_Create(cpc);
+	if (!data)
+		return -1;
+
+	CImageEffect70_DoGamma(data, input, output);
+	CImageEffect70_DoConv(data, cpc, output, output, sharpen);
 	CImageEffect70_Destroy(data);
 	
 	return 0;

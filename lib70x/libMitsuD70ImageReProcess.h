@@ -77,8 +77,15 @@ void destroy_CPCData(struct CPCData *data);
 /* Perform all processing on the 8bpp packed BGR input image, and generate a
    fully-corrected 16bpp YMC packed output image.
    Returns 0 if successful, non-zero for error */
-int do_image_effect(struct CPCData *cpc, struct BandImage *input, struct BandImage *output,
-		    int sharpen, uint8_t rew[2]);
+int do_image_effect70(struct CPCData *cpc, struct CPCData *ecpc,
+		      struct BandImage *input, struct BandImage *output,
+		      int sharpen, uint8_t rew[2]);
+int do_image_effect60(struct CPCData *cpc, struct CPCData *ecpc,
+		      struct BandImage *input, struct BandImage *output,
+		      int sharpen, uint8_t rew[2]);
+int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc,
+		      struct BandImage *input, struct BandImage *output,
+		      int sharpen, uint8_t rew[2]);
 
 /* Converts the packed 16bpp YMC image into 16bpp YMC planes, with 
    proper padding after each plane.  Calls the callback function for each
