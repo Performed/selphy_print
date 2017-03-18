@@ -782,6 +782,21 @@ repeat:
 
 	ctx->raw_format = !mhdr.mode;
 
+	/* Sanity check Matte mode */
+	if (!mhdr.laminate && mhdr.laminate_mode) {
+		if (ctx->type != P_MITSU_D70X) {
+			if (mhdr.speed != 0x03 && mhdr.speed != 0x04) {
+				WARNING("Forcing Ultrafine mode for matte printing!\n");
+				mhdr.speed = 0x04; /* Force UltraFine */
+			}
+		} else {
+			if (mhdr.speed != 0x03) {
+				mhdr.speed = 0x03; /* Force SuperFine */
+				WARNING("Forcing SuperFine mode for matte printing!\n");
+			}
+		}
+	}
+
 	/* Figure out the correction data table to use */
 	if (ctx->type == P_MITSU_D70X) {
 		ctx->laminatefname = CORRTABLE_PATH "/D70MAT01.raw";
@@ -1415,21 +1430,6 @@ skip_status:
 		hdr->rewind[0] = !ctx->rew[0];
 		hdr->rewind[1] = !ctx->rew[1];
 	}
-	
-	/* Matte operation requires Ultrafine/superfine */
-	if (ctx->matte) {
-		if (ctx->type != P_MITSU_D70X) {
-			if (hdr->speed != 0x03 && hdr->speed != 0x04) {
-				WARNING("Forcing Ultrafine mode for matte printing!\n");
-				hdr->speed = 0x04; /* Force UltraFine */
-			}
-		} else {
-			if (hdr->speed != 0x03) {
-				hdr->speed = 0x03; /* Force SuperFine */
-				WARNING("Forcing Ultrafine mode for matte printing!\n");
-			}
-		}
-	}
 
 	/* Any other fixups? */
 	if ((ctx->type == P_MITSU_K60 || ctx->type == P_KODAK_305) &&
@@ -1797,7 +1797,7 @@ struct dyesub_backend mitsu70x_backend = {
    YY YY == rows
    QQ QQ == lamination columns (equal to XX XX)
    ZZ ZZ == lamination rows (YY YY + 12 on D70x/D80/ASK300, YY YY on others)
-   RR RR == "rewind inhibit", 01 01 enabled, normally 00 00
+   RR RR == "rewind inhibit", 01 01 enabled, normally 00 00 (All but D70x)
    SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80 only), 04 = UltraFine
             (Matte requires Superfine or Ultrafine)
    UU    == 00 = Auto, 01 = Lower Deck (required for !D70x), 02 = Upper Deck
