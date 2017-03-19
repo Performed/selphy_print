@@ -49,6 +49,8 @@
 #ifndef __MITSU_D70_H
 #define __MITSU_D70_H
 
+#define LIB_APIVERSION 4
+
 #include <stdint.h>
 
 /* Defines an image.  Note that origin_cols/origin_rows should always = 0 */
@@ -79,13 +81,13 @@ void destroy_CPCData(struct CPCData *data);
    Returns 0 if successful, non-zero for error */
 int do_image_effect70(struct CPCData *cpc, struct CPCData *ecpc,
 		      struct BandImage *input, struct BandImage *output,
-		      int sharpen, uint8_t rew[2]);
+		      int sharpen, int reverse, uint8_t rew[2]);
 int do_image_effect60(struct CPCData *cpc, struct CPCData *ecpc,
 		      struct BandImage *input, struct BandImage *output,
-		      int sharpen, uint8_t rew[2]);
+		      int sharpen, int reverse, uint8_t rew[2]);
 int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc,
 		      struct BandImage *input, struct BandImage *output,
-		      int sharpen, uint8_t rew[2]);
+		      int sharpen, int reverse, uint8_t rew[2]);
 
 /* Converts the packed 16bpp YMC image into 16bpp YMC planes, with 
    proper padding after each plane.  Calls the callback function for each

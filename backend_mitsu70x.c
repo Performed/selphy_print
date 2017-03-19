@@ -84,7 +84,7 @@ struct BandImage {
 };
 #endif
 
-#define REQUIRED_LIB_APIVERSION 3
+#define REQUIRED_LIB_APIVERSION 4
 
 /* Image processing library function prototypes */
 #define LIB_NAME_RE "libMitsuD70ImageReProcess.so" // Reimplemented library
@@ -96,7 +96,7 @@ typedef void (*Destroy3DColorTableFN)(struct CColorConv3D *this);
 typedef void (*DoColorConvFN)(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t bytes_per_row, int rgb_bgr);
 typedef struct CPCData *(*get_CPCDataFN)(const char *filename);
 typedef void (*destroy_CPCDataFN)(struct CPCData *data);
-typedef int (*do_image_effectFN)(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2]);
+typedef int (*do_image_effectFN)(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, int reverse, uint8_t rew[2]);
 typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 			       int (*callback_fn)(void *context, void *buffer, uint32_t len));
 
@@ -171,6 +171,7 @@ struct mitsu70x_ctx {
 	char *last_ecpcfname;
 
 	int raw_format;
+	int reverse;
 	int sharpen; /* ie mhdr.sharpen - 1 */
 
 	uint8_t rew[2]; /* 1 for rewind ok (default!) */
@@ -375,8 +376,8 @@ struct mitsu70x_hdr {
 	uint8_t  sharpen;  /* 0-9.  5 is "normal", 0 is "off" */
 	uint8_t  mode;     /* 0 for cooked YMC planar, 1 for packed BGR */
 	uint8_t  use_lut;  /* in BGR mode, 0 disables, 1 enables */
-
-	uint8_t  pad[448];
+	uint8_t  reversed; /* 1 tells the backend the row data is correct */
+	uint8_t  pad[447];
 } __attribute__((packed));
 
 /* Error dumps, etc */
@@ -907,11 +908,13 @@ repeat:
 		ctx->lutfname = NULL;
 
 	ctx->sharpen = mhdr.sharpen - 1;
+	ctx->reverse = !mhdr.reversed;
 
 	/* Clean up header back to pristine. */
 	mhdr.use_lut = 0;
 	mhdr.mode = 0;
 	mhdr.sharpen = 0;
+	mhdr.reversed = 0;
 
 	/* Work out total printjob size */
 	ctx->cols = be16_to_cpu(mhdr.cols);
@@ -1047,7 +1050,7 @@ repeat:
 			ctx->rew[0] = 1;
 			ctx->rew[1] = 1;
 			if (ctx->DoImageEffect(ctx->cpcdata, ctx->ecpcdata,
-					       &input, &ctx->output, ctx->sharpen, ctx->rew)) {
+					       &input, &ctx->output, ctx->sharpen, ctx->reverse, ctx->rew)) {
 				ERROR("Image Processing failed, aborting!\n");
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -1861,7 +1864,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.59",
+	.version = "0.60",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

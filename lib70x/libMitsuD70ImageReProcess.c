@@ -46,14 +46,15 @@
 
 */
 
-#define LIB_VERSION "0.6"
-#define LIB_APIVERSION 3
+#define LIB_VERSION "0.7"
 
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+
+#include "libMitsuD70ImageReProcess.h"
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
@@ -95,24 +96,12 @@
 //-------------------------------------------------------------------------
 // Data declarations
 
-#define LUT_LEN 14739
 #define CPC_DATA_ROWS 2730
 
 #define CHUNK_LEN (256*1024)
 
 struct CColorConv3D {
 	uint8_t lut[17][17][17][3];
-};
-
-/* Defines an image.  Note that origin_cols/origin_rows should always = 0 */
-struct BandImage {
-	   void  *imgbuf;      // @ 0
-	 int32_t bytes_per_row;// @ 4  bytes per row (respect 8bpp and 16bpp!)
-	uint16_t origin_cols;  // @ 8  origin_cols
-	uint16_t origin_rows;  // @12  origin_rows
-	uint16_t cols;         // @16  cols
-	uint16_t rows;         // @20  rows
-	                       // @24
 };
 
 /* State for image processing algorithm */
@@ -138,12 +127,12 @@ struct CImageEffect70 {
 	uint32_t cur_row;        // @4800/1200   // row index.
 	uint32_t band_pixels;    // @4804/1201   // pixels per output band (always columns * 3)
 	uint32_t linebuf_stride; // @4808/1202   // band_pixels + 6 -- line buffer row stride
-	double   unk_1203;       // @4812/1203   // FH[0]
-	double   unk_1205;       // @4820/1205   // FH[1]
-	double   unk_1207;       // @4828/1207   // FH[2]
-	double   unk_1209;       // @4836/1209   // FH[3] - FH[2]
-	double   unk_1211;       // @4844/1211   // FH[4] - FH[3]
-	double   unk_1213;       // @4852/1213   // FH[4]
+	double   fhdiv_up;       // @4812/1203   // FH[0]  // division factor for positive comp
+	double   fhdiv_dn;       // @4820/1205   // FH[1]  // divison factor for negative comp
+	double   fh_cur;         // @4828/1207   // FH[2]
+	double   fh_prev1;       // @4836/1209   // FH[3] - FH[2]
+	double   fh_prev2;       // @4844/1211   // FH[4] - FH[3]
+	double   fh_prev3;       // @4852/1213   // FH[4]
 	                         // @4860/1215
 };
 
@@ -324,9 +313,6 @@ static void CColorConv3D_DoColorConvPixel(struct CColorConv3D *this, uint8_t *re
   
 //	printf("=> %d %d %d\n", *redp, *grnp, *blup);
 }
-
-#define COLORCONV_RGB 0
-#define COLORCONV_BGR 1
 
 /* Perform a total conversion on an entire image */
 void CColorConv3D_DoColorConv(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t stride, int rgb_bgr)
@@ -519,8 +505,8 @@ static struct CImageEffect70 *CImageEffect70_Create(struct CPCData *cpc)
 	
 	memset(data, 0, sizeof(*data));
 	data->sharpen = -1;
-	data->unk_1203 = 1.0;
-	data->unk_1205 = 1.0;
+	data->fhdiv_up = 1.0;
+	data->fhdiv_dn = 1.0;
 	data->cpc = cpc;
 	return data;
 }
@@ -691,11 +677,13 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	double s[3];
 	double *row_comp;
 	int i, j;
-	double *v12, *v11, *v10;
+	double *prev1, *prev2, *prev3;
+
+	/* Figure out where we need to be */
+	row_comp = &data->fcc_rowcomps[3*data->cur_row];
 
 	/* Initialize correction factor for this row based on the
-	   buckets of HTD.. */
-	row_comp = &data->fcc_rowcomps[3*data->cur_row];
+	   buckets that CalcHTD handed us */
 	for (j = 0 ; j < 3 ; j++) {
 		row_comp[j] = 127 * data->htd_fcc_scratch[j][127];
 	}
@@ -706,40 +694,41 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 		}
 	}
 
-	/* Set up pointers to adjacent rows */
+	/* Set up pointers to previous rows. Or if we're on the first
+	   three rows, take special action. */
 	if (data->cur_row > 2) {
-		v12 = row_comp - 3;
-		v11 = row_comp - 6;
-		v10 = row_comp - 9;
+		prev1 = row_comp - 3;
+		prev2 = row_comp - 6;
+		prev3 = row_comp - 9;
 	} else if (data->cur_row == 2) {
-		v12 = row_comp - 3;
-		v11 = row_comp - 6;
-		v10 = row_comp - 6;
+		prev1 = row_comp - 3;
+		prev2 = row_comp - 6;
+		prev3 = row_comp - 6;
 	} else if (data->cur_row == 1) {
-		v12 = row_comp - 3;
-		v11 = row_comp - 3;
-		v10 = row_comp - 3;
+		prev1 = row_comp - 3;
+		prev2 = row_comp - 3;
+		prev3 = row_comp - 3;
 	} else {
-		v12 = row_comp;
-		v11 = row_comp;
-		v10 = row_comp;
+		prev1 = row_comp;
+		prev2 = row_comp;
+		prev3 = row_comp;
 	}
 
-	/* Foreach plane in the row, work out the global scaling factor. */
+	/* For each plane in the row, work out the global scaling factor */
 	for (i = 0 ; i < 3 ; i++) {
 		double v5;
 		/* Average it out over the number of columns */
 		row_comp[i] /= data->columns;
 
-		v5 = data->unk_1207 * row_comp[i]
-			+ data->unk_1209 * v12[i]
-			+ data->unk_1211 * v11[i]
-			- data->unk_1213 * v10[i];
+		v5 = data->fh_cur * row_comp[i]
+			+ data->fh_prev1 * prev1[i]
+			+ data->fh_prev2 * prev2[i]
+			- data->fh_prev3 * prev3[i];
 		/* Different factors for scaling up vs down */
 		if (v5 > 0.0) {
-			data->fcc_ymc_scale[i] = v5 / data->unk_1203 + 1.0;
+			data->fcc_ymc_scale[i] = v5 / data->fhdiv_up + 1.0;
 		} else {
-			data->fcc_ymc_scale[i] = v5 / data->unk_1205 + 1.0;
+			data->fcc_ymc_scale[i] = v5 / data->fhdiv_dn + 1.0;
 		}
 	}
 
@@ -748,10 +737,10 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	memset(s, 0, sizeof(s));
 	for (i = 0 ; i < 128 ; i++) {
 		for (j = 0 ; j < 3 ; j++) {
-			int v3 = 255 * data->htd_fcc_scratch[j][i] / 1864;
-			if (v3 > 255)
-				v3 = 255;
-			s[j] += data->cpc->FM[v3];
+			int val = 255 * data->htd_fcc_scratch[j][i] / 1864;
+			if (val > 255)
+				val = 255;
+			s[j] += data->cpc->FM[val];
 			data->fcc_ymc_scratch[j][i] = s[j] / (i + 1);
 		}
 	}
@@ -1081,12 +1070,12 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 				  struct BandImage *out,
 				  int sharpen)
 {
-	double v8[3];
+	double maxval[3];
 	double *v9 = NULL;
 	double *v10 = NULL;
 
 	uint32_t i, j;
-	int v12;
+	int offset;
 	int outstride;
 	uint16_t *outptr;
 	uint16_t *inptr;
@@ -1097,12 +1086,12 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 		sharpen = 8;
 	data->sharpen = sharpen;
 	
-	data->unk_1203 = cpc->FH[0];
-	data->unk_1205 = cpc->FH[1];
-	data->unk_1207 = cpc->FH[2];
-	data->unk_1209 = cpc->FH[3] - cpc->FH[2];
-	data->unk_1211 = cpc->FH[4] - cpc->FH[3];
-	data->unk_1213 = cpc->FH[4];
+	data->fhdiv_up = cpc->FH[0];
+	data->fhdiv_dn = cpc->FH[1];
+	data->fh_cur   = cpc->FH[2];
+	data->fh_prev1 = cpc->FH[3] - cpc->FH[2];
+	data->fh_prev2 = cpc->FH[4] - cpc->FH[3];
+	data->fh_prev3 = cpc->FH[4];
 
 	data->columns = in->cols - in->origin_cols;
 	data->rows = in->rows - in->origin_rows;
@@ -1131,14 +1120,15 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 	memset(v10, 0, (data->band_pixels * sizeof(double)));
 	v9 = malloc(data->band_pixels * sizeof(double));
 	memset(v9, 0, (data->band_pixels * sizeof(double)));	
-	v8[0] = cpc->GNMby[255];
-	v8[1] = cpc->GNMgm[255];
-	v8[2] = cpc->GNMrc[255];
+	maxval[0] = cpc->GNMby[255];
+	maxval[1] = cpc->GNMgm[255];
+	maxval[2] = cpc->GNMrc[255];
 
-	v12 = 0;
+	/* Initialize ttd_htd structures */
+	offset = 0;
 	for(j = 0; j < data->columns ; j++) {
 		for (i = 0 ; i < 3 ; i++) {
-			data->ttd_htd_scratch[v12++] = v8[i];
+			data->ttd_htd_scratch[offset++] = maxval[i];
 		}
 	}
 	
@@ -1166,7 +1156,7 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 		free(v9);
 }
 
-static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage *input, struct BandImage *out)
+static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage *input, struct BandImage *out, int reverse)
 {
 	int cols, rows;
 	int i, j;
@@ -1188,15 +1178,22 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 	inptr = (uint8_t*) input->imgbuf;
 	outptr = out->imgbuf;
 
+	/* HACK:  Reverse the row data when we perform gamma correction,
+	          because Old Gutenprint sends it in the wrong order. */
 	for (i = 0; i < rows; i++) {
 		uint8_t *v10 = inptr;
 		uint16_t *v9 = (uint16_t*)outptr;
+		if (reverse)
+			v9 += (cols - 1) * 3;
 		for (j = 0 ; j < cols ; j++) {
 			v9[0] = cpc->GNMby[v10[0]];
 			v9[1] = cpc->GNMgm[v10[1]];
 			v9[2] = cpc->GNMrc[v10[2]];
 			v10 += 3;
-			v9 += 3;
+			if (reverse)
+				v9 -= 3;
+			else
+				v9 += 3;
 		}
 		inptr += in_stride;
 		outptr += out_stride;
@@ -1212,7 +1209,7 @@ static void dump_announce(void)
 	fprintf(stderr, "INFO: *** This code is NOT supported or endorsed by Mitsubishi! ***\n");
 }
 
-int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2])
+int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, int reverse, uint8_t rew[2])
 {
 	struct CImageEffect70 *data;
 
@@ -1222,7 +1219,7 @@ int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc, struct BandImag
 	if (!data)
 		return -1;
 
-	CImageEffect70_DoGamma(data, input, output);
+	CImageEffect70_DoGamma(data, input, output, reverse);
 
 	/* Figure out if we can get away with rewinding, or not... */
 	if (cpc->REV[0]) {
@@ -1251,7 +1248,7 @@ int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc, struct BandImag
 		if (!data)
 			return -1;
 
-		CImageEffect70_DoGamma(data, input, output);
+		CImageEffect70_DoGamma(data, input, output, reverse);
 	}
 
 	CImageEffect70_DoConv(data, cpc, output, output, sharpen);
@@ -1261,7 +1258,7 @@ int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc, struct BandImag
 	return 0;
 }
 
-int do_image_effect60(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2])
+int do_image_effect60(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, int reverse, uint8_t rew[2])
 {
 	struct CImageEffect70 *data;
 
@@ -1273,7 +1270,7 @@ int do_image_effect60(struct CPCData *cpc, struct CPCData *ecpc, struct BandImag
 	if (!data)
 		return -1;
 
-	CImageEffect70_DoGamma(data, input, output);
+	CImageEffect70_DoGamma(data, input, output, reverse);
 	CImageEffect70_DoConv(data, cpc, output, output, sharpen);
 
 	/* Figure out if we can get away with rewinding, or not... */
@@ -1297,7 +1294,7 @@ int do_image_effect60(struct CPCData *cpc, struct CPCData *ecpc, struct BandImag
 	return 0;
 }
 
-int do_image_effect70(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, uint8_t rew[2])
+int do_image_effect70(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, int reverse, uint8_t rew[2])
 {
 	struct CImageEffect70 *data;
 
@@ -1310,7 +1307,7 @@ int do_image_effect70(struct CPCData *cpc, struct CPCData *ecpc, struct BandImag
 	if (!data)
 		return -1;
 
-	CImageEffect70_DoGamma(data, input, output);
+	CImageEffect70_DoGamma(data, input, output, reverse);
 	CImageEffect70_DoConv(data, cpc, output, output, sharpen);
 	CImageEffect70_Destroy(data);
 	
@@ -1334,11 +1331,6 @@ int send_image_data(struct BandImage *out, void *context,
 		goto done;
 	if (!callback_fn)
 		goto done;
-
-	// XXX hacky workaround.  Doing this right results in the image
-	// being incorrectly mirrored. There's a missing step somewhere
-	// that flips each row. Until then, this stays in.
-	out->bytes_per_row = -out->bytes_per_row;
 
 	if (out->bytes_per_row > 0) {
 		v15 = out->imgbuf + ((rows - 1) * out->bytes_per_row);
