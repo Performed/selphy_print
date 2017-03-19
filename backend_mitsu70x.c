@@ -112,6 +112,7 @@ typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 #define USB_PID_MITSU_D70X  0x3B30
 #define USB_PID_MITSU_K60   0x3B31
 #define USB_PID_MITSU_D80   0x3B36
+#define USB_PID_MITSU_D90   0x3B60
 #define USB_VID_KODAK       0x040a
 #define USB_PID_KODAK305    0x404f
 //#define USB_VID_FUJIFILM    XXXXXX
@@ -325,7 +326,9 @@ struct mitsu70x_printerstatus_resp {
 	uint8_t  hdr[4];  /* E4 56 32 31 */
 	uint8_t  memory;
 	uint8_t  power;
-	uint8_t  unk[34];
+	uint8_t  unk[20];
+	uint8_t  sleeptime; /* In minutes. All but D70/D707 */
+	uint8_t  unk_b[13];
 	int16_t  model[6]; /* LE, UTF-16 */
 	int16_t  serno[6]; /* LE, UTF-16 */
 	struct mitsu70x_status_ver vers[7]; // components are 'MLRTF'
@@ -1265,7 +1268,11 @@ static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
 	uint8_t cmdbuf[4];
 	int ret;
 
-	/* Send Job cancel.  No response. */
+	/* 10 minutes max, according to all docs. */
+	if (time > 10)
+		time = 10;
+
+	/* Send Parameter.. */
 	memset(cmdbuf, 0, 4);
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x53;
@@ -1632,6 +1639,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 		INFO("FW Component: %c %s (%04x)\n",
 		     type, buf, be16_to_cpu(resp->vers[i].checksum));
 	}
+	INFO("Standby Timeout: %d minutes\n", resp->sleeptime);
 
 	INFO("Lower Mechanical Status: %s\n",
 	     mitsu70x_mechastatus(resp->lower.mecha_status));
@@ -1793,7 +1801,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.58",
+	.version = "0.59",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -1807,6 +1815,7 @@ struct dyesub_backend mitsu70x_backend = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, ""},
 		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, ""},
 		{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_D80, ""},
+//		{ USB_VID_MITSU, USB_PID_MITSU_D90, P_MITSU_D90, ""},
 		{ USB_VID_KODAK, USB_PID_KODAK305, P_KODAK_305, ""},
 //	{ USB_VID_FUJIFILM, USB_PID_FUJI_ASK300, P_FUJI_ASK300, ""},
 	{ 0, 0, 0, ""}
