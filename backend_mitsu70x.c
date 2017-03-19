@@ -327,8 +327,9 @@ struct mitsu70x_printerstatus_resp {
 	uint8_t  memory;
 	uint8_t  power;
 	uint8_t  unk[20];
-	uint8_t  sleeptime; /* In minutes. All but D70/D707 */
-	uint8_t  unk_b[13];
+	uint8_t  sleeptime; /* In minutes, 0-10 */
+	uint8_t  iserial; /* 0x00 for Enabled, 0x80 for Disabled */
+	uint8_t  unk_b[12];
 	int16_t  model[6]; /* LE, UTF-16 */
 	int16_t  serno[6]; /* LE, UTF-16 */
 	struct mitsu70x_status_ver vers[7]; // components are 'MLRTF'
@@ -1276,7 +1277,7 @@ static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
 	memset(cmdbuf, 0, 4);
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x53;
-	cmdbuf[2] = 0x53; // XXX also, 0x4e and 0x50 are other params.
+	cmdbuf[2] = 0x53;
 	cmdbuf[3] = time;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -1286,6 +1287,59 @@ static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
 	return 0;
 }
 
+static int mitsu70x_set_iserial(struct mitsu70x_ctx *ctx, uint8_t enabled)
+{
+	uint8_t cmdbuf[4];
+	int ret;
+
+	if (enabled)
+		enabled = 0;
+	else
+		enabled = 0x80;
+
+	/* Send Parameter.. */
+	memset(cmdbuf, 0, 4);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x53;
+	cmdbuf[2] = 0x4e;
+	cmdbuf[3] = enabled;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+
+	return 0;
+}
+
+#if 0
+/* Switches between "Driver" and "SDK" modes.
+   Single-endpoint vs Multi-Endpoint, essentially.
+   Not sure about the polarity.
+ */
+static int mitsu70x_set_printermode(struct mitsu70x_ctx *ctx, uint8_t enabled)
+{
+	uint8_t cmdbuf[4];
+	int ret;
+
+	if (enabled)
+		enabled = 0;
+	else
+		enabled = 0x80;
+
+	/* Send Parameter.. */
+	memset(cmdbuf, 0, 4);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x53;
+	cmdbuf[2] = 0x50;
+	cmdbuf[3] = enabled;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+
+	return 0;
+}
+#endif
 static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx)
 {
 	int ret;
@@ -1640,6 +1694,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 		     type, buf, be16_to_cpu(resp->vers[i].checksum));
 	}
 	INFO("Standby Timeout: %d minutes\n", resp->sleeptime);
+	INFO("iSerial Reporting: %s\n", resp->iserial ? "No" : "Yes" );	
 
 	INFO("Lower Mechanical Status: %s\n",
 	     mitsu70x_mechastatus(resp->lower.mecha_status));
@@ -1765,6 +1820,7 @@ static void mitsu70x_cmdline(void)
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -k num ]       # Set standby time (1-60 minutes, 0 disables)\n");
+	DEBUG("\t\t[ -x num ]       # Set USB iSerialNumber Reporting (1 on, 0 off)\n");
 	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");}
 
 static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
@@ -1775,7 +1831,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "sX:k:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "sk:X:x:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'k':
@@ -1783,6 +1839,9 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 's':
 			j = mitsu70x_query_status(ctx);
+			break;
+		case 'x':
+			j = mitsu70x_set_iserial(ctx, atoi(optarg));
 			break;
 		case 'X':
 			j = mitsu70x_cancel_job(ctx, atoi(optarg));

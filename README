@@ -64,6 +64,7 @@
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Mitsubishi CP-D707DW
+   Mitsubishi CP-D90DW
    Olmec OP900 and OP900II
    Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S6245 (aka Sinfonia CE1)
@@ -614,11 +615,13 @@
 
    Valid commands:
 
-     -k num		Specify standby delay (1-60 minutes, 0 disables)
+     -k num		Specify standby delay (1-10 minutes, 0 disables)
      -s                 Query printer status (Only partially decoded)
-     -X id              Cancel print job 'id' [1]
+     -x num             Set USB iSerialNumber reporting (1 yes, 0 no) [1]
+     -X id              Cancel print job 'id' [2]
 
-    [1]  Job ID is the Internal Job ID (reported via status)
+    [1]  Printer will need to be power-cycled for this to take effect.
+    [2]  Job ID is the Internal Job ID (reported via status)
 	   To see which jobs are active/pending, see the output of the
 	   '-s' command.
 
