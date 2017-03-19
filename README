@@ -730,7 +730,7 @@ Notes:
 
      [1] Only supported by DS620
      [2] Certain printer features may require updating the printer firmware
-     [3] Only supported by DS620 and RX1HS
+     [3] Only supported by RX1HS, DS620, and DS820
 
  *************************************************************************** 
   BACKEND=citizencw01
