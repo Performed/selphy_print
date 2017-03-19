@@ -333,7 +333,8 @@ struct mitsu70x_printerstatus_resp {
 	int16_t  model[6]; /* LE, UTF-16 */
 	int16_t  serno[6]; /* LE, UTF-16 */
 	struct mitsu70x_status_ver vers[7]; // components are 'MLRTF'
-	uint8_t  null[8];
+	uint8_t  null[2];
+	uint8_t  user_serno[6];  /* Supposedly, don't know how to set it */
 	struct mitsu70x_status_deck lower;
 	struct mitsu70x_status_deck upper;
 } __attribute__((packed));
@@ -996,10 +997,11 @@ repeat:
 			ctx->DoColorConv(ctx->lut, spoolbuf, ctx->cols, ctx->rows, ctx->cols * 3, COLORCONV_BGR);
 		}
 
-		/* Load in the CPC file(s), if needed! */
 		if (ctx->dl_handle) {
 			struct BandImage input;
 
+
+			/* Load in the CPC file, if needed */
 			if (ctx->cpcfname && ctx->cpcfname != ctx->last_cpcfname) {
 				ctx->last_cpcfname = ctx->cpcfname;
 				if (ctx->cpcdata)
@@ -1011,7 +1013,7 @@ repeat:
 				}
 			}
 
-			/* Secondary CPC, if needed */
+			/* Load in the secondary CPC, if needed */
 			if (ctx->ecpcfname != ctx->last_ecpcfname) {
 				ctx->last_ecpcfname = ctx->ecpcfname;
 				if (ctx->ecpcdata)
@@ -1028,7 +1030,6 @@ repeat:
 			}
 
 			/* Convert using image processing library */
-
 			input.origin_rows = input.origin_cols = 0;
 			input.rows = ctx->rows;
 			input.cols = ctx->cols;
