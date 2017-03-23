@@ -605,7 +605,7 @@
 
 	   Do *NOT* contact Mitsubishi for support if you are using
 	   any combination of gutenprint, selphy_print or
-	   libMitsuD80ImageReProcess.
+	   libMitsuD70ImageReProcess.
 
              (Please see the full disclaimer in libMitsuD70ImageReProcess.c)
 
@@ -656,7 +656,7 @@
 
   Notes:
 
-      **** VERY IMPORTANT ****
+    [1]  **** VERY IMPORTANT ****
 
     The CP-98xx family is similar to the CP-D70 family in that it requires
     the input data to be gamma corrected (and likely transformed in other
@@ -728,7 +728,7 @@ This backend does not support additional commands.
 
 Notes:
 
-     [1] Only supported by DS620
+     [1] Only supported by DS620 and DS820
      [2] Certain printer features may require updating the printer firmware
      [3] Only supported by RX1HS, DS620, and DS820
 
