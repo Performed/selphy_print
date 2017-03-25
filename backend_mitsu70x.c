@@ -1540,6 +1540,7 @@ skip_status:
 	if (ctx->type != P_MITSU_D70X) {
 		hdr->rewind[0] = !ctx->rew[0];
 		hdr->rewind[1] = !ctx->rew[1];
+		DEBUG("Rewind Inhibit? %02x %02x\n", hdr->rewind[0], hdr->rewind[1]);
 	}
 
 	/* Any other fixups? */
