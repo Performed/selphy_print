@@ -778,6 +778,7 @@ static int mitsu70x_read_parse(void *vctx, int data_fd) {
 		ctx->databuf = NULL;
 	}
 
+	/* Reset some state */
 	ctx->matte = 0;
 	ctx->rew[0] = 1;
 	ctx->rew[1] = 1;
@@ -1045,10 +1046,7 @@ repeat:
 			ctx->output.imgbuf = ctx->databuf + ctx->datalen;
 			ctx->output.bytes_per_row = ctx->cols * 3 * 2;
 
-
 			DEBUG("Running print data through processing library\n");
-			ctx->rew[0] = 1;
-			ctx->rew[1] = 1;
 			if (ctx->DoImageEffect(ctx->cpcdata, ctx->ecpcdata,
 					       &input, &ctx->output, ctx->sharpen, ctx->reverse, ctx->rew)) {
 				ERROR("Image Processing failed, aborting!\n");
