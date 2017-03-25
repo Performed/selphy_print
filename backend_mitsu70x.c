@@ -1392,6 +1392,7 @@ static int mitsu70x_main_loop(void *vctx, int copies)
 	struct mitsu70x_jobstatus jobstatus;
 	struct mitsu70x_printerstatus_resp resp;
 	struct mitsu70x_hdr *hdr;
+	uint8_t last_status[4] = {0xff, 0xff, 0xff, 0xff};
 
 	int ret;
 
@@ -1627,12 +1628,18 @@ skip_status:
 			return CUPS_BACKEND_STOP;
 		}
 
-		INFO("%s: %x/%x/%x/%x\n",
-		     mitsu70x_jobstatuses(jobstatus.job_status),
-		     jobstatus.job_status[0],
-		     jobstatus.job_status[1],
-		     jobstatus.job_status[2],
-		     jobstatus.job_status[3]);
+		/* Only print if it's changed */
+		if (jobstatus.job_status[0] != last_status[0] ||
+		    jobstatus.job_status[1] != last_status[1] ||
+		    jobstatus.job_status[2] != last_status[2] ||
+		    jobstatus.job_status[3] != last_status[3])
+			INFO("%s: %02x/%02x/%02x/%02x\n",
+			     mitsu70x_jobstatuses(jobstatus.job_status),
+			     jobstatus.job_status[0],
+			     jobstatus.job_status[1],
+			     jobstatus.job_status[2],
+			     jobstatus.job_status[3]);
+
 		if (jobstatus.job_status[0] == JOB_STATUS0_END) {
 			if (jobstatus.job_status[1] ||
 			    jobstatus.job_status[2] ||
@@ -1651,6 +1658,9 @@ skip_status:
 			INFO("Fast return mode enabled.\n");
 			break;
 		}
+
+		/* Update cache for the next round */
+		memcpy(last_status, jobstatus.job_status, 4);		
 	} while(1);
 
 	/* Clean up */
@@ -1864,7 +1874,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.60",
+	.version = "0.61",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
