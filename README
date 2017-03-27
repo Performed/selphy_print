@@ -52,7 +52,6 @@
 
   Work-in-progress Printers:
 
-   Canon SELPHY CP820
    Citizen CW-02 and CX2
    DNP DS80DX
    Fujifilm ASK-300
@@ -230,11 +229,7 @@
 
    Untested, but expected to work:
 
-     CP910
-
-   Unknown VID/PIDs, but should work:
-
-     CP820
+     CP820, CP910
 
    Valid commands:
    
