@@ -2102,7 +2102,7 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	   When bit 0 is set, this tells the backend that the data is
 	   already in planar YMC format (vs packed RGB) so we don't need 
 	   to do the conversion ourselves.  Saves some processing overhead */
-	ctx->input_ymc = (ctx->hdr.ext_flags & 0x01);
+	ctx->input_ymc = le32_to_cpu(ctx->hdr.ext_flags) & 0x01;
 
 	if (ctx->databuf) {
 		free(ctx->databuf);
