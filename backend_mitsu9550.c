@@ -1253,7 +1253,7 @@ struct dyesub_backend mitsu9550_backend = {
 
    1b 57 26 2e 00 QQ 00 00  00 00 00 SS RR 01 00 00 :: QQ = 0x70 on 9550/98x0, 0x60 on 9600 or 9800S
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: RR = 0x01 on 9550/98x0, 0x00 on 9600
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: SS = 0x01 on 9800S
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: SS = 0x01 on 9800S, 0x00 otherwise.
    00 00  
 
   ~~~~ Data follows:
@@ -1282,8 +1282,10 @@ struct dyesub_backend mitsu9550_backend = {
    1b 50 46 00  (9550)
    1b 50 47 00  (9550-S)
    1b 50 48 00  (9600)
-   1b 50 4c 00  (98x0)
+   1b 50 4c 00  (9800/9810)
    1b 50 4e 00  (9800-S)
+
+   Unknown: 9600-S, 9820-S
 
   ~~~~ Lamination data follows (on 9810 only, if matte selected)
 
@@ -1389,7 +1391,7 @@ struct dyesub_backend mitsu9550_backend = {
 
     Followed by image plane #3 (Red), XXXX * YYYY bytes
 
-  [[ Unknown -- End Data aka START print? ]]
+  [[ Footer -- End Data aka START print?  See above for other models ]]
 
  -> 1b 50 47 00  [9550S]
  -> 1b 50 4e 00  [9800S]
