@@ -488,4 +488,18 @@ Also, the first time a readback happens after plugging in the printer:
 
 34 44 35 31  01 00 01 00  01 00 45 00      "4D51" ...??
 
+
+** ** ** ** This is what windows sends if you print over the network:
+
+00 00 00 00 40 00 00 00  02 00 00 00 00 00 04 00  Header [unknown]
+00 00 02 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+
+00 00 01 00 HH HH HH HH  02 00 00 00 PP PP PP PP  Header2 [unknown] PP == payload len, HH == payload + header2 len [ie + 3 ]
+CC CC CC CC RR RR RR RR  00 00 00 00 LL LL LL LL  CC == cols, RR == rows, LL == plane len (ie RR * CC)
+L2 L2 L2 L2                                       L2 == LL * 2, apparently.
+
+[ ..followed by three planes of LL bytes, totalling PP bytes.. ]
+
 */
