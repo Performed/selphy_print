@@ -178,6 +178,12 @@
 	    variable.  This is the default behavior when using this backend
 	    with CUPS. 
 
+      Finally, some backends support additional arguments; see their details
+      below.
+
+ ***************************************************************************
+  Other Environment Variables:
+
       If you have multiple models of the same printer family connected
       simultaneously, the backend will choose the first one it finds.
       If you wish to target a specific device, you may specify its
@@ -201,9 +207,17 @@
        please let us know so we can add the apppriate entry to the
        internal database.
 
-    Finally, some backends support additional arguments; see below:
+       For debugging USB operation, there following environment variables
+       can be set:
 
- *************************************************************************** 
+           MAX_XFER_SIZE     Maximum transfer size, in bytes.
+	   XFER_TIMEOUT      Timeout, in milliseconds, for all USB operations
+
+         for example:
+
+           MAX_XFER_SIZE=32768 XFER_TIMEOUT=30000 backend filename
+
+ ***************************************************************************
   BACKEND=canonselphy
 
    Verified supported printers:

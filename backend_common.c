@@ -27,12 +27,15 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.71"
+#define BACKEND_VERSION "0.72"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
 
 #define NUM_CLAIM_ATTEMPTS 10
+
+#define URB_XFER_SIZE  (64*1024)
+#define XFER_TIMEOUT    15000
 
 /* Global Variables */
 int dyesub_debug = 0;
@@ -42,6 +45,9 @@ int extra_vid = -1;
 int extra_pid = -1;
 int extra_type = -1;
 int copies = 1;
+
+static int max_xfer_size = URB_XFER_SIZE;
+static int xfer_timeout = XFER_TIMEOUT;
 
 /* Support Functions */
 static int backend_claim_interface(struct libusb_device_handle *dev, int iface)
@@ -194,7 +200,7 @@ int read_data(struct libusb_device_handle *dev, uint8_t endp,
 				   buf,
 				   buflen,
 				   readlen,
-				   10000);
+				   xfer_timeout);
 
 	if (ret < 0) {
 		ERROR("Failure to receive data from printer (libusb error %d: (%d/%d from 0x%02x))\n", ret, *readlen, buflen, endp);
@@ -236,10 +242,10 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 	}
 
 	while (len) {
-		int len2 = (len > 65536) ? 65536: len;
+		int len2 = (len > max_xfer_size) ? max_xfer_size: len;
 		int ret = libusb_bulk_transfer(dev, endp,
-					   buf, len2,
-					   &num, 15000);
+					       buf, len2,
+					       &num, xfer_timeout);
 
 		if ((dyesub_debug > 1 && len < 4096) ||
 		    dyesub_debug > 2) {
@@ -791,6 +797,10 @@ int main (int argc, char **argv)
 		backend = find_backend(getenv("BACKEND"));
 	if (getenv("FAST_RETURN"))
 		fast_return++;
+	if (getenv("MAX_XFER_SIZE"))
+		max_xfer_size = atoi(getenv("MAX_XFER_SIZE"));
+	if (getenv("XFER_TIMEOUT"))
+		xfer_timeout = atoi(getenv("XFER_TIMEOUT"));
 	use_serno = getenv("SERIAL");
 	uri = getenv("DEVICE_URI");  /* CUPS backend mode? */
 
