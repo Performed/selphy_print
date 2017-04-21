@@ -80,15 +80,23 @@
   special two-way handshaking in order to successfully print.
 
   This backend can only be used in conjunction with Gutenprint 5.2.10 or
-  newer.  Please see the Gutenprint README file (section II D) for more
-  information on  use of this backend and integration into CUPS.
-  
-  Although this backend is bundled with Gutenprint, this repository is 
-  considered the canonical upstream source where all development occurs.
-  As such, when compared to the current Gutenprint release, the code found 
-  here is often newer, with additional features or device support.  At the
-  same time, it may have half-developed features that don't quite work, 
-  with giant bugs that come out at midnight to eat your cat.
+  newer. Please see the Gutenprint README file (section II D) for more
+  information on use of this backend and integration into CUPS.
+
+  While this repository is considered the canonical upstream source for 
+  this code, code snapshots are bundled with each Gutenprint release.
+  Generally speaking, the code in this repository will require the current
+  Gutenprint release (or pre-release) to generate the actual print jobs.
+
+  As such, when compared to any given Gutenprint release, the code found 
+  here is usually newer, with additional features, device support, and 
+  bugfixes.  At the same time, it may have half-developed features that 
+  don't quite work, with giant bugs that come out at midnight to eat 
+  your cat.
+
+  With rare exceptions, all printer support in selphy_print (and Gutenprint) 
+  was developed without any assistance from the printer manufactuers,
+  relying on reverse-engineering and a great deal of experimentation.
 
   On that note, please keep in mind that this software distributed
   in the hope that it will be useful, but WITHOUT ANY WARRANTY WHATSOEVER.
@@ -131,6 +139,10 @@
     The backend generates output for CUPS to parse, including logging
     print counts, and if the printer supports it, reporting media type and
     remaining media counts.
+
+    Please note that this backend merely handles the low-level
+    communication with the printer!  Actually generating print jobs requires
+    use of Gutenprint compile with support for CUPS.
 
  ***************************************************************************
   Standalone usage:
