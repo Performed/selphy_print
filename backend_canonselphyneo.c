@@ -421,7 +421,7 @@ struct dyesub_backend canonselphyneo_backend = {
   32-byte header:
 
   0f 00 00 40 00 00 00 00  00 00 00 00 00 00 01 00
-  01 00 TT 00 00 00 00 00  XX XX XX XX YY YY YY YY
+  01 00 TT 00 00 00 00 ZZ  XX XX XX XX YY YY YY YY
 
                            cols (le32) rows (le32)
         50                 e0 04       50 07          1248 * 1872  (P)
@@ -432,19 +432,17 @@ struct dyesub_backend canonselphyneo_backend = {
      == 4c  (L)
      == 43  (C)
 
+  ZZ == 00  Y'CbCr data follows
+     == 01  CMY    data follows
+
   Followed by three planes of image data.
 
   P == 7008800  == 2336256 * 3 + 32 (1872*1248)
   L == 5087264  == 1695744 * 3 + 32 (1472*1152)
   C == 2180384  == 726784 * 3 + 32  (1088*668)
 
-  It is worth mentioning that the image payload is Y'CbCr rather than the
-  traditional YMC (or even BGR) of other dyseubs.  Our best guess is that
-  we need to use the JPEG coefficients, although we realistically have
-  no way of confirming this.
-
-  It is hoped that the printers do support YMC data, but as of yet we
-  have no way of determining if this is possible.
+  It is worth mentioning that the Y'CbCr image data is surmised to use the 
+  JPEG coefficients, although we realistically have no way of confirming this.
 
   Other questions:
 
