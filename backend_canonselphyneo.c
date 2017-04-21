@@ -97,6 +97,8 @@ static char *selphyneo_errors(uint8_t err)
 		return "Paper Feed";
 	case 0x03:
 		return "No Paper";
+	case 0x06:
+		return "Ink Cassette Empty";
 	case 0x07:
 		return "No Ink";
 	case 0x09:
@@ -388,7 +390,7 @@ static void selphyneo_cmdline(void)
 
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CPneo",
-	.version = "0.07",
+	.version = "0.08",
 	.uri_prefix = "canonselphyneo",
 	.cmdline_usage = selphyneo_cmdline,
 	.cmdline_arg = selphyneo_cmdline_arg,
