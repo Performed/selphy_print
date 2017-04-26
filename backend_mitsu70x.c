@@ -304,7 +304,7 @@ struct mitsu70x_jobs {
 
 struct mitsu70x_status_deck {
 	uint8_t  mecha_status[2];
-	uint8_t  temperature;   /* D70 family only, K60 no */
+	uint8_t  temperature;   /* D70/D80 family only, K60 no? */
 	uint8_t  error_status[3];
 	uint8_t  rsvd_a[10];    /* K60 family [1] == temperature? [3:6] == lifetime prints in BCD */
 
@@ -335,7 +335,7 @@ struct mitsu70x_printerstatus_resp {
 	int16_t  serno[6]; /* LE, UTF-16 */
 	struct mitsu70x_status_ver vers[7]; // components are 'MLRTF'
 	uint8_t  null[2];
-	uint8_t  user_serno[6];  /* Supposedly, don't know how to set it */
+	uint8_t  user_serno[6];  /* XXX Supposedly, don't know how to set it */
 	struct mitsu70x_status_deck lower;
 	struct mitsu70x_status_deck upper;
 } __attribute__((packed));
@@ -355,7 +355,7 @@ struct mitsu70x_memorystatus_resp {
 struct mitsu70x_hdr {
 	uint8_t  hdr[4]; /* 1b 5a 54 XX */  // XXX also, seen 1b 5a 43!
 	uint16_t jobid;
-	uint8_t  rewind[2];  /* XXX K60/EK305/D80 only, 0 normally, 1 for "skip" ??? */
+	uint8_t  rewind[2];  /* K60/EK305/D80 only */
 	uint8_t  zero0[8];
 
 	uint16_t cols;
@@ -365,14 +365,14 @@ struct mitsu70x_hdr {
 	uint8_t  speed;
 	uint8_t  zero1[7];
 
-	uint8_t  deck; /* 0 = default, 1 = lower, 2 = upper */
+	uint8_t  deck; /* 0 = default, 1 = lower, 2 = upper -- Non-D70/D707 is always '1' */
 	uint8_t  zero2[7];
 	uint8_t  laminate; /* 00 == on, 01 == off */
 	uint8_t  laminate_mode; /* 00 == glossy, 02 == matte */
 	uint8_t  zero3[6];
 
 	uint8_t  multicut;
-	uint8_t  zero4[12];
+	uint8_t  zero4[12]; /* NOTE:  everything past this point is an extension */
 	uint8_t  sharpen;  /* 0-9.  5 is "normal", 0 is "off" */
 	uint8_t  mode;     /* 0 for cooked YMC planar, 1 for packed BGR */
 	uint8_t  use_lut;  /* in BGR mode, 0 disables, 1 enables */
@@ -1913,7 +1913,7 @@ struct dyesub_backend mitsu70x_backend = {
    1b 5a 54 PP JJ JJ RR RR  00 00 00 00 00 00 00 00
    XX XX YY YY QQ QQ ZZ ZZ  SS 00 00 00 00 00 00 00
    UU 00 00 00 00 00 00 00  LL TT 00 00 00 00 00 00
-   RR 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+   MM 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
 
    (padded by NULLs to a 512-byte boundary)
 
@@ -1928,8 +1928,8 @@ struct dyesub_backend mitsu70x_backend = {
             (Matte requires Superfine or Ultrafine)
    UU    == 00 = Auto, 01 = Lower Deck (required for !D70x), 02 = Upper Deck
    LL    == lamination enable, 00 == on, 01 == off
-   TT    == lamination mode: 00 glossy, 02 matte.
-   RR    == 00 (normal), 01 = (Double-cut 4x6), 05 = (double-cut 2x6)
+   TT    == lamination mode: 00 glossy, 02 matte
+   MM    == 00 (normal), 01 = (Double-cut 4x6), 05 = (double-cut 2x6)
 
    Data planes:
    16-bit data, rounded up to 512-byte block (XX * YY * 2 bytes)
