@@ -328,7 +328,7 @@ struct mitsu70x_printerstatus_resp {
 	uint8_t  memory;
 	uint8_t  power;
 	uint8_t  unk[20];
-	uint8_t  sleeptime; /* In minutes, 0-10 */
+	uint8_t  sleeptime; /* In minutes, 0-60 */
 	uint8_t  iserial; /* 0x00 for Enabled, 0x80 for Disabled */
 	uint8_t  unk_b[12];
 	int16_t  model[6]; /* LE, UTF-16 */
@@ -619,7 +619,7 @@ static const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
 	else if (brand == 0xff && type == 0x05)
 		return "CK-D769 (6x9)";
 	else if (brand == 0xff && type == 0x0f)
-		return "CK-D768 (6x8)";
+		return "CK-D768/CK-D868 (6x8)";
 	else if (brand == 0x6c && type == 0x84)
 		return "Kodak 5R (5x7)";
 	else if (brand == 0x6c && type == 0x8f)
@@ -634,8 +634,7 @@ static const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
 // Also CK-D715, CK-D718, CK-D720, CK-D723 (4x6,5x8,6x8,6x9) for D70-S model
 //      CK-D746-U for D70-U model
 //      CK-D820 (6x8) for D80-S model
-//      CK-D868 (6x8) for D80 (non-S)
-// D90 can use _all_ of htese types except for the -U!
+// D90 can use _all_ of these types except for the -U!
 
 }
 
@@ -1271,9 +1270,9 @@ static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
 	uint8_t cmdbuf[4];
 	int ret;
 
-	/* 10 minutes max, according to all docs. */
-	if (time > 10)
-		time = 10;
+	/* 60 minutes max, according to all docs. */
+	if (time > 60)
+		time = 60;
 
 	/* Send Parameter.. */
 	memset(cmdbuf, 0, 4);
