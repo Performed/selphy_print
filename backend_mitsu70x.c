@@ -340,7 +340,9 @@ struct mitsu70x_printerstatus_resp {
 	struct mitsu70x_status_deck upper;
 } __attribute__((packed));
 
+#define MK60S_0105_M_CSUM  0x148C  /* 1.05 316M3 1 148C */
 #define EK305_0104_M_CSUM  0x2878  /* 1.04 316F8 3 2878 */
+#define MD70X_0110_M_CSUM  0x064D  /* 1.10 316V1 1 064D */
 #define MD70X_0112_M_CSUM  0x9FC3  /* 1.12 316W1 1 9FC3 */
 
 struct mitsu70x_memorystatus_resp {
@@ -1470,6 +1472,9 @@ top:
 	if (ctx->type == P_KODAK_305) {
 		if (be16_to_cpu(resp.vers[0].checksum) != EK305_0104_M_CSUM)
 			WARNING("Printer FW out of date. Highly recommend upgrading EK305 to v1.04!\n");
+	} else if (ctx->type == P_MITSU_K60) {
+		if (be16_to_cpu(resp.vers[0].checksum) != MK60S_0105_M_CSUM)
+			WARNING("Printer FW out of date. Highly recommend upgrading K60 to v1.05!\n");
 	} else if (ctx->type == P_MITSU_D70X) {
 		if (be16_to_cpu(resp.vers[0].checksum) != MD70X_0112_M_CSUM)
 			WARNING("Printer FW out of date. Highly recommend upgrading D70/D707 to v1.12!\n");
@@ -1872,7 +1877,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.61",
+	.version = "0.62",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
