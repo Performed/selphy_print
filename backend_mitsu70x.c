@@ -1606,11 +1606,19 @@ skip_status:
 				ctx->last_donor_l = donor_l;
 				ctx->last_donor_u = donor_u;
 				ATTR("marker-levels=%d,%d\n", donor_l, donor_u);
+				ATTR("marker-message=%d native prints remaining on '%s' media, %d native prints remaining on '%s' media\n",
+				     be16_to_cpu(resp.lower.remain),
+				     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type),
+				     be16_to_cpu(resp.upper.remain),
+				     mitsu70x_media_types(resp.upper.media_brand, resp.upper.media_type));
 			}
 		} else {
 			if (donor_l != ctx->last_donor_l) {
 				ctx->last_donor_l = donor_l;
 				ATTR("marker-levels=%d\n", donor_l);
+				ATTR("marker-message=%d native prints remaining on '%s' media\n",
+				     be16_to_cpu(resp.lower.remain),
+				     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type));
 			}
 		}
 
@@ -1877,7 +1885,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.62",
+	.version = "0.63",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
