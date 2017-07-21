@@ -1606,7 +1606,7 @@ skip_status:
 				ctx->last_donor_l = donor_l;
 				ctx->last_donor_u = donor_u;
 				ATTR("marker-levels=%d,%d\n", donor_l, donor_u);
-				ATTR("marker-message=%d native prints remaining on '%s' media, %d native prints remaining on '%s' media\n",
+				ATTR("marker-message='\"%d native prints remaining on %s media\"','\"%d native prints remaining on %s media\"'\n",
 				     be16_to_cpu(resp.lower.remain),
 				     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type),
 				     be16_to_cpu(resp.upper.remain),
@@ -1616,7 +1616,7 @@ skip_status:
 			if (donor_l != ctx->last_donor_l) {
 				ctx->last_donor_l = donor_l;
 				ATTR("marker-levels=%d\n", donor_l);
-				ATTR("marker-message=%d native prints remaining on '%s' media\n",
+				ATTR("marker-message=\"%d native prints remaining on %s media\"\n",
 				     be16_to_cpu(resp.lower.remain),
 				     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type));
 			}
