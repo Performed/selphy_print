@@ -52,7 +52,7 @@
 
   Work-in-progress Printers:
 
-   Citizen CW-02 and CX2
+   Citizen CW-02, CY-02, and CX2
    DNP DS80DX
    Fujifilm ASK-300
    HiTi P910L
@@ -721,7 +721,7 @@ This backend does not support additional commands.
 
    Work-in-progress printers: (USB PIDs unknown)
 
-    Citizen CX2
+    Citizen CX2, CY-02, and CW-02
 
    Development was sponsored in part by:
 
