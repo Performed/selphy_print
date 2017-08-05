@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.72"
+#define BACKEND_VERSION "0.73"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -626,7 +626,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 					}
 				}
 				if (desc.idVendor == backends[k]->devices[j].vid &&
-				    desc.idProduct == backends[k]->devices[j].pid) {
+				    (desc.idProduct == backends[k]->devices[j].pid ||
+				     desc.idProduct == 0xffff)) {
 					found = i;
 					goto match;
 				}
