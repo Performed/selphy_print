@@ -127,6 +127,7 @@ enum {
 	P_DNP_DS620,
 	P_DNP_DS820,
 	P_FUJI_ASK300,
+	P_MAGICARD,
 	P_END,
 };
 

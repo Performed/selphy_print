@@ -574,6 +574,7 @@ extern struct dyesub_backend mitsu9550_backend;
 extern struct dyesub_backend mitsup95d_backend;
 extern struct dyesub_backend dnpds40_backend;
 extern struct dyesub_backend cw01_backend;
+extern struct dyesub_backend magicard_backend;
 
 static struct dyesub_backend *backends[] = {
 	&canonselphy_backend,
@@ -591,6 +592,7 @@ static struct dyesub_backend *backends[] = {
 	&mitsup95d_backend,
 	&dnpds40_backend,
 	&cw01_backend,
+	&magicard_backend,
 	NULL,
 };
 

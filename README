@@ -69,6 +69,7 @@
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-CR10L (aka DNP DS-SL10)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)   
+   Magicard Tango 2E
 
  ***************************************************************************
 
@@ -775,5 +776,21 @@ Notes:
      -n                 Query printer counters
      -s                 Query printer status
      -N [ A | B ]       Reset Counter A/B
+
+ *************************************************************************** 
+  BACKEND=magicard
+
+   Work-in-progress printers:
+
+    Tango 2E
+    (All others)
+
+   This backend supports additional commands:
+
+      magicard [command [arg] ]
+
+   Valid commands:
+
+     -s                 Query printer status
 
  *************************************************************************** 
