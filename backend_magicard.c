@@ -256,6 +256,8 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	struct magicard_ctx *ctx = vctx;
 	int run = 1;
 
+	UNUSED(data_fd);  // XXX
+	
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
