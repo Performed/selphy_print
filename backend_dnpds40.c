@@ -677,6 +677,9 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->supports_mediaoffset = 1;
 			ctx->supports_iserial = 1;
 		}
+		if (FW_VER_CHECK(2,06)) {
+			ctx->supports_5x5 = ctx->supports_6x6 = 1;
+		}
 		break;
 	case P_DNP_DS620:
 		ctx->native_width = 1920;
@@ -2490,7 +2493,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620/DS820",
-	.version = "0.94",
+	.version = "0.95",
 	.uri_prefix = "dnpds40",
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
