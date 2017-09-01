@@ -52,6 +52,7 @@
 
   Work-in-progress Printers:
 
+   Canon SELPHY CP1300
    Citizen CW-02, CY-02, and CX2
    DNP DS80DX
    Fujifilm ASK-300
@@ -257,6 +258,10 @@
    Untested, but expected to work:
 
      CP820, CP910
+
+   Unsupported (Unknown USB PIDs):
+
+     CP1300
 
    Valid commands:
    
