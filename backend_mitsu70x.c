@@ -446,6 +446,15 @@ static char *mitsu70x_jobstatuses(uint8_t *sts)
 		case JOB_STATUS1_END_OK:
 			return "Normal End";
 		case JOB_STATUS1_END_HEADER:
+			switch(sts[2]) {
+			case JOB_STATUS2_END_HEADER_ERROR:
+				return "Incorrect Header data (bad print size?)";
+			case JOB_STATUS2_END_HEADER_MEMORY:
+				return "Insufficient printer memory";
+			default:
+				return "Unknown 'End Header' status2";
+			}
+			break;			
 		case JOB_STATUS1_END_PRINT:
 			switch(sts[2]) {
 			case JOB_STATUS2_END_PRINT_MEDIA:
@@ -1885,7 +1894,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.63",
+	.version = "0.64",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
