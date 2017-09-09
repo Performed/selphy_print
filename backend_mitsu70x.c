@@ -903,7 +903,7 @@ repeat:
 		}
 	} else if (ctx->type == P_FUJI_ASK300) {
 		ctx->laminatefname = CORRTABLE_PATH "/ASK300M2.raw"; // Same as D70
-		ctx->lutfname = CORRTABLE_PATH "/CPD70L01.lut";  // XXX guess, driver did not come with external LUT!
+//		ctx->lutfname = CORRTABLE_PATH "/CPD70L01.lut";  // XXX guess, driver did not come with external LUT!
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
 			mhdr.speed = 3; /* Super Fine */
 			ctx->cpcfname = CORRTABLE_PATH "/ASK300T3.cpc";
