@@ -115,8 +115,8 @@ typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 #define USB_PID_MITSU_D90   0x3B60
 #define USB_VID_KODAK       0x040a
 #define USB_PID_KODAK305    0x404f
-//#define USB_VID_FUJIFILM    XXXXXX
-//#define USB_PID_FUJI_ASK300 XXXXXX
+#define USB_VID_FUJIFILM    0x04cb
+#define USB_PID_FUJI_ASK300 0x5006
 
 /* Width of the laminate data file */
 #define LAMINATE_STRIDE 1864
@@ -1901,7 +1901,7 @@ struct dyesub_backend mitsu70x_backend = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_D80, ""},
 //		{ USB_VID_MITSU, USB_PID_MITSU_D90, P_MITSU_D90, ""},
 		{ USB_VID_KODAK, USB_PID_KODAK305, P_KODAK_305, ""},
-//	{ USB_VID_FUJIFILM, USB_PID_FUJI_ASK300, P_FUJI_ASK300, ""},
+		{ USB_VID_FUJIFILM, USB_PID_FUJI_ASK300, P_FUJI_ASK300, ""},
 	{ 0, 0, 0, ""}
 	}
 };
