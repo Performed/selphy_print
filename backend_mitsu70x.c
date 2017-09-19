@@ -1952,7 +1952,7 @@ struct dyesub_backend mitsu70x_backend = {
    YY YY == rows
    QQ QQ == lamination columns (equal to XX XX)
    ZZ ZZ == lamination rows (YY YY + 12 on D70x/D80/ASK300, YY YY on others)
-   RR RR == "rewind inhibit", 01 01 enabled, normally 00 00 (All but D70x)
+   RR RR == "rewind inhibit", 01 01 enabled, normally 00 00 (All but D70x/A300)
    SS    == Print mode: 00 = Fine, 03 = SuperFine (D70x/D80 only), 04 = UltraFine
             (Matte requires Superfine or Ultrafine)
    UU    == 00 = Auto, 01 = Lower Deck (required for !D70x), 02 = Upper Deck
