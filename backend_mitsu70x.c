@@ -639,6 +639,14 @@ static const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
 		return "CK-K57R (5x7)";
 	else if (brand == 0x61 && type == 0x8f)
 		return "CK-K76R (6x8)";
+	else if (brand == 0x7a && type == 0x02)
+		return "RL-CF900 (3.5x5)";
+	else if (brand == 0x7a && type == 0x02)
+		return "RK-CF800/4R (4x6)";
+	else if (brand == 0x7a && type == 0x04)
+		return "R2L-CF460/5R (5x7)";
+	else if (brand == 0x7a && type == 0x0f)
+		return "R68-CF400/6R (6x8)";
 	else
 		return "Unknown";
 
@@ -1894,7 +1902,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.64",
+	.version = "0.65",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
