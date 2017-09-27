@@ -49,13 +49,13 @@
    Mitsubishi CP-K60DW-S
    Mitsubishi P95DW
    Mitsubishi P93DW
+   Fujifilm ASK-300
 
   Work-in-progress Printers:
 
    Canon SELPHY CP1300
    Citizen CW-02, CY-02, and CX2
    DNP DS80DX
-   Fujifilm ASK-300
    HiTi P910L
    ICI Imagedata OP900
    Kodak 7000, 7010, and 7015
@@ -594,11 +594,11 @@
     Mitsubishi CP-D70DW
     Mitsubishi CP-D80DW
     Mitsubishi CP-K60DW-S
+    Fujifilm ASK-300
 
    Untested but believed to work:
 
     Mitsubishi CP-D707DW
-    Fujifilm ASK-300
 
    Unsupported printers (Unknown VID/PID):
 
