@@ -27,7 +27,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.73"
+#define BACKEND_VERSION "0.74"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -36,6 +36,9 @@
 
 #define URB_XFER_SIZE  (64*1024)
 #define XFER_TIMEOUT    15000
+
+#define USB_SUBCLASS_PRINTER 0x1
+#define USB_INTERFACE_PROTOCOL_BIDIR 0x2
 
 /* Global Variables */
 int dyesub_debug = 0;
@@ -361,19 +364,19 @@ static int print_scan_output(struct libusb_device *device,
 			     char *prefix, char *manuf2,
 			     int found,
 			     int scan_only, char *match_serno,
+			     uint8_t *r_iface, uint8_t *r_altset,
+			     uint8_t *r_endp_up, uint8_t *r_endp_down,
 			     struct dyesub_backend *backend)
 {
 	struct libusb_device_handle *dev;
 	char buf[256];
 	char *product = NULL, *serial = NULL, *manuf = NULL, *descr = NULL;
-	int iface = 0; // XXX loop through interfaces
-	int altset = 0; // XXX loop through altsetting
+	uint8_t iface, altset;
 	struct libusb_config_descriptor *config = NULL;
 	int dlen = 0;
 	struct deviceid_dict dict[MAX_DICT];
 	char *ieee_id = NULL;
 	int i;
-
 	uint8_t endp_up, endp_down;
 
 	DEBUG("Probing VID: %04X PID: %04x\n", desc->idVendor, desc->idProduct);
@@ -384,36 +387,74 @@ static int print_scan_output(struct libusb_device *device,
 		goto abort;
 	}
 
-	if (libusb_kernel_driver_active(dev, iface))
-		libusb_detach_kernel_driver(dev, iface);
-
-	if (backend_claim_interface(dev, iface)) {
-		found = -1;
+	/* XXX FIXME:  Iterate through possible configurations? */
+	if (libusb_get_active_config_descriptor(device, &config)) {
+		found  = -1;
 		goto abort_close;
 	}
 
-	if (libusb_get_active_config_descriptor(device, &config)) {
-		found  = -1;
+	/* Loop through all interfaces and altsettings to find candidates */
+	for (iface = 0 ; iface < config->bNumInterfaces ; iface ++) {
+		for (altset = 0 ; altset < config->interface[iface].num_altsetting ; altset++) {
+			/* Skip interfaces that don't have enough endpoints */
+			if (config->interface[iface].altsetting[altset].bNumEndpoints < 2) {
+				continue;
+			}
+
+#if 0
+			// Make sure it's a printer class device that supports bidir comms  (XXX Is this always true?)
+			if (desc->bDeviceClass == LIBUSB_CLASS_PRINTER ||
+			    (desc->bDeviceClass == LIBUSB_CLASS_PER_INTERFACE &&
+			     config->interface[iface].altsetting[altset].bInterfaceClass == LIBUSB_CLASS_PRINTER &&
+			     config->interface[iface].altsetting[altset].bInterfaceSubClass == USB_SUBCLASS_PRINTER &&
+			     config->interface[iface].altsetting[altset].bInterfaceProtocol != USB_INTERFACE_PROTOCOL_BIDIR)) {
+				continue;
+			}
+#endif
+
+			/* Find the first set of endpoints! */
+			endp_up = endp_down = 0;
+			for (i = 0 ; i < config->interface[iface].altsetting[altset].bNumEndpoints ; i++) {
+				if ((config->interface[iface].altsetting[altset].endpoint[i].bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_BULK) {
+					if (config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
+						endp_up = config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress;
+					else
+						endp_down = config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress;
+				}
+				if (endp_up && endp_down)
+					goto candidate;
+			}
+		}
+	}
+
+	/* If we got here, we didn't find a match. */
+	found = -1;
+	goto abort_close;
+
+candidate:
+
+	/* We've now found an interface/altset we need to query in more detail */
+	/* Detach the kernel driver */
+	if (libusb_kernel_driver_active(dev, iface))
+		libusb_detach_kernel_driver(dev, iface);
+
+	/* Claim the interface so we can start querying things! */
+	if (backend_claim_interface(dev, iface)) {
+		found = -1;
 		goto abort_release;
 	}
 
-	/* Find the endpoints */
-	endp_up = endp_down = 0;
-	for (i = 0 ; i < config->interface[iface].altsetting[altset].bNumEndpoints ; i++) {
-		if ((config->interface[iface].altsetting[altset].endpoint[i].bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_BULK) {
-			if (config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
-				endp_up = config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress;
-			else
-				endp_down = config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress;
-		}
-		if (endp_up && endp_down)
-			break;
+	/* Use the appropriate altesetting! */
+	if (libusb_set_interface_alt_setting(dev, iface, altset)) {
+		found = -1;
+		goto abort_release;
 	}
 
 	/* Query IEEE1284 info only if it's a PRINTER class */
 	if (desc->bDeviceClass == LIBUSB_CLASS_PRINTER ||
 	    (desc->bDeviceClass == LIBUSB_CLASS_PER_INTERFACE &&
-	     config->interface[iface].altsetting[altset].bInterfaceClass == LIBUSB_CLASS_PRINTER)) {
+	     config->interface[iface].altsetting[altset].bInterfaceClass == LIBUSB_CLASS_PRINTER &&
+	     config->interface[iface].altsetting[altset].bInterfaceSubClass == USB_SUBCLASS_PRINTER)) {
 		ieee_id = get_device_id(dev, iface);
 		dlen = parse1284_data(ieee_id, dict);
 	}
@@ -533,14 +574,19 @@ static int print_scan_output(struct libusb_device *device,
 		DEBUG("VID: %04X PID: %04X Manuf: '%s' Product: '%s' Serial: '%s' found: %d\n",
 		      desc->idVendor, desc->idProduct, manuf, product, serial, found);
 
+	if (found != -1) {
+		if (r_iface) *r_iface = iface;
+		if (r_altset) *r_altset = altset;
+		if (r_endp_up) *r_endp_up = endp_up;
+		if (r_endp_up) *r_endp_down = endp_down;
+	}
+
 	/* Free things up */
 	if(serial) free(serial);
 	if(manuf) free(manuf);
 	if(product) free(product);
 	if(descr) free(descr);
 	if(ieee_id) free(ieee_id);
-
-	if (config) libusb_free_config_descriptor(config);
 
 abort_release:
 
@@ -549,7 +595,10 @@ abort_release:
 abort_close:
 
 	libusb_close(dev);
+	
 abort:
+	if (config) libusb_free_config_descriptor(config);
+	
 	/* Clean up the dictionary */
 	while (dlen--) {
 		free (dict[dlen].key);
@@ -600,7 +649,9 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
 			      struct dyesub_backend *backend,
 			      char *match_serno,
-			      int scan_only)
+			      int scan_only,
+			      uint8_t *r_iface, uint8_t *r_altset,
+			      uint8_t *r_endp_up, uint8_t *r_endp_down)
 {
 	int num;
 	int i, j = 0, k;
@@ -643,6 +694,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 					  URI_PREFIX, backends[k]->devices[j].manuf_str,
 					  found,
 					  scan_only, match_serno,
+					  r_iface, r_altset,
+					  r_endp_up, r_endp_down,
 					  backends[k]);
 
 		if (found != -1 && !scan_only)
@@ -745,7 +798,7 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 		ERROR("Failed to initialize libusb (%d)\n", i);
 		exit(CUPS_BACKEND_STOP);
 	}
-	find_and_enumerate(ctx, &list, backend, NULL, 1);
+	find_and_enumerate(ctx, &list, backend, NULL, 1, NULL, NULL, NULL, NULL);
 	libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
 }
@@ -761,14 +814,11 @@ int main (int argc, char **argv)
 	void * backend_ctx = NULL;
 
 	uint8_t endp_up, endp_down;
-
-	int iface = 0; // XXX loop through interfaces
-	int altset = 0; // XXX loop through altsetting
+	uint8_t iface, altset;
 
 	int data_fd = fileno(stdin);
 
 	int i;
-	int claimed;
 
 	int ret = CUPS_BACKEND_OK;
 
@@ -907,7 +957,7 @@ int main (int argc, char **argv)
 	}
 
 	/* Enumerate devices */
-	found = find_and_enumerate(ctx, &list, backend, use_serno, 0);
+	found = find_and_enumerate(ctx, &list, backend, use_serno, 0, &iface, &altset, &endp_up, &endp_down);
 
 	if (found == -1) {
 		ERROR("Printer open failure (No matching printers found!)\n");
@@ -923,8 +973,8 @@ int main (int argc, char **argv)
 		goto done;
 	}
 
-	claimed = libusb_kernel_driver_active(dev, iface);
-	if (claimed) {
+	/* Detach the kernel driver */
+	if (libusb_kernel_driver_active(dev, iface)) {
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
 			ERROR("Printer open failure (Could not detach printer from kernel) (%d)\n", ret);
@@ -933,29 +983,17 @@ int main (int argc, char **argv)
 		}
 	}
 
+	/* Claim the interface so we can start using this! */
 	ret = backend_claim_interface(dev, iface);
 	if (ret) {
 		ret = CUPS_BACKEND_STOP;
 		goto done_close;
 	}
 
-	ret = libusb_get_active_config_descriptor(list[found], &config);
-	if (ret) {
-		ERROR("Printer open failure (Could not fetch config descriptor) (%d)\n", ret);
-		ret = CUPS_BACKEND_STOP;
+	/* Use the appropriate altesetting! */
+	if (libusb_set_interface_alt_setting(dev, iface, altset)) {
+		found = -1;
 		goto done_close;
-	}
-
-	endp_up = endp_down = 0;
-	for (i = 0 ; i < config->interface[iface].altsetting[altset].bNumEndpoints ; i++) {
-		if ((config->interface[iface].altsetting[altset].endpoint[i].bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_BULK) {
-			if (config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress & LIBUSB_ENDPOINT_IN)
-				endp_up = config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress;
-			else
-				endp_down = config->interface[iface].altsetting[altset].endpoint[i].bEndpointAddress;
-		}
-		if (endp_up && endp_down)
-			break;
 	}
 
 	if (config)
@@ -1049,10 +1087,6 @@ done_claimed:
 	libusb_release_interface(dev, iface);
 
 done_close:
-#if 0
-	if (claimed)
-		libusb_attach_kernel_driver(dev, iface);
-#endif
 	libusb_close(dev);
 done:
 
