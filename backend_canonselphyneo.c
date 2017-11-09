@@ -401,12 +401,12 @@ struct dyesub_backend canonselphyneo_backend = {
 	.read_parse = selphyneo_read_parse,
 	.main_loop = selphyneo_main_loop,
 	.devices = {
-	{ USB_VID_CANON, USB_PID_CANON_CP820, P_CP910, ""},
-	{ USB_VID_CANON, USB_PID_CANON_CP910, P_CP910, ""},
-	{ USB_VID_CANON, USB_PID_CANON_CP1000, P_CP910, ""},
-	{ USB_VID_CANON, USB_PID_CANON_CP1200, P_CP910, ""},
-//	{ USB_VID_CANON, USB_PID_CANON_CP1300, P_CP910, ""},
-	{ 0, 0, 0, ""}
+	{ USB_VID_CANON, USB_PID_CANON_CP820, P_CP910, NULL},
+	{ USB_VID_CANON, USB_PID_CANON_CP910, P_CP910, NULL},
+	{ USB_VID_CANON, USB_PID_CANON_CP1000, P_CP910, NULL},
+	{ USB_VID_CANON, USB_PID_CANON_CP1200, P_CP910, NULL},
+//	{ USB_VID_CANON, USB_PID_CANON_CP1300, P_CP910, NULL},
+	{ 0, 0, 0, NULL}
 	}
 };
 /*

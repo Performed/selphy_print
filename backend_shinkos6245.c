@@ -1908,9 +1908,9 @@ struct dyesub_backend shinkos6245_backend = {
 	.main_loop = shinkos6245_main_loop,
 	.query_serno = shinkos6245_query_serno,
 	.devices = {
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, ""},
-	{ USB_VID_HITI, USB_PID_HITI_P910L, P_SHINKO_S6245, ""},	
-	{ 0, 0, 0, ""}
+	{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, NULL},
+	{ USB_VID_HITI, USB_PID_HITI_P910L, P_SHINKO_S6245, NULL},	
+	{ 0, 0, 0, NULL}
 	}
 };
 

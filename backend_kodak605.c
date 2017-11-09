@@ -685,7 +685,7 @@ struct dyesub_backend kodak605_backend = {
 	.main_loop = kodak605_main_loop,
 	.devices = {
 	{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak"},
-	{ 0, 0, 0, ""}
+	{ 0, 0, 0, NULL}
 	}
 };
 

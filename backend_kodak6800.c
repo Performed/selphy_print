@@ -1270,7 +1270,7 @@ struct dyesub_backend kodak6800_backend = {
 	.devices = {
 	{ USB_VID_KODAK, USB_PID_KODAK_6800, P_KODAK_6800, "Kodak"},
 	{ USB_VID_KODAK, USB_PID_KODAK_6850, P_KODAK_6850, "Kodak"},
-	{ 0, 0, 0, ""}
+	{ 0, 0, 0, NULL}
 	}
 };
 

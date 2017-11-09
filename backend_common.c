@@ -361,7 +361,7 @@ static char *url_decode(char *str) {
 
 static int print_scan_output(struct libusb_device *device,
 			     struct libusb_device_descriptor *desc,
-			     char *prefix, char *manuf2,
+			     char *prefix, char *manuf_override,
 			     int found,
 			     int scan_only, char *match_serno,
 			     uint8_t *r_iface, uint8_t *r_altset,
@@ -460,8 +460,8 @@ candidate:
 	}
 
 	/* Look up mfg string. */
-	if (manuf2 && strlen(manuf2)) {
-		manuf = url_encode(manuf2);  /* Backend supplied */
+	if (manuf_override && strlen(manuf_override)) {
+		manuf = url_encode(manuf_override);  /* Backend supplied */
 	} else if ((manuf = dict_find("MANUFACTURER", dlen, dict))) {
 		manuf = url_encode(manuf);
 	} else if ((manuf = dict_find("MFG", dlen, dict))) {

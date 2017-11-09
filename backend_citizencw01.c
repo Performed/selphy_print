@@ -868,9 +868,9 @@ struct dyesub_backend cw01_backend = {
 	.main_loop = cw01_main_loop,
 	.query_serno = cw01_query_serno,
 	.devices = {
-	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, ""},
-//	{ USB_VID_CITIZEN, USB_PID_OLMEC_OP900, P_CITIZEN_CW01, ""},
-	{ 0, 0, 0, ""}
+	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, NULL},
+//	{ USB_VID_CITIZEN, USB_PID_OLMEC_OP900, P_CITIZEN_CW01, NULL},
+	{ 0, 0, 0, NULL}
 	}
 };
 

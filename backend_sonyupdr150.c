@@ -286,10 +286,10 @@ struct dyesub_backend updr150_backend = {
 	.read_parse = updr150_read_parse,
 	.main_loop = updr150_main_loop,
 	.devices = {
-	{ USB_VID_SONY, USB_PID_SONY_UPDR150, P_SONY_UPDR150, ""},
-	{ USB_VID_SONY, USB_PID_SONY_UPDR200, P_SONY_UPDR150, ""},
-	{ USB_VID_SONY, USB_PID_SONY_UPCR10, P_SONY_UPCR10, ""},
-	{ 0, 0, 0, ""}
+	{ USB_VID_SONY, USB_PID_SONY_UPDR150, P_SONY_UPDR150, NULL},
+	{ USB_VID_SONY, USB_PID_SONY_UPDR200, P_SONY_UPDR150, NULL},
+	{ USB_VID_SONY, USB_PID_SONY_UPCR10, P_SONY_UPCR10, NULL},
+	{ 0, 0, 0, NULL}
 	}
 };
 

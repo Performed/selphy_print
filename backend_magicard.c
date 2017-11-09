@@ -350,9 +350,9 @@ struct dyesub_backend magicard_backend = {
 	.read_parse = magicard_read_parse,
 	.main_loop = magicard_main_loop,
 	.devices = {
-	{ USB_VID_MAGICARD, USB_PID_MAGICARD_TANGO2E, P_MAGICARD, ""},
-	{ USB_VID_MAGICARD, 0xFFFF, P_MAGICARD, ""},
-	{ 0, 0, 0, ""}
+	{ USB_VID_MAGICARD, USB_PID_MAGICARD_TANGO2E, P_MAGICARD, NULL},
+	{ USB_VID_MAGICARD, 0xFFFF, P_MAGICARD, NULL},
+	{ 0, 0, 0, NULL}
 	}
 };
 
