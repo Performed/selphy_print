@@ -1,12 +1,23 @@
 # Basic stuff
-BACKEND_NAME ?= gutenprint52+usb
 EXEC_NAME ?= dyesub_backend
+#NO_GUTENPRINT = 1
 
 # Destination directories (rely on CUPS to tell us where)
 PREFIX ?=
 CUPS_BACKEND_DIR ?= $(PREFIX)`cups-config --serverbin`/backend
 CUPS_DATA_DIR ?= $(PREFIX)`cups-config --datadir`
 BACKEND_DATA_DIR ?= $(PREFIX)/usr/local/share/gutenprint/backend_data
+
+# Figure out what the backend name needs to be
+ifeq ($(NO_GUTENPRINT),)
+GUTENPRINT_INCLUDE := $(shell pkg-config --variable=includedir gutenprint)/gutenprint
+GUTENPRINT_MAJOR := $(shell grep 'define STP_MAJOR' $(GUTENPRINT_INCLUDE)/gutenprint-version.h | tr -d '()\t' | cut -c33- )
+GUTENPRINT_MINOR := $(shell grep 'define STP_MINOR' $(GUTENPRINT_INCLUDE)/gutenprint-version.h | tr -d '()\t' | cut -c33- )
+BACKEND_NAME ?= gutenprint$(GUTENPRINT_MAJOR)$(GUTENPRINT_MINOR)+usb
+endif
+
+# Fallthrough
+BACKEND_NAME ?= gutenprint5X+usb
 
 # Tools
 CC ?= $(CROSS_COMPILE)gcc
