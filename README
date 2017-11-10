@@ -123,7 +123,8 @@
      Consequently, your distribution package for libusb-1.0 may be 
      called libusbx instead.
 
-     Additionally, you will need the CUPS development packages installed.
+     Additionally, you will need the CUPS development packages installed,
+     so we can figure out how the local CUPS instance is configured.
 
      Fedora/RedHat:
 	yum install libusbx-devel libusb1-devel cups-devel
