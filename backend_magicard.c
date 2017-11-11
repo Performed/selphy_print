@@ -63,6 +63,13 @@ struct magicard_cmd_header {
 	uint8_t footer[2]; /* 0x1c 0x03 */
 };
 
+struct magicard_cmd_simple_header {
+	uint8_t guard[9];  /* 0x05 */
+	uint8_t guard2[1]; /* 0x01 */
+	uint8_t cmd[]; /* '???' */
+//	uint8_t footer[2]; /* 0x1c 0x03 */
+};
+
 struct magicard_resp_header {
 	uint8_t guard[1]; /* 0x01 */
 	uint8_t subcmd_arg[7]; /* '???,???' */
@@ -128,6 +135,22 @@ static int magicard_build_cmd(uint8_t *buf,
 	return sizeof(*hdr);
 }
 
+static int magicard_build_cmd_simple(uint8_t *buf,
+				     char *cmd)
+{
+	struct magicard_cmd_simple_header *hdr = (struct magicard_cmd_simple_header *) buf;
+	int len = strlen(cmd);
+
+	memset(hdr->guard, 0x05, sizeof(hdr->guard));
+	hdr->guard2[0] = 0x01;
+	strncpy((char*)hdr->cmd, cmd, len);
+	hdr->cmd[len] = 0x1c;
+	hdr->cmd[len+1] = 0x03;
+
+	return (sizeof(*hdr) + len + 2);
+}
+
+
 static uint8_t * magicard_parse_resp(uint8_t *buf, uint16_t len, uint16_t *resplen)
 {
 	struct magicard_resp_header *hdr = (struct magicard_resp_header *) buf;
@@ -135,6 +158,40 @@ static uint8_t * magicard_parse_resp(uint8_t *buf, uint16_t len, uint16_t *respl
 	*resplen = len - sizeof(hdr->guard) - sizeof(hdr->subcmd_arg) - 2;
 	
 	return hdr->data;
+}
+
+static int magicard_query_printer(struct magicard_ctx *ctx)
+{
+	int ret = 0;
+	int i;
+	uint8_t buf[256];
+	char buf2[24];
+
+	for (i = 1 ; ; i++) {
+		int num = 0;
+
+		snprintf(buf2, sizeof(buf2), "QPR%d", i);
+		ret = magicard_build_cmd_simple(buf, buf2);
+
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     buf, ret)))
+			return ret;
+
+		memset(buf, 0, sizeof(buf));
+
+		ret = read_data(ctx->dev, ctx->endp_up,
+				buf, sizeof(buf), &num);
+
+		if (ret < 0)
+			return ret;
+
+		if (!memcmp(buf, "END", 3))
+			break;
+
+		buf[num] = 0;
+		INFO("%s\n", buf);
+	}
+	return 0;
 }
 
 static int magicard_query_status(struct magicard_ctx *ctx)
@@ -324,11 +381,14 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "s")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "sq")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 's':
 			j = magicard_query_status(ctx);
+			break;
+		case 'q':
+			j = magicard_query_printer(ctx);
 			break;
 		}
 
@@ -340,7 +400,7 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 
 struct dyesub_backend magicard_backend = {
 	.name = "Magicard family",
-	.version = "0.01WIP",
+	.version = "0.02WIP",
 	.uri_prefix = "magicard",
 	.cmdline_arg = magicard_cmdline_arg,
 	.cmdline_usage = magicard_cmdline,

@@ -798,5 +798,6 @@ Notes:
    Valid commands:
 
      -s                 Query printer status
+     -q                 Generate printer information dump
 
  *************************************************************************** 
