@@ -98,6 +98,8 @@ static char *selphyneo_errors(uint8_t err)
 		return "Paper Feed";
 	case 0x03:
 		return "No Paper";
+	case 0x05:
+		return "Incorrect Paper loaded";
 	case 0x06:
 		return "Ink Cassette Empty";
 	case 0x07:
@@ -106,6 +108,8 @@ static char *selphyneo_errors(uint8_t err)
 		return "No Paper and Ink";
 	case 0x0A:
 		return "Incorrect media for job";
+	case 0x0B:
+		return "Paper jam";
 	default:
 		return "Unknown Error";
 	}
@@ -391,7 +395,7 @@ static void selphyneo_cmdline(void)
 
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CPneo",
-	.version = "0.08",
+	.version = "0.09",
 	.uri_prefix = "canonselphyneo",
 	.cmdline_usage = selphyneo_cmdline,
 	.cmdline_arg = selphyneo_cmdline_arg,
@@ -470,9 +474,11 @@ struct dyesub_backend canonselphyneo_backend = {
    00  None
    02  No Paper (?)
    03  No Paper
+   05  Wrong Paper
    07  No Ink
    09  No Paper and Ink
    0A  Media/Job mismatch
+   0B  Paper Jam
 
  ZZ == Media?
 
