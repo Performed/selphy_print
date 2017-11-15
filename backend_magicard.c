@@ -308,7 +308,75 @@ static void magicard_teardown(void *vctx) {
 	free(ctx);
 }
 
-#define MAX_PRINTJOB_LEN 5218176 + 20*1024  /* 1016*642 * 4color * 2sides */
+static void downscale_and_extract(uint32_t pixels,
+				  uint8_t *y_i, uint8_t *m_i, uint8_t *c_i,
+				  uint8_t *y_o, uint8_t *m_o, uint8_t *c_o, uint8_t *k_o)
+{
+	uint32_t i;
+	uint8_t k_shift;
+
+	for (i = 0 ; i < pixels; i++)
+	{
+		uint8_t y, m, c;
+		uint8_t k = 0;
+
+		/* Downscale color planes from 8bpp -> 6bpp; */
+		y = *y_i++ >> 2;
+		m = *m_i++ >> 2;
+		c = *c_i++ >> 2;
+
+		/* Extract "true black" from ymc data, if enabled */
+		if (k_o && y == 0x3f && m == 0x3f && c == 0x3f) {
+			k = 1;
+			y = m = c = 0;
+		}
+
+		/* pack new YMC data from 8bpp to 6bpp.  4 bytes into 3. */
+		switch (i & 3) {
+		case 0:
+			*y_o = ((y & 0x3f) << 2);
+			*m_o = ((m & 0x3f) << 2);
+			*c_o = ((c & 0x3f) << 2);
+			break;
+		case 1:
+			*y_o++ |= (y >> 4) & 0x3;
+			*m_o++ |= (m >> 4) & 0x3;
+			*c_o++ |= (c >> 4) & 0x3;
+			
+			*y_o = ((y & 0xf) << 4);
+			*m_o = ((m & 0xf) << 4);
+			*c_o = ((c & 0xf) << 4);
+			break;
+		case 2:
+			*y_o++ |= (y >> 2) & 0xf;
+			*m_o++ |= (m >> 2) & 0xf;
+			*c_o++ |= (c >> 2) & 0xf;
+
+			*y_o = ((y & 0x3) << 6);
+			*m_o = ((m & 0x3) << 6);
+			*c_o = ((c & 0x3) << 6);
+			break;
+		case 3:
+			*y_o++ |= (y & 0x3f);
+			*m_o++ |= (m & 0x3f);
+			*c_o++ |= (c & 0x3f);
+			break;
+		}
+		
+		/* And resin black, if enabled */
+		if (k_o) {
+			if (k_shift == 0)
+				*k_o = 0;
+			*k_o |= (k << k_shift++);
+			if (k_shift == 8) {
+				k_shift = 0;
+				k_o++;
+			}
+		}
+	}
+}
+
+#define MAX_PRINTJOB_LEN 5462016 + 20*1024  /* 1016*672 * 4color * 2sides */
 static int magicard_read_parse(void *vctx, int data_fd) {
 	struct magicard_ctx *ctx = vctx;
 	int run = 1;
@@ -330,14 +398,23 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_FAILED;
 	}
 
+	// read 64 * 0x5a bytes into buffer.
+	// read until we hit 0x1c (end of stream) to get full command list.
+	//   parse out SZ[BGRK].
+	
 	while(run) {
 //		int i;
 		// cmd stream is 64 * 0x5a, followed by comma-separated
 		// commands.  end of command list is 0x1c.
 		// then bulk data appended, using lengths specified in
 		// SZB, SZG, SZR, SZK.
-		// at end, 0x1c.
-		// Then one final command: 0x4b, 0x3a, 0x03.  'K:'
+		// at end, 0x1c.		
+		//   look for X-GP-8 "command" and strip it out.
+		//   if set, we have to modify the SZB/G/R to convert 8bpp -> 6bpp.
+		//   look for X-GP-RK, and if present, generate 1bpp K plane!
+		//
+		// Each image data plane ends with with 0x1c [XX] 3a.
+		// Entire stream ends with 0x03.
 	}
 	
 	return CUPS_BACKEND_OK;
