@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <string.h>
 
 #define BACKEND magicard_backend
 
@@ -49,6 +50,9 @@ struct magicard_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 	uint8_t type;
+
+	uint8_t x_gp_8bpp;
+	uint8_t x_gp_rk;
 
 	uint8_t *databuf;
 	int datalen;
@@ -86,7 +90,8 @@ struct magicard_requests {
 enum {
 	TYPE_UNKNOWN = 0,
 	TYPE_STRING,
-	TYPE_STRINGINT,	
+	TYPE_STRINGINT,
+	TYPE_STRINGINT_HEX,
 	TYPE_IPADDR,
 	TYPE_YESNO,
 	TYPE_MODEL,
@@ -101,7 +106,7 @@ static struct magicard_requests magicard_sta_requests[] = {
 	{ "FEP", "Image End", TYPE_STRINGINT },
 	{ "FPP", "Head Position", TYPE_STRINGINT },
 	{ "MDL", "Model", TYPE_MODEL },  /* 0 == Standard.  Others? */
-	{ "PID", "USB PID", TYPE_STRINGINT },
+	{ "PID", "USB PID", TYPE_STRINGINT_HEX }, /* ASCII integer, but needs to be shown as hex */
 	{ "MAC", "Ethernet MAC Address", TYPE_STRING },
 	{ "DYN", "Dynamic Address", TYPE_YESNO }, /* 1 == yes, 0 == no */
 	{ "IPA", "IP Address", TYPE_IPADDR },  /* ASCII signed integer */
@@ -249,6 +254,13 @@ static int magicard_query_status(struct magicard_ctx *ctx)
 			     val == 0? "Standard" : "Unknown");
 			break;
 		}
+		case TYPE_STRINGINT_HEX: {
+			int val = atoi((char*)resp);
+			INFO("%s:\t%X\n",
+			     magicard_sta_requests[i].desc,
+			     val);
+			break;
+		}
 		case TYPE_STRINGINT:
 			// treat differently?
 		case TYPE_STRING:
@@ -313,7 +325,7 @@ static void downscale_and_extract(uint32_t pixels,
 				  uint8_t *y_o, uint8_t *m_o, uint8_t *c_o, uint8_t *k_o)
 {
 	uint32_t i;
-	uint8_t k_shift;
+	uint8_t k_shift = 0;
 
 	for (i = 0 ; i < pixels; i++)
 	{
@@ -376,12 +388,19 @@ static void downscale_and_extract(uint32_t pixels,
 	}
 }
 
-#define MAX_PRINTJOB_LEN 5462016 + 20*1024  /* 1016*672 * 4color * 2sides */
+#define MAX_PRINTJOB_LEN (1016*672*4) + 1024  /* 1016*672 * 4color */
+#define INITIAL_BUF_LEN 1024
 static int magicard_read_parse(void *vctx, int data_fd) {
 	struct magicard_ctx *ctx = vctx;
-	int run = 1;
+	uint8_t initial_buf[INITIAL_BUF_LEN + 1];
+	uint32_t buf_offset = 0;
+	uint8_t *srcbuf;
+	uint32_t srcbuf_offset = 0;
+	int i;
 
-	UNUSED(data_fd);  // XXX
+	uint8_t *in_y, *in_m, *in_c;
+	uint8_t *out_y, *out_m, *out_c, *out_k;
+	uint32_t len_y = 0, len_m = 0, len_c = 0, len_k = 0;
 	
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -390,7 +409,6 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		free(ctx->databuf);
 		ctx->databuf = NULL;
 	}
-
 	ctx->datalen = 0;
 	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
 	if (!ctx->databuf) {
@@ -398,24 +416,169 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_FAILED;
 	}
 
-	// read 64 * 0x5a bytes into buffer.
-	// read until we hit 0x1c (end of stream) to get full command list.
-	//   parse out SZ[BGRK].
-	
-	while(run) {
-//		int i;
-		// cmd stream is 64 * 0x5a, followed by comma-separated
-		// commands.  end of command list is 0x1c.
-		// then bulk data appended, using lengths specified in
-		// SZB, SZG, SZR, SZK.
-		// at end, 0x1c.		
-		//   look for X-GP-8 "command" and strip it out.
-		//   if set, we have to modify the SZB/G/R to convert 8bpp -> 6bpp.
-		//   look for X-GP-RK, and if present, generate 1bpp K plane!
-		//
-		// Each image data plane ends with with 0x1c [XX] 3a.
-		// Entire stream ends with 0x03.
+	srcbuf = malloc(MAX_PRINTJOB_LEN);
+	if (!srcbuf) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_FAILED;
 	}
+
+	/* Read in the first chunk */
+	i = read(data_fd, initial_buf, INITIAL_BUF_LEN);
+	initial_buf[INITIAL_BUF_LEN] = 0;
+	if (i < 0)
+		return i;
+	if (i == 0)
+		return CUPS_BACKEND_OK;  /* Ie no data */
+	if (i < INITIAL_BUF_LEN) {
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if (initial_buf[64] != 0x01 ||
+	    initial_buf[65] != 0x2c) {
+		ERROR("Unrecognized header data format @%d!\n", ctx->datalen);
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* Copy over initial header */
+	memcpy(ctx->databuf + ctx->datalen, initial_buf + buf_offset, 65);
+	ctx->datalen += 65;
+	buf_offset += 65;
+
+	/* Start parsing headers */
+	ctx->x_gp_8bpp = ctx->x_gp_rk = 0;
+	char *ptr;
+	ptr = strtok((char*)initial_buf + ++buf_offset, ",\x1c");
+	while (ptr && *ptr != 0x1a) {
+		if (!strcmp("X-GP-8", ptr)) {
+			ctx->x_gp_8bpp = 1;
+		} else if (!strcmp("X-GP-RK", ptr)) {
+			ctx->x_gp_rk = 1;
+		} else if (!strncmp("SZ", ptr, 2)) {
+			if (ptr[2] == 'B') {
+				len_y = atoi(ptr + 2);
+			} else if (ptr[2] == 'G') {
+				len_m = atoi(ptr + 2);
+			} else if (ptr[2] == 'R') {
+				len_c = atoi(ptr + 2);
+			} else if (ptr[2] == 'K') {
+				len_k = atoi(ptr + 2);
+			}
+		} else {
+			/* Everything else goes in */
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",%s", ptr);
+		}
+
+		/* Keep going */
+		buf_offset += strlen(ptr) + 1;
+		/* Peek ahead to see if this is it */
+		if (initial_buf[buf_offset + 1] == 0x1a)
+			break;
+		/* Otherwise continue to the next token */
+		ptr = strtok(NULL, ptr);
+	}
+
+	/* Sanity checks */
+	if (len_y != len_m || len_y != len_c) {
+		ERROR("Inconsistent data plane lengths! %u/%u/%u!\n", len_y, len_m, len_c);
+		return CUPS_BACKEND_CANCEL;
+	}
+	if (ctx->x_gp_rk && len_k) {
+		ERROR("Data stream already has a K layer!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* Add in corrected SZB/G/R rows */
+	if (ctx->x_gp_8bpp) {
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZB%u", 1016 * 672 * 6 / 8);
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZG%u", 1016 * 672 * 6 / 8);
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZR%u", 1016 * 672 * 6 / 8);
+		/* Add in a SZK length indication if requested */
+		if (ctx->x_gp_rk == 1) {
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", 1016 * 672 / 8);
+		}
+	}
+	
+	/* Terminate command stream */
+	ctx->databuf[ctx->datalen++] = 0x1a;
+	buf_offset++;
+
+	/* Let's figure out what to do next. */
+	uint32_t remain = len_y + len_m + len_c + 3 * 3 + 1;
+	srcbuf_offset = INITIAL_BUF_LEN - buf_offset;
+	if (ctx->x_gp_8bpp) {
+		memcpy(srcbuf, initial_buf + buf_offset, srcbuf_offset);
+		remain -= srcbuf_offset;
+
+		/* Finish loading the data */
+		while (remain > 0) {
+			i = read(data_fd, srcbuf + srcbuf_offset, remain);
+			if (i < 0) {
+				ERROR("Data Read Error: %d (%d) @%d)\n", i, remain, srcbuf_offset);
+				return i;
+			}
+			if (i == 0) {
+				ERROR("Short read! (%d/%d)\n", i, remain);
+				return CUPS_BACKEND_CANCEL;
+			}
+			srcbuf_offset += i;
+			remain -= i;
+		}
+
+		/* set up source pointers */
+		in_y = srcbuf;
+		in_m = in_y + len_y + 3;
+		in_c = in_m + len_m + 3;
+
+		/* Set up destination pointers */
+		out_y = ctx->databuf + buf_offset;
+		out_m = out_y + (len_y * 6 / 8) + 3;
+		out_c = out_m + (len_m * 6 / 8) + 3;
+		out_k = out_c + (len_c * 6 / 8) + 3;
+
+		/* Termination of each plane */
+		memcpy(out_m - 3, in_m - 3, 3);
+		memcpy(out_c - 3, in_c - 3, 3);
+		memcpy(out_k - 3, in_c + len_c - 3, 3);
+
+		if (!ctx->x_gp_rk)
+			out_k = NULL;
+		downscale_and_extract(len_y, in_y, in_m, in_c,
+				      out_y, out_m, out_c, out_k);
+
+		/* Terminate the K plane */
+		if (out_k) {
+			ctx->databuf[ctx->datalen++] = 0x1c;
+			ctx->databuf[ctx->datalen++] = 0x4b;
+			ctx->databuf[ctx->datalen++] = 0x3a;
+		}
+
+		/* Terminate the entire stream */
+		ctx->databuf[ctx->datalen++] = 0x03;
+	} else {
+		/* We can use the original stream as-is.  Let's just dump it over. */
+		memcpy(ctx->databuf, initial_buf, buf_offset);
+		ctx->datalen = buf_offset;
+		memcpy(ctx->databuf + ctx->datalen, initial_buf + buf_offset, srcbuf_offset);
+		remain -= srcbuf_offset;
+
+		/* Finish loading the data */
+		while (remain > 0) {
+			i = read(data_fd, ctx->databuf + ctx->datalen, remain);
+			if (i < 0) {
+				ERROR("Data Read Error: %d (%d) @%d)\n", i, remain, ctx->datalen);
+				return i;
+			}
+			if (i == 0) {
+				ERROR("Short read! (%d/%d)\n", i, remain);
+				return CUPS_BACKEND_CANCEL;
+			}
+			ctx->datalen += i;
+			remain -= i;
+		}
+	}
+
+	/* Clean up */
+	free(srcbuf);
 	
 	return CUPS_BACKEND_OK;
 }
@@ -477,7 +640,7 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 
 struct dyesub_backend magicard_backend = {
 	.name = "Magicard family",
-	.version = "0.02WIP",
+	.version = "0.03WIP",
 	.uri_prefix = "magicard",
 	.cmdline_arg = magicard_cmdline_arg,
 	.cmdline_usage = magicard_cmdline,
