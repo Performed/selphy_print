@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -451,6 +452,8 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	while (ptr && *ptr != 0x1a) {
 		if (!strcmp("X-GP-8", ptr)) {
 			ctx->x_gp_8bpp = 1;
+		} else if (!strncmp("TDT", ptr, 3)) {
+			/* Strip out the timestamp, replace it with one from the backend */
 		} else if (!strcmp("X-GP-RK", ptr)) {
 			ctx->x_gp_rk = 1;
 		} else if (!strncmp("SZ", ptr, 2)) {
@@ -478,6 +481,10 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	}
 
 	/* Sanity checks */
+	if (!len_y || !len_m || !len_c) {
+		ERROR("Plane lengths missing? %u/%u/%u!\n", len_y, len_m, len_c);
+		return CUPS_BACKEND_CANCEL;
+	}
 	if (len_y != len_m || len_y != len_c) {
 		ERROR("Inconsistent data plane lengths! %u/%u/%u!\n", len_y, len_m, len_c);
 		return CUPS_BACKEND_CANCEL;
@@ -489,6 +496,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 
 	/* Add in corrected SZB/G/R rows */
 	if (ctx->x_gp_8bpp) {
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",TDT%08X", (uint32_t) time(NULL));
 		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZB%u", 1016 * 672 * 6 / 8);
 		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZG%u", 1016 * 672 * 6 / 8);
 		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZR%u", 1016 * 672 * 6 / 8);
