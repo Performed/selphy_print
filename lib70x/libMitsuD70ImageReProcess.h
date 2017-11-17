@@ -44,6 +44,8 @@
 
           [http://www.gnu.org/licenses/gpl-3.0.html]
 
+   SPDX-License-Identifier: GPL-3.0+
+
 */
 
 #ifndef __MITSU_D70_H

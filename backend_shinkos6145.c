@@ -33,6 +33,8 @@
  *   You must still adhere to all other terms of the license to this program
  *   (ie GPLv3) and the license of the libS6145ImageProcess library.
  *
+ *   SPDX-License-Identifier: GPL-3.0+ with special exception
+ *
  */
 
 #include <stdio.h>

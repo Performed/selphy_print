@@ -1,7 +1,7 @@
 /*
  *   Canon SELPHY CPneo series CUPS backend -- libusb-1.0 version
  *
- *   (c) 2016 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2016-2017 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *
@@ -22,6 +22,8 @@
  *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  *          [http://www.gnu.org/licenses/gpl-3.0.html]
+ *
+ *   SPDX-License-Identifier: GPL-3.0+
  *
  */
 

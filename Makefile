@@ -1,3 +1,8 @@
+### Makefile for selphy_print and family
+#
+#  SPDX-License-Identifier: GPL-3.0+
+#
+
 # Basic stuff
 EXEC_NAME ?= dyesub_backend
 #NO_GUTENPRINT = 1
