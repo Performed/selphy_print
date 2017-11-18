@@ -56,6 +56,7 @@ struct magicard_ctx {
 
 	uint8_t x_gp_8bpp;
 	uint8_t x_gp_rk;
+	uint8_t k_only;
 
 	uint8_t *databuf;
 	int datalen;
@@ -448,7 +449,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	buf_offset += 65;
 
 	/* Start parsing headers */
-	ctx->x_gp_8bpp = ctx->x_gp_rk = 0;
+	ctx->x_gp_8bpp = ctx->x_gp_rk = ctx->k_only = 0;
 	char *ptr;
 	ptr = strtok((char*)initial_buf + ++buf_offset, ",\x1c");
 	while (ptr && *ptr != 0x1a) {
@@ -456,6 +457,8 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 			ctx->x_gp_8bpp = 1;
 		} else if (!strncmp("TDT", ptr, 3)) {
 			/* Strip out the timestamp, replace it with one from the backend */
+		} else if (!strncmp("IMF", ptr,3)) {
+			/* Strip out the image format, replace it with backend */
 		} else if (!strcmp("X-GP-RK", ptr)) {
 			ctx->x_gp_rk = 1;
 		} else if (!strncmp("SZ", ptr, 2)) {
@@ -499,12 +502,27 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	/* Add in corrected SZB/G/R rows */
 	if (ctx->x_gp_8bpp) {
 		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",TDT%08X", (uint32_t) time(NULL));
-		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZB%u", 1016 * 672 * 6 / 8);
-		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZG%u", 1016 * 672 * 6 / 8);
-		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZR%u", 1016 * 672 * 6 / 8);
-		/* Add in a SZK length indication if requested */
-		if (ctx->x_gp_rk == 1) {
+
+		if (ctx->k_only == 1) {
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFK");
+		} else if (ctx->x_gp_rk == 1) {
+			/* We're adding K, so make this BGRK */
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFBGRK");
+		} else {
+			/* Just BGR */
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFBGR");
+		}
+
+		if (ctx->k_only == 1) {
 			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", 1016 * 672 / 8);
+		} else {
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZB%u", 1016 * 672 * 6 / 8);
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZG%u", 1016 * 672 * 6 / 8);
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZR%u", 1016 * 672 * 6 / 8);
+			/* Add in a SZK length indication if requested */
+			if (ctx->x_gp_rk == 1) {
+				ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", 1016 * 672 / 8);
+			}
 		}
 	}
 	
@@ -513,7 +531,16 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	buf_offset++;
 
 	/* Let's figure out what to do next. */
-	uint32_t remain = len_y + len_m + len_c + 3 * 3 + 1;
+	uint32_t remain;
+
+	if (ctx->k_only) {
+		remain = len_k + 3 + 1;
+	} else {
+		remain = len_y + len_m + len_c + 3 * 3 + 1;
+		if (len_k)
+			remain += len_k + 3;
+	}
+
 	srcbuf_offset = INITIAL_BUF_LEN - buf_offset;
 	if (ctx->x_gp_8bpp) {
 		memcpy(srcbuf, initial_buf + buf_offset, srcbuf_offset);
@@ -533,6 +560,8 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 			srcbuf_offset += i;
 			remain -= i;
 		}
+
+	// XXX handle conversion of K-only jobs.  if needed.
 
 		/* set up source pointers */
 		in_y = srcbuf;
