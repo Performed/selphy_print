@@ -428,6 +428,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 
 	/* Read in the first chunk */
 	i = read(data_fd, initial_buf, INITIAL_BUF_LEN);
+
 	initial_buf[INITIAL_BUF_LEN] = 0;
 	if (i < 0)
 		return i;
@@ -452,7 +453,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	ctx->x_gp_8bpp = ctx->x_gp_rk = ctx->k_only = 0;
 	char *ptr;
 	ptr = strtok((char*)initial_buf + ++buf_offset, ",\x1c");
-	while (ptr && *ptr != 0x1a) {
+	while (ptr && *ptr != 0x1c) {
 		if (!strcmp("X-GP-8", ptr)) {
 			ctx->x_gp_8bpp = 1;
 		} else if (!strncmp("TDT", ptr, 3)) {
@@ -463,13 +464,13 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 			ctx->x_gp_rk = 1;
 		} else if (!strncmp("SZ", ptr, 2)) {
 			if (ptr[2] == 'B') {
-				len_y = atoi(ptr + 2);
+				len_y = atoi(ptr + 3);
 			} else if (ptr[2] == 'G') {
-				len_m = atoi(ptr + 2);
+				len_m = atoi(ptr + 3);
 			} else if (ptr[2] == 'R') {
-				len_c = atoi(ptr + 2);
+				len_c = atoi(ptr + 3);
 			} else if (ptr[2] == 'K') {
-				len_k = atoi(ptr + 2);
+				len_k = atoi(ptr + 3);
 			}
 		} else {
 			/* Everything else goes in */
@@ -479,10 +480,10 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		/* Keep going */
 		buf_offset += strlen(ptr) + 1;
 		/* Peek ahead to see if this is it */
-		if (initial_buf[buf_offset + 1] == 0x1a)
+		if (initial_buf[buf_offset + 1] == 0x1c)
 			break;
 		/* Otherwise continue to the next token */
-		ptr = strtok(NULL, ptr);
+		ptr = strtok(NULL, ",\x1c");
 	}
 
 	/* Sanity checks */
@@ -528,20 +529,21 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	
 	/* Terminate command stream */
 	ctx->databuf[ctx->datalen++] = 0x1a;
-	buf_offset++;
 
-	/* Let's figure out what to do next. */
+	/* Let's figure out how long we expect the payload to be. */
 	uint32_t remain;
-
 	if (ctx->k_only) {
-		remain = len_k + 3 + 1;
+		remain = len_k + 3;
 	} else {
-		remain = len_y + len_m + len_c + 3 * 3 + 1;
+		remain = len_y + len_m + len_c + 3 * 3;
 		if (len_k)
 			remain += len_k + 3;
 	}
+	remain++;  /* Add in a byte for the end of job marker. */
 
+	/* This is how much of the initial buffer is the image data */
 	srcbuf_offset = INITIAL_BUF_LEN - buf_offset;
+
 	if (ctx->x_gp_8bpp) {
 		memcpy(srcbuf, initial_buf + buf_offset, srcbuf_offset);
 		remain -= srcbuf_offset;
@@ -595,14 +597,14 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		ctx->databuf[ctx->datalen++] = 0x03;
 	} else {
 		/* We can use the original stream as-is.  Let's just dump it over. */
-		memcpy(ctx->databuf, initial_buf, buf_offset);
-		ctx->datalen = buf_offset;
-		memcpy(ctx->databuf + ctx->datalen, initial_buf + buf_offset, srcbuf_offset);
-		remain -= srcbuf_offset;
+		memcpy(ctx->databuf, initial_buf, INITIAL_BUF_LEN);
+		ctx->datalen = INITIAL_BUF_LEN;
+		remain -= srcbuf_offset; /* ie the data after the headers */
 
 		/* Finish loading the data */
 		while (remain > 0) {
 			i = read(data_fd, ctx->databuf + ctx->datalen, remain);
+
 			if (i < 0) {
 				ERROR("Data Read Error: %d (%d) @%d)\n", i, remain, ctx->datalen);
 				return i;
@@ -618,7 +620,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 
 	/* Clean up */
 	free(srcbuf);
-	
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -633,7 +635,7 @@ top:
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     ctx->databuf, ctx->datalen)))
 		return CUPS_BACKEND_FAILED;
-	
+
 	/* Clean up */
 	if (terminate)
 		copies = 1;
