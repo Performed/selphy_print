@@ -60,6 +60,8 @@ struct magicard_ctx {
 
 	uint8_t *databuf;
 	int datalen;
+
+	int hdr_len;
 };
 
 struct magicard_cmd_header {
@@ -398,8 +400,6 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	struct magicard_ctx *ctx = vctx;
 	uint8_t initial_buf[INITIAL_BUF_LEN + 1];
 	uint32_t buf_offset = 0;
-	uint8_t *srcbuf;
-	uint32_t srcbuf_offset = 0;
 	int i;
 
 	uint8_t *in_y, *in_m, *in_c;
@@ -409,6 +409,27 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
+	/* Read in the first chunk */
+	i = read(data_fd, initial_buf, INITIAL_BUF_LEN);
+	if (i < 0)
+		return i;
+	if (i == 0)
+		return CUPS_BACKEND_OK;  /* Ie no data */
+	if (i < INITIAL_BUF_LEN) {
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* Basic Sanity Check */
+	if (initial_buf[0] != 0x05 ||
+	    initial_buf[64] != 0x01 ||
+	    initial_buf[65] != 0x2c) {
+		ERROR("Unrecognized header data format @%d!\n", ctx->datalen);
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	initial_buf[INITIAL_BUF_LEN] = 0;
+
+	/* We can start allocating! */
 	if (ctx->databuf) {
 		free(ctx->databuf);
 		ctx->databuf = NULL;
@@ -420,37 +441,14 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_FAILED;
 	}
 
-	srcbuf = malloc(MAX_PRINTJOB_LEN);
-	if (!srcbuf) {
-		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_FAILED;
-	}
-
-	/* Read in the first chunk */
-	i = read(data_fd, initial_buf, INITIAL_BUF_LEN);
-
-	initial_buf[INITIAL_BUF_LEN] = 0;
-	if (i < 0)
-		return i;
-	if (i == 0)
-		return CUPS_BACKEND_OK;  /* Ie no data */
-	if (i < INITIAL_BUF_LEN) {
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (initial_buf[64] != 0x01 ||
-	    initial_buf[65] != 0x2c) {
-		ERROR("Unrecognized header data format @%d!\n", ctx->datalen);
-		return CUPS_BACKEND_CANCEL;
-	}
-
 	/* Copy over initial header */
 	memcpy(ctx->databuf + ctx->datalen, initial_buf + buf_offset, 65);
 	ctx->datalen += 65;
 	buf_offset += 65;
 
 	/* Start parsing headers */
-	ctx->x_gp_8bpp = ctx->x_gp_rk = ctx->k_only = 0;
+	ctx->x_gp_8bpp = ctx->x_gp_rk = ctx->k_only = ctx->hdr_len = 0;
+
 	char *ptr;
 	ptr = strtok((char*)initial_buf + ++buf_offset, ",\x1c");
 	while (ptr && *ptr != 0x1c) {
@@ -460,6 +458,8 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 			/* Strip out the timestamp, replace it with one from the backend */
 		} else if (!strncmp("IMF", ptr,3)) {
 			/* Strip out the image format, replace it with backend */
+//		} else if (!strncmp("ESS", ptr, 3)) {
+//			/* Strip out copies */
 		} else if (!strcmp("X-GP-RK", ptr)) {
 			ctx->x_gp_rk = 1;
 		} else if (!strncmp("SZ", ptr, 2)) {
@@ -500,20 +500,22 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	/* Add in corrected SZB/G/R rows */
+	/* Generate a timestamp */
+	ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",TDT%08X", (uint32_t) time(NULL));
+
+	/* Generate image format tag */
+	if (ctx->k_only == 1) {
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFK");
+	} else if (ctx->x_gp_rk || len_k) {
+		/* We're adding K, so make this BGRK */
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFBGRK");
+	} else {
+		/* Just BGR */
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFBGR");
+	}
+
+	/* Insert SZB/G/R/K length descriptors */
 	if (ctx->x_gp_8bpp) {
-		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",TDT%08X", (uint32_t) time(NULL));
-
-		if (ctx->k_only == 1) {
-			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFK");
-		} else if (ctx->x_gp_rk == 1) {
-			/* We're adding K, so make this BGRK */
-			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFBGRK");
-		} else {
-			/* Just BGR */
-			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",IMFBGR");
-		}
-
 		if (ctx->k_only == 1) {
 			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", 1016 * 672 / 8);
 		} else {
@@ -525,12 +527,20 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 				ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", 1016 * 672 / 8);
 			}
 		}
+	} else {
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZB%u", len_y);
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZG%u", len_m);
+		ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZR%u", len_c);
+		/* Add in a SZK length indication if requested */
+		if (len_k) {
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", len_k);
+		}
 	}
 	
 	/* Terminate command stream */
-	ctx->databuf[ctx->datalen++] = 0x1a;
+	ctx->databuf[ctx->datalen++] = 0x1c;
 
-	/* Let's figure out how long we expect the payload to be. */
+	/* Let's figure out how long the image data stream is supposed to be. */
 	uint32_t remain;
 	if (ctx->k_only) {
 		remain = len_k + 3;
@@ -539,14 +549,22 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		if (len_k)
 			remain += len_k + 3;
 	}
-	remain++;  /* Add in a byte for the end of job marker. */
+	/* Offset the stuff we already read in. */
+	remain -= INITIAL_BUF_LEN - buf_offset;
+	remain++;  /* Add in a byte for the end of job marker. This is our final value. */
 
-	/* This is how much of the initial buffer is the image data */
-	srcbuf_offset = INITIAL_BUF_LEN - buf_offset;
+	/* This is how much of the initial buffer is the header length. */
+	ctx->hdr_len = ctx->datalen;
 
 	if (ctx->x_gp_8bpp) {
+		uint32_t srcbuf_offset = INITIAL_BUF_LEN - buf_offset;
+		uint8_t *srcbuf = malloc(MAX_PRINTJOB_LEN);
+		if (!srcbuf) {
+			ERROR("Memory allocation failure!\n");
+			return CUPS_BACKEND_FAILED;
+		}
+
 		memcpy(srcbuf, initial_buf + buf_offset, srcbuf_offset);
-		remain -= srcbuf_offset;
 
 		/* Finish loading the data */
 		while (remain > 0) {
@@ -563,7 +581,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 			remain -= i;
 		}
 
-	// XXX handle conversion of K-only jobs.  if needed.
+		// XXX handle conversion of K-only jobs.  if needed.
 
 		/* set up source pointers */
 		in_y = srcbuf;
@@ -577,14 +595,18 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		out_k = out_c + (len_c * 6 / 8) + 3;
 
 		/* Termination of each plane */
-		memcpy(out_m - 3, in_m - 3, 3);
-		memcpy(out_c - 3, in_c - 3, 3);
-		memcpy(out_k - 3, in_c + len_c - 3, 3);
+		memcpy(out_m - 3, in_y + len_y, 3);
+		memcpy(out_c - 3, in_m + len_m, 3);
+		memcpy(out_k - 3, in_c + len_c, 3);
 
 		if (!ctx->x_gp_rk)
 			out_k = NULL;
+
 		downscale_and_extract(len_y, in_y, in_m, in_c,
 				      out_y, out_m, out_c, out_k);
+
+		/* Pad out the length appropriately. */
+		ctx->datalen += ((len_c * 6 / 8) * 3) + (len_c / 8) + 4 * 3;
 
 		/* Terminate the K plane */
 		if (out_k) {
@@ -595,16 +617,16 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 
 		/* Terminate the entire stream */
 		ctx->databuf[ctx->datalen++] = 0x03;
+
+		free(srcbuf);
 	} else {
-		/* We can use the original stream as-is.  Let's just dump it over. */
-		memcpy(ctx->databuf, initial_buf, INITIAL_BUF_LEN);
-		ctx->datalen = INITIAL_BUF_LEN;
-		remain -= srcbuf_offset; /* ie the data after the headers */
+		uint32_t srcbuf_offset = INITIAL_BUF_LEN - buf_offset;
+		memcpy(ctx->databuf + ctx->datalen, initial_buf + buf_offset, srcbuf_offset);
+		ctx->datalen += srcbuf_offset;
 
 		/* Finish loading the data */
 		while (remain > 0) {
 			i = read(data_fd, ctx->databuf + ctx->datalen, remain);
-
 			if (i < 0) {
 				ERROR("Data Read Error: %d (%d) @%d)\n", i, remain, ctx->datalen);
 				return i;
@@ -618,9 +640,6 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		}
 	}
 
-	/* Clean up */
-	free(srcbuf);
-
 	return CUPS_BACKEND_OK;
 }
 
@@ -628,12 +647,18 @@ static int magicard_main_loop(void *vctx, int copies) {
 	struct magicard_ctx *ctx = vctx;
 	int ret;
 
+	// XXX printer handles copy generation..
+	// but it's a numeric parameter.  Bleh.
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
 top:
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     ctx->databuf, ctx->datalen)))
+			     ctx->databuf, ctx->hdr_len)))
+		return CUPS_BACKEND_FAILED;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     ctx->databuf + ctx->hdr_len, ctx->datalen - ctx->hdr_len)))
 		return CUPS_BACKEND_FAILED;
 
 	/* Clean up */
@@ -652,6 +677,7 @@ top:
 static void magicard_cmdline(void)
 {
 	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -q ]           # Query information\n");
 }
 
 static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
