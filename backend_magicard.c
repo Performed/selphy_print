@@ -385,7 +385,7 @@ static void downscale_and_extract(uint32_t pixels,
 		if (k_o) {
 			if (k_shift == 0)
 				*k_o = 0;
-			*k_o |= (k << k_shift++);
+			*k_o |= (k << (7 - k_shift++));
 			if (k_shift == 8) {
 				k_shift = 0;
 				k_o++;
@@ -414,7 +414,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	if (i < 0)
 		return i;
 	if (i == 0)
-		return CUPS_BACKEND_OK;  /* Ie no data */
+		return CUPS_BACKEND_CANCEL;  /* Ie no data, we're done */
 	if (i < INITIAL_BUF_LEN) {
 		return CUPS_BACKEND_CANCEL;
 	}
@@ -517,14 +517,14 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	/* Insert SZB/G/R/K length descriptors */
 	if (ctx->x_gp_8bpp) {
 		if (ctx->k_only == 1) {
-			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", 1016 * 672 / 8);
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", len_c / 8);
 		} else {
-			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZB%u", 1016 * 672 * 6 / 8);
-			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZG%u", 1016 * 672 * 6 / 8);
-			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZR%u", 1016 * 672 * 6 / 8);
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZB%u", len_y * 6 / 8);
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZG%u", len_m * 6 / 8);
+			ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZR%u", len_c * 6 / 8);
 			/* Add in a SZK length indication if requested */
 			if (ctx->x_gp_rk == 1) {
-				ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", 1016 * 672 / 8);
+				ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen, ",SZK%u", len_c / 8);
 			}
 		}
 	} else {
@@ -589,7 +589,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		in_c = in_m + len_m + 3;
 
 		/* Set up destination pointers */
-		out_y = ctx->databuf + buf_offset;
+		out_y = ctx->databuf + ctx->datalen;
 		out_m = out_y + (len_y * 6 / 8) + 3;
 		out_c = out_m + (len_m * 6 / 8) + 3;
 		out_k = out_c + (len_c * 6 / 8) + 3;
@@ -602,11 +602,13 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		if (!ctx->x_gp_rk)
 			out_k = NULL;
 
+		INFO("Converting image data to printer's native format %s\n", ctx->x_gp_rk ? "and extracting K channel" : "");
+
 		downscale_and_extract(len_y, in_y, in_m, in_c,
 				      out_y, out_m, out_c, out_k);
 
 		/* Pad out the length appropriately. */
-		ctx->datalen += ((len_c * 6 / 8) * 3) + (len_c / 8) + 4 * 3;
+		ctx->datalen += ((len_c * 6 / 8) * 3) + (len_c / 8) + 3 * 3;
 
 		/* Terminate the K plane */
 		if (out_k) {
