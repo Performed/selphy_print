@@ -52,6 +52,7 @@
    Mitsubishi P95DW
    Mitsubishi P93DW
    Fujifilm ASK-300
+   Magicard Tango 2E
 
   Work-in-progress Printers:
 
@@ -72,7 +73,7 @@
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-CR10L (aka DNP DS-SL10)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)   
-   Magicard Tango 2E (and other Magicard models)
+   Magicard Rio 2E (and other Magicard models)
 
  ***************************************************************************
 
@@ -788,9 +789,13 @@ Notes:
  *************************************************************************** 
   BACKEND=magicard
 
-   Work-in-progress printers:
+   Verified supported printers:
 
     Tango 2E
+
+   Work-in-progress printers:
+
+    Rio 2E
     (And all others)
 
    This backend supports additional commands:

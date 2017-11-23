@@ -331,7 +331,6 @@ static void downscale_and_extract(uint32_t pixels,
 				  uint8_t *y_o, uint8_t *m_o, uint8_t *c_o, uint8_t *k_o)
 {
 	uint32_t i;
-	uint8_t k_shift = 0;
 
 	for (i = 0 ; i < pixels; i++)
 	{
@@ -341,6 +340,7 @@ static void downscale_and_extract(uint32_t pixels,
 		uint32_t row;
 		uint32_t col;
 		uint32_t b_offset;
+		uint8_t b_shift;
 
 		/* Downscale color planes from 8bpp -> 6bpp; */
 		y = *y_i++ >> 2;
@@ -356,32 +356,32 @@ static void downscale_and_extract(uint32_t pixels,
 		/* Compute row number and offsets */
 		row = i / 672;
 		col = i - (row * 672);
-		b_offset = (col * 6) / 8;
-		k_shift = (col * 6) % 8;
+		b_offset = col / 8;
+		b_shift = 7 - (col - (b_offset * 8));
 
 		/* Now, for each row, break it down into sub-chunks */
 		for (j = 0 ; j < 6 ; j++) {
-			if (k_shift == 0) {
+			if (b_shift == 7) {
 				y_o[row * 504 + j * 84 + b_offset] = 0;
 				m_o[row * 504 + j * 84 + b_offset] = 0;
 				c_o[row * 504 + j * 84 + b_offset] = 0;
 			}
 			if (y & (1 << j))
-				y_o[row * 504 + j * 84 + b_offset] |= (1 << k_shift);
+				y_o[row * 504 + j * 84 + b_offset] |= (1 << b_shift);
 			if (m & (1 << j))
-				m_o[row * 504 + j * 84 + b_offset] |= (1 << k_shift);
+				m_o[row * 504 + j * 84 + b_offset] |= (1 << b_shift);
 			if (c & (1 << j))
-				c_o[row * 504 + j * 84 + b_offset] |= (1 << k_shift);
+				c_o[row * 504 + j * 84 + b_offset] |= (1 << b_shift);
 
 		}
 
 		/* And resin black, if enabled */
 		if (k_o) {
-			if (k_shift == 0) {
-				k_o[row * 504 + b_offset] = 0;
+			if (b_shift == 7) {
+				k_o[row * 84 + b_offset] = 0;
 			}
 			if (k)
-				k_o[row * 504 + b_offset] |= (1 << k_shift);
+				k_o[row * 84 + b_offset] |= (1 << b_shift);
 		}
 	}
 }
@@ -701,7 +701,7 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 
 struct dyesub_backend magicard_backend = {
 	.name = "Magicard family",
-	.version = "0.03WIP",
+	.version = "0.04",
 	.uri_prefix = "magicard",
 	.cmdline_arg = magicard_cmdline_arg,
 	.cmdline_usage = magicard_cmdline,
@@ -718,5 +718,30 @@ struct dyesub_backend magicard_backend = {
 };
 
 /* Magicard family Spool file format
+
+  This one was rather fun to figure out.
+
+  * Job starts with a sequence of 64 '0x05'
+  * Command sequence starts with 0x01
+  * Commands are textual and comma-separated.
+    * Most are passed through ignored, except for:
+      * SZB, SZG, SZR, SZK  -- indicate length of respective data plane
+      * IMF -- Image format (BGR/BGRK/K)
+      * X-GP-8 -- Tells backend to convert from Gutenprint's 8bpp data
+      * X-GP-RK -- Tells backend to extract K channel from color data
+  * Command sequence ends with 0x1c
+  * Image plane data follows, in the order of the SZ# entries
+    * Plane lengths are specified by the SZ# entry.
+    * Color planes are actually Y/M/C rather than B/G/R!
+    * Each plane terminates with 0x1c __ 0x3a, where __ is 0x42, 0x47, 0x52,
+      and 0x4b for B/G/R/K respectively.  Terminator is _not_ part of length.
+    * Image data is 6bpp for B/G/R and 1bpp for K, 672*1016 pixels
+      * Organized in a series of 84-byte rows.  
+      * Byte data is LSB first.
+      * Each row is a single stripe of a single bit of a pixel, so
+        color data is b0b0b0b0.. b1b1b1b1.. .. b5b5b5b5.
+  * Job ends with 0x03
+
+
 
 */
