@@ -337,6 +337,10 @@ static void downscale_and_extract(uint32_t pixels,
 	{
 		uint8_t y, m, c;
 		uint8_t k = 0;
+		uint32_t j;
+		uint32_t row;
+		uint32_t col;
+		uint32_t b_offset;
 
 		/* Downscale color planes from 8bpp -> 6bpp; */
 		y = *y_i++ >> 2;
@@ -349,47 +353,35 @@ static void downscale_and_extract(uint32_t pixels,
 			y = m = c = 0;
 		}
 
-		/* pack new YMC data from 8bpp to 6bpp.  4 bytes into 3. */
-		switch (i & 3) {
-		case 0:
-			*y_o = ((y & 0x3f) << 2);
-			*m_o = ((m & 0x3f) << 2);
-			*c_o = ((c & 0x3f) << 2);
-			break;
-		case 1:
-			*y_o++ |= (y >> 4) & 0x3;
-			*m_o++ |= (m >> 4) & 0x3;
-			*c_o++ |= (c >> 4) & 0x3;
-			
-			*y_o = ((y & 0xf) << 4);
-			*m_o = ((m & 0xf) << 4);
-			*c_o = ((c & 0xf) << 4);
-			break;
-		case 2:
-			*y_o++ |= (y >> 2) & 0xf;
-			*m_o++ |= (m >> 2) & 0xf;
-			*c_o++ |= (c >> 2) & 0xf;
+		/* Compute row number and offsets */
+		row = i / 672;
+		col = i - (row * 672);
+		b_offset = (col * 6) / 8;
+		k_shift = (col * 6) % 8;
 
-			*y_o = ((y & 0x3) << 6);
-			*m_o = ((m & 0x3) << 6);
-			*c_o = ((c & 0x3) << 6);
-			break;
-		case 3:
-			*y_o++ |= (y & 0x3f);
-			*m_o++ |= (m & 0x3f);
-			*c_o++ |= (c & 0x3f);
-			break;
+		/* Now, for each row, break it down into sub-chunks */
+		for (j = 0 ; j < 6 ; j++) {
+			if (k_shift == 0) {
+				y_o[row * 504 + j * 84 + b_offset] = 0;
+				m_o[row * 504 + j * 84 + b_offset] = 0;
+				c_o[row * 504 + j * 84 + b_offset] = 0;
+			}
+			if (y & (1 << j))
+				y_o[row * 504 + j * 84 + b_offset] |= (1 << k_shift);
+			if (m & (1 << j))
+				m_o[row * 504 + j * 84 + b_offset] |= (1 << k_shift);
+			if (c & (1 << j))
+				c_o[row * 504 + j * 84 + b_offset] |= (1 << k_shift);
+
 		}
-		
+
 		/* And resin black, if enabled */
 		if (k_o) {
-			if (k_shift == 0)
-				*k_o = 0;
-			*k_o |= (k << (7 - k_shift++));
-			if (k_shift == 8) {
-				k_shift = 0;
-				k_o++;
+			if (k_shift == 0) {
+				k_o[row * 504 + b_offset] = 0;
 			}
+			if (k)
+				k_o[row * 504 + b_offset] |= (1 << k_shift);
 		}
 	}
 }
