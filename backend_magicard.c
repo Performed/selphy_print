@@ -634,10 +634,11 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 				      out_y, out_m, out_c, out_k);
 
 		/* Pad out the length appropriately. */
-		ctx->datalen += ((len_c * 6 / 8) * 3) + (len_c / 8) + 3 * 3;
+		ctx->datalen += ((len_c * 6 / 8) + 3) * 3;
 
-		/* Terminate the K plane */
+		/* If there's a K plane, compute length.. */
 		if (out_k) {
+			ctx->datalen += (len_c / 8);
 			ctx->databuf[ctx->datalen++] = 0x1c;
 			ctx->databuf[ctx->datalen++] = 0x4b;
 			ctx->databuf[ctx->datalen++] = 0x3a;
@@ -738,7 +739,7 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 
 struct dyesub_backend magicard_backend = {
 	.name = "Magicard family",
-	.version = "0.05",
+	.version = "0.06",
 	.uri_prefix = "magicard",
 	.cmdline_arg = magicard_cmdline_arg,
 	.cmdline_usage = magicard_cmdline,
