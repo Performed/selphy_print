@@ -385,6 +385,8 @@ struct mitsu70x_hdr {
 	uint8_t  pad[447];
 } __attribute__((packed));
 
+static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_printerstatus_resp *resp);
+
 /* Error dumps, etc */
 
 static char *mitsu70x_mechastatus(uint8_t *sts)
@@ -759,6 +761,22 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 #else
 	WARNING("Dynamic library support not enabled, using internal fallback code\n");
 #endif
+
+	struct mitsu70x_printerstatus_resp resp;
+	int ret;
+
+	ret = mitsu70x_get_printerstatus(ctx, &resp);
+	if (ret) {
+		ERROR("Unable to get printer status! (%d)\n", ret);
+		return;
+	}
+
+	if (ctx->type == P_MITSU_D70X &&
+	    resp.upper.mecha_status[0] != MECHA_STATUS_INIT &&
+		resp.upper.capacity != 0xffff)
+		ctx->num_decks = 2;
+	else
+		ctx->num_decks = 1;
 }
 
 static void mitsu70x_teardown(void *vctx) {
@@ -1412,6 +1430,7 @@ static int mitsu70x_main_loop(void *vctx, int copies)
 	struct mitsu70x_printerstatus_resp resp;
 	struct mitsu70x_hdr *hdr;
 	uint8_t last_status[4] = {0xff, 0xff, 0xff, 0xff};
+	int statusdump = 0;
 
 	int ret;
 
@@ -1457,21 +1476,16 @@ top:
 		return CUPS_BACKEND_STOP;
 	}
 
-	if (ctx->num_decks)
+	if (statusdump)
 		goto skip_status;
+	statusdump = 1;
 
 	/* Tell CUPS about the consumables we report */
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	if (resp.upper.mecha_status[0] != MECHA_STATUS_INIT)
-		ctx->num_decks = 2;
-	else
-		ctx->num_decks = 1;
-
-	if (ctx->type == P_MITSU_D70X &&
-	    ctx->num_decks == 2) {
+	if (ctx->num_decks == 2) {
 		ATTR("marker-colors=#00FFFF#FF00FF#FFFF00,#00FFFF#FF00FF#FFFF00\n");
 		ATTR("marker-high-levels=100,100\n");
 		ATTR("marker-low-levels=10,10\n");
@@ -1618,8 +1632,7 @@ skip_status:
 
 		donor_l = be16_to_cpu(resp.lower.remain) * 100 / be16_to_cpu(resp.lower.capacity);
 
-		if (ctx->type == P_MITSU_D70X &&
-		    ctx->num_decks == 2) {
+		if (ctx->num_decks == 2) {
 			donor_u = be16_to_cpu(resp.upper.remain) * 100 / be16_to_cpu(resp.upper.capacity);
 			if (donor_l != ctx->last_donor_l ||
 			    donor_u != ctx->last_donor_u) {
@@ -1707,7 +1720,8 @@ skip_status:
 	return CUPS_BACKEND_OK;
 }
 
-static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp)
+static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
+					struct mitsu70x_printerstatus_resp *resp)
 {
 	uint32_t i;
 
@@ -1741,6 +1755,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 	INFO("Standby Timeout: %d minutes\n", resp->sleeptime);
 	INFO("iSerial Reporting: %s\n", resp->iserial ? "No" : "Yes" );
 
+	INFO("Power Status: %s\n", resp->power ? "Sleeping" : "Awake");
 	INFO("Lower Mechanical Status: %s\n",
 	     mitsu70x_mechastatus(resp->lower.mecha_status));
 	if (resp->lower.error_status[0]) {
@@ -1762,7 +1777,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_printerstatus_resp *resp
 		i-= 10;
 	INFO("Lower Lifetime prints:  %u\n", i);
 
-	if (resp->upper.mecha_status[0] != MECHA_STATUS_INIT) {
+	if (ctx->num_decks == 2) {
 		INFO("Upper Mechanical Status: %s\n",
 		     mitsu70x_mechastatus(resp->upper.mecha_status));
 		if (resp->upper.error_status[0]) {
@@ -1791,11 +1806,12 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 	struct mitsu70x_printerstatus_resp resp;
 #if 0
 	struct mitsu70x_jobs jobs;
-#endif
 	struct mitsu70x_jobstatus jobstatus;
+#endif
 
 	int ret;
 
+#if 0
 top:
 	ret = mitsu70x_get_jobstatus(ctx, &jobstatus, 0x0000);
 	if (ret)
@@ -1810,15 +1826,16 @@ top:
 		sleep(1);
 		goto top;
 	}
-
+#endif
+	
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (!ret)
-		mitsu70x_dump_printerstatus(&resp);
+		mitsu70x_dump_printerstatus(ctx, &resp);
 
+#if 0	
 	INFO("JOB00 ID     : %06u\n", jobstatus.jobid);
 	INFO("JOB00 status : %s\n", mitsu70x_jobstatuses(jobstatus.job_status));
 
-#if 0
 	ret = mitsu70x_get_jobs(ctx, &jobs);
 	if (!ret) {
 		int i;
@@ -1829,9 +1846,10 @@ top:
 			INFO("JOB%02d status : %s\n", i, mitsu70x_jobstatuses(jobs.jobs[i].status));
 		}
 	}
-#endif
 
 done:
+#endif
+	
 	return ret;
 }
 
@@ -1905,7 +1923,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.66",
+	.version = "0.67",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
