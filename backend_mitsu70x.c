@@ -389,6 +389,21 @@ static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_
 
 /* Error dumps, etc */
 
+static char *mitsu70x_temperatures(uint8_t temp)
+{
+	switch(temp) {
+	case TEMPERATURE_NORMAL:
+		return "Normal";
+	case TEMPERATURE_PREHEAT:
+		return "Warming Up";
+	case TEMPERATURE_COOLING:
+		return "Cooling Down";
+	default:
+		break;
+	}
+	return "Unknown Temperature Status";
+}
+
 static char *mitsu70x_mechastatus(uint8_t *sts)
 {
 	switch(sts[0]) {
@@ -1764,6 +1779,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 		     mitsu70x_errors(resp->lower.error_status),
 		     mitsu70x_errorrecovery(resp->lower.error_status));
 	}
+	INFO("Lower Temperature : %s\n", mitsu70x_temperatures(resp->lower.temperature));
 	INFO("Lower Media type:  %s (%02x/%02x)\n",
 	     mitsu70x_media_types(resp->lower.media_brand, resp->lower.media_type),
 	     resp->lower.media_brand,
@@ -1771,7 +1787,6 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 	INFO("Lower Prints remaining:  %03d/%03d\n",
 	     be16_to_cpu(resp->lower.remain),
 	     be16_to_cpu(resp->lower.capacity));
-
 	i = packed_bcd_to_uint32((char*)resp->lower.lifetime_prints, 4);
 	if (i)
 		i-= 10;
@@ -1786,6 +1801,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 			     mitsu70x_errors(resp->upper.error_status),
 			     mitsu70x_errorrecovery(resp->upper.error_status));
 		}
+		INFO("Upper Temperature : %s\n", mitsu70x_temperatures(resp->upper.temperature));
 		INFO("Upper Media type:  %s (%02x/%02x)\n",
 		     mitsu70x_media_types(resp->upper.media_brand, resp->upper.media_type),
 		     resp->upper.media_brand,
@@ -1827,9 +1843,8 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 		     jobstatus.error_status[1],
 		     jobstatus.error_status[2]);
 	}
-
+	INFO("Temperature : %s\n", mitsu70x_temperatures(jobstatus.temperature));
 	// memory status
-	// temperature
 
 #if 0
 	ret = mitsu70x_get_jobs(ctx, &jobs);
