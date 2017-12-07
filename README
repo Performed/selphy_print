@@ -646,15 +646,15 @@
 
    Valid commands:
 
+     -j			Query Job status
      -k num		Specify standby delay (1-10 minutes, 0 disables)
      -s                 Query printer status (Only partially decoded)
+     -w                 Wake up printer
      -x num             Set USB iSerialNumber reporting (1 yes, 0 no) [1]
      -X id              Cancel print job 'id' [2]
 
     [1]  Printer will need to be power-cycled for this to take effect.
-    [2]  Job ID is the Internal Job ID (reported via status)
-	   To see which jobs are active/pending, see the output of the
-	   '-s' command.
+    [2]  Job ID is the Internal Job ID (reported via job status query)
 
  *************************************************************************** 
   BACKEND=mitsu9550

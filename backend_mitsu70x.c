@@ -1801,41 +1801,37 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 	}
 }
 
-static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
+static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 {
-	struct mitsu70x_printerstatus_resp resp;
 #if 0
 	struct mitsu70x_jobs jobs;
-	struct mitsu70x_jobstatus jobstatus;
 #endif
-
+	struct mitsu70x_jobstatus jobstatus;
 	int ret;
 
-#if 0
-top:
 	ret = mitsu70x_get_jobstatus(ctx, &jobstatus, 0x0000);
 	if (ret)
-		goto done;
+		return CUPS_BACKEND_FAILED;
 
-	/* Make sure we're awake! */
-	if (jobstatus.power) {
-		ret = mitsu70x_wakeup(ctx);
-		if (ret)
-			return CUPS_BACKEND_FAILED;
-
-		sleep(1);
-		goto top;
-	}
-#endif
-	
-	ret = mitsu70x_get_printerstatus(ctx, &resp);
-	if (!ret)
-		mitsu70x_dump_printerstatus(ctx, &resp);
-
-#if 0	
 	INFO("JOB00 ID     : %06u\n", jobstatus.jobid);
 	INFO("JOB00 status : %s\n", mitsu70x_jobstatuses(jobstatus.job_status));
+	INFO("Power Status: %s\n", jobstatus.power ? "Sleeping" : "Awake");
+	INFO("Mechanical Status: %s\n",
+	     mitsu70x_mechastatus(jobstatus.mecha_status));
+	if (jobstatus.error_status[0]) {
+		INFO("%s/%s -> %s:  %02x/%02x/%02x\n",
+		     mitsu70x_errorclass(jobstatus.error_status),
+		     mitsu70x_errors(jobstatus.error_status),
+		     mitsu70x_errorrecovery(jobstatus.error_status),
+		     jobstatus.error_status[0],
+		     jobstatus.error_status[1],
+		     jobstatus.error_status[2]);
+	}
 
+	// memory status
+	// temperature
+
+#if 0
 	ret = mitsu70x_get_jobs(ctx, &jobs);
 	if (!ret) {
 		int i;
@@ -1849,6 +1845,17 @@ top:
 
 done:
 #endif
+	return CUPS_BACKEND_OK;
+}
+
+static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
+{
+	struct mitsu70x_printerstatus_resp resp;
+	int ret;
+
+	ret = mitsu70x_get_printerstatus(ctx, &resp);
+	if (!ret)
+		mitsu70x_dump_printerstatus(ctx, &resp);
 	
 	return ret;
 }
@@ -1894,14 +1901,20 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "sk:X:x:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "jks:wX:x:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 'j':
+			j = mitsu70x_query_jobs(ctx);
+			break;
 		case 'k':
 			j = mitsu70x_set_sleeptime(ctx, atoi(optarg));
 			break;
 		case 's':
 			j = mitsu70x_query_status(ctx);
+			break;
+		case 'w':
+			j = mitsu70x_wakeup(ctx);
 			break;
 		case 'x':
 			j = mitsu70x_set_iserial(ctx, atoi(optarg));
@@ -1923,7 +1936,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.67",
+	.version = "0.68",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
