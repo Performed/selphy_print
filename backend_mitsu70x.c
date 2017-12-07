@@ -1887,7 +1887,9 @@ static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_u
 
 static void mitsu70x_cmdline(void)
 {
-	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -s ]           # Query printer status\n");
+	DEBUG("\t\t[ -j ]           # Query job status\n");
+	DEBUG("\t\t[ -w ]           # Wake up printer\n");
 	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -k num ]       # Set standby time (1-60 minutes, 0 disables)\n");
 	DEBUG("\t\t[ -x num ]       # Set USB iSerialNumber Reporting (1 on, 0 off)\n");
@@ -1901,7 +1903,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "jks:wX:x:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "jk:swX:x:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'j':
