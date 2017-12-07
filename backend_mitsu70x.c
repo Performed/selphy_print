@@ -1779,7 +1779,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 		     mitsu70x_errors(resp->lower.error_status),
 		     mitsu70x_errorrecovery(resp->lower.error_status));
 	}
-	INFO("Lower Temperature : %s\n", mitsu70x_temperatures(resp->lower.temperature));
+	INFO("Lower Temperature: %s\n", mitsu70x_temperatures(resp->lower.temperature));
 	INFO("Lower Media type:  %s (%02x/%02x)\n",
 	     mitsu70x_media_types(resp->lower.media_brand, resp->lower.media_type),
 	     resp->lower.media_brand,
@@ -1801,7 +1801,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 			     mitsu70x_errors(resp->upper.error_status),
 			     mitsu70x_errorrecovery(resp->upper.error_status));
 		}
-		INFO("Upper Temperature : %s\n", mitsu70x_temperatures(resp->upper.temperature));
+		INFO("Upper Temperature: %s\n", mitsu70x_temperatures(resp->upper.temperature));
 		INFO("Upper Media type:  %s (%02x/%02x)\n",
 		     mitsu70x_media_types(resp->upper.media_brand, resp->upper.media_type),
 		     resp->upper.media_brand,
@@ -1843,7 +1843,7 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 		     jobstatus.error_status[1],
 		     jobstatus.error_status[2]);
 	}
-	INFO("Temperature : %s\n", mitsu70x_temperatures(jobstatus.temperature));
+	INFO("Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature));
 	// memory status
 
 #if 0
