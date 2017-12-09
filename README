@@ -648,8 +648,9 @@
 
      -j			Query Job status
      -k num		Specify standby delay (1-10 minutes, 0 disables)
-     -s                 Query printer status (Only partially decoded)
+     -s                 Query printer status
      -w                 Wake up printer
+     -w                 Wake up printer (and wait)
      -x num             Set USB iSerialNumber reporting (1 yes, 0 no) [1]
      -X id              Cancel print job 'id' [2]
 
