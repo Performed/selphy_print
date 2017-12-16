@@ -1402,16 +1402,16 @@ static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx, int wait)
 	uint8_t buf[512];
 	struct mitsu70x_jobstatus jobstatus;
 
-	INFO("Waking up printer...\n");
 top:
-
 	/* Query job status for jobid 0 (global) */
 	ret = mitsu70x_get_jobstatus(ctx, &jobstatus, 0x0000);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	/* Make sure we're awake */
-	if (wait && jobstatus.power) {
+	/* Trigger a wakeup if necessary */
+	if (jobstatus.power) {
+		INFO("Waking up printer...\n");
+
 		memset(buf, 0, sizeof(buf));
 		buf[0] = 0x1b;
 		buf[1] = 0x45;
@@ -1422,8 +1422,10 @@ top:
 				     buf, sizeof(buf))))
 			return CUPS_BACKEND_FAILED;
 
-		sleep(1);
-		goto top;
+		if (wait) {
+			sleep(1);
+			goto top;
+		}
 	}
 
 
@@ -1471,21 +1473,17 @@ static int mitsu70x_main_loop(void *vctx, int copies)
 
 	INFO("Waiting for printer idle...\n");
 
+	/* Ensure printer is awake */
+	ret = mitsu70x_wakeup(ctx, 1);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
+
 top:
+
 	/* Query job status for jobid 0 (global) */
 	ret = mitsu70x_get_jobstatus(ctx, &jobstatus, 0x0000);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
-
-	/* Make sure we're awake! */
-	if (jobstatus.power) {
-		ret = mitsu70x_wakeup(ctx, 0);
-		if (ret)
-			return CUPS_BACKEND_FAILED;
-
-		sleep(1);
-		goto top;
-	}
 
 	/* Make sure temperature is sane */
 	if (jobstatus.temperature == TEMPERATURE_COOLING) {
@@ -1972,7 +1970,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.70",
+	.version = "0.71",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
