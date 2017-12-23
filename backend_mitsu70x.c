@@ -1782,10 +1782,8 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 	}
 	INFO("Standby Timeout: %d minutes\n", resp->sleeptime);
 	INFO("iSerial Reporting: %s\n", resp->iserial ? "No" : "Yes" );
-
 	INFO("Power Status: %s\n", resp->power ? "Sleeping" : "Awake");
-	INFO("Lower Mechanical Status: %s\n",
-	     mitsu70x_mechastatus(resp->lower.mecha_status));
+
 	if (resp->lower.error_status[0]) {
 		INFO("Lower Error Status: %s/%s -> %s\n",
 		     mitsu70x_errorclass(resp->lower.error_status),
@@ -1793,21 +1791,21 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 		     mitsu70x_errorrecovery(resp->lower.error_status));
 	}
 	INFO("Lower Temperature: %s\n", mitsu70x_temperatures(resp->lower.temperature));
-	INFO("Lower Media type:  %s (%02x/%02x)\n",
+	INFO("Lower Mechanical Status: %s\n",
+	     mitsu70x_mechastatus(resp->lower.mecha_status));
+	INFO("Lower Media Type:  %s (%02x/%02x)\n",
 	     mitsu70x_media_types(resp->lower.media_brand, resp->lower.media_type),
 	     resp->lower.media_brand,
 	     resp->lower.media_type);
-	INFO("Lower Prints remaining:  %03d/%03d\n",
+	INFO("Lower Prints Remaining:  %03d/%03d\n",
 	     be16_to_cpu(resp->lower.remain),
 	     be16_to_cpu(resp->lower.capacity));
 	i = packed_bcd_to_uint32((char*)resp->lower.lifetime_prints, 4);
 	if (i)
 		i-= 10;
-	INFO("Lower Lifetime prints:  %u\n", i);
+	INFO("Lower Lifetime Prints:  %u\n", i);
 
 	if (ctx->num_decks == 2) {
-		INFO("Upper Mechanical Status: %s\n",
-		     mitsu70x_mechastatus(resp->upper.mecha_status));
 		if (resp->upper.error_status[0]) {
 			INFO("Upper Error Status: %s/%s -> %s\n",
 			     mitsu70x_errorclass(resp->upper.error_status),
@@ -1815,18 +1813,20 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 			     mitsu70x_errorrecovery(resp->upper.error_status));
 		}
 		INFO("Upper Temperature: %s\n", mitsu70x_temperatures(resp->upper.temperature));
-		INFO("Upper Media type:  %s (%02x/%02x)\n",
+		INFO("Upper Mechanical Status: %s\n",
+		     mitsu70x_mechastatus(resp->upper.mecha_status));
+		INFO("Upper Media Type:  %s (%02x/%02x)\n",
 		     mitsu70x_media_types(resp->upper.media_brand, resp->upper.media_type),
 		     resp->upper.media_brand,
 		     resp->upper.media_type);
-		INFO("Upper Prints remaining:  %03d/%03d\n",
+		INFO("Upper Prints Remaining:  %03d/%03d\n",
 		     be16_to_cpu(resp->upper.remain),
 		     be16_to_cpu(resp->upper.capacity));
 
 		i = packed_bcd_to_uint32((char*)resp->upper.lifetime_prints, 4);
 		if (i)
 			i-= 10;
-		INFO("Upper Lifetime prints:  %u\n", i);
+		INFO("Upper Lifetime Prints:  %u\n", i);
 	}
 }
 
@@ -1848,16 +1848,13 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 	INFO("Mechanical Status: %s\n",
 	     mitsu70x_mechastatus(jobstatus.mecha_status));
 	if (jobstatus.error_status[0]) {
-		INFO("%s/%s -> %s:  %02x/%02x/%02x\n",
+		INFO("%s/%s -> %s\n",
 		     mitsu70x_errorclass(jobstatus.error_status),
 		     mitsu70x_errors(jobstatus.error_status),
-		     mitsu70x_errorrecovery(jobstatus.error_status),
-		     jobstatus.error_status[0],
-		     jobstatus.error_status[1],
-		     jobstatus.error_status[2]);
+		     mitsu70x_errorrecovery(jobstatus.error_status));
 	}
 	INFO("Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature));
-	// memory status
+	// memory status?
 
 #if 0
 	ret = mitsu70x_get_jobs(ctx, &jobs);
@@ -1970,7 +1967,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.71",
+	.version = "0.72",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
