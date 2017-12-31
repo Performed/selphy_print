@@ -342,12 +342,6 @@ struct mitsu70x_printerstatus_resp {
 	struct mitsu70x_status_deck upper;
 } __attribute__((packed));
 
-#define MK60S_0105_M_CSUM  0x148C  /* 1.05 316M3 1 148C */
-#define EK305_0104_M_CSUM  0x2878  /* 1.04 316F8 3 2878 */
-#define MD70X_0110_M_CSUM  0x064D  /* 1.10 316V1 1 064D */
-#define MD70X_0112_M_CSUM  0x9FC3  /* 1.12 316W1 1 9FC3 */
-#define FA300_XXXX_M_CSUM  0x4431  /* ?.?? 416J2 1 4431 */
-
 struct mitsu70x_memorystatus_resp {
 	uint8_t  hdr[3]; /* E4 56 33 */
 	uint8_t  memory;
@@ -1532,14 +1526,33 @@ top:
 
 	/* FW sanity checking */
 	if (ctx->type == P_KODAK_305) {
-		if (be16_to_cpu(resp.vers[0].checksum) != EK305_0104_M_CSUM)
-			WARNING("Printer FW out of date. Highly recommend upgrading EK305 to v1.04!\n");
+		/* Known versions:
+		   v1.02: M 316E81 1433   (Add Ultrafine and matte support)
+		   v1.04: M 316F83 2878   (Add 2x6 strip and support "Triton" media)
+		*/
+		if (strncmp(resp.vers[0].ver, "316F83", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading EK305 to v1.04 or newer!\n");
 	} else if (ctx->type == P_MITSU_K60) {
-		if (be16_to_cpu(resp.vers[0].checksum) != MK60S_0105_M_CSUM)
-			WARNING("Printer FW out of date. Highly recommend upgrading K60 to v1.05!\n");
+		/* Known versions:
+		   v1.05: M 316M31 148C   (Add HG media support)
+		*/
+		if (strncmp(resp.vers[0].ver, "316M31", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading K60 to v1.05 or newer!\n");
 	} else if (ctx->type == P_MITSU_D70X) {
-		if (be16_to_cpu(resp.vers[0].checksum) != MD70X_0112_M_CSUM)
-			WARNING("Printer FW out of date. Highly recommend upgrading D70/D707 to v1.12!\n");
+		/* Known versions:
+		   v1.10: M 316V11 064D   (Add ultrafine mode, 6x6 support, 2x6 strip, and more?)
+		   v1.12: M 316W11 9FC3   (??)
+		   v1.13:                 (??)
+		*/
+		if (strncmp(resp.vers[0].ver, "316W11", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading D70/D707 to v1.12 or newer!\n");
+	} else if (ctx->type == P_FUJI_ASK300) {
+		/* Known versions:
+		   v?.??: M 316A21 7998
+		   v?.??: M 316J21 4431
+		*/
+		if (strncmp(resp.vers[0].ver, "316J21", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading ASK300 to v?.?? or newer!\n");
 	}
 
 skip_status:
@@ -1967,7 +1980,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.72",
+	.version = "0.73",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
