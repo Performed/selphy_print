@@ -105,26 +105,46 @@ enum {
 
 /* Data definitions */
 static struct magicard_requests magicard_sta_requests[] = {
-	{ "MSR", "Serial Number", TYPE_STRING },
+	{ "MSR", "Printer Serial Number", TYPE_STRING },
+	{ "PSR", "Print Head Serial Number", TYPE_STRING },
+	{ "BSR", "PCB Serial Number", TYPE_STRING },
 	{ "VRS", "Firmware Version", TYPE_STRING },
 	{ "FDC", "Head Density", TYPE_STRINGINT },
 	{ "FSP", "Image Start", TYPE_STRINGINT },
 	{ "FEP", "Image End", TYPE_STRINGINT },
+	{ "FSS", "Ramp Adjust", TYPE_STRINGINT },
 	{ "FPP", "Head Position", TYPE_STRINGINT },
 	{ "MDL", "Model", TYPE_MODEL },  /* 0 == Standard.  Others? */
 	{ "PID", "USB PID", TYPE_STRINGINT_HEX }, /* ASCII integer, but needs to be shown as hex */
+	{ "VID", "USB VID", TYPE_STRINGINT_HEX }, /* ASCII integer, but needs to be shown as hex */
+	{ "USN", "USB Serial Number", TYPE_STRING },
+	{ "UPN", "USB Manufacturer", TYPE_STRING },
 	{ "MAC", "Ethernet MAC Address", TYPE_STRING },
 	{ "DYN", "Dynamic Address", TYPE_YESNO }, /* 1 == yes, 0 == no */
 	{ "IPA", "IP Address", TYPE_IPADDR },  /* ASCII signed integer */
 	{ "SNM", "IP Netmask", TYPE_IPADDR },  /* ASCII signed integer */
 	{ "GWY", "IP Gateway", TYPE_IPADDR },  /* ASCII signed integer */
 
-	{ "TCQ", "Total Prints", TYPE_STRINGINT },
-	{ "TCP", "Total Prints on Head", TYPE_STRINGINT },
-	{ "TCN", "Total Cleaning Cycles", TYPE_STRINGINT },
-	{ "CCQ", "Prints After Last Cleaning", TYPE_STRINGINT },
+	{ "TCQ", "Total Cards Printed", TYPE_STRINGINT },
+	{ "TCP", "Prints on Head", TYPE_STRINGINT },
+	{ "TCN", "Cleaning Cycles", TYPE_STRINGINT },
+	{ "CCQ", "Cards Since Last Cleaning", TYPE_STRINGINT },
+	{ "TPQ", "Total Panels Printed", TYPE_STRINGINT },
+	{ "CCP", "Cards between Cleaning Prompts", TYPE_STRINGINT },
+	{ "CPQ", "Panels Since Last Cleaning", TYPE_STRINGINT },
+	{ "DFR", "Panels Remaining", TYPE_STRINGINT },  // cook somehow?
+	{ "CLP", "Cleaning Prompt", TYPE_STRING },
+
+	// CRQ:  OFF  ??  Cleaning overdue?
+	// CHK:  checksum of fw?  (8 chars, hex?)
+	// TES:  ??? signed int?  IP addr?
+	// RAMP:  ??? hangs.
+
 	{ NULL, NULL, 0 }
 };
+
+// Sensors: CAM1 CAM2 TACHO FLIP DYE BARCODE LID FRONT REAR BUTTON TEMP ON OFF
+// Languages: ENG ITA POR FRA DEU ESP SCH
 
 /* Helper functions */
 static int magicard_build_cmd(uint8_t *buf,
@@ -739,7 +759,7 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 
 struct dyesub_backend magicard_backend = {
 	.name = "Magicard family",
-	.version = "0.06",
+	.version = "0.07",
 	.uri_prefix = "magicard",
 	.cmdline_arg = magicard_cmdline_arg,
 	.cmdline_usage = magicard_cmdline,
