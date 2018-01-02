@@ -779,7 +779,7 @@ struct dyesub_backend magicard_backend = {
 	}
 };
 
-/* Magicard family Spool file format
+/* Magicard family Spool file format (Tango2e/Rio2e/AvalonE family)
 
   This one was rather fun to figure out.
 
@@ -821,7 +821,6 @@ struct dyesub_backend magicard_backend = {
   0x01 STA,CHK########, 0x03   (8-digit checksum?)
 
   0x05 (x9) 0x01 REQ,UPG, 0x1c 0x03
-
 
   ** ** ** ** ** **
 
@@ -898,10 +897,30 @@ struct dyesub_backend magicard_backend = {
   SNR
   SSP
 
+   Unknown commands unique to Tango +L (ie w/ Laminator support)
+
+  FRN
+  LAM
+  LAM_DLY
+  LAM_SPD
+  LAM_LEN
+  LAM_END
+  LAM_STA
+  LAM_DEG
+  LAM_FLM
+  LAM_KBD
+  LAM_MOD
+
     Commands consumed by backend:
 
   ICC%d    Gamma curve (0, 1, 2) -- NOT IMPLEMENTED YET
   X-GP-8   Raw data is 8bpp. needs to be converted.
   X-GP-RK  Extract K channel from color data.
+
+   Open questions:
+
+   * How to query/read magstripe
+   * How to set IP address (etc)
+   * How to set other parameters
 
 */
