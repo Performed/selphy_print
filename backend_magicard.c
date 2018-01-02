@@ -380,7 +380,7 @@ static void magicard_teardown(void *vctx) {
 	free(ctx);
 }
 
-static void downscale_and_extract(uint32_t pixels,
+static void downscale_and_extract(int gamma, uint32_t pixels,
 				  uint8_t *y_i, uint8_t *m_i, uint8_t *c_i,
 				  uint8_t *y_o, uint8_t *m_o, uint8_t *c_o, uint8_t *k_o)
 {
@@ -426,7 +426,6 @@ static void downscale_and_extract(uint32_t pixels,
 				m_o[row * 504 + j * 84 + b_offset] |= (1 << b_shift);
 			if (c & (1 << j))
 				c_o[row * 504 + j * 84 + b_offset] |= (1 << b_shift);
-
 		}
 
 		/* And resin black, if enabled */
@@ -451,6 +450,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	uint8_t *in_y, *in_m, *in_c;
 	uint8_t *out_y, *out_m, *out_c, *out_k;
 	uint32_t len_y = 0, len_m = 0, len_c = 0, len_k = 0;
+	int gamma = 0;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -508,6 +508,10 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 //			/* Strip out copies */
 		} else if (!strcmp("X-GP-RK", ptr)) {
 			ctx->x_gp_rk = 1;
+		} else if (!strncmp("ICC", ptr,3)) {
+			/* Gamma curve is not handled by printer,
+			   strip it out and use it! */
+			gamma = atoi(ptr + 3);
 		} else if (!strncmp("SZ", ptr, 2)) {
 			if (ptr[2] == 'B') {
 				len_y = atoi(ptr + 3);
@@ -650,7 +654,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 
 		INFO("Converting image data to printer's native format %s\n", ctx->x_gp_rk ? "and extracting K channel" : "");
 
-		downscale_and_extract(len_y, in_y, in_m, in_c,
+		downscale_and_extract(gamma, len_y, in_y, in_m, in_c,
 				      out_y, out_m, out_c, out_k);
 
 		/* Pad out the length appropriately. */
@@ -819,5 +823,85 @@ struct dyesub_backend magicard_backend = {
   0x05 (x9) 0x01 REQ,UPG, 0x1c 0x03
 
 
+  ** ** ** ** ** **
+
+  Known commands seen in print jobs:
+
+  BAC%s    Backside format (CKO, KO, C, CO, K) -- Only used with Duplex.
+  CKI%s    Custom Holokote (ON or OFF)
+  CPW%s    Color power level (0-100, default 50)
+  DPX%s    Duplex (ON or OFF)
+  EOI%d    Card alignment end (0-100, default 50)
+  ESS%d    Number of copies (1-?)
+  HGT%d    Image Height (always seems to be 1016)
+  HKM%06X  Holokote hole.  bitwise number, each bit corresponds to an area.
+  HKT%d    Holokote type (1 is "ultra secure, 2 is "interlocking rings", etc)
+  HPH%s    Holopatch (ON or OFF)
+  IMF%s    Image Data Format (BGR, BGRK, K)
+  KPW%s    Black power level (0-100, default 50)
+  LAN%s    Printer display lanaguage (ENG, ITA, POR, FRA, DEU, ESP, SCH)
+  LC%d     Force media type (LC1, LC3, LC6, LC8 for YMCKO/MONO/KO/YMCKOK)
+  NCT%d,%d,%d,%d  Overcoat hole
+  OPW%s    Overcoat power level (0-100, default 50)
+  OVR%s    Overcoat (ON or OFF)
+  PAG%d    Page number (always 1, except 2 if printing duplex backside)
+  PAT%d    Holopatch area  (0-24)
+  REJ%s    Reject faulty cards (ON or OFF)
+  SOI%d    Card alignment start (0-100, default 50)
+  SLW%s    Colorsure (ON or OFF)
+  SZB%d    Blue data length
+  SZG%d    Green data length
+  SZK%d    Black data length
+  SZR%d    Red data length
+  TDT%08X  Driver-supplied timestamp of print job.
+  USF%s    Holokote (ON or OFF)
+  VER%s    Inform the printer of the driver version  (seems to be ignored)
+  WID%d    Image Width (always seems to be 642)
+
+    Mag-stripe encoding:
+
+  MAG%d   Magstripe position (1, 2, or 3)
+  BPI%d   Bits per Inch (75 or 210)
+  MPC%d   Character encoding (5 or 7)
+  COE%s   'H'igh or 'L'ow coercivity
+
+    Unknown commands seen in print jobs:
+
+  DDD%s    ? (only seen '50')  -- Could it be K alignment?
+  KEE      ?
+  NNN%s    ?  (Seen 'OFF')
+  NOC%d    ?  (Seen '1')  (Seems to start a job)
+  PCT%d,%d,%d,%d  ?  Print area, seems fixed @ 0,0, 1025, 641)
+  RT2      ?
+  TRO%d    ?  (Seen '0', appears with Holokote)
+  XCO%d    ? X start offset (always seems to be 0)
+  YCO%d    ? Y start offset (always seems to be 0)
+
+    Unknown commands:  (Seen in firmware guts)
+
+  AAA
+  AMS
+  BBB%d   Numeric parameter
+  CLR
+  FBF
+  FTC
+  HFD%s   String parameter
+  IPM
+  KKK
+  LBL
+  LLL
+  LRC
+  MGV%s  "ON" or "OFF"  but no idea
+  MMM
+  PAR
+  RDM
+  SNR
+  SSP
+
+    Commands consumed by backend:
+
+  ICC%d    Gamma curve (0, 1, 2) -- NOT IMPLEMENTED YET
+  X-GP-8   Raw data is 8bpp. needs to be converted.
+  X-GP-RK  Extract K channel from color data.
 
 */
