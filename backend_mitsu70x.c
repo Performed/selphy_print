@@ -1548,11 +1548,12 @@ top:
 			WARNING("Printer FW out of date. Highly recommend upgrading D70/D707 to v1.12 or newer!\n");
 	} else if (ctx->type == P_FUJI_ASK300) {
 		/* Known versions:
-		   v?.??: M 316A21 7998
-		   v?.??: M 316J21 4431
+		   v?.??: M 316A21 7998   (ancient. no matte or ultrafine)
+		   v?.??: M 316H21 F8EB
+		   v4.20a: M 316J21 4431  (Add 2x6 strip support)
 		*/
 		if (strncmp(resp.vers[0].ver, "316J21", 6) < 0)
-			WARNING("Printer FW out of date. Highly recommend upgrading ASK300 to v?.?? or newer!\n");
+			WARNING("Printer FW out of date. Highly recommend upgrading ASK300 to v4.20a or newer!\n");
 	}
 
 skip_status:
