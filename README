@@ -251,6 +251,7 @@
    Valid commands:
    
      -R                 Reset printer to factory defaults
+     -s                 Query printer status
 
  *************************************************************************** 
   BACKEND=canonselphyneo
@@ -270,6 +271,7 @@
    Valid commands:
    
      -R                 Reset printer to factory defaults
+     -s                 Query printer status
 
  *************************************************************************** 
   BACKEND=kodak1400

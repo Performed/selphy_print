@@ -563,6 +563,24 @@ struct canonselphy_ctx {
 	uint8_t cp900;
 };
 
+static int canonselphy_get_status(struct canonselphy_ctx *ctx)
+{
+	uint8_t rdbuf[READBACK_LEN];
+	int ret, num;
+
+	/* Read in the printer status */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) rdbuf, READBACK_LEN, &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	INFO("Media type: %s\n", ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf[ctx->printer->paper_code_offset]) : "Unknown");
+	ctx->printer->error_detect(rdbuf);
+
+	return CUPS_BACKEND_OK;
+}
+
 static int canonselphy_send_reset(struct canonselphy_ctx *ctx)
 {
 	uint8_t rstcmd[12] = { 0x40, 0x10, 0x00, 0x00,
@@ -1032,11 +1050,14 @@ static int canonselphy_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "R")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "Rs")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'R':
 			canonselphy_send_reset(ctx);
+			break;
+		case 's':
+			canonselphy_get_status(ctx);
 			break;
 		}
 
@@ -1049,11 +1070,12 @@ static int canonselphy_cmdline_arg(void *vctx, int argc, char **argv)
 static void canonselphy_cmdline(void)
 {
 	DEBUG("\t\t[ -R ]           # Reset printer\n");
+	DEBUG("\t\t[ -s ]           # Query printer status\n");
 }
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES",
-	.version = "0.94",
+	.version = "0.95",
 	.uri_prefix = "canonselphy",
 	.cmdline_usage = canonselphy_cmdline,
 	.cmdline_arg = canonselphy_cmdline_arg,
