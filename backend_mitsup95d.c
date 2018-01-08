@@ -462,17 +462,65 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 	return CUPS_BACKEND_OK;
 }
 
+static int mitsup95d_get_status(struct mitsup95d_ctx *ctx)
+{
+	uint8_t querycmd[4] = { 0x1b, 0x72, 0x00, 0x00 };
+	uint8_t queryresp[9];
+	int ret;
+	int num;
+
+	/* Query Status to sanity-check job */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     querycmd, sizeof(querycmd))))
+		return CUPS_BACKEND_FAILED;
+	ret = read_data(ctx->dev, ctx->endp_up,
+			queryresp, sizeof(queryresp), &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+	if (ctx->type == P_MITSU_P95D && num != 9) {
+		return CUPS_BACKEND_FAILED;
+	} else if (ctx->type == P_MITSU_P93D && num != 8) {
+		return CUPS_BACKEND_FAILED;
+	}
+
+	if (ctx->type == P_MITSU_P95D) {
+		if (queryresp[5] & 0x40) {
+			INFO("Printer Status: error %02x\n", queryresp[5]);
+		} else if (queryresp[5] == 0x00) {
+			INFO("Printer Status: Idle\n");
+		} else if (queryresp[7] > 0) {
+			INFO("Printer Status: Printing (%d) copies remaining\n", queryresp[7]);
+		}
+	} else {
+		if (queryresp[6] == 0x45) {
+			INFO("Printer Status: error %02x\n", queryresp[7]);
+		} else if (queryresp[6] == 0x30) {
+			INFO("Printer Status: Idle");
+		} else if (queryresp[6] == 0x43 && queryresp[7] > 0) {
+			INFO("Printer Status: Printing (%d) copies remaining\n", queryresp[7]);
+		}
+	}
+
+	return CUPS_BACKEND_OK;
+}
+
 static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 {
-	struct canonselphy_ctx *ctx = vctx;
+	struct mitsup95d_ctx *ctx = vctx;
 	int i, j = 0;
 
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL)) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "s")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 's':
+			j = mitsup95d_get_status(ctx);
+			break;
+		default:
+			break;  /* Ignore completely */
 		}
 
 		if (j) return j;
@@ -484,7 +532,7 @@ static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsup95d_backend = {
 	.name = "Mitsubishi P93D/P95D",
-	.version = "0.05",
+	.version = "0.06",
 	.uri_prefix = "mitsup95d",
 	.cmdline_arg = mitsup95d_cmdline_arg,
 	.init = mitsup95d_init,

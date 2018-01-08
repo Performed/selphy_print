@@ -713,7 +713,9 @@
      Mitsubishi P95DW
      Mitsubishi P93DW
 
-This backend does not support additional commands.
+   Valid commands:
+   
+     -s                 Query printer status
 
  *************************************************************************** 
   BACKEND=dnpds40
