@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.74"
+#define BACKEND_VERSION "0.75"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -447,9 +447,11 @@ candidate:
 	}
 
 	/* Use the appropriate altesetting! */
-	if (libusb_set_interface_alt_setting(dev, iface, altset)) {
-		found = -1;
-		goto abort_release;
+	if (altset != 0) {
+		if (libusb_set_interface_alt_setting(dev, iface, altset)) {
+			found = -1;
+			goto abort_release;
+		}
 	}
 
 	/* Query IEEE1284 info only if it's a PRINTER class */
@@ -993,9 +995,11 @@ int main (int argc, char **argv)
 	}
 
 	/* Use the appropriate altesetting! */
-	if (libusb_set_interface_alt_setting(dev, iface, altset)) {
-		found = -1;
-		goto done_close;
+	if (altset != 0) {
+		if (libusb_set_interface_alt_setting(dev, iface, altset)) {
+			found = -1;
+			goto done_close;
+		}
 	}
 
 	if (config)
