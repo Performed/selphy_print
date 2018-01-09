@@ -489,7 +489,7 @@ static int mitsup95d_get_status(struct mitsup95d_ctx *ctx)
 			INFO("Printer Status: error %02x\n", queryresp[5]);
 		} else if (queryresp[5] == 0x00) {
 			INFO("Printer Status: Idle\n");
-		} else if (queryresp[7] > 0) {
+		} else if (queryresp[5] == 0x02 && queryresp[7] > 0) {
 			INFO("Printer Status: Printing (%d) copies remaining\n", queryresp[7]);
 		}
 	} else {
