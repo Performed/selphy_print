@@ -496,6 +496,7 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 	struct shinkos1245_resp_media resp;
 	int i, j;
 	int ret = 0, num;
+	int remain = -1;
 
 	shinkos1245_fill_hdr(&cmd.hdr);
 	memset(cmd.pad, 0, sizeof(cmd.pad));
@@ -514,20 +515,23 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 			return -99;
 		}
 
-		if (resp.count > NUM_MEDIAS)
-			resp.count = NUM_MEDIAS;
+		/* resp.count is the *total* number of media entries */
+		if (remain == -1)
+			remain = resp.count;
 
 		/* Store media info */
-		for (j = 0; j < resp.count ; j++) {
+		for (j = 0; (j < remain) && (j < 5) ; j++) {
 			ctx->medias[ctx->num_medias].code = resp.data[j].code;
 			ctx->medias[ctx->num_medias].columns = be16_to_cpu(resp.data[j].columns);
 			ctx->medias[ctx->num_medias].rows = be16_to_cpu(resp.data[j].rows);
 			ctx->medias[ctx->num_medias].type = resp.data[j].type;
 			ctx->medias[ctx->num_medias].print_type = resp.data[j].print_type;
 			ctx->num_medias++;
+			remain--;
 		}
 
-		if (resp.count < 5)
+		/* Once we've parsed them all.. we're done */
+		if (remain <= 0)
 			break;
 	}
 	return ret;
@@ -1642,7 +1646,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.13WIP",
+	.version = "0.14WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
