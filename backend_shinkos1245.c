@@ -499,7 +499,7 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 
 	shinkos1245_fill_hdr(&cmd.hdr);
 	memset(cmd.pad, 0, sizeof(cmd.pad));
-	ctx->media_8x12 = 0;	
+	ctx->media_8x12 = 0;
 	for (i = 1 ; i <= 3 ; i++) {
 		cmd.cmd[0] = 0x0a | (i << 4);
 
