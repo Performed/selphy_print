@@ -39,6 +39,7 @@
    Kodak 805 Photo Printer
    Kodak 6800 Photo Printer
    Kodak 6850 Photo Printer
+   Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S2145 (aka Sinfonia S2)
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Sony UP-DR150
@@ -69,7 +70,6 @@
    Mitsubishi CP-D707DW
    Mitsubishi CP-D90DW
    Olmec OP900 and OP900II
-   Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-CR10L (aka DNP DS-SL10)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)   
@@ -410,7 +410,7 @@
 
    Low-level documentation was provided by Sinfonia, Inc.  Thank you!
 
-   Work-in-process printers:
+   Verified supported printers:
 
      Shinko CHC-S1245 (aka "Sinfonia E1")
 
