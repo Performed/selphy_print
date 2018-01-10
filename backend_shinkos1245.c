@@ -570,7 +570,7 @@ static int shinkos1245_set_printerid(struct shinkos1245_ctx *ctx,
 
 	for (i = 0 ; i < (int)sizeof(cmd.data) ; i++) {
 		if (*id)
-			cmd.data[i] = (uint8_t) *id;
+			cmd.data[i] = (uint8_t) *id++;
 		else
 			cmd.data[i] = ' ';
 	}
@@ -1456,10 +1456,11 @@ top:
 
 	/* Work out the remaining media percentage */
 	{
-		int remain = ctx->media_8x12 ? 230 : 280;
+		int total = ctx->media_8x12 ? 230 : 280;
+		int remain = total - be32_to_cpu(status1.counters.media);
 
-		remain = (remain - be32_to_cpu(status1.counters.media)) * 100 / remain;
-		ATTR("marker-levels=%d\n", remain);
+		ATTR("marker-levels=%d\n", remain * 100 / total);
+		ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain);
 	}
 
 	last_state = state;
@@ -1642,7 +1643,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245",
-	.version = "0.16WIP",
+	.version = "0.17WIP",
 	.uri_prefix = "shinkos1245",
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
