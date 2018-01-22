@@ -1142,6 +1142,8 @@ repeat:
 				/* Back off the buffer so we "wrap" on the print row. */
 				ctx->datalen -= ((LAMINATE_STRIDE - ctx->cols) * 2);
 			}
+			/* We're done */
+			close(fd);
 
 			/* Zero out the tail end of the buffer. */
 			j = be16_to_cpu(mhdr.lamcols) * be16_to_cpu(mhdr.lamrows) * 2;
@@ -1991,7 +1993,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.74",
+	.version = "0.75",
 	.uri_prefix = "mitsu70x",
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
