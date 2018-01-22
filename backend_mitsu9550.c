@@ -55,6 +55,17 @@
 //#define USB_PID_MITSU_9810D   XXXXXX
 //#define USB_PID_MITSU_9820DS  XXXXXX
 
+#ifndef CORRTABLE_PATH
+#ifdef PACKAGE_DATA_DIR
+#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
+#else
+#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
+#endif
+#endif
+
+#define MITSU_M98xx_LAMINATE_FILE CORRTABLE_PATH "M98MATTE.raw"
+#define LAMINATE_STRIDE 1868
+
 /* Spool file structures */
 
 /* Print parameters1 */
@@ -63,7 +74,7 @@ struct mitsu9550_hdr1 {
 	uint8_t  unk[10]; /* 00 0a 10 00 [...] */
 	uint16_t cols; /* BE */
 	uint16_t rows; /* BE */
-	uint8_t  matte;  /* CP9810 only. 01 for matte, 00 glossy */
+	uint8_t  matte;  /* CP9810/9820 only. 01 for matte, 00 glossy */
 	uint8_t  null[31];
 } __attribute__((packed));
 
@@ -401,6 +412,11 @@ hdr_done:
 		return CUPS_BACKEND_FAILED;
 	}
 
+	/* Back off the data to read if the backend generates the matte data internally */
+	if (ctx->hdr1.matte == 0x80) {
+		remain -= planelen + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
+	}
+
 	/* Load up the data blocks.*/
 	while(1) {
 		/* Note that 'buf' needs to be already filled here! */
@@ -454,7 +470,7 @@ hdr_done:
 			ctx->datalen += 4;
 
 			/* Unless we have a matte plane following, we're done */
-			if (!ctx->hdr1.matte)
+			if (ctx->hdr1.matte != 0x01)
 				break;
 			planelen = sizeof(buf);
 		} else {
@@ -479,6 +495,65 @@ hdr_done:
 		ctx->hdr1.matte = 0;
 	}
 
+	/* If the backend has to generate the matte data... */
+	if (ctx->hdr1.matte == 0x80) {
+		int fd;
+		uint32_t j;
+
+		DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", be16_to_cpu(ctx->hdr1.cols) * be16_to_cpu(ctx->hdr1.rows), be16_to_cpu(ctx->hdr1.cols), LAMINATE_STRIDE);
+		fd = open(MITSU_M98xx_LAMINATE_FILE, O_RDONLY);
+		if (fd < 0) {
+			WARNING("Unable to open matte lamination data file '%s'\n", MITSU_M98xx_LAMINATE_FILE);
+			ctx->hdr1.matte = 0;
+			goto done;
+		}
+
+		/* Fill in the lamination plane header */
+		struct mitsu9550_plane *matte = (struct mitsu9550_plane *)(ctx->databuf + ctx->datalen);
+		matte->cmd[0] = 0x1b;
+		matte->cmd[1] = 0x5a;
+		matte->cmd[2] = 0x54;
+		matte->cmd[3] = 0x10;
+		matte->row_offset = 0;
+		matte->null = 0;
+		matte->cols = ctx->hdr1.cols;
+		matte->rows = ctx->hdr1.rows;
+		ctx->datalen += sizeof(struct mitsu9550_plane);
+
+		/* Read in the matte data plane */		
+		for (j = 0 ; j < be16_to_cpu(ctx->hdr1.rows) ; j++) {
+			remain = LAMINATE_STRIDE * 2;
+
+			/* Read one row of lamination data at a time */
+			while (remain) {
+				i = read(fd, ctx->databuf + ctx->datalen, remain);
+				if (i < 0)
+					return CUPS_BACKEND_CANCEL;
+				if (i == 0) {
+					/* We hit EOF, restart from beginning */
+					lseek(fd, 0, SEEK_SET);
+					continue;
+				}
+				ctx->datalen += i;
+				remain -= i;
+			}
+			/* Back off the buffer so we "wrap" on the print row. */
+			ctx->datalen -= ((LAMINATE_STRIDE - ctx->hdr1.cols) * 2);
+		}
+		/* We're done! */
+		close(fd);
+
+		/* Set laminate header to a sane value */
+		ctx->hdr1.matte = 0x01;
+
+		/* Fill in the lamination plane footer */
+		ctx->databuf[ctx->datalen++] = 0x1b;
+		ctx->databuf[ctx->datalen++] = 0x50;
+		ctx->databuf[ctx->datalen++] = 0x56;
+		ctx->databuf[ctx->datalen++] = 0x00;
+	}
+
+done:
 	return CUPS_BACKEND_OK;
 }
 
@@ -1196,7 +1271,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP-9xxx family",
-	.version = "0.29",
+	.version = "0.30",
 	.uri_prefix = "mitsu9550",
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

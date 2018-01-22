@@ -60,6 +60,7 @@ SOURCES = backend_common.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 
 # Backend-specific joy:
 backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
+backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 
 # And now the rules!
 .PHONY: clean all install cppcheck
