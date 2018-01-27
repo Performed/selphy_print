@@ -47,7 +47,7 @@
 #define USB_PID_CANON_CP910  0x327a
 #define USB_PID_CANON_CP1000 0x32ae
 #define USB_PID_CANON_CP1200 0x32b1
-#define USB_PID_CANON_CP1300 XXXXX
+#define USB_PID_CANON_CP1300 0x32db
 
 /* Header data structure */
 struct selphyneo_hdr {
@@ -443,7 +443,7 @@ struct dyesub_backend canonselphyneo_backend = {
 	{ USB_VID_CANON, USB_PID_CANON_CP910, P_CP910, NULL},
 	{ USB_VID_CANON, USB_PID_CANON_CP1000, P_CP910, NULL},
 	{ USB_VID_CANON, USB_PID_CANON_CP1200, P_CP910, NULL},
-//	{ USB_VID_CANON, USB_PID_CANON_CP1300, P_CP910, NULL},
+	{ USB_VID_CANON, USB_PID_CANON_CP1300, P_CP910, NULL},
 	{ 0, 0, 0, NULL}
 	}
 };
