@@ -811,7 +811,7 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 	i = libusb_init(&ctx);
 	if (i) {
 		ERROR("Failed to initialize libusb (%d)\n", i);
-		exit(CUPS_BACKEND_STOP);
+		exit(CUPS_BACKEND_RETRY_CURRENT);
 	}
 	find_and_enumerate(ctx, &list, backend, NULL, 1, 1, NULL, NULL, NULL, NULL);
 	libusb_free_device_list(list, 1);
@@ -953,7 +953,7 @@ int main (int argc, char **argv)
 	ret = libusb_init(&ctx);
 	if (ret) {
 		ERROR("Failed to initialize libusb (%d)\n", ret);
-		ret = CUPS_BACKEND_STOP;
+		ret = CUPS_BACKEND_RETRY_CURRENT;
 		goto done;
 	}
 
@@ -976,7 +976,7 @@ int main (int argc, char **argv)
 
 	if (found == -1) {
 		ERROR("Printer open failure (No matching printers found!)\n");
-		ret = CUPS_BACKEND_HOLD;
+		ret = CUPS_BACKEND_RETRY;
 		goto done;
 	}
 
@@ -984,7 +984,7 @@ int main (int argc, char **argv)
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
 		ERROR("Printer open failure (Need to be root?) (%d)\n", ret);
-		ret = CUPS_BACKEND_STOP;
+		ret = CUPS_BACKEND_RETRY_CURRENT;
 		goto done;
 	}
 
@@ -993,7 +993,7 @@ int main (int argc, char **argv)
 		ret = libusb_detach_kernel_driver(dev, iface);
 		if (ret) {
 			ERROR("Printer open failure (Could not detach printer from kernel) (%d)\n", ret);
-			ret = CUPS_BACKEND_STOP;
+			ret = CUPS_BACKEND_RETRY_CURRENT;
 			goto done_close;
 		}
 	}
@@ -1001,7 +1001,8 @@ int main (int argc, char **argv)
 	/* Claim the interface so we can start using this! */
 	ret = backend_claim_interface(dev, iface, NUM_CLAIM_ATTEMPTS);
 	if (ret) {
-		ret = CUPS_BACKEND_STOP;
+		ERROR("Printer open failure (Unable to claim interface) (%d)\n", ret);
+		ret = CUPS_BACKEND_RETRY;
 		goto done_close;
 	}
 
