@@ -384,6 +384,7 @@ static int probe_device(struct libusb_device *device,
 	uint8_t endp_up, endp_down;
 
 	DEBUG("Probing VID: %04X PID: %04x\n", desc->idVendor, desc->idProduct);
+	STATE("+connecting-to-device\n");
 
 	if (libusb_open(device, &dev)) {
 		ERROR("Could not open device %04x:%04x (need to be root?)\n", desc->idVendor, desc->idProduct);
@@ -614,6 +615,8 @@ abort:
 		free (dict[dlen].val);
 	}
 
+	STATE("-connecting-to-device\n");
+
 	return found;
 }
 
@@ -666,6 +669,8 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	int i, j = 0, k;
 	int found = -1;
 
+	STATE("+org.gutenprint-searching-for-device\n");
+
 	/* Enumerate and find suitable device */
 	num = libusb_get_device_list(ctx, list);
 
@@ -711,6 +716,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			break;
 	}
 
+	STATE("-org.gutenprint-searching-for-device\n");
 	return found;
 }
 
@@ -1017,6 +1023,7 @@ int main (int argc, char **argv)
 
 	/* Attach backend to device */
 	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
+//	STATE("+org.gutenprint-attached-to-device\n");
 
 	if (!uri) {
 		if (backend->cmdline_arg(backend_ctx, argc, argv) < 0)
@@ -1101,8 +1108,10 @@ done_close:
 	libusb_close(dev);
 done:
 
-	if (backend && backend_ctx)
+	if (backend && backend_ctx) {
 		backend->teardown(backend_ctx);
+//		STATE("-org.gutenprint-attached-to-device");
+	}
 
 	if (list)
 		libusb_free_device_list(list, 1);
