@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.75"
+#define BACKEND_VERSION "0.76"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -55,9 +55,9 @@ static int max_xfer_size = URB_XFER_SIZE;
 static int xfer_timeout = XFER_TIMEOUT;
 
 /* Support Functions */
-static int backend_claim_interface(struct libusb_device_handle *dev, int iface)
+static int backend_claim_interface(struct libusb_device_handle *dev, int iface,
+				   int num_claim_attempts)
 {
-	int attempts = NUM_CLAIM_ATTEMPTS;
 	int ret;
 	do {
 		ret = libusb_claim_interface(dev, iface);
@@ -65,11 +65,13 @@ static int backend_claim_interface(struct libusb_device_handle *dev, int iface)
 			break;
 		if (ret != LIBUSB_ERROR_BUSY)
 			break;
+		if (--num_claim_attempts == 0)
+			break;
 		sleep(1);
-	} while (--attempts > 0);
+	} while (1);
 
 	if (ret)
-		ERROR("Printer open failure (Could not claim printer interface after %d attempts) (%d)\n", NUM_CLAIM_ATTEMPTS, ret);
+		ERROR("Printer open failure (%d)\n", ret);
 
 	return ret;
 }
@@ -361,14 +363,14 @@ static char *url_decode(char *str) {
 
 /* And now back to our regularly-scheduled programming */
 
-static int print_scan_output(struct libusb_device *device,
-			     struct libusb_device_descriptor *desc,
-			     char *prefix, char *manuf_override,
-			     int found,
-			     int scan_only, char *match_serno,
-			     uint8_t *r_iface, uint8_t *r_altset,
-			     uint8_t *r_endp_up, uint8_t *r_endp_down,
-			     struct dyesub_backend *backend)
+static int probe_device(struct libusb_device *device,
+			struct libusb_device_descriptor *desc,
+			char *prefix, char *manuf_override,
+			int found, int num_claim_attempts,
+			int scan_only, char *match_serno,
+			uint8_t *r_iface, uint8_t *r_altset,
+			uint8_t *r_endp_up, uint8_t *r_endp_down,
+			struct dyesub_backend *backend)
 {
 	struct libusb_device_handle *dev;
 	char buf[256];
@@ -441,7 +443,7 @@ candidate:
 		libusb_detach_kernel_driver(dev, iface);
 
 	/* Claim the interface so we can start querying things! */
-	if (backend_claim_interface(dev, iface)) {
+	if (backend_claim_interface(dev, iface, num_claim_attempts)) {
 		found = -1;
 		goto abort_release;
 	}
@@ -653,7 +655,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
 			      struct dyesub_backend *backend,
 			      char *match_serno,
-			      int scan_only,
+			      int scan_only, int num_claim_attempts,
 			      uint8_t *r_iface, uint8_t *r_altset,
 			      uint8_t *r_endp_up, uint8_t *r_endp_down)
 {
@@ -694,13 +696,13 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		continue;
 
 	match:
-		found = print_scan_output((*list)[i], &desc,
-					  URI_PREFIX, backends[k]->devices[j].manuf_str,
-					  found,
-					  scan_only, match_serno,
-					  r_iface, r_altset,
-					  r_endp_up, r_endp_down,
-					  backends[k]);
+		found = probe_device((*list)[i], &desc,
+				     URI_PREFIX, backends[k]->devices[j].manuf_str,
+				     found, num_claim_attempts,
+				     scan_only, match_serno,
+				     r_iface, r_altset,
+				     r_endp_up, r_endp_down,
+				     backends[k]);
 
 		if (found != -1 && !scan_only)
 			break;
@@ -802,7 +804,7 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 		ERROR("Failed to initialize libusb (%d)\n", i);
 		exit(CUPS_BACKEND_STOP);
 	}
-	find_and_enumerate(ctx, &list, backend, NULL, 1, NULL, NULL, NULL, NULL);
+	find_and_enumerate(ctx, &list, backend, NULL, 1, 1, NULL, NULL, NULL, NULL);
 	libusb_free_device_list(list, 1);
 	libusb_exit(ctx);
 }
@@ -961,7 +963,7 @@ int main (int argc, char **argv)
 	}
 
 	/* Enumerate devices */
-	found = find_and_enumerate(ctx, &list, backend, use_serno, 0, &iface, &altset, &endp_up, &endp_down);
+	found = find_and_enumerate(ctx, &list, backend, use_serno, 0, NUM_CLAIM_ATTEMPTS, &iface, &altset, &endp_up, &endp_down);
 
 	if (found == -1) {
 		ERROR("Printer open failure (No matching printers found!)\n");
@@ -988,7 +990,7 @@ int main (int argc, char **argv)
 	}
 
 	/* Claim the interface so we can start using this! */
-	ret = backend_claim_interface(dev, iface);
+	ret = backend_claim_interface(dev, iface, NUM_CLAIM_ATTEMPTS);
 	if (ret) {
 		ret = CUPS_BACKEND_STOP;
 		goto done_close;
