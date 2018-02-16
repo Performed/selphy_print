@@ -71,7 +71,7 @@ static int backend_claim_interface(struct libusb_device_handle *dev, int iface,
 	} while (1);
 
 	if (ret)
-		ERROR("Printer open failure (%d)\n", ret);
+		ERROR("Failed to claim interface %d (%d)\n", iface, ret);
 
 	return ret;
 }
@@ -448,9 +448,12 @@ candidate:
 		goto abort_release;
 	}
 
-	/* Use the appropriate altesetting! */
-	if (altset != 0) {
+	/* Use the appropriate altesetting, but only if the
+	   printer supports more than one.  Some printers don't like
+	   us unconditionally setting this. */
+	if (config->interface[iface].num_altsetting > 1) {
 		if (libusb_set_interface_alt_setting(dev, iface, altset)) {
+			ERROR("Failed to set alternative interface %d/%d\n", iface, altset);
 			found = -1;
 			goto abort_release;
 		}
