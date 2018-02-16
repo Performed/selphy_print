@@ -553,7 +553,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_FAILED;
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	/* Copy over initial header */
@@ -680,7 +680,7 @@ static int magicard_read_parse(void *vctx, int data_fd) {
 		uint8_t *srcbuf = malloc(MAX_PRINTJOB_LEN);
 		if (!srcbuf) {
 			ERROR("Memory allocation failure!\n");
-			return CUPS_BACKEND_FAILED;
+			return CUPS_BACKEND_RETRY_CURRENT;
 		}
 
 		memcpy(srcbuf, initial_buf + buf_offset, srcbuf_offset);

@@ -985,7 +985,7 @@ repeat:
 
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_FAILED;
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	memcpy(ctx->databuf + ctx->datalen, &mhdr, sizeof(mhdr));
@@ -1014,7 +1014,7 @@ repeat:
 		spoolbuflen = 0; spoolbuf = malloc(remain);
 		if (!spoolbuf) {
 			ERROR("Memory allocation failure!\n");
-			return CUPS_BACKEND_FAILED;
+			return CUPS_BACKEND_RETRY_CURRENT;
 		}
 
 		/* Read in the BGR data */
@@ -1034,7 +1034,7 @@ repeat:
 			uint8_t *buf = malloc(LUT_LEN);
 			if (!buf) {
 				ERROR("Memory allocation failure!\n");
-				return CUPS_BACKEND_FAILED;
+				return CUPS_BACKEND_RETRY_CURRENT;
 			}
 			if (ctx->Get3DColorTable(buf, ctx->lutfname)) {
 				ERROR("Unable to open LUT file '%s'\n", ctx->lutfname);

@@ -243,7 +243,7 @@ top:
 		ctx->databuf = malloc(remain);
 		if (!ctx->databuf) {
 			ERROR("Memory allocation failure!\n");
-			return CUPS_BACKEND_FAILED;
+			return CUPS_BACKEND_RETRY_CURRENT;
 		}
 
 		/* Read it in */

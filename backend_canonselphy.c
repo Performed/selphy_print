@@ -723,7 +723,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	}
 	if (!ctx->printer) {
 		ERROR("Error mapping printjob to printer type!\n");
-		return CUPS_BACKEND_FAILED;
+		return CUPS_BACKEND_CANCEL;
 	}
 
 	INFO("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
@@ -773,7 +773,7 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	if (!ctx->plane_y || !ctx->plane_m || !ctx->plane_c || !ctx->header ||
 	    (ctx->printer->foot_length && !ctx->footer)) {
 		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_FAILED;
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	/* Move over chunks already read in */

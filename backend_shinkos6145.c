@@ -2115,7 +2115,7 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	ctx->databuf = malloc(ctx->datalen);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_FAILED;
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	{

@@ -359,7 +359,7 @@ static int cw01_read_parse(void *vctx, int data_fd) {
 	ctx->databuf = malloc(remain);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_CANCEL;
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	j = 0;

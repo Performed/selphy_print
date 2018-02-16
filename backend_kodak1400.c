@@ -376,7 +376,7 @@ static int kodak1400_read_parse(void *vctx, int data_fd) {
 	ctx->plane_b = malloc(ctx->hdr.planesize);
 	if (!ctx->plane_r || !ctx->plane_g || !ctx->plane_b) {
 		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_FAILED;
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	for (i = 0 ; i < ctx->hdr.rows ; i++) {
 		int j;
