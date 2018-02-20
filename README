@@ -28,10 +28,11 @@
    Canon SELPHY CP series
    Ciaat Brava 21
    Citizen CW-01
+   Citizen CW-02 / OP900II
    DNP DS40 / Citizen CX
    DNP DS80 / Citizen CX-W
-   DNP DS-RX1 / DS-RX1HS / Citizen CY 
-   DNP DS620 / DS620A
+   DNP DS-RX1 / DS-RX1HS / Citizen CY / CY-02
+   DNP DS620 / DS620A / Citizen CX-02
    DNP DS820 / DS820A
    Kodak Professional 1400
    Kodak 305 Photo Printer
@@ -57,7 +58,6 @@
 
   Work-in-progress Printers:
 
-   Citizen CW-02, CY-02, and CX2
    DNP DS80DX
    HiTi P910L
    ICI Imagedata OP900
@@ -68,7 +68,7 @@
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Mitsubishi CP-D707DW
    Mitsubishi CP-D90DW
-   Olmec OP900 and OP900II
+   Olmec OP900
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-CR10L (aka DNP DS-SL10)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)   
@@ -721,17 +721,14 @@
     DNP DS80 (aka Citizen CX-W)
     DNP DS620 / DS620A
     DNP DS820 / DS820A
-    DNP DS-RX1 / DNP DS-RX1HS (aka Citizen CY)
+    DNP DS-RX1 / DNP DS-RX1HS (aka Citizen CY and CY-02)
 
    Theoretically supported printers:  (Untested)
 
-    Citizen CW-02/OP900II
+    Citizen CW-02 / OP900II
+    Citizen CX-02
     DNP DS80DX
     Mitsubishi CP-3800DW
-
-   Work-in-progress printers: (USB PIDs unknown)
-
-    Citizen CX2, CY-02, and CW-02
 
    Development was sponsored in part by:
 
