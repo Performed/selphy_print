@@ -1,7 +1,7 @@
 /*
  *   Magicard card printer family CUPS backend -- libusb-1.0 version
  *
- *   (c) 2017 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2018 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *

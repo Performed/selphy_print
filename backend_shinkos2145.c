@@ -1,7 +1,7 @@
 /*
  *   Shinko/Sinfonia CHC-S2145 CUPS backend -- libusb-1.0 version
  *
- *   (c) 2013-2016 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2013-2018 Solomon Peachy <pizza@shaftnet.org>
  *
  *   Development of this backend was sponsored by:
  *
