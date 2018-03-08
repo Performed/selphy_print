@@ -202,10 +202,10 @@
 # DNP DS-RX1 + Citizen CY (Plus RX1HS and CY-02)
 0x1343 0x0005 blacklist
 
-# Citizen CW-02
+# Citizen CW-02 / OP900II
 0x1343 0x0006 blacklist
 
-# Citizen OP900ii
+# Citizen CX-02
 0x1343 0x000A blacklist
 
 # DNP DS80D
