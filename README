@@ -793,6 +793,9 @@ Notes:
    Work-in-progress printers:
 
     Rio 2E
+    Tango +L
+    Enduro
+    Enduro+
     (And all others)
 
    This backend supports additional commands:
@@ -804,5 +807,8 @@ Notes:
      -s                 Query printer status
      -q                 Generate printer information dump
      -I			Query printer sensors
+     -T                 Print self-test card
+     -E                 Eject card in printer
+     -R                 Reset printer
 
- *************************************************************************** 
+***************************************************************************
