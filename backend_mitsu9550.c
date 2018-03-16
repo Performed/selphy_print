@@ -1268,11 +1268,17 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static const char *mitsu9550_altprefixes[] = {
+	"mitsu9550",
+	NULL
+};
+
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
-	.name = "Mitsubishi CP-9xxx family",
-	.version = "0.30",
-	.uri_prefix = "mitsu9550",
+	.name = "Mitsubishi CP9xxx family",
+	.version = "0.31",
+	.uri_prefix = "mitsu9xxx",
+	.altprefixes = mitsu9550_altprefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
 	.init = mitsu9550_init,

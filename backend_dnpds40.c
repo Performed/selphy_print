@@ -2548,11 +2548,17 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static const char *dnpds40_altprefixes[] = {
+	"dnpds40",
+	NULL
+};
+
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS40/DS80/DSRX1/DS620/DS820",
-	.version = "0.97",
-	.uri_prefix = "dnpds40",
+	.version = "0.98",
+	.uri_prefix = "dnp_citizen",
+	.altprefixes = dnpds40_altprefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
 	.init = dnpds40_init,

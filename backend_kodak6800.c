@@ -1256,11 +1256,17 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	return CUPS_BACKEND_OK;
 }
 
+static const char *kodak6800_altprefixes[] = {
+	"kodak6800",
+	NULL
+};
+
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.58",
-	.uri_prefix = "kodak6800",
+	.version = "0.59",
+	.uri_prefix = "kodak68x0",
+	.altprefixes = kodak6800_altprefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
 	.init = kodak6800_init,

@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.76"
+#define BACKEND_VERSION "0.77"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -729,10 +729,15 @@ static struct dyesub_backend *find_backend(char *uri_prefix)
 
 	for (i = 0; ; i++) {
 		struct dyesub_backend *backend = backends[i];
+		const char **alias;
 		if (!backend)
 			return NULL;
 		if (!strcmp(uri_prefix, backend->uri_prefix))
 			return backend;
+		for (alias = backend->altprefixes ; alias && *alias ; alias++) {
+			if (!strcmp(uri_prefix, *alias))
+				return backend;
+		}
 	}
 	return NULL;
 }
@@ -789,18 +794,30 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 		DEBUG("  [ -d copies ] \n");
 		DEBUG("  [ - | infile ] \n");
 		for (i = 0; ; i++) {
+			const char **alias;
+
 			backend = backends[i];
 			if (!backend)
 				break;
-			DEBUG("  BACKEND=%s\t# %s version %s\n",
-			      backend->uri_prefix, backend->name, backend->version);
+			DEBUG("\t# %s version %s\n",
+			      backend->name, backend->version);
+			DEBUG("  BACKEND=%s", backend->uri_prefix);
+			for (alias = backend->altprefixes ; alias && *alias ; alias++)
+				DEBUG2(" %s", *alias);
+			DEBUG2("\n");
+
 			if (backend->cmdline_usage)
 				backend->cmdline_usage();
 		}
 	} else {
+		const char **alias;
 		DEBUG("Standalone %s backend version %s\n",
 		      backend->name, backend->version);
-		DEBUG("\t%s\n", backend->uri_prefix);
+		DEBUG("\t%s", backend->uri_prefix);
+		for (alias = backend->altprefixes ; alias && *alias ; alias++)
+			DEBUG2(" %s", *alias);
+		DEBUG2("\n");
+
 		DEBUG("\t[ -D ] [ -G ] [ -f ]\n");
 		if (backend->cmdline_usage)
 			backend->cmdline_usage();

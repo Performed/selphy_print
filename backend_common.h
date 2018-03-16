@@ -143,9 +143,10 @@ struct device_id {
 
 /* Backend Functions */
 struct dyesub_backend {
-	char *name;
-	char *version;
-	char *uri_prefix;
+	const char *name;
+	const char *version;
+	const char *uri_prefix;
+	const char **altprefixes;
 	void (*cmdline_usage)(void);  /* Optional */
 	void *(*init)(void);
 	void (*attach)(void *ctx, struct libusb_device_handle *dev,
@@ -155,7 +156,7 @@ struct dyesub_backend {
 	int  (*read_parse)(void *ctx, int data_fd);
 	int  (*main_loop)(void *ctx, int copies);
 	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len); /* Optional */
-	struct device_id devices[];
+	const struct device_id devices[];
 };
 
 /* Exported functions */
