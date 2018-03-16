@@ -34,6 +34,7 @@
  */
 
 //#define DNP_ONLY
+//#define CITIZEN_ONLY
 
 /* Enables caching of last print type to speed up
    job pipelining.  Without this we always have to
@@ -53,20 +54,6 @@
 #define BACKEND dnpds40_backend
 
 #include "backend_common.h"
-
-#define USB_VID_CITIZEN   0x1343
-#define USB_PID_DNP_DS40  0x0003 // Also Citizen CX
-#define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W, and Mitsubishi CP-3800DW
-#define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
-#define USB_PID_DNP_DS80D 0x0007
-#define USB_PID_DNP_DS620_OLD 0x0008
-
-#define USB_PID_CITIZEN_CW02 0x0006 // Also OP900II
-#define USB_PID_CITIZEN_CX02 0x000A
-
-#define USB_VID_DNP       0x1452
-#define USB_PID_DNP_DS620 0x8b01
-#define USB_PID_DNP_DS820 0x9001
 
 /* Private data structure */
 struct dnpds40_ctx {
@@ -607,6 +594,27 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		}
 	}
 
+#ifdef DNP_ONLY  /* Only allow DNP printers to work. */
+	{ /* Validate USB Vendor String is "Dai Nippon Printing" */
+		char buf[256];
+		buf[0] = 0;
+		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
+		sanitize_string(buf);
+		if (strncmp(buf, "Dai", 3))
+			return 0;
+	}
+#endif
+#ifdef CITIZEN_ONLY   /* Only allow CITIZEN printers to work. */
+	{ /* Validate USB Vendor String is "CITIZEN SYSTEMS" */
+		char buf[256];
+		buf[0] = 0;
+		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
+		sanitize_string(buf);
+		if (strncmp(buf, "CIT", 3))
+			return 0;
+	}
+#endif
+
 	if (ctx->type == P_DNP_DS80D) {
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
@@ -633,19 +641,6 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			free(resp);
 		}
 	}
-
-#ifdef DNP_ONLY
-	/* Only allow DNP printers to work. Rebadged versions should not. */
-
-	{ /* Validate USB Vendor String is "Dai Nippon Printing" */
-		char buf[256];
-		buf[0] = 0;
-		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
-		sanitize_string(buf);
-		if (strncmp(buf, "Dai", 3))
-			return 0;
-	}
-#endif
 
 	/* Per-printer options */
 	switch (ctx->type) {
@@ -2555,6 +2550,20 @@ static const char *dnpds40_prefixes[] = {
 	NULL
 };
 
+#define USB_VID_CITIZEN   0x1343
+#define USB_PID_DNP_DS40  0x0003 // Also Citizen CX
+#define USB_PID_DNP_DS80  0x0004 // Also Citizen CX-W and Mitsubishi CP-3800DW
+#define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
+#define USB_PID_DNP_DS80D 0x0007
+#define USB_PID_DNP_DS620_OLD 0x0008
+
+#define USB_PID_CITIZEN_CW02 0x0006 // Also OP900II
+#define USB_PID_CITIZEN_CX02 0x000A
+
+#define USB_VID_DNP       0x1452
+#define USB_PID_DNP_DS620 0x8b01
+#define USB_PID_DNP_DS820 0x9001
+
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
@@ -2569,13 +2578,13 @@ struct dyesub_backend dnpds40_backend = {
 	.main_loop = dnpds40_main_loop,
 	.query_serno = dnpds40_query_serno,
 	.devices = {
-		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "dnpds40"},
-		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "dnpds80"},
-		{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL, "dnpdx1"},
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "dnpds40"},  // Also Citizen CX
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "dnpds80"},  // Also Citizen CX-W and Mitsubishi CP-3800DW
+		{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL, "dnpdx1"}, // Also Citizen CY
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS620_OLD, P_DNP_DS620, NULL, "dnpds620"},
 		{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, NULL, "dnpds620"},
 		{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80D, NULL, "dnpds80dx"},
-		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL, "citizencw02"},
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL, "citizencw02"}, // Also OP900II
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX02, P_DNP_DS620, NULL, "citizencx02"},
 		{ USB_VID_DNP, USB_PID_DNP_DS820, P_DNP_DS820, NULL, "dnpds820"},
 		{ 0, 0, 0, NULL, NULL}
