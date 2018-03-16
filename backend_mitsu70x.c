@@ -1989,12 +1989,17 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static const char *mitsu70x_prefixes[] = {
+	"mitsu70x",
+	"mitsud80", "mitsuk60", "kodak305", "fujiask300",
+	NULL,
+};
 
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
-	.name = "Mitsubishi CP-D70/D707/K60/D80",
-	.version = "0.75",
-	.uri_prefix = "mitsu70x",
+	.name = "Mitsubishi CP-D70 family",
+	.version = "0.76",
+	.uri_prefixes = mitsu70x_prefixes,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
 	.init = mitsu70x_init,
@@ -2004,13 +2009,13 @@ struct dyesub_backend mitsu70x_backend = {
 	.main_loop = mitsu70x_main_loop,
 	.query_serno = mitsu70x_query_serno,
 	.devices = {
-		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, NULL},
-		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, NULL},
-		{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_D80, NULL},
-//		{ USB_VID_MITSU, USB_PID_MITSU_D90, P_MITSU_D90, NULL},
-		{ USB_VID_KODAK, USB_PID_KODAK305, P_KODAK_305, NULL},
-		{ USB_VID_FUJIFILM, USB_PID_FUJI_ASK300, P_FUJI_ASK300, NULL},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, NULL, "mitsu70x"},
+		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, NULL, "mitsuk60"},
+		{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_D80, NULL, "mitsud80"},
+//		{ USB_VID_MITSU, USB_PID_MITSU_D90, P_MITSU_D90, NULL, "mitsud90"}, // XXX add me in!
+		{ USB_VID_KODAK, USB_PID_KODAK305, P_KODAK_305, NULL, "kodak305"},
+		{ USB_VID_FUJIFILM, USB_PID_FUJI_ASK300, P_FUJI_ASK300, NULL, "fujiask300"},
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 

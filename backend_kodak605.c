@@ -673,11 +673,16 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static const char *kodak605_prefixes[] = {
+	"kodak605",
+	NULL,
+};
+
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.27",
-	.uri_prefix = "kodak605",
+	.version = "0.28",
+	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
 	.init = kodak605_init,
@@ -686,8 +691,8 @@ struct dyesub_backend kodak605_backend = {
 	.read_parse = kodak605_read_parse,
 	.main_loop = kodak605_main_loop,
 	.devices = {
-	{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak"},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak", "kodaka605"},
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 

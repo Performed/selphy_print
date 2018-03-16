@@ -427,10 +427,16 @@ static void selphyneo_cmdline(void)
 	DEBUG("\t\t[ -s ]           # Query printer status\n");
 }
 
+static const char *canonselphyneo_prefixes[] = {
+	"canonselphyneo",
+	"selphycp820", "selphycp910", "selphycp1000", "selphycp1200", "selphycp1300",
+	NULL
+};
+
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CPneo",
-	.version = "0.11",
-	.uri_prefix = "canonselphyneo",
+	.version = "0.12",
+	.uri_prefixes = canonselphyneo_prefixes,
 	.cmdline_usage = selphyneo_cmdline,
 	.cmdline_arg = selphyneo_cmdline_arg,
 	.init = selphyneo_init,
@@ -439,12 +445,12 @@ struct dyesub_backend canonselphyneo_backend = {
 	.read_parse = selphyneo_read_parse,
 	.main_loop = selphyneo_main_loop,
 	.devices = {
-	{ USB_VID_CANON, USB_PID_CANON_CP820, P_CP910, NULL},
-	{ USB_VID_CANON, USB_PID_CANON_CP910, P_CP910, NULL},
-	{ USB_VID_CANON, USB_PID_CANON_CP1000, P_CP910, NULL},
-	{ USB_VID_CANON, USB_PID_CANON_CP1200, P_CP910, NULL},
-	{ USB_VID_CANON, USB_PID_CANON_CP1300, P_CP910, NULL},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_CANON, USB_PID_CANON_CP820, P_CP910, NULL, "selphycp820"},
+		{ USB_VID_CANON, USB_PID_CANON_CP910, P_CP910, NULL, "selphycp910"},
+		{ USB_VID_CANON, USB_PID_CANON_CP1000, P_CP910, NULL, "elphycp1000"},
+		{ USB_VID_CANON, USB_PID_CANON_CP1200, P_CP910, NULL, "selphycp1100"},
+		{ USB_VID_CANON, USB_PID_CANON_CP1300, P_CP910, NULL, "selphycp1200"},
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 /*

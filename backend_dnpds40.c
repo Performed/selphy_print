@@ -2548,17 +2548,18 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
-static const char *dnpds40_altprefixes[] = {
-	"dnpds40",
+static const char *dnpds40_prefixes[] = {
+	"dnp_citizen",
+	"dnpds40", "dnpds80", "dnpds80dx", "dnpds620", "dnpds820", "dnprx1",
+	"citizencw02", "citizencx02",
 	NULL
 };
 
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
-	.name = "DNP DS40/DS80/DSRX1/DS620/DS820",
+	.name = "DNP DS-series / Citizen C-series",
 	.version = "0.98",
-	.uri_prefix = "dnp_citizen",
-	.altprefixes = dnpds40_altprefixes,
+	.uri_prefixes = dnpds40_prefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
 	.init = dnpds40_init,
@@ -2568,15 +2569,15 @@ struct dyesub_backend dnpds40_backend = {
 	.main_loop = dnpds40_main_loop,
 	.query_serno = dnpds40_query_serno,
 	.devices = {
-	{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL},
-	{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL},
-	{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL},
-	{ USB_VID_CITIZEN, USB_PID_DNP_DS620_OLD, P_DNP_DS620, NULL},
-	{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, NULL},
-	{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80D, NULL},
-	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL},
-	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX02, P_DNP_DS620, NULL},
-	{ USB_VID_DNP, USB_PID_DNP_DS820, P_DNP_DS820, NULL},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "dnpds40"},
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "dnpds80"},
+		{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL, "dnpdx1"},
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS620_OLD, P_DNP_DS620, NULL, "dnpds620"},
+		{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, NULL, "dnpds620"},
+		{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80D, NULL, "dnpds80dx"},
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL, "citizencw02"},
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX02, P_DNP_DS620, NULL, "citizencx02"},
+		{ USB_VID_DNP, USB_PID_DNP_DS820, P_DNP_DS820, NULL, "dnpds820"},
+		{ 0, 0, 0, NULL, NULL}
 	}
 };

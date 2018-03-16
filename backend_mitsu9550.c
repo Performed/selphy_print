@@ -1268,8 +1268,9 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
-static const char *mitsu9550_altprefixes[] = {
-	"mitsu9550",
+static const char *mitsu9550_prefixes[] = {
+	"mitsu9xxx",
+	"mitsu9000", "mitsu9500", "mitsu9550", "mitsi9600", "mitsu9800", "mitsu9810",
 	NULL
 };
 
@@ -1277,8 +1278,7 @@ static const char *mitsu9550_altprefixes[] = {
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
 	.version = "0.31",
-	.uri_prefix = "mitsu9xxx",
-	.altprefixes = mitsu9550_altprefixes,
+	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
 	.init = mitsu9550_init,
@@ -1288,23 +1288,23 @@ struct dyesub_backend mitsu9550_backend = {
 	.main_loop = mitsu9550_main_loop,
 	.query_serno = mitsu9550_query_serno,
 	.devices = {
-	{ USB_VID_MITSU, USB_PID_MITSU_9000AM, P_MITSU_9550, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_9000D, P_MITSU_9550, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_9500D, P_MITSU_9550, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, NULL},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600S, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_98__D, P_MITSU_9810, NULL},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, NULL},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9820DS, P_MITSU_9820S, NULL},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_MITSU, USB_PID_MITSU_9000AM, P_MITSU_9550, NULL, "mitsu9000"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9000D, P_MITSU_9550, NULL, "mitsu9000"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9500D, P_MITSU_9550, NULL, "mitsu9500"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, NULL, "mitsu9550"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, NULL, "mitsu9550"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, NULL, "mitsu9600"},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600S, NULL, "mitsu9600"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, NULL, "mitsu9800"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, NULL, "mitsu9800"},
+		{ USB_VID_MITSU, USB_PID_MITSU_98__D, P_MITSU_9810, NULL, "mitsu9810"},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, NULL, "mitsu9810"},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9820DS, P_MITSU_9820S, NULL, "mitsu9820"},  // XXX add "mitsu9820"
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 
-/* Mitsubish CP-9500/9550/9600/9800/9810 spool format:
+/* Mitsubish CP-9500/9550/9600/9800/9810/9820 spool format:
 
    Spool file consists of 3 (or 4) 50-byte headers, followed by three
    image planes, each with a 12-byte header, then a 4-byte footer.

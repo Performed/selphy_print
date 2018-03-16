@@ -139,14 +139,14 @@ struct device_id {
 	uint16_t pid;
 	int type;  /* P_** */
 	char *manuf_str;
+	char *prefix;
 };
 
 /* Backend Functions */
 struct dyesub_backend {
 	const char *name;
 	const char *version;
-	const char *uri_prefix;
-	const char **altprefixes;
+	const char **uri_prefixes;
 	void (*cmdline_usage)(void);  /* Optional */
 	void *(*init)(void);
 	void (*attach)(void *ctx, struct libusb_device_handle *dev,

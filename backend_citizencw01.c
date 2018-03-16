@@ -856,11 +856,16 @@ static int cw01_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static const char *citizencw01_prefixes[] = {
+	"citizencw01",
+	NULL,
+};
+
 /* Exported */
 struct dyesub_backend cw01_backend = {
 	.name = "Citizen CW-01",
-	.version = "0.12",
-	.uri_prefix = "citizencw01",
+	.version = "0.13",
+	.uri_prefixes = citizencw01_prefixes,
 	.cmdline_usage = cw01_cmdline,
 	.cmdline_arg = cw01_cmdline_arg,
 	.init = cw01_init,
@@ -870,9 +875,9 @@ struct dyesub_backend cw01_backend = {
 	.main_loop = cw01_main_loop,
 	.query_serno = cw01_query_serno,
 	.devices = {
-	{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, NULL},
-//	{ USB_VID_CITIZEN, USB_PID_OLMEC_OP900, P_CITIZEN_CW01, NULL},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, NULL, "citizencw01"},
+//	{ USB_VID_CITIZEN, USB_PID_OLMEC_OP900, P_CITIZEN_CW01, NULL, "citizenop900"}, // XXX add me
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 

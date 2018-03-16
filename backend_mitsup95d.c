@@ -505,6 +505,11 @@ static int mitsup95d_get_status(struct mitsup95d_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
+static void mitsup95d_cmdline(void)
+{
+	DEBUG("\t\t[ -s ]           # Query status\n");
+}
+
 static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct mitsup95d_ctx *ctx = vctx;
@@ -529,21 +534,28 @@ static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static const char *mitsup95d_prefixes[] = {
+	"mitsup9x",
+	"mitsup95d", "mitsup93d",
+	NULL
+};
+
 /* Exported */
 struct dyesub_backend mitsup95d_backend = {
 	.name = "Mitsubishi P93D/P95D",
-	.version = "0.06",
-	.uri_prefix = "mitsup95d",
+	.version = "0.07",
+	.uri_prefixes = mitsup95d_prefixes,
 	.cmdline_arg = mitsup95d_cmdline_arg,
+	.cmdline_usage = mitsup95d_cmdline,
 	.init = mitsup95d_init,
 	.attach = mitsup95d_attach,
 	.teardown = mitsup95d_teardown,
 	.read_parse = mitsup95d_read_parse,
 	.main_loop = mitsup95d_main_loop,
 	.devices = {
-	{ USB_VID_MITSU, USB_PID_MITSU_P93D, P_MITSU_P93D, NULL},
-	{ USB_VID_MITSU, USB_PID_MITSU_P95D, P_MITSU_P95D, NULL},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_MITSU, USB_PID_MITSU_P93D, P_MITSU_P93D, NULL, "mitsup95d"},
+		{ USB_VID_MITSU, USB_PID_MITSU_P95D, P_MITSU_P95D, NULL, "mitsup93d"},
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 

@@ -365,7 +365,8 @@ static char *url_decode(char *str) {
 
 static int probe_device(struct libusb_device *device,
 			struct libusb_device_descriptor *desc,
-			char *prefix, char *manuf_override,
+			const char *uri_prefix,
+			const char *prefix, char *manuf_override,
 			int found, int num_claim_attempts,
 			int scan_only, char *match_serno,
 			uint8_t *r_iface, uint8_t *r_altset,
@@ -570,7 +571,7 @@ candidate:
 		strncpy(buf + k, product, sizeof(buf)-k);
 
 		fprintf(stdout, "direct %s://%s?serial=%s&backend=%s \"%s\" \"%s\" \"%s\" \"\"\n",
-			prefix, buf, serial, backend->uri_prefix,
+			prefix, buf, serial, uri_prefix,
 			descr, descr,
 			ieee_id? ieee_id : "");
 	}
@@ -668,6 +669,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	int num;
 	int i, j = 0, k;
 	int found = -1;
+	const char *prefix = NULL;
 
 	STATE("+org.gutenprint-searching-for-device\n");
 
@@ -689,12 +691,14 @@ static int find_and_enumerate(struct libusb_context *ctx,
 					    extra_vid == desc.idVendor &&
 					    extra_pid == desc.idProduct) {
 						found = i;
+						prefix = backends[k]->uri_prefixes[0];
 						goto match;
 					}
 				}
 				if (desc.idVendor == backends[k]->devices[j].vid &&
 				    (desc.idProduct == backends[k]->devices[j].pid ||
 				     desc.idProduct == 0xffff)) {
+					prefix = backends[k]->devices[j].prefix;
 					found = i;
 					goto match;
 				}
@@ -704,7 +708,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		continue;
 
 	match:
-		found = probe_device((*list)[i], &desc,
+		found = probe_device((*list)[i], &desc, prefix,
 				     URI_PREFIX, backends[k]->devices[j].manuf_str,
 				     found, num_claim_attempts,
 				     scan_only, match_serno,
@@ -732,9 +736,7 @@ static struct dyesub_backend *find_backend(char *uri_prefix)
 		const char **alias;
 		if (!backend)
 			return NULL;
-		if (!strcmp(uri_prefix, backend->uri_prefix))
-			return backend;
-		for (alias = backend->altprefixes ; alias && *alias ; alias++) {
+		for (alias = backend->uri_prefixes ; alias && *alias ; alias++) {
 			if (!strcmp(uri_prefix, *alias))
 				return backend;
 		}
@@ -801,9 +803,9 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 				break;
 			DEBUG("\t# %s version %s\n",
 			      backend->name, backend->version);
-			DEBUG("  BACKEND=%s", backend->uri_prefix);
-			for (alias = backend->altprefixes ; alias && *alias ; alias++)
-				DEBUG2(" %s", *alias);
+			DEBUG("  BACKEND=");
+			for (alias = backend->uri_prefixes ; alias && *alias ; alias++)
+				DEBUG2("%s ", *alias);
 			DEBUG2("\n");
 
 			if (backend->cmdline_usage)
@@ -813,9 +815,9 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 		const char **alias;
 		DEBUG("Standalone %s backend version %s\n",
 		      backend->name, backend->version);
-		DEBUG("\t%s", backend->uri_prefix);
-		for (alias = backend->altprefixes ; alias && *alias ; alias++)
-			DEBUG2(" %s", *alias);
+		DEBUG("\t");
+		for (alias = backend->uri_prefixes ; alias && *alias ; alias++)
+			DEBUG2("%s ", *alias);
 		DEBUG2("\n");
 
 		DEBUG("\t[ -D ] [ -G ] [ -f ]\n");

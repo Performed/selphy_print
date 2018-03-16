@@ -2488,10 +2488,15 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 #define USB_PID_SHINKO_S6145  0x0019
 #define USB_PID_SHINKO_S6145D 0x001E /* Aka CIAAT Brava 21 */
 
+static const char *shinkos6145_prefixes[] = {
+	"shinkos6145", "brava21",
+	NULL
+};
+
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145",
-	.version = "0.22",
-	.uri_prefix = "shinkos6145",
+	.version = "0.23",
+	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
 	.init = shinkos6145_init,
@@ -2501,9 +2506,9 @@ struct dyesub_backend shinkos6145_backend = {
 	.main_loop = shinkos6145_main_loop,
 	.query_serno = shinkos6145_query_serno,
 	.devices = {
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL},
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S6145D, P_SHINKO_S6145D, NULL},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL, "shinkos6145"},
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145D, P_SHINKO_S6145D, NULL, "brava21"},
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 

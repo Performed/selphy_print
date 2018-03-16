@@ -887,10 +887,16 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static const char *magicard_prefixes[] = {
+	"magicard",
+	"tango2e", "enduro", "enduroplus",
+	NULL
+};
+
 struct dyesub_backend magicard_backend = {
 	.name = "Magicard family",
-	.version = "0.09",
-	.uri_prefix = "magicard",
+	.version = "0.10",
+	.uri_prefixes = magicard_prefixes,
 	.cmdline_arg = magicard_cmdline_arg,
 	.cmdline_usage = magicard_cmdline,
 	.init = magicard_init,
@@ -899,11 +905,11 @@ struct dyesub_backend magicard_backend = {
 	.read_parse = magicard_read_parse,
 	.main_loop = magicard_main_loop,
 	.devices = {
-	{ USB_VID_MAGICARD, USB_PID_MAGICARD_TANGO2E, P_MAGICARD, NULL},
-	{ USB_VID_MAGICARD, USB_PID_MAGICARD_ENDURO, P_MAGICARD, NULL},	
-	{ USB_VID_MAGICARD, USB_PID_MAGICARD_ENDUROPLUS, P_MAGICARD, NULL},
-	{ USB_VID_MAGICARD, 0xFFFF, P_MAGICARD, NULL},
-	{ 0, 0, 0, NULL}
+		{ USB_VID_MAGICARD, USB_PID_MAGICARD_TANGO2E, P_MAGICARD, NULL, "tango2e"},
+		{ USB_VID_MAGICARD, USB_PID_MAGICARD_ENDURO, P_MAGICARD, NULL, "enduro"},	
+		{ USB_VID_MAGICARD, USB_PID_MAGICARD_ENDUROPLUS, P_MAGICARD, NULL, "enduroplus"},
+		{ USB_VID_MAGICARD, 0xFFFF, P_MAGICARD, NULL, "magicard"},
+		{ 0, 0, 0, NULL, "magicard"}
 	}
 };
 
