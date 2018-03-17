@@ -540,11 +540,11 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 					desc.idVendor, desc.idProduct);
 
 	{
-		/* Get Firmware Version */
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
 		int len = 0;
 
+		/* Get Firmware Version */
 		dnpds40_build_cmd(&cmd, "INFO", "FVER", 0);
 
 		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
@@ -1606,11 +1606,13 @@ top:
 			return CUPS_BACKEND_FAILED;
 	}
 
-	/* Program in the multicut setting */
-	snprintf(buf, sizeof(buf), "%08u", ctx->multicut);
-	dnpds40_build_cmd(&cmd, "IMAGE", "MULTICUT", 8);
-	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
-		return CUPS_BACKEND_FAILED;
+	/* Program in the multicut setting, if one exists */
+	if (ctx->multicut) {
+		snprintf(buf, sizeof(buf), "%08u", ctx->multicut);
+		dnpds40_build_cmd(&cmd, "IMAGE", "MULTICUT", 8);
+		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
+			return CUPS_BACKEND_FAILED;
+	}
 
 	/* Finally, send the stream over as individual data chunks */
 	ptr = ctx->databuf;
@@ -2108,7 +2110,6 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	dnpds40_cleanup_string((char*)resp, len);
 
 	INFO("Free Buffers: %d\n", atoi((char*)resp + 3));
-
 	free(resp);
 
 	/* Report media */
@@ -2493,7 +2494,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 			    optarg[0] != 'B' &&
 			    optarg[0] != 'M')
 				return CUPS_BACKEND_FAILED;
-			if (!ctx->supports_matte) {
+			if (optarg[0] == 'M' && !ctx->supports_matte) {
 				ERROR("Printer FW does not support matte functions, please update!\n");
 				return CUPS_BACKEND_FAILED;
 			}
