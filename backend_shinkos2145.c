@@ -1756,7 +1756,7 @@ static const char *shinkos2145_prefixes[] = {
 };
 
 struct dyesub_backend shinkos2145_backend = {
-	.name = "Shinko/Sinfonia CHC-S2145",
+	.name = "Shinko/Sinfonia CHC-S2145/S2",
 	.version = "0.50",
 	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,

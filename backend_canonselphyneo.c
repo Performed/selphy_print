@@ -434,7 +434,7 @@ static const char *canonselphyneo_prefixes[] = {
 };
 
 struct dyesub_backend canonselphyneo_backend = {
-	.name = "Canon SELPHY CPneo",
+	.name = "Canon SELPHY CP (new)",
 	.version = "0.12",
 	.uri_prefixes = canonselphyneo_prefixes,
 	.cmdline_usage = selphyneo_cmdline,
