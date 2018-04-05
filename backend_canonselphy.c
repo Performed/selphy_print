@@ -568,7 +568,9 @@ static int canonselphy_get_status(struct canonselphy_ctx *ctx)
 	uint8_t rdbuf[READBACK_LEN];
 	int ret, num;
 
-	/* Read in the printer status */
+	/* Read in the printer status, twice. */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) rdbuf, READBACK_LEN, &num);
 	ret = read_data(ctx->dev, ctx->endp_up,
 			(uint8_t*) rdbuf, READBACK_LEN, &num);
 
@@ -625,6 +627,7 @@ static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 	struct canonselphy_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
+	int i;
 
 	UNUSED(jobid);
 
@@ -637,6 +640,12 @@ static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 
 	ctx->type = lookup_printer_type(&canonselphy_backend,
 					desc.idVendor, desc.idProduct);
+
+	for (i = 0 ; selphy_printers[i].type != -1; i++) {
+		if (selphy_printers[i].type == ctx->type) {
+			ctx->printer = &selphy_printers[i];
+		}
+	}
 
 	if (desc.idProduct == USB_PID_CANON_CP900)
 		ctx->cp900 = 1;
@@ -1088,7 +1097,7 @@ static const char *canonselphy_prefixes[] = {
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES (legacy)",
-	.version = "0.96",
+	.version = "0.97",
 	.uri_prefixes = canonselphy_prefixes,
 	.cmdline_usage = canonselphy_cmdline,
 	.cmdline_arg = canonselphy_cmdline_arg,
