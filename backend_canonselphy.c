@@ -78,38 +78,48 @@
 
 #define READBACK_LEN 12
 
+struct printer_data;  /* Forward declaration */
+
 struct printer_data {
 	int  type;  /* P_??? */
 	char *model; /* eg "SELPHY ES1" */
-	int  init_length;
-	int  foot_length;
+	uint16_t init_length;
+	uint16_t  foot_length;
 	int16_t init_readback[READBACK_LEN];
 	int16_t ready_y_readback[READBACK_LEN];
 	int16_t ready_m_readback[READBACK_LEN];
 	int16_t ready_c_readback[READBACK_LEN];
 	int16_t done_c_readback[READBACK_LEN];
 	uint8_t clear_error[READBACK_LEN];
-	int     clear_error_len;
+	uint8_t clear_error_len;
 	int16_t paper_codes[256];
-	int16_t pgcode_offset;  /* Offset into printjob for paper type */
-	int16_t paper_code_offset; /* Offset in readback for paper type */
-	int   (*error_detect)(uint8_t *rdbuf);
-	char  *(*pgcode_names)(uint8_t pgcode);
+	int8_t  pgcode_offset;  /* Offset into printjob for paper type */
+	int8_t  paper_code_offset; /* Offset in readback for paper type */
+	int8_t  paper_code_offset2; /* Offset in readback for paper type (2nd) */
+	uint8_t (*error_detect)(uint8_t *rdbuf);
+	char    *(*pgcode_names)(uint8_t *rdbuf, struct printer_data *printer);
 };
 
-static char *generic_pgcode_names(uint8_t pgcode)
+static char *generic_pgcode_names(uint8_t *rdbuf, struct printer_data *printer)
 {
+	uint8_t pgcode = 0, pgcode2 = 0;
+
+	if (printer->paper_code_offset != -1)
+		pgcode = rdbuf[printer->paper_code_offset];
+	if (printer->paper_code_offset2 != -1)
+		pgcode2 = rdbuf[printer->paper_code_offset2];
+
 	switch(pgcode & 0xf) {
 	case 0x01: return "P";
 	case 0x02: return "L";
-	case 0x03: return "C";
+	case 0x03: return pgcode2 ? "Cl" : "C";
 	case 0x04: return "W";
 	case 0x0f: return "None";
 	default: return "Unknown";
 	}
 }
 
-static int es1_error_detect(uint8_t *rdbuf)
+static uint8_t es1_error_detect(uint8_t *rdbuf)
 {
 	if (rdbuf[1] == 0x01) {
 		if (rdbuf[9] == 0x00) {
@@ -132,7 +142,7 @@ static int es1_error_detect(uint8_t *rdbuf)
 	return 0;
 }
 
-static int es2_error_detect(uint8_t *rdbuf)
+static uint8_t es2_error_detect(uint8_t *rdbuf)
 {
 	if (rdbuf[0] == 0x16 &&
 	    rdbuf[1] == 0x01) {
@@ -158,7 +168,7 @@ static int es2_error_detect(uint8_t *rdbuf)
 	return 0;
 }
 
-static int es3_error_detect(uint8_t *rdbuf)
+static uint8_t es3_error_detect(uint8_t *rdbuf)
 {
 	if (rdbuf[8] == 0x01) {
 		if (rdbuf[10] == 0x0f) {
@@ -195,7 +205,7 @@ static int es3_error_detect(uint8_t *rdbuf)
 	return 0;
 }
 
-static int es40_error_detect(uint8_t *rdbuf)
+static uint8_t es40_error_detect(uint8_t *rdbuf)
 {
 	/* ES40 */
 	if (!rdbuf[3])
@@ -213,7 +223,7 @@ static int es40_error_detect(uint8_t *rdbuf)
 	return 1;
 }
 
-static int cp790_error_detect(uint8_t *rdbuf)
+static uint8_t cp790_error_detect(uint8_t *rdbuf)
 {
 	/* CP790 */
 	if (rdbuf[5] == 0xff) {
@@ -242,14 +252,15 @@ static int cp790_error_detect(uint8_t *rdbuf)
 	return 0;
 }
 
-static char *cp10_pgcode_names(uint8_t pgcode)
+static char *cp10_pgcode_names(uint8_t *rdbuf, struct printer_data *printer)
 {
-	switch (pgcode) {
-	default: return "C";
-	};
+	UNUSED(rdbuf);
+	UNUSED(printer);
+
+	return "C";   /* Printer only supports one media type */
 }
 
-static int cp10_error_detect(uint8_t *rdbuf)
+static uint8_t cp10_error_detect(uint8_t *rdbuf)
 {
 	if (!rdbuf[2])
 		return 0;
@@ -268,7 +279,7 @@ static int cp10_error_detect(uint8_t *rdbuf)
 	return 1;
 }
 
-static int cpxxx_error_detect(uint8_t *rdbuf)
+static uint8_t cpxxx_error_detect(uint8_t *rdbuf)
 {
 	if (!rdbuf[2])
 		return 0;
@@ -300,6 +311,7 @@ static struct printer_data selphy_printers[] = {
 	  .clear_error_len = 12,
 	  .pgcode_offset = 3,
 	  .paper_code_offset = 6,
+	  .paper_code_offset2 = -1,
 	  .error_detect = es1_error_detect,
 	  .pgcode_names = generic_pgcode_names,
 	},
@@ -316,6 +328,7 @@ static struct printer_data selphy_printers[] = {
 	  .clear_error_len = 12,
 	  .pgcode_offset = 2,
 	  .paper_code_offset = 4,
+	  .paper_code_offset2 = 6,
 	  .error_detect = es2_error_detect,
 	  .pgcode_names = generic_pgcode_names,
 	},
@@ -332,6 +345,7 @@ static struct printer_data selphy_printers[] = {
 	  .clear_error_len = 12,
 	  .pgcode_offset = 2,
 	  .paper_code_offset = -1,
+	  .paper_code_offset2 = -1,
 	  .error_detect = es3_error_detect,
 	  .pgcode_names = NULL,
 	},
@@ -348,6 +362,7 @@ static struct printer_data selphy_printers[] = {
 	  .clear_error_len = 12,
 	  .pgcode_offset = 2,
 	  .paper_code_offset = 11,
+	  .paper_code_offset2 = -1,
 	  .error_detect = es40_error_detect,
 	  .pgcode_names = generic_pgcode_names,
 	},
@@ -364,6 +379,7 @@ static struct printer_data selphy_printers[] = {
 	  .clear_error_len = 12,
 	  .pgcode_offset = 2,
 	  .paper_code_offset = -1, /* Uses a different technique */
+	  .paper_code_offset2 = -1,
 	  .error_detect = cp790_error_detect,
 	  .pgcode_names = generic_pgcode_names,
 	},
@@ -380,6 +396,7 @@ static struct printer_data selphy_printers[] = {
 	  .clear_error_len = 12,
 	  .pgcode_offset = 3,
 	  .paper_code_offset = 6,
+	  .paper_code_offset2 = -1,
 	  .error_detect = cpxxx_error_detect,
 	  .pgcode_names = generic_pgcode_names,
 	},
@@ -396,6 +413,7 @@ static struct printer_data selphy_printers[] = {
 	  .clear_error_len = 12,
 	  .pgcode_offset = 2,
 	  .paper_code_offset = -1,
+	  .paper_code_offset2 = -1,
 	  .error_detect = cp10_error_detect,
 	  .pgcode_names = cp10_pgcode_names,
 	},
@@ -577,7 +595,7 @@ static int canonselphy_get_status(struct canonselphy_ctx *ctx)
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
 
-	INFO("Media type: %s\n", ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf[ctx->printer->paper_code_offset]) : "Unknown");
+	INFO("Media type: %s\n", ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf, ctx->printer) : "Unknown");
 	ctx->printer->error_detect(rdbuf);
 
 	return CUPS_BACKEND_OK;
@@ -638,6 +656,9 @@ static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
 
+	if (desc.idProduct == USB_PID_CANON_CP900)
+		ctx->cp900 = 1;
+
 	ctx->type = lookup_printer_type(&canonselphy_backend,
 					desc.idVendor, desc.idProduct);
 
@@ -646,9 +667,9 @@ static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->printer = &selphy_printers[i];
 		}
 	}
-
-	if (desc.idProduct == USB_PID_CANON_CP900)
-		ctx->cp900 = 1;
+	if (!ctx->printer) {
+		ERROR("Error looking up printer type!\n");
+	}
 }
 
 static void canonselphy_teardown(void *vctx) {
@@ -724,23 +745,17 @@ static int canonselphy_read_parse(void *vctx, int data_fd)
 	}
 
 	/* Look up the printer entry */
-	for (i = 0; selphy_printers[i].type != -1; i++) {
-		if (selphy_printers[i].type == printer_type) {
-			ctx->printer = &selphy_printers[i];
-			break;
-		}
-	}
 	if (!ctx->printer) {
-		ERROR("Error mapping printjob to printer type!\n");
+		ERROR("Unable to look up printer type!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
-
-	INFO("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
 
 	if (ctx->printer->type != ctx->type) {
 		ERROR("Printer/Job mismatch (%d/%d)\n", ctx->type, ctx->printer->type);
 		return CUPS_BACKEND_CANCEL;
 	}
+
+	INFO("%sFile intended for a '%s' printer\n",  ctx->bw_mode? "B/W " : "", ctx->printer->model);
 
 	/* Paper code setup */
 	if (ctx->printer->pgcode_offset != -1)
@@ -848,7 +863,7 @@ static int canonselphy_main_loop(void *vctx, int copies) {
 	ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
 	ATTR("marker-high-levels=100\n");
 	ATTR("marker-low-levels=10\n");
-	ATTR("marker-names='%s'\n", ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf[ctx->printer->paper_code_offset]) : "Unknown");
+	ATTR("marker-names='%s'\n", ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf, ctx->printer) : "Unknown");
 	ATTR("marker-types=ribbonWax\n");
 	ATTR("marker-levels=%d\n", -3); /* ie Unknown but OK */
 
@@ -1097,7 +1112,7 @@ static const char *canonselphy_prefixes[] = {
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES (legacy)",
-	.version = "0.97",
+	.version = "0.98",
 	.uri_prefixes = canonselphy_prefixes,
 	.cmdline_usage = canonselphy_cmdline,
 	.cmdline_arg = canonselphy_cmdline_arg,
@@ -1230,10 +1245,8 @@ struct dyesub_backend canonselphy_backend = {
    	     0x02 for L-papers
              0x03 for C-papers
 
-   [pg2] is: 0x00 for P & L papers
-             0x01 for Cl-paper
-
-       *** note: may refer to Label (0x01) vs non-Label (0x00) media.
+   [pg2] is: 0x00 for Normal papers
+             0x01 for Label papers
 
  ***************************************************************************
  Selphy ES3/30:
