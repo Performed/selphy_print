@@ -725,10 +725,16 @@
 
    Theoretically supported printers:  (Untested)
 
+    Citizen CW-01 / OP900
     Citizen CW-02 / OP900II
     Citizen CX-02
     DNP DS80DX
     Mitsubishi CP-3800DW
+
+   Work-in-progress printers: (USB PIDs unknown)
+
+    Olmec OP900
+    ICI Imagedata OP900
 
    Development was sponsored in part by:
 
@@ -759,29 +765,6 @@ Notes:
      [1] Only supported by DS620 and DS820
      [2] Certain printer features may require updating the printer firmware
      [3] Only supported by RX1HS, DS620, and DS820
-
- *************************************************************************** 
-  BACKEND=citizencw01
-
-   Verified supported printers:
-
-    Citizen CW-01
-
-   Work-in-progress printers: (USB PIDs unknown)
-
-    Olmec OP900
-    ICI Imagedata OP900
-
-   This backend supports additional commands:
-
-      cw01 [command [arg] ]
-
-   Valid commands:
-
-     -i                 Query printer information (resolution, etc)
-     -n                 Query printer counters
-     -s                 Query printer status
-     -N [ A | B ]       Reset Counter A/B
 
  *************************************************************************** 
   BACKEND=magicard
