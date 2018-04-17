@@ -278,12 +278,13 @@ static int updr150_cmdline_arg(void *vctx, int argc, char **argv)
 }
 
 static const char *sonyupdr150_prefixes[] = {
-	"sonyupdr150", "sonyupdr200", "sonyupcr10"
+	"sonyupdr150", "sonyupdr200", "sonyupcr10",
+	NULL
 };
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10",
-	.version = "0.20",
+	.version = "0.21",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.init = updr150_init,
