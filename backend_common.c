@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.77"
+#define BACKEND_VERSION "0.78"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -977,6 +977,7 @@ int main (int argc, char **argv)
 	/* If we don't have a valid backend, print help and terminate */
 	if (!backend) {
 		print_help(argv[0], NULL); // probes all devices
+		libusb_exit(ctx);
 		exit(1);
 	}
 
@@ -984,6 +985,7 @@ int main (int argc, char **argv)
 	if (!uri) {
 		if (argc < 2) {
 			print_help(argv[0], backend); // probes all devices
+			libusb_exit(ctx);
 			exit(1);
 		}
 	}
@@ -1062,6 +1064,7 @@ int main (int argc, char **argv)
 		data_fd = open(fname, O_RDONLY);
 		if (data_fd < 0) {
 			perror("ERROR:Can't open input file");
+			libusb_exit(ctx);
 			exit(1);
 		}
 	}
@@ -1070,12 +1073,14 @@ int main (int argc, char **argv)
 	i = fcntl(data_fd, F_GETFL, 0);
 	if (i < 0) {
 		perror("ERROR:Can't open input");
+		libusb_exit(ctx);
 		exit(1);
 	}
 	i &= ~O_NONBLOCK;
 	i = fcntl(data_fd, F_SETFL, i);
 	if (i < 0) {
 		perror("ERROR:Can't open input");
+		libusb_exit(ctx);
 		exit(1);
 	}
 
@@ -1133,8 +1138,8 @@ done:
 
 	if (list)
 		libusb_free_device_list(list, 1);
-	if (ctx)
-		libusb_exit(ctx);
+
+	libusb_exit(ctx);
 
 	return ret;
 }
