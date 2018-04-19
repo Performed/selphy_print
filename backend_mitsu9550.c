@@ -64,7 +64,10 @@
 #endif
 
 #define MITSU_M98xx_LAMINATE_FILE CORRTABLE_PATH "M98MATTE.raw"
+#define MITSU_M98xx_DATATABLE_FILE CORRTABLE_PATH "M98TABLE.dat"
+
 #define LAMINATE_STRIDE 1868
+#define DATATABLE_SIZE  42204
 
 /* Spool file structures */
 
@@ -81,7 +84,7 @@ struct mitsu9550_hdr1 {
 /* Print parameters2 */
 struct mitsu9550_hdr2 {
 	uint8_t  cmd[4]; /* 1b 57 21 2e */
-	uint8_t  unk[24]; /* 00 80 00 22 08 03 00 [...] */
+	uint8_t  unk[24]; /* 00 80 00 22 08 03 [...] */
 	uint16_t copies; /* BE, 1-680 */
 	uint8_t  null[2];
 	uint8_t  cut; /* 00 == normal, 83 == 2x6*2 */
@@ -113,6 +116,21 @@ struct mitsu9550_plane {
 	uint16_t rows;       /* BE */
 } __attribute__((packed));
 
+/* CP98xx Tabular Data */
+struct mitsu98xx_data {
+	uint16_t GNMby[256];
+	uint16_t GNMgm[256];
+	uint16_t GNMrc[256];
+	uint8_t  WMAM[12532];  /* Unknown for now */
+} __attribute__((packed));
+
+struct mitsu98xx_tables {
+	struct mitsu98xx_data superfine;
+	struct mitsu98xx_data fine_std;
+	struct mitsu98xx_data fine_hg;
+} __attribute__((packed));
+
+/* Command header */
 struct mitsu9550_cmd {
 	uint8_t cmd[4];
 } __attribute__((packed));
@@ -124,6 +142,7 @@ struct mitsu9550_ctx {
 	uint8_t endp_down;
 	int type;
 	int is_s;
+	int is_98xx;
 
 	uint8_t *databuf;
 	uint32_t datalen;
@@ -145,6 +164,9 @@ struct mitsu9550_ctx {
 	int hdr3_present;
 	struct mitsu9550_hdr4 hdr4;
 	int hdr4_present;
+
+	/* CP98xx stuff */
+	struct mitsu98xx_tables *m98xxdata;
 };
 
 /* Printer data structures */
@@ -249,6 +271,14 @@ struct mitsu9550_status2 {
 		} \
 	} while (0);
 
+static void mitsu98xx_dogamma(uint8_t *src, uint16_t *dest,
+			      uint16_t *table, uint32_t len)
+{
+	while(len--) {
+		*dest++ = table[*src++];
+	}
+}
+
 static void *mitsu9550_init(void)
 {
 	struct mitsu9550_ctx *ctx = malloc(sizeof(struct mitsu9550_ctx));
@@ -284,9 +314,13 @@ static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 	    ctx->type == P_MITSU_9800S)
 		ctx->is_s = 1;
 
+	if (ctx->type == P_MITSU_9800 ||
+	    ctx->type == P_MITSU_9800S ||
+	    ctx->type == P_MITSU_9810)
+		ctx->is_98xx = 1;
+
 	ctx->last_donor = ctx->last_remain = 65535;
 }
-
 
 static void mitsu9550_teardown(void *vctx) {
 	struct mitsu9550_ctx *ctx = vctx;
@@ -296,6 +330,8 @@ static void mitsu9550_teardown(void *vctx) {
 
 	if (ctx->databuf)
 		free(ctx->databuf);
+	if (ctx->m98xxdata)
+		free(ctx->m98xxdata);
 	free(ctx);
 }
 
@@ -304,6 +340,7 @@ static int mitsu9550_read_parse(void *vctx, int data_fd) {
 	uint8_t buf[sizeof(struct mitsu9550_hdr1)];
 	int remain, i;
 	uint32_t planelen = 0;
+	int is_raw = 1;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -341,6 +378,8 @@ top:
 			/* We're in the data portion now */
 			if (buf[3] == 0x10)
 				planelen *= 2;
+			else if (ctx->is_98xx)
+				is_raw = 0;
 
 			goto hdr_done;
 		} else {
@@ -402,6 +441,31 @@ hdr_done:
 		   Mitsu9550-S/9800-S will set this based on a command,
 		   but it's not part of the standard job spool */
 		ctx->hdr4_present = 0;
+	}
+
+	/* Read in CP98xx data tables if necessary */
+	if (ctx->is_98xx && !is_raw && !ctx->m98xxdata) {
+		int fd;
+
+		DEBUG("Reading in 98xx data from disk\n");
+		fd = open(MITSU_M98xx_DATATABLE_FILE, O_RDONLY);
+		if (fd < 0) {
+			ERROR("Unable to open 98xx data table file '%s'\n", MITSU_M98xx_DATATABLE_FILE);
+			return CUPS_BACKEND_FAILED;
+		}
+		ctx->m98xxdata = malloc(DATATABLE_SIZE);
+		if (!ctx->m98xxdata) {
+			ERROR("Memory allocation Failure!\n");
+			return CUPS_BACKEND_RETRY_CURRENT;
+		}
+		remain = DATATABLE_SIZE;
+		while (remain) {
+			i = read(fd, ((uint8_t*)&ctx->m98xxdata) + (DATATABLE_SIZE - remain), remain);
+			if (i < 0)
+				return CUPS_BACKEND_CANCEL;
+			remain -= i;
+		}
+		close(fd);
 	}
 
 	/* Allocate buffer for the payload */
@@ -493,6 +557,77 @@ hdr_done:
 	if (ctx->hdr1.matte && ctx->type != P_MITSU_9810) {
 		WARNING("Matte not supported on this printer, disabling\n");
 		ctx->hdr1.matte = 0;
+	}
+
+	/* Do the 98xx processing here */
+	if (ctx->is_98xx && !is_raw) {
+		uint8_t *newbuf;
+		uint32_t newlen = 0;
+		struct mitsu98xx_data *table;
+
+		planelen *= 2;
+		remain = 4 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+		newbuf = malloc(remain);
+		if (!newbuf) {
+			ERROR("Memory allocation Failure!\n");
+			return CUPS_BACKEND_RETRY_CURRENT;
+		}
+		switch (ctx->hdr2.mode) {
+		case 0x80:
+			table = &ctx->m98xxdata->superfine;
+			break;
+		case 0x11:
+			table = &ctx->m98xxdata->fine_hg;
+			ctx->hdr2.mode = 0x10;
+			break;
+		case 0x10:
+		default:
+			table = &ctx->m98xxdata->fine_std;
+			break;
+		}
+
+		ctx->datalen = 0;
+
+		/* For B/Y plane */
+		memcpy(newbuf + newlen, ctx->databuf + ctx->datalen, sizeof(struct mitsu9550_plane));
+		ctx->databuf[ctx->datalen + 3] = 0x10;  /* ie 16bpp data */
+		ctx->datalen += sizeof(struct mitsu9550_plane);
+		newlen += sizeof(struct mitsu9550_plane);
+		mitsu98xx_dogamma(ctx->databuf + ctx->datalen,
+				  (uint16_t*) (newbuf + newlen),
+				  table->GNMby,
+				  planelen / 2);
+		ctx->datalen += planelen / 2;
+		newlen += planelen;
+
+		/* For G/M plane */
+		memcpy(newbuf + newlen, ctx->databuf + ctx->datalen, sizeof(struct mitsu9550_plane));
+		ctx->databuf[ctx->datalen + 3] = 0x10;  /* ie 16bpp data */
+		ctx->datalen += sizeof(struct mitsu9550_plane);
+		newlen += sizeof(struct mitsu9550_plane);
+		mitsu98xx_dogamma(ctx->databuf + ctx->datalen,
+				  (uint16_t*) (newbuf + newlen),
+				  table->GNMgm,
+				  planelen / 2);
+		ctx->datalen += planelen / 2;
+		newlen += planelen;
+
+		/* For R/C plane */
+		memcpy(newbuf + newlen, ctx->databuf + ctx->datalen, sizeof(struct mitsu9550_plane));
+		ctx->databuf[ctx->datalen + 3] = 0x10;  /* ie 16bpp data */
+		ctx->datalen += sizeof(struct mitsu9550_plane);
+		newlen += sizeof(struct mitsu9550_plane);
+		mitsu98xx_dogamma(ctx->databuf + ctx->datalen,
+				  (uint16_t*) (newbuf + newlen),
+				  table->GNMrc,
+				  planelen / 2);
+		ctx->datalen += planelen / 2;
+		newlen += planelen;
+
+		/* Clean up */
+		free(ctx->databuf);
+		ctx->databuf = newbuf;
+		ctx->datalen = newlen;
 	}
 
 	/* If the backend has to generate the matte data... */
@@ -1277,7 +1412,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.31",
+	.version = "0.32",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

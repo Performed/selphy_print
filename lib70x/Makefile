@@ -37,6 +37,7 @@ install:
 	$(INSTALL) -o root -m 644 data/*raw $(BACKEND_DATA_DIR)
 	$(INSTALL) -o root -m 644 data/*lut $(BACKEND_DATA_DIR)
 	$(INSTALL) -o root -m 644 data/*cpc $(BACKEND_DATA_DIR)
+	$(INSTALL) -o root -m 644 data/*dat $(BACKEND_DATA_DIR)
 
 clean:
 	$(RM) -f lib$(LIBMITSUD70_NAME).so *.o
