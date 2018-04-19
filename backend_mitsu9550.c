@@ -65,7 +65,7 @@
 
 #define MITSU_M98xx_LAMINATE_FILE CORRTABLE_PATH "M98MATTE.raw"
 #define MITSU_M98xx_DATATABLE_FILE CORRTABLE_PATH "M98TABLE.dat"
-
+#define MITSU_M98xx_LUT_FILE       CORRTABLE_PATH "M98XXL01.lut"
 #define LAMINATE_STRIDE 1868
 #define DATATABLE_SIZE  42204
 
@@ -110,18 +110,35 @@ struct mitsu9550_hdr4 {
 /* Data plane header */
 struct mitsu9550_plane {
 	uint8_t  cmd[4]; /* 1b 5a 54 XX */  /* XX == 0x10 if 16bpp, 0x00 for 8bpp */
+	uint16_t col_offset; /* BE, normally 0, where we start dumping data */
 	uint16_t row_offset; /* BE, normally 0, where we start dumping data */
-	uint16_t null;       /* ??? */
 	uint16_t cols;       /* BE */
 	uint16_t rows;       /* BE */
 } __attribute__((packed));
 
 /* CP98xx Tabular Data */
 struct mitsu98xx_data {
-	uint16_t GNMby[256];
-	uint16_t GNMgm[256];
-	uint16_t GNMrc[256];
-	uint8_t  WMAM[12532];  /* Unknown for now */
+	uint16_t GNMby[256];   // @0
+	uint16_t GNMgm[256];   // @512
+	uint16_t GNMrc[256];   // @1024
+	double   GammaParams[3]; // @1536
+	uint8_t  KH[2048];     // @1560
+	uint32_t unk_b[3];     // @3608
+
+	struct {
+		double  unka[256];  // @0
+		double  unkb[256];  // @2048
+		uint32_t unkc[10];  // @4096
+		double  unkd[256];  // @4136
+		double  unke[256];  // @6184
+		uint32_t unkf[10];  // @8232
+		double  unkg[256];  // @10320
+		                    // @12368
+	} WMAM; // @3620
+	uint8_t  unc_d[4];    // @13940
+	uint8_t  sharp[104];  // @13944
+	uint8_t  unk_e[20];   // @14048
+	                      // @14068
 } __attribute__((packed));
 
 struct mitsu98xx_tables {
@@ -271,13 +288,240 @@ struct mitsu9550_status2 {
 		} \
 	} while (0);
 
-static void mitsu98xx_dogamma(uint8_t *src, uint16_t *dest,
+static void mitsu98xx_dogamma(uint8_t *src, uint16_t *dest, uint8_t plane,
 			      uint16_t *table, uint32_t len)
 {
+	src += plane;
 	while(len--) {
-		*dest++ = table[*src++];
+		*dest++ = table[*src];
+		src += 3;
 	}
 }
+
+static int mitsu98xx_fillmatte(struct mitsu9550_ctx *ctx)
+{
+	int fd, i;
+	uint32_t j, remain;
+
+	DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", ctx->cols * ctx->rows, ctx->cols, LAMINATE_STRIDE);
+	fd = open(MITSU_M98xx_LAMINATE_FILE, O_RDONLY);
+	if (fd < 0) {
+		WARNING("Unable to open matte lamination data file '%s'\n", MITSU_M98xx_LAMINATE_FILE);
+		ctx->hdr1.matte = 0;
+		goto done;
+	}
+
+	/* Fill in the lamination plane header */
+	struct mitsu9550_plane *matte = (struct mitsu9550_plane *)(ctx->databuf + ctx->datalen);
+	matte->cmd[0] = 0x1b;
+	matte->cmd[1] = 0x5a;
+	matte->cmd[2] = 0x54;
+	matte->cmd[3] = 0x10;
+	matte->row_offset = 0;
+	matte->col_offset = 0;
+	matte->cols = ctx->hdr1.cols;
+	matte->rows = ctx->hdr1.rows;
+	ctx->datalen += sizeof(struct mitsu9550_plane);
+
+	/* Read in the matte data plane */
+	for (j = 0 ; j < ctx->rows ; j++) {
+		remain = LAMINATE_STRIDE * 2;
+
+		/* Read one row of lamination data at a time */
+		while (remain) {
+			i = read(fd, ctx->databuf + ctx->datalen, remain);
+			if (i < 0)
+				return CUPS_BACKEND_CANCEL;
+			if (i == 0) {
+				/* We hit EOF, restart from beginning */
+				lseek(fd, 0, SEEK_SET);
+				continue;
+			}
+			ctx->datalen += i;
+			remain -= i;
+		}
+		/* Back off the buffer so we "wrap" on the print row. */
+		ctx->datalen -= ((LAMINATE_STRIDE - ctx->cols) * 2);
+	}
+	/* We're done! */
+	close(fd);
+
+	/* Fill in the lamination plane footer */
+	ctx->databuf[ctx->datalen++] = 0x1b;
+	ctx->databuf[ctx->datalen++] = 0x50;
+	ctx->databuf[ctx->datalen++] = 0x56;
+	ctx->databuf[ctx->datalen++] = 0x00;
+
+done:
+	return CUPS_BACKEND_OK;
+}
+
+/*** 3D color Lookup table stuff.  Taken out of lib70x ****/
+#define LUT_LEN 14739
+#define COLORCONV_RGB 0
+#define COLORCONV_BGR 1
+
+struct CColorConv3D {
+	uint8_t lut[17][17][17][3];
+};
+
+/* Load the Lookup table off of disk into *PRE-ALLOCATED* buffer */
+int CColorConv3D_Get3DColorTable(uint8_t *buf, const char *filename)
+{
+	FILE *stream;
+
+	if (!filename)
+		return 1;
+	if (!*filename)
+		return 2;
+	if (!buf)
+		return 3;
+
+	stream = fopen(filename, "rb");
+	if (!stream)
+		return 4;
+
+	fseek(stream, 0, SEEK_END);
+	if (ftell(stream) < LUT_LEN) {
+		fclose(stream);
+		return 5;
+	}
+	fseek(stream, 0, SEEK_SET);
+	fread(buf, 1, LUT_LEN, stream);
+	fclose(stream);
+
+	return 0;
+}
+
+/* Parse the on-disk LUT data into the structure.... */
+struct CColorConv3D *CColorConv3D_Load3DColorTable(const uint8_t *ptr)
+{
+	struct CColorConv3D *this;
+	this = malloc(sizeof(*this));
+	if (!this)
+		return NULL;
+
+	int i, j, k;
+
+	for (i = 0 ; i <= 16 ; i++) {
+		for (j = 0 ; j <= 16 ; j++) {
+			for (k = 0; k <= 16; k++) {
+				this->lut[k][j][i][2] = *ptr++;
+				this->lut[k][j][i][1] = *ptr++;
+				this->lut[k][j][i][0] = *ptr++;
+			}
+		}
+	}
+	return this;
+}
+void CColorConv3D_Destroy3DColorTable(struct CColorConv3D *this)
+{
+	free(this);
+}
+
+/* Transform a single pixel. */
+static void CColorConv3D_DoColorConvPixel(struct CColorConv3D *this, uint8_t *redp, uint8_t *grnp, uint8_t *blup)
+{
+	int red_h;
+	int grn_h;
+	int blu_h;
+	int grn_li;
+	int red_li;
+	int blu_li;
+	int red_l;
+	int grn_l;
+	int blu_l;
+
+	uint8_t *tab0;       // @ 14743
+	uint8_t *tab1;       // @ 14746
+	uint8_t *tab2;       // @ 14749
+	uint8_t *tab3;       // @ 14752
+	uint8_t *tab4;       // @ 14755
+	uint8_t *tab5;       // @ 14758
+	uint8_t *tab6;       // @ 14761
+	uint8_t *tab7;       // @ 14764	
+  
+	red_h = *redp >> 4;
+	red_l = *redp & 0xF;
+	red_li = 16 - red_l;
+  
+	grn_h = *grnp >> 4;
+	grn_l = *grnp & 0xF;
+	grn_li = 16 - grn_l;
+
+	blu_h = *blup >> 4;
+	blu_l = *blup & 0xF;
+	blu_li = 16 - blu_l;
+
+//	printf("%d %d %d =>", *redp, *grnp, *blup);
+
+	tab0 = this->lut[red_h+0][grn_h+0][blu_h+0];
+	tab1 = this->lut[red_h+1][grn_h+0][blu_h+0];
+	tab2 = this->lut[red_h+0][grn_h+1][blu_h+0];
+	tab3 = this->lut[red_h+1][grn_h+1][blu_h+0];
+	tab4 = this->lut[red_h+0][grn_h+0][blu_h+1];
+	tab5 = this->lut[red_h+1][grn_h+0][blu_h+1];
+	tab6 = this->lut[red_h+0][grn_h+1][blu_h+1];
+	tab7 = this->lut[red_h+1][grn_h+1][blu_h+1];
+
+#if 0
+	printf(" %d %d %d ", tab0[0], tab0[1], tab0[2]);
+	printf(" %d %d %d ", tab1[0], tab1[1], tab1[2]);
+	printf(" %d %d %d ", tab2[0], tab2[1], tab2[2]);
+	printf(" %d %d %d ", tab3[0], tab3[1], tab3[2]);
+	printf(" %d %d %d ", tab4[0], tab4[1], tab4[2]);
+	printf(" %d %d %d ", tab5[0], tab5[1], tab5[2]);
+	printf(" %d %d %d ", tab6[0], tab6[1], tab6[2]);
+	printf(" %d %d %d ", tab7[0], tab7[1], tab7[2]);
+#endif
+	*redp = (blu_li
+		 * (grn_li * (red_li * tab0[0] + red_l * tab1[0])
+		    + grn_l * (red_li * tab2[0] + red_l * tab3[0]))
+		 + blu_l
+		 * (grn_li * (red_li * tab4[0] + red_l * tab5[0])
+		    + grn_l * (red_li * tab6[0] + red_l * tab7[0]))
+		 + 2048) >> 12;
+	*grnp = (blu_li
+		 * (grn_li * (red_li * tab0[1] + red_l * tab1[1])
+		    + grn_l * (red_li * tab2[1] + red_l * tab3[1]))
+		 + blu_l
+		 * (grn_li * (red_li * tab4[1] + red_l * tab5[1])
+		    + grn_l * (red_li * tab6[1] + red_l * tab7[1]))
+		 + 2048) >> 12;
+	*blup = (blu_li
+		 * (grn_li * (red_li * tab0[2] + red_l * tab1[2])
+		    + grn_l * (red_li * tab2[2] + red_l * tab3[2]))
+		 + blu_l
+		 * (grn_li * (red_li * tab4[2] + red_l * tab5[2])
+		    + grn_l * (red_li * tab6[2] + red_l * tab7[2]))
+		 + 2048) >> 12;
+  
+//	printf("=> %d %d %d\n", *redp, *grnp, *blup);
+}
+
+/* Perform a total conversion on an entire image */
+void CColorConv3D_DoColorConv(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t stride, int rgb_bgr)
+{
+	uint16_t i, j;
+
+	uint8_t *ptr;
+
+	for ( i = 0; i < rows ; i++ )
+	{
+		ptr = data;
+		for ( j = 0; cols > j; j++ )
+		{
+			if (rgb_bgr) {
+				CColorConv3D_DoColorConvPixel(this, ptr + 2, ptr + 1, ptr);
+			} else {
+				CColorConv3D_DoColorConvPixel(this, ptr, ptr + 1, ptr + 2);
+			}
+			ptr += 3;
+		}
+		data += stride;
+	}
+}
+/* ---- end 3D LUT ---- */
 
 static void *mitsu9550_init(void)
 {
@@ -378,7 +622,7 @@ top:
 			/* We're in the data portion now */
 			if (buf[3] == 0x10)
 				planelen *= 2;
-			else if (ctx->is_98xx)
+			else if (ctx->is_98xx && buf[3] == 0x80)
 				is_raw = 0;
 
 			goto hdr_done;
@@ -421,17 +665,17 @@ top:
 
 hdr_done:
 
-	/* We have three planes and the final terminator to read */
-	remain = 3 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+	if (is_raw) {
+		/* We have three planes and the final terminator to read */
+		remain = 3 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+	} else {
+		/* We have one planes and the final terminator to read */
+		remain = planelen * 3 + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
+	}
 
 	/* Mitsu9600 windows spool uses more, smaller blocks, but plane data is the same */
 	if (ctx->type == P_MITSU_9600) {
 		remain += 128 * sizeof(struct mitsu9550_plane); /* 39 extra seen on 4x6" */
-	}
-
-	/* Don't forget the matte plane! */
-	if (ctx->hdr1.matte) {
-		remain += planelen + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
 	}
 
 	/* 9550S/9800S doesn't typically sent over hdr4! */
@@ -468,17 +712,22 @@ hdr_done:
 		close(fd);
 	}
 
+	/* Disable matte if the printer doesn't support it */
+	if (ctx->hdr1.matte) {
+		if (ctx->type != P_MITSU_9810) {
+			WARNING("Matte not supported on this printer, disabling\n");
+			ctx->hdr1.matte = 0;
+		} else if (is_raw) {
+			remain += planelen + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
+		}
+	}
+
 	/* Allocate buffer for the payload */
 	ctx->datalen = 0;
 	ctx->databuf = malloc(remain);
 	if (!ctx->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
-	}
-
-	/* Back off the data to read if the backend generates the matte data internally */
-	if (ctx->hdr1.matte == 0x80) {
-		remain -= planelen + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
 	}
 
 	/* Load up the data blocks.*/
@@ -553,17 +802,35 @@ hdr_done:
 		}
 	}
 
-	/* Disable matte if the printer doesn't support it */
-	if (ctx->hdr1.matte && ctx->type != P_MITSU_9810) {
-		WARNING("Matte not supported on this printer, disabling\n");
-		ctx->hdr1.matte = 0;
-	}
-
 	/* Do the 98xx processing here */
 	if (ctx->is_98xx && !is_raw) {
 		uint8_t *newbuf;
 		uint32_t newlen = 0;
 		struct mitsu98xx_data *table;
+		struct CColorConv3D *lut;
+
+		/* Apply LUT */
+		if (ctx->hdr2.unkc[9]) {
+			uint8_t *buf = malloc(LUT_LEN);
+			if (!buf) {
+				ERROR("Memory allocation failure!\n");
+				return CUPS_BACKEND_RETRY_CURRENT;
+			}
+			if (CColorConv3D_Get3DColorTable(buf, MITSU_M98xx_LUT_FILE)) {
+				ERROR("Unable to open LUT file '%s'\n", MITSU_M98xx_LUT_FILE);
+				return CUPS_BACKEND_CANCEL;
+			}
+			lut = CColorConv3D_Load3DColorTable(buf);
+			free(buf);
+			if (!lut) {
+				ERROR("Unable to parse LUT\n");
+				return CUPS_BACKEND_CANCEL;
+			}
+			CColorConv3D_DoColorConv(lut, ctx->databuf + sizeof(struct mitsu9550_plane),
+						 ctx->cols, ctx->rows, ctx->cols * 3, COLORCONV_BGR);
+			CColorConv3D_Destroy3DColorTable(lut);			
+			ctx->hdr2.unkc[9] = 0;
+		}
 
 		planelen *= 2;
 		remain = 4 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
@@ -586,109 +853,55 @@ hdr_done:
 			break;
 		}
 
-		ctx->datalen = 0;
-
 		/* For B/Y plane */
-		memcpy(newbuf + newlen, ctx->databuf + ctx->datalen, sizeof(struct mitsu9550_plane));
-		ctx->databuf[ctx->datalen + 3] = 0x10;  /* ie 16bpp data */
-		ctx->datalen += sizeof(struct mitsu9550_plane);
+		memcpy(newbuf + newlen, ctx->databuf, sizeof(struct mitsu9550_plane));
+		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
 		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(ctx->databuf + ctx->datalen,
+		mitsu98xx_dogamma(ctx->databuf + sizeof(struct mitsu9550_plane),
 				  (uint16_t*) (newbuf + newlen),
+				  0,
 				  table->GNMby,
 				  planelen / 2);
-		ctx->datalen += planelen / 2;
 		newlen += planelen;
 
 		/* For G/M plane */
-		memcpy(newbuf + newlen, ctx->databuf + ctx->datalen, sizeof(struct mitsu9550_plane));
-		ctx->databuf[ctx->datalen + 3] = 0x10;  /* ie 16bpp data */
-		ctx->datalen += sizeof(struct mitsu9550_plane);
+		memcpy(newbuf + newlen, ctx->databuf, sizeof(struct mitsu9550_plane));
+		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
 		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(ctx->databuf + ctx->datalen,
+		mitsu98xx_dogamma(ctx->databuf + sizeof(struct mitsu9550_plane),
 				  (uint16_t*) (newbuf + newlen),
+				  1,
 				  table->GNMgm,
 				  planelen / 2);
-		ctx->datalen += planelen / 2;
 		newlen += planelen;
 
 		/* For R/C plane */
-		memcpy(newbuf + newlen, ctx->databuf + ctx->datalen, sizeof(struct mitsu9550_plane));
-		ctx->databuf[ctx->datalen + 3] = 0x10;  /* ie 16bpp data */
-		ctx->datalen += sizeof(struct mitsu9550_plane);
+		memcpy(newbuf + newlen, ctx->databuf, sizeof(struct mitsu9550_plane));
+		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
 		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(ctx->databuf + ctx->datalen,
+		mitsu98xx_dogamma(ctx->databuf + sizeof(struct mitsu9550_plane),
 				  (uint16_t*) (newbuf + newlen),
+				  2,
 				  table->GNMrc,
 				  planelen / 2);
-		ctx->datalen += planelen / 2;
 		newlen += planelen;
+
+		/* And finally, the job footer. */
+		memcpy(newbuf + newlen, ctx->databuf + sizeof(struct mitsu9550_plane) + planelen * 3, sizeof(struct mitsu9550_cmd));
+		newlen += sizeof(struct mitsu9550_cmd);
 
 		/* Clean up */
 		free(ctx->databuf);
 		ctx->databuf = newbuf;
 		ctx->datalen = newlen;
+
+		/* Now handle the matte plane generation */
+		if (ctx->hdr1.matte) {
+			if ((i = mitsu98xx_fillmatte(ctx)))
+				return i;
+		}
 	}
 
-	/* If the backend has to generate the matte data... */
-	if (ctx->hdr1.matte == 0x80) {
-		int fd;
-		uint32_t j;
-
-		DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", be16_to_cpu(ctx->hdr1.cols) * be16_to_cpu(ctx->hdr1.rows), be16_to_cpu(ctx->hdr1.cols), LAMINATE_STRIDE);
-		fd = open(MITSU_M98xx_LAMINATE_FILE, O_RDONLY);
-		if (fd < 0) {
-			WARNING("Unable to open matte lamination data file '%s'\n", MITSU_M98xx_LAMINATE_FILE);
-			ctx->hdr1.matte = 0;
-			goto done;
-		}
-
-		/* Fill in the lamination plane header */
-		struct mitsu9550_plane *matte = (struct mitsu9550_plane *)(ctx->databuf + ctx->datalen);
-		matte->cmd[0] = 0x1b;
-		matte->cmd[1] = 0x5a;
-		matte->cmd[2] = 0x54;
-		matte->cmd[3] = 0x10;
-		matte->row_offset = 0;
-		matte->null = 0;
-		matte->cols = ctx->hdr1.cols;
-		matte->rows = ctx->hdr1.rows;
-		ctx->datalen += sizeof(struct mitsu9550_plane);
-
-		/* Read in the matte data plane */		
-		for (j = 0 ; j < be16_to_cpu(ctx->hdr1.rows) ; j++) {
-			remain = LAMINATE_STRIDE * 2;
-
-			/* Read one row of lamination data at a time */
-			while (remain) {
-				i = read(fd, ctx->databuf + ctx->datalen, remain);
-				if (i < 0)
-					return CUPS_BACKEND_CANCEL;
-				if (i == 0) {
-					/* We hit EOF, restart from beginning */
-					lseek(fd, 0, SEEK_SET);
-					continue;
-				}
-				ctx->datalen += i;
-				remain -= i;
-			}
-			/* Back off the buffer so we "wrap" on the print row. */
-			ctx->datalen -= ((LAMINATE_STRIDE - ctx->hdr1.cols) * 2);
-		}
-		/* We're done! */
-		close(fd);
-
-		/* Set laminate header to a sane value */
-		ctx->hdr1.matte = 0x01;
-
-		/* Fill in the lamination plane footer */
-		ctx->databuf[ctx->datalen++] = 0x1b;
-		ctx->databuf[ctx->datalen++] = 0x50;
-		ctx->databuf[ctx->datalen++] = 0x56;
-		ctx->databuf[ctx->datalen++] = 0x00;
-	}
-
-done:
 	return CUPS_BACKEND_OK;
 }
 
@@ -1458,7 +1671,8 @@ struct dyesub_backend mitsu9550_backend = {
    1b 57 21 2e 00 80 00 22  QQ QQ 00 00 00 00 00 00 :: ZZ ZZ = num copies (>= 0x01)
    00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY = 00/80 Fine/SuperFine (9550), 10/80 Fine/Superfine (98x0), 00 (9600)
    XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 00 00 :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
-   00 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500
+   RR 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500
+                                                    :: RR = 01 for "use LUT" on 98xx, 0x00 otherwise.  Extension to stock.
 
    ~~~ Header 3 (9550 and 9800-S only..)
 
@@ -1476,13 +1690,13 @@ struct dyesub_backend mitsu9550_backend = {
 
   ~~~~ Data follows:
 
-   Format is:  planar YMC16 for 98x0 (only 12 bits used)
-               planar BGR for 9550DW
-               planar RGB for 9550DW-S and 9600DW
+   Format is:  planar YMC16 for 98x0 (but only 12 bits used, BIG endian)
+               planar RGB for all others
 
-   1b 5a 54 ?? RR RR 00 00  07 14 04 d8  :: 0714 == columns, 04d8 == rows
-                                         :: RRRR == row offset for data
+   1b 5a 54 ?? RR RR  CC CC 07 14 04 d8  :: 0714 == columns, 04d8 == rows
+                                         :: RRRR == row offset for data, CCCC == col offset for data
 		                         :: ?? == 0x00 for 8bpp, 0x10 for 16/12bpp.
+					 ::    0x80 for PACKED BGR!
 
    Data follows immediately, no padding.
 
