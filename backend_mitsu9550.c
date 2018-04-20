@@ -1235,6 +1235,7 @@ top:
 	/* Now it's time for the actual print job! */
 
 	if (ctx->is_s) {
+		/* This is a job cancel..? */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x44;
 		cmd.cmd[2] = 0;
@@ -1265,7 +1266,7 @@ top:
 			return CUPS_BACKEND_FAILED;
 
 	if (ctx->is_s) {
-		/* Send "start data" command */
+		/* I think this a "clear memory' command...? */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x5a;
 		cmd.cmd[2] = 0x43;
@@ -1581,10 +1582,21 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 	return ret;
 }
 
+static int mitsu9550_cancel_job(struct mitsu9550_ctx *ctx)
+{
+	int ret;
+	
+	uint8_t buf[2] = { 0x1b, 0x44 };
+	ret = send_data(ctx->dev, ctx->endp_down, buf, sizeof(buf));
+
+	return ret;
+}
+
 static void mitsu9550_cmdline(void)
 {
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -X ]           # Cancel current job\n");
 }
 
 static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
@@ -1595,7 +1607,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ms")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "msX")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'm':
@@ -1606,6 +1618,9 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 			if (!j)
 				j = mitsu9550_query_status2(ctx);
 			break;
+		case 'X':
+			j = mitsu9550_cancel_job(ctx);
+			break;			
 		default:
 			break;  /* Ignore completely */
 		}
@@ -1625,7 +1640,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.32",
+	.version = "0.33",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -1741,7 +1756,7 @@ struct dyesub_backend mitsu9550_backend = {
 
  -> 1b 53 c5 9d
 
-  [[ Unknown ]]
+  [[ Unknown, query some parameter? ]]
 
  -> 1b 4b 7f 00
  <- eb 4b 8f 00 02 00 5e  [[ '02' seems to be a length ]]
@@ -1766,7 +1781,7 @@ struct dyesub_backend mitsu9550_backend = {
     00 00 00 00 00 00 00 00  00 00 00 00 MM MM 00 00 :: MM MM = Max prints
     NN NN 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: NN NN = Remaining
 
-  [[ unknown, 9800-only ]]
+  [[ unknown query, 9800-only ]]
 
  -> 1b 4b 01 00
  <- e4 4b 01 00 02 00 78
@@ -1785,7 +1800,7 @@ struct dyesub_backend mitsu9550_backend = {
     00 00 00 00 00 00 00 00  00 00 00 QQ 00 00 00 00 :: QQ == Prints in job?
     00 00 00 00 00 00 00 00  00 00 NN NN 0A 00 00 01 :: NN NN = Remaining media
 
-  [[ Unknown ]]
+  [[ Job Cancel ]]
 
  -> 1b 44
 

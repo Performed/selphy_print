@@ -682,6 +682,7 @@
 
      -s                 Query printer status
      -m                 Query printer media
+     -X                 Cancel current job
 
   Notes:
 
