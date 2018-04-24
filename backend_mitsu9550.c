@@ -1239,6 +1239,7 @@ top:
 
 	/* Now it's time for the actual print job! */
 
+#if 0
 	if (ctx->is_s) {
 		/* This is a job cancel..? */
 		cmd.cmd[0] = 0x1b;
@@ -1249,6 +1250,7 @@ top:
 				     (uint8_t*) &cmd, 4)))
 			return CUPS_BACKEND_FAILED;
 	}
+#endif
 
 	QUERY_STATUS();
 
@@ -1590,7 +1592,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 static int mitsu9550_cancel_job(struct mitsu9550_ctx *ctx)
 {
 	int ret;
-	
+
 	uint8_t buf[2] = { 0x1b, 0x44 };
 	ret = send_data(ctx->dev, ctx->endp_down, buf, sizeof(buf));
 
@@ -1625,7 +1627,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 'X':
 			j = mitsu9550_cancel_job(ctx);
-			break;			
+			break;
 		default:
 			break;  /* Ignore completely */
 		}
