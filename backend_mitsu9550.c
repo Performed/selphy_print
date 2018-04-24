@@ -37,6 +37,11 @@
 #include <fcntl.h>
 #include <signal.h>
 
+/* For Integration into gutenprint */
+#if defined(HAVE_CONFIG_H)
+#include <config.h>
+#endif
+
 #define BACKEND mitsu9550_backend
 
 #include "backend_common.h"
@@ -439,12 +444,12 @@ static void CColorConv3D_DoColorConvPixel(struct CColorConv3D *this, uint8_t *re
 	uint8_t *tab4;       // @ 14755
 	uint8_t *tab5;       // @ 14758
 	uint8_t *tab6;       // @ 14761
-	uint8_t *tab7;       // @ 14764	
-  
+	uint8_t *tab7;       // @ 14764
+
 	red_h = *redp >> 4;
 	red_l = *redp & 0xF;
 	red_li = 16 - red_l;
-  
+
 	grn_h = *grnp >> 4;
 	grn_l = *grnp & 0xF;
 	grn_li = 16 - grn_l;
@@ -495,7 +500,7 @@ static void CColorConv3D_DoColorConvPixel(struct CColorConv3D *this, uint8_t *re
 		 * (grn_li * (red_li * tab4[2] + red_l * tab5[2])
 		    + grn_l * (red_li * tab6[2] + red_l * tab7[2]))
 		 + 2048) >> 12;
-  
+
 //	printf("=> %d %d %d\n", *redp, *grnp, *blup);
 }
 
