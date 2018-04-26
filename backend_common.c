@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.78"
+#define BACKEND_VERSION "0.79"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -840,7 +840,6 @@ int main (int argc, char **argv)
 	struct libusb_context *ctx = NULL;
 	struct libusb_device **list = NULL;
 	struct libusb_device_handle *dev;
-	struct libusb_config_descriptor *config = NULL;
 
 	struct dyesub_backend *backend = NULL;
 	void * backend_ctx = NULL;
@@ -1032,9 +1031,6 @@ int main (int argc, char **argv)
 			goto done_close;
 		}
 	}
-
-	if (config)
-		libusb_free_config_descriptor(config);
 
 	/* Initialize backend */
 	DEBUG("Initializing '%s' backend (version %s)\n",

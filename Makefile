@@ -77,7 +77,7 @@ $(BACKENDS): $(EXEC_NAME)
 	$(LN) -sf $(EXEC_NAME) $@
 
 cppcheck:
-	$(CPPCHECK) -q -v --std=c99 --enable=all -I/usr/include $(CPPFLAGS) $(SOURCES)
+	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" --include=lib70x/libMitsuD70ImageReProcess.h $(CPPFLAGS) $(SOURCES)
 
 install:
 	$(MKDIR) -p $(CUPS_BACKEND_DIR)

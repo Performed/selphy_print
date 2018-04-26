@@ -1025,6 +1025,7 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 		if (ret < 0)
 			goto done;
 		ptr += num;
+		remaining -= num;
 	}
 
 	/* Issue a tone_end */
@@ -1148,6 +1149,7 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 		if (ret < 0)
 			goto done;
 		ptr += num;
+		remaining -= num;
 	}
 
 	/* Issue a tone_end */
@@ -1320,7 +1322,7 @@ static int shinkos1245_read_parse(void *vctx, int data_fd) {
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
 	if (ret < 0)
 		return ret;
-	if (ret < 0 || ret != sizeof(ctx->hdr))
+	if (ret != sizeof(ctx->hdr))
 		return CUPS_BACKEND_CANCEL;
 
 	if (le32_to_cpu(ctx->hdr.len1) != 0x10 ||
@@ -1648,7 +1650,7 @@ static const char *shinkos1245_prefixes[] = {
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245/E1",
-	.version = "0.19",
+	.version = "0.20",
 	.uri_prefixes = shinkos1245_prefixes,
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
