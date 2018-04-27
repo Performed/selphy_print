@@ -855,6 +855,46 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 	libusb_exit(ctx);
 }
 
+int parse_cmdstream(struct dyesub_backend *backend, void *backend_ctx, int fd)
+{
+	FILE *fp = stdin;
+	char line[128];
+	char *lp;
+
+	if (fd != fileno(stdin)) {
+		fp = fdopen(fd, "r");
+		if (!fp) {
+			ERROR("Can't open data stream!\n");
+			return CUPS_BACKEND_FAILED;
+		}
+	}
+	while (fgets(line, sizeof(line), fp) != NULL) {
+		/* Strip trailing newline */
+		lp = line + strlen(line) - 1;
+		if (*lp == '\n')
+			*lp = '\0';
+		/* And leading spaces */
+		for (lp = line; isspace(*lp); lp++);
+		/* And comments and blank lines */
+		if (*lp == '#' || !*lp)
+			continue;
+
+		/* Parse command! */
+		if (strncasecmp(lp, "ReportLevels", 5) == 0) {
+			query_markers(backend, backend_ctx, 1);
+/* XXX TODO: ReportStatus, AutoConfigure, PrintSelfTestPage?  What about others, eg reset or cancel job? */
+		} else {
+			WARNING("Invalid printer command \"%s\"!\n", lp);
+		}
+	}
+
+	/* Clean up */
+	if (fp != stdin)
+		fclose(fp);
+
+	return CUPS_BACKEND_OK;
+};
+
 int main (int argc, char **argv)
 {
 	struct libusb_context *ctx = NULL;
@@ -878,6 +918,7 @@ int main (int argc, char **argv)
 	int current_page = 0;
 
 	char *uri;
+	char *type;
 	char *fname = NULL;
 	char *use_serno = NULL;
 
@@ -906,7 +947,8 @@ int main (int argc, char **argv)
 	if (getenv("XFER_TIMEOUT"))
 		xfer_timeout = atoi(getenv("XFER_TIMEOUT"));
 	use_serno = getenv("SERIAL");
-	uri = getenv("DEVICE_URI");  /* CUPS backend mode? */
+	uri = getenv("DEVICE_URI");  /* CUPS backend mode! */
+	type = getenv("FINAL_CONTENT_TYPE"); /* CUPS content type -- ie raster or command */
 
 	if (uri) {
 		/* CUPS backend mode */
@@ -1109,6 +1151,13 @@ int main (int argc, char **argv)
 	/* Time for the main processing loop */
 	INFO("Printing started (%d copies)\n", copies);
 
+	/* See if it's a CUPS command stream, and if yes, handle it! */
+	if (type && !strcmp("application/vnd.cups-command", type))
+	{
+		ret = parse_cmdstream(backend, backend_ctx, data_fd);
+		goto done_claimed;
+	}
+
 newpage:
 
 	/* Read in data */
@@ -1118,7 +1167,7 @@ newpage:
 		else
 			goto done_claimed;
 	}
-	
+
 	/* Dump the full marker dump */
 	ret = query_markers(backend, backend_ctx, !current_page);
 	if (ret)
@@ -1138,7 +1187,7 @@ newpage:
 	ret = query_markers(backend, backend_ctx, !current_page);
 	if (ret)
 		goto done_claimed;
-	
+
 	/* Since we have no way of telling if there's more data remaining
 	   to be read (without actually trying to read it), always assume
 	   multiple print jobs. */

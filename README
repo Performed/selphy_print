@@ -149,7 +149,19 @@
     communication with the printer!  Actually generating print jobs requires
     use of Gutenprint compile with support for CUPS.
 
- ***************************************************************************
+   DEVICE_URI=someuri FINAL_CONTENT_TYPE=application/vnd.cups-command \
+       gutenprint52+usb job-id user title num-copies options [ filename ]
+
+    This parses a CUPS command file and performs actions listed in the file.
+
+     Implemented commands:
+
+       ReportLevels        Report the marker (ie media) type and levels.
+
+     Other commands may be implemented in the future.  Individual printers
+     may not implement these commands.
+
+***************************************************************************
   Standalone usage:
 
     This backend is set up as a multi-call executable; that is to say
