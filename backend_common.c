@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.79"
+#define BACKEND_VERSION "0.80"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -1026,8 +1026,10 @@ int main (int argc, char **argv)
 
 	/* Use the appropriate altesetting! */
 	if (altset != 0) {
-		if (libusb_set_interface_alt_setting(dev, iface, altset)) {
-			found = -1;
+		ret = libusb_set_interface_alt_setting(dev, iface, altset);
+		if (ret) {
+			ERROR("Printer open failure (Unable to issue altsettinginterface) (%d)\n", ret);
+			ret = CUPS_BACKEND_RETRY;
 			goto done_close;
 		}
 	}

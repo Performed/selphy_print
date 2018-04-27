@@ -2100,6 +2100,11 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	if (!ctx->hdr.rows || !ctx->hdr.columns) {
+		ERROR("Bad print job header!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
 	/* Extended spool format to re-purpose an unused header field.
 	   When bit 0 is set, this tells the backend that the data is
 	   already in planar YMC format (vs packed RGB) so we don't need
@@ -2352,6 +2357,7 @@ top:
 			INFO("Calling image processing library...\n");
 
 			if (ctx->ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
+				free(databuf2);
 				ERROR("Library returned error!\n");
 				return CUPS_BACKEND_FAILED;
 			}
@@ -2495,7 +2501,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2",
-	.version = "0.23",
+	.version = "0.24",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,

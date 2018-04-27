@@ -292,6 +292,9 @@ static int selphyneo_main_loop(void *vctx, int copies) {
 	ret = read_data(ctx->dev, ctx->endp_up,
 			(uint8_t*) &rdback, sizeof(rdback), &num);
 
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
 	ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
 	ATTR("marker-high-levels=100\n");
 	ATTR("marker-low-levels=10\n");
@@ -351,6 +354,9 @@ top:
 	/* Read in the printer status to clear last state */
 	ret = read_data(ctx->dev, ctx->endp_up,
 			(uint8_t*) &rdback, sizeof(rdback), &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
 
 	INFO("Waiting for printer acknowledgement\n");
 	do {
@@ -438,7 +444,7 @@ static const char *canonselphyneo_prefixes[] = {
 
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CP (new)",
-	.version = "0.14",
+	.version = "0.15",
 	.uri_prefixes = canonselphyneo_prefixes,
 	.cmdline_usage = selphyneo_cmdline,
 	.cmdline_arg = selphyneo_cmdline_arg,

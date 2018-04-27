@@ -692,6 +692,7 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	cmdbuf[14] = 0x00;
 	cmdbuf[15] = 0x00;
 
+	respbuf[0] = 0xff;
 	/* Issue command and get response */
 	if ((ret = kodak6800_do_cmd(ctx, cmdbuf, sizeof(cmdbuf),
 				    respbuf, sizeof(respbuf),
@@ -1265,7 +1266,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.59",
+	.version = "0.60",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
