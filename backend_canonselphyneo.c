@@ -189,8 +189,8 @@ static void *selphyneo_init(void)
 
 extern struct dyesub_backend selphyneo_backend;
 
-static void selphyneo_attach(void *vctx, struct libusb_device_handle *dev,
-				  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev,
+			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct selphyneo_ctx *ctx = vctx;
 	struct libusb_device *device;
@@ -204,6 +204,10 @@ static void selphyneo_attach(void *vctx, struct libusb_device_handle *dev,
 
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
+
+	// TODO:  Query & Update Marker
+
+	return CUPS_BACKEND_OK;
 }
 
 static void selphyneo_teardown(void *vctx) {

@@ -642,8 +642,8 @@ static void *canonselphy_init(void)
 
 extern struct dyesub_backend canonselphy_backend;
 
-static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
-			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
+			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct canonselphy_ctx *ctx = vctx;
 	struct libusb_device *device;
@@ -672,7 +672,11 @@ static void canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 	}
 	if (!ctx->printer) {
 		ERROR("Error looking up printer type!\n");
+		return CUPS_BACKEND_FAILED;
 	}
+
+	/* TODO:  Query & Update Marker */
+	return CUPS_BACKEND_OK;
 }
 
 static void canonselphy_teardown(void *vctx) {

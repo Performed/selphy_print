@@ -89,7 +89,7 @@ static void *mitsup95d_init(void)
 	return ctx;
 }
 
-static void mitsup95d_attach(void *vctx, struct libusb_device_handle *dev,
+static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsup95d_ctx *ctx = vctx;
@@ -107,6 +107,8 @@ static void mitsup95d_attach(void *vctx, struct libusb_device_handle *dev,
 
 	ctx->type = lookup_printer_type(&mitsup95d_backend,
 					desc.idVendor, desc.idProduct);
+
+	return CUPS_BACKEND_OK;
 }
 
 static void mitsup95d_teardown(void *vctx) {

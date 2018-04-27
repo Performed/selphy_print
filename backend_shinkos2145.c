@@ -1401,8 +1401,8 @@ static void *shinkos2145_init(void)
 	return ctx;
 }
 
-static void shinkos2145_attach(void *vctx, struct libusb_device_handle *dev,
-			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev,
+			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos2145_ctx *ctx = vctx;
 
@@ -1417,6 +1417,9 @@ static void shinkos2145_attach(void *vctx, struct libusb_device_handle *dev,
 
 	/* Initialize donor */
 	ctx->last_donor = ctx->last_remain = ctx->media_prints = 65535;
+
+	// TODO: Query & Update Marker
+	return CUPS_BACKEND_OK;
 }
 
 static void shinkos2145_teardown(void *vctx) {

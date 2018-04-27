@@ -71,8 +71,8 @@ static void* updr150_init(void)
 	return ctx;
 }
 
-static void updr150_attach(void *vctx, struct libusb_device_handle *dev,
-			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int updr150_attach(void *vctx, struct libusb_device_handle *dev,
+			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct updr150_ctx *ctx = vctx;
 	struct libusb_device *device;
@@ -91,6 +91,8 @@ static void updr150_attach(void *vctx, struct libusb_device_handle *dev,
 					desc.idVendor, desc.idProduct);
 
 	ctx->copies_offset = 0;
+
+	return CUPS_BACKEND_OK;
 }
 
 static void updr150_teardown(void *vctx) {

@@ -234,8 +234,8 @@ static void *kodak605_init(void)
 	return ctx;
 }
 
-static void kodak605_attach(void *vctx, struct libusb_device_handle *dev,
-			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int kodak605_attach(void *vctx, struct libusb_device_handle *dev,
+			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct kodak605_ctx *ctx = vctx;
 	struct libusb_device *device;
@@ -262,7 +262,11 @@ static void kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 	/* Query media info */
 	if (kodak605_get_media(ctx, ctx->media)) {
 		ERROR("Can't query media\n");
+		return CUPS_BACKEND_FAILED;
 	}
+
+	// TODO: Update Marker
+	return CUPS_BACKEND_OK;
 }
 
 static void kodak605_teardown(void *vctx) {

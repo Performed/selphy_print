@@ -548,8 +548,8 @@ static void *dnpds40_init(void)
 	((ctx->ver_major > (__major)) || \
 	 (ctx->ver_major == (__major) && ctx->ver_minor >= (__minor)))
 
-static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
-			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
+			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct dnpds40_ctx *ctx = vctx;
 	struct libusb_device *device;
@@ -629,7 +629,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
 		sanitize_string(buf);
 		if (strncmp(buf, "Dai", 3))
-			return 0;
+			return CUPS_BACKEND_FAILED;
 	}
 #endif
 #ifdef CITIZEN_ONLY   /* Only allow CITIZEN printers to work. */
@@ -639,7 +639,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
 		sanitize_string(buf);
 		if (strncmp(buf, "CIT", 3))
-			return 0;
+			return CUPS_BACKEND_FAILED;
 	}
 #endif
 
@@ -779,7 +779,7 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		break;
 	default:
 		ERROR("Unknown vid/pid %04x/%04x (%d)\n", desc.idVendor, desc.idProduct, ctx->type);
-		return;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	ctx->last_matte = -1;
@@ -923,6 +923,10 @@ static void dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			break;
 		}
 	}
+
+	// TODO: fail out on other errors
+	// TODO: Update Marker
+	return CUPS_BACKEND_OK;
 }
 
 static void dnpds40_teardown(void *vctx) {

@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.80"
+#define BACKEND_VERSION "0.81"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif

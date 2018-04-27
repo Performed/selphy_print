@@ -156,7 +156,7 @@ struct dyesub_backend {
 	const char **uri_prefixes;
 	void (*cmdline_usage)(void);  /* Optional */
 	void *(*init)(void);
-	void (*attach)(void *ctx, struct libusb_device_handle *dev,
+	int  (*attach)(void *ctx, struct libusb_device_handle *dev,
 		       uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
 	void (*teardown)(void *ctx);
 	int  (*cmdline_arg)(void *ctx, int argc, char **argv);

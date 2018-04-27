@@ -540,7 +540,7 @@ static void *mitsu9550_init(void)
 	return ctx;
 }
 
-static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
+static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu9550_ctx *ctx = vctx;
@@ -569,6 +569,9 @@ static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->is_98xx = 1;
 
 	ctx->last_donor = ctx->last_remain = 65535;
+
+	// TODO: Query & Update Marker
+	return CUPS_BACKEND_OK;
 }
 
 static void mitsu9550_teardown(void *vctx) {

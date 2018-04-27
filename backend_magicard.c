@@ -451,7 +451,7 @@ static void* magicard_init(void)
 	return ctx;
 }
 
-static void magicard_attach(void *vctx, struct libusb_device_handle *dev,
+static int magicard_attach(void *vctx, struct libusb_device_handle *dev,
 			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct magicard_ctx *ctx = vctx;
@@ -470,6 +470,7 @@ static void magicard_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->type = lookup_printer_type(&magicard_backend,
 					desc.idVendor, desc.idProduct);
 
+	return CUPS_BACKEND_OK;
 }
 
 static void magicard_teardown(void *vctx) {

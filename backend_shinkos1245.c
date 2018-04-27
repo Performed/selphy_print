@@ -1274,8 +1274,8 @@ static void *shinkos1245_init(void)
 	return ctx;
 }
 
-static void shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
-			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
+			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos1245_ctx *ctx = vctx;
 	struct libusb_device *device;
@@ -1295,6 +1295,9 @@ static void shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->jobid = jobid & 0x7f;
 	if (!ctx->jobid)
 		ctx->jobid++;
+
+	/* TODO: Query & Update Marker */
+	return CUPS_BACKEND_OK;
 }
 
 

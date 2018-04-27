@@ -688,8 +688,8 @@ static void *mitsu70x_init(void)
 	return ctx;
 }
 
-static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
-			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
+			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu70x_ctx *ctx = vctx;
 	struct libusb_device *device;
@@ -723,13 +723,13 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 			ERROR("Problem resolving API Version symbol in imaging processing library, too old or not installed?\n");
 			DL_CLOSE(ctx->dl_handle);
 			ctx->dl_handle = NULL;
-			return;
+			return CUPS_BACKEND_FAILED;
 		}
 		if (ctx->GetAPIVersion() != REQUIRED_LIB_APIVERSION) {
 			ERROR("Image processing library API version mismatch!\n");
 			DL_CLOSE(ctx->dl_handle);
 			ctx->dl_handle = NULL;
-			return;
+			return CUPS_BACKEND_FAILED;
 		}
 
 		ctx->Get3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Get3DColorTable");
@@ -750,6 +750,7 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 			ERROR("Problem resolving symbols in imaging processing library\n");
 			DL_CLOSE(ctx->dl_handle);
 			ctx->dl_handle = NULL;
+			return CUPS_BACKEND_FAILED;
 		} else {
 			DEBUG("Image processing library successfully loaded\n");
 		}
@@ -777,7 +778,7 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (ret) {
 		ERROR("Unable to get printer status! (%d)\n", ret);
-		return;
+		return CUPS_BACKEND_FAILED;
 	}
 
 	if (ctx->type == P_MITSU_D70X &&
@@ -786,6 +787,9 @@ static void mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 		ctx->num_decks = 2;
 	else
 		ctx->num_decks = 1;
+
+	// TODO: Update Marker
+	return CUPS_BACKEND_OK;
 }
 
 static void mitsu70x_teardown(void *vctx) {
