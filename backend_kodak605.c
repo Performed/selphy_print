@@ -178,10 +178,10 @@ struct kodak605_ctx {
 
 	struct kodak605_media_list *media;
 
+	struct marker marker;
+
 	uint8_t *databuf;
 	int datalen;
-
-	uint8_t last_donor;
 };
 
 static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_list *media)
@@ -218,6 +218,40 @@ static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_li
 	return 0;
 }
 
+static int kodak605_get_status(struct kodak605_ctx *ctx, struct kodak605_status *sts)
+{
+	uint8_t cmdbuf[4];
+
+	int ret, num = 0;
+
+	/* Send Status Query */
+	cmdbuf[0] = 0x01;
+	cmdbuf[1] = 0x00;
+	cmdbuf[2] = 0x00;
+	cmdbuf[3] = 0x00;
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, sizeof(cmdbuf))))
+		return ret;
+
+	/* Read in the printer status */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) sts, sizeof(*sts), &num);
+	if (ret < 0)
+		return ret;
+
+	if (num < (int)sizeof(*sts)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*sts));
+		return CUPS_BACKEND_FAILED;
+	}
+
+	if (sts->hdr.result != RESULT_SUCCESS) {
+		ERROR("Unexpected response from status query (%x)!\n", sts->hdr.result);
+		return CUPS_BACKEND_FAILED;
+	}
+
+	return 0;
+}
+
 static void *kodak605_init(void)
 {
 	struct kodak605_ctx *ctx = malloc(sizeof(struct kodak605_ctx));
@@ -240,6 +274,7 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 	struct kodak605_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
+	struct kodak605_status sts;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -256,16 +291,23 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev,
 	if (!ctx->jobid)
 		ctx->jobid++;
 
-	/* Init */
-	ctx->last_donor = 255;
-
 	/* Query media info */
 	if (kodak605_get_media(ctx, ctx->media)) {
 		ERROR("Can't query media\n");
 		return CUPS_BACKEND_FAILED;
 	}
 
-	// TODO: Update Marker
+	/* Update status */
+	if (kodak605_get_status(ctx, &sts)) {
+		ERROR("Can't query status\n");
+		return CUPS_BACKEND_FAILED;
+	}
+
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = kodak68xx_mediatypes(ctx->media->type);
+	ctx->marker.levelmax = 100; /* Ie percentage */
+	ctx->marker.levelnow = sts.donor;
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -337,40 +379,6 @@ static int kodak605_read_parse(void *vctx, int data_fd) {
 	return CUPS_BACKEND_OK;
 }
 
-static int kodak605_get_status(struct kodak605_ctx *ctx, struct kodak605_status *sts)
-{
-	uint8_t cmdbuf[4];
-
-	int ret, num = 0;
-
-	/* Send Status Query */
-	cmdbuf[0] = 0x01;
-	cmdbuf[1] = 0x00;
-	cmdbuf[2] = 0x00;
-	cmdbuf[3] = 0x00;
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, sizeof(cmdbuf))))
-		return ret;
-
-	/* Read in the printer status */
-	ret = read_data(ctx->dev, ctx->endp_up,
-			(uint8_t*) sts, sizeof(*sts), &num);
-	if (ret < 0)
-		return ret;
-
-	if (num < (int)sizeof(*sts)) {
-		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*sts));
-		return CUPS_BACKEND_FAILED;
-	}
-
-	if (sts->hdr.result != RESULT_SUCCESS) {
-		ERROR("Unexpected response from status query (%x)!\n", sts->hdr.result);
-		return CUPS_BACKEND_FAILED;
-	}
-
-	return 0;
-}
-
 static int kodak605_main_loop(void *vctx, int copies) {
 	struct kodak605_ctx *ctx = vctx;
 
@@ -396,22 +404,15 @@ static int kodak605_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
-        /* Tell CUPS about the consumables we report */
-        ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-        ATTR("marker-high-levels=100\n");
-        ATTR("marker-low-levels=10\n");
-        ATTR("marker-names='%s'\n", kodak68xx_mediatypes(ctx->media->type));
-        ATTR("marker-types=ribbonWax\n");
-
 	INFO("Waiting for printer idle\n");
 
 	while(1) {
 		if ((ret = kodak605_get_status(ctx, &sts)))
 			return CUPS_BACKEND_FAILED;
 
-		if (ctx->last_donor != sts.donor) {
-			ctx->last_donor = sts.donor;
-			ATTR("marker-levels=%u\n", sts.donor);
+		if (ctx->marker.levelnow != sts.donor) {
+			ctx->marker.levelnow = sts.donor;
+			dump_markers(&ctx->marker, 1, 0);
 		}
 
 		// XXX check for errors
@@ -470,12 +471,11 @@ static int kodak605_main_loop(void *vctx, int copies) {
 		if ((kodak605_get_status(ctx, &sts)) != 0)
 			return CUPS_BACKEND_FAILED;
 
+		if (ctx->marker.levelnow != sts.donor) {
+			ctx->marker.levelnow = sts.donor;
+			dump_markers(&ctx->marker, 1, 0);
+		}
 		// XXX check for errors
-
-		if (ctx->last_donor != sts.donor) {
-			ctx->last_donor = sts.donor;
-			ATTR("marker-levels=%u\n", sts.donor);
-		}		// XXX check for errors ?
 
 		/* Wait for completion */
 		if (sts.b1_id == ctx->jobid && sts.b1_complete == sts.b1_total)
@@ -677,6 +677,23 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static int kodak605_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct kodak605_ctx *ctx = vctx;
+	struct kodak605_status sts;
+
+	/* Query printer status */
+	if (kodak605_get_status(ctx, &sts))
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.levelnow = sts.donor;
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *kodak605_prefixes[] = {
 	"kodak605",
 	NULL,
@@ -685,7 +702,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.28",
+	.version = "0.29",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -694,6 +711,7 @@ struct dyesub_backend kodak605_backend = {
 	.teardown = kodak605_teardown,
 	.read_parse = kodak605_read_parse,
 	.main_loop = kodak605_main_loop,
+	.query_markers = kodak605_query_markers,
 	.devices = {
 		{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak", "kodaka605"},
 		{ 0, 0, 0, NULL, NULL}

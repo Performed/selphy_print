@@ -417,6 +417,8 @@ struct shinkos1245_ctx {
 	int num_medias;
 	int media_8x12;
 
+	struct marker marker;
+
 	uint8_t *databuf;
 	int datalen;
 	int tonecurve;
@@ -1280,6 +1282,7 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
 	struct shinkos1245_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
+	struct shinkos1245_resp_status status;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -1296,7 +1299,23 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
 	if (!ctx->jobid)
 		ctx->jobid++;
 
-	/* TODO: Query & Update Marker */
+	/* Query Media */
+	if (shinkos1245_get_media(ctx))
+		return CUPS_BACKEND_FAILED;
+	if (!ctx->num_medias) {
+		ERROR("Media Query Error\n");
+		return CUPS_BACKEND_FAILED;
+	}
+
+	/* Query status */
+	if (shinkos1245_get_status(ctx, &status))
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = ctx->media_8x12 ? "8x12" : "8x10";
+	ctx->marker.levelmax = ctx->media_8x12 ? 230 : 280;
+	ctx->marker.levelnow = ctx->marker.levelmax - be32_to_cpu(status.counters.media);
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1405,13 +1424,6 @@ static int shinkos1245_main_loop(void *vctx, int copies) {
 	int i, num, last_state = -1, state = S_IDLE;
 	struct shinkos1245_resp_status status1, status2;
 
-	/* Query Media information if necessary */
-	if (!ctx->num_medias)
-		shinkos1245_get_media(ctx);
-	if (!ctx->num_medias) {
-		ERROR("Media Query Error\n");
-		return CUPS_BACKEND_FAILED;
-	}
 	/* Make sure print size is supported */
 	for (i = 0 ; i < ctx->num_medias ; i++) {
 		if (ctx->hdr.media == ctx->medias[i].code &&
@@ -1428,13 +1440,6 @@ static int shinkos1245_main_loop(void *vctx, int copies) {
 	/* Fix max print count. */
 	if (copies > 9999) // XXX test against remaining media?
 		copies = 9999;
-
-        /* Tell CUPS about the consumables we report */
-        ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-        ATTR("marker-high-levels=100\n");
-        ATTR("marker-low-levels=10\n");
-        ATTR("marker-names='%s'\n", ctx->media_8x12? "8x12" : "8x10");
-        ATTR("marker-types=ribbonWax\n");
 
 top:
 	if (state != last_state) {
@@ -1458,15 +1463,6 @@ top:
 	/* Make sure we're not in an error state */
 	if (status1.state.status1 == STATE_STATUS1_ERROR)
 		goto printer_error;
-
-	/* Work out the remaining media percentage */
-	{
-		int total = ctx->media_8x12 ? 230 : 280;
-		int remain = total - be32_to_cpu(status1.counters.media);
-
-		ATTR("marker-levels=%d\n", remain * 100 / total);
-		ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain);
-	}
 
 	last_state = state;
 
@@ -1642,6 +1638,23 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 	return CUPS_BACKEND_OK;
 }
 
+static int shinkos1245_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct shinkos1245_ctx *ctx = vctx;
+	struct shinkos1245_resp_status status;
+
+	/* Query status */
+	if (shinkos1245_get_status(ctx, &status))
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.levelnow = ctx->marker.levelmax - be32_to_cpu(status.counters.media);
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 /* Exported */
 #define USB_VID_SHINKO       0x10CE
 #define USB_PID_SHINKO_S1245 0x0007
@@ -1653,7 +1666,7 @@ static const char *shinkos1245_prefixes[] = {
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245/E1",
-	.version = "0.20",
+	.version = "0.21",
 	.uri_prefixes = shinkos1245_prefixes,
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
@@ -1663,6 +1676,7 @@ struct dyesub_backend shinkos1245_backend = {
 	.read_parse = shinkos1245_read_parse,
 	.main_loop = shinkos1245_main_loop,
 	.query_serno = shinkos1245_query_serno,
+	.query_markers = shinkos1245_query_markers,
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S1245, P_SHINKO_S1245, NULL, "shinkos1245"},
 		{ 0, 0, 0, NULL, NULL}

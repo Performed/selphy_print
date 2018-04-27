@@ -173,9 +173,7 @@ struct mitsu9550_ctx {
 	uint16_t cols;
 	uint32_t plane_len;
 
-	uint16_t last_donor;
-	uint16_t last_remain;
-	int marker_reported;
+	struct marker marker;
 
 	/* Parse headers separately */
 	struct mitsu9550_hdr1 hdr1;
@@ -235,38 +233,21 @@ struct mitsu9550_status2 {
 		struct mitsu9550_status *sts = (struct mitsu9550_status*) rdbuf;\
 		/* struct mitsu9550_status2 *sts2 = (struct mitsu9550_status2*) rdbuf; */ \
 		struct mitsu9550_media *media = (struct mitsu9550_media *) rdbuf; \
-		uint16_t donor, remain;	\
+		uint16_t donor; \
 		/* media */ \
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 0, 1); \
 		if (ret < 0) \
 			return CUPS_BACKEND_FAILED; \
 		\
-		/* Tell CUPS about the consumables we report */ \
-		if (!ctx->marker_reported) { \
-			ctx->marker_reported = 1; \
-			ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");	\
-			ATTR("marker-high-levels=100\n"); \
-			ATTR("marker-low-levels=10\n");	\
-			ATTR("marker-names='%s'\n", mitsu9550_media_types(media->type, ctx->is_s)); \
-			ATTR("marker-types=ribbonWax\n"); \
+		donor = be16_to_cpu(media->remain); \
+		if (donor != ctx->marker.levelnow) { \
+			ctx->marker.levelnow = donor; \
+			dump_markers(&ctx->marker, 1, 0); \
 		} \
-		\
 		/* Sanity-check media response */ \
 		if (media->remain == 0 || media->max == 0) { \
 			ERROR("Printer out of media!\n"); \
-			ATTR("marker-levels=%d\n", 0); \
 			return CUPS_BACKEND_HOLD; \
-		} \
-		remain = be16_to_cpu(media->remain); \
-		donor = be16_to_cpu(media->max); \
-		donor = remain/donor; \
-		if (donor != ctx->last_donor) { \
-			ctx->last_donor = donor; \
-			ATTR("marker-levels=%u\n", donor); \
-		} \
-		if (remain != ctx->last_remain) { \
-			ctx->last_remain = remain; \
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s)); \
 		} \
 		if (validate_media(ctx->type, media->type, ctx->cols, ctx->rows)) { \
 			ERROR("Incorrect media (%u) type for printjob (%ux%u)!\n", media->type, ctx->cols, ctx->rows); \
@@ -527,6 +508,8 @@ void CColorConv3D_DoColorConv(struct CColorConv3D *this, uint8_t *data, uint16_t
 	}
 }
 /* ---- end 3D LUT ---- */
+static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int status, int status2, int media);
+static char *mitsu9550_media_types(uint8_t type, uint8_t is_s);
 
 static void *mitsu9550_init(void)
 {
@@ -546,6 +529,7 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 	struct mitsu9550_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
+	struct mitsu9550_media media;
 
 	UNUSED(jobid);
 
@@ -568,9 +552,14 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 	    ctx->type == P_MITSU_9810)
 		ctx->is_98xx = 1;
 
-	ctx->last_donor = ctx->last_remain = 65535;
+	if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
+		return CUPS_BACKEND_FAILED;
+	
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = mitsu9550_media_types(media.type, ctx->is_s);
+	ctx->marker.levelmax = be16_to_cpu(media.max);
+	ctx->marker.levelnow = be16_to_cpu(media.remain);
 
-	// TODO: Query & Update Marker
 	return CUPS_BACKEND_OK;
 }
 
@@ -836,7 +825,7 @@ hdr_done:
 			}
 			CColorConv3D_DoColorConv(lut, ctx->databuf + sizeof(struct mitsu9550_plane),
 						 ctx->cols, ctx->rows, ctx->cols * 3, COLORCONV_BGR);
-			CColorConv3D_Destroy3DColorTable(lut);			
+			CColorConv3D_Destroy3DColorTable(lut);
 			ctx->hdr2.unkc[9] = 0;
 		}
 
@@ -1313,28 +1302,21 @@ top:
 		struct mitsu9550_status *sts = (struct mitsu9550_status*) rdbuf;
 //		struct mitsu9550_status2 *sts2 = (struct mitsu9550_status2*) rdbuf;
 		struct mitsu9550_media *media = (struct mitsu9550_media *) rdbuf;
-		uint16_t donor, remain;
+		uint16_t donor;
 
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 0, 1); // media
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
 
+		donor = be16_to_cpu(media->remain);
+		if (donor != ctx->marker.levelnow) {
+			ctx->marker.levelnow = donor;
+			dump_markers(&ctx->marker, 1, 0);
+		}
 		/* Sanity-check media response */
 		if (media->remain == 0 || media->max == 0) {
 			ERROR("Printer out of media!\n");
-			ATTR("marker-levels=%d\n", 0);
 			return CUPS_BACKEND_HOLD;
-		}
-		remain = be16_to_cpu(media->remain);
-		donor = be16_to_cpu(media->max);
-		donor = remain/donor;
-		if (donor != ctx->last_donor) {
-			ctx->last_donor = donor;
-			ATTR("marker-levels=%u\n", donor);
-		}
-		if (remain != ctx->last_remain) {
-			ctx->last_remain = remain;
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s));
 		}
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
 		if (ret < 0)
@@ -1417,28 +1399,21 @@ top:
 		struct mitsu9550_status *sts = (struct mitsu9550_status*) rdbuf;
 //		struct mitsu9550_status2 *sts2 = (struct mitsu9550_status2*) rdbuf;
 		struct mitsu9550_media *media = (struct mitsu9550_media *) rdbuf;
-		uint16_t donor, remain;
+		uint16_t donor;
 
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 0, 1); // media
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
 
+		donor = be16_to_cpu(media->remain);
+		if (donor != ctx->marker.levelnow) {
+			ctx->marker.levelnow = donor;
+			dump_markers(&ctx->marker, 1, 0);
+		}
 		/* Sanity-check media response */
 		if (media->remain == 0 || media->max == 0) {
 			ERROR("Printer out of media!\n");
-			ATTR("marker-levels=%d\n", 0);
 			return CUPS_BACKEND_HOLD;
-		}
-		remain = be16_to_cpu(media->remain);
-		donor = be16_to_cpu(media->max);
-		donor = remain/donor;
-		if (donor != ctx->last_donor) {
-			ctx->last_donor = donor;
-			ATTR("marker-levels=%u\n", donor);
-		}
-		if (remain != ctx->last_remain) {
-			ctx->last_remain = remain;
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s));
 		}
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
 		if (ret < 0)
@@ -1641,6 +1616,23 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static int mitsu9550_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct mitsu9550_ctx *ctx = vctx;
+	struct mitsu9550_media media;
+
+	/* Query printer status */
+	if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.levelnow = be16_to_cpu(media.remain);
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *mitsu9550_prefixes[] = {
 	"mitsu9xxx",
 	"mitsu9000", "mitsu9500", "mitsu9550", "mitsi9600", "mitsu9800", "mitsu9810",
@@ -1650,7 +1642,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.33",
+	.version = "0.34",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -1660,6 +1652,7 @@ struct dyesub_backend mitsu9550_backend = {
 	.read_parse = mitsu9550_read_parse,
 	.main_loop = mitsu9550_main_loop,
 	.query_serno = mitsu9550_query_serno,
+	.query_markers = mitsu9550_query_markers,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_9000AM, P_MITSU_9550, NULL, "mitsu9000"},
 		{ USB_VID_MITSU, USB_PID_MITSU_9000D, P_MITSU_9550, NULL, "mitsu9000"},

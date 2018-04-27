@@ -91,6 +91,8 @@ struct dnpds40_ctx {
 	int correct_count;
 	int needs_mlot;
 
+	struct marker marker;
+
 	uint32_t native_width;
 	int supports_6x9;
 	int supports_2x6;
@@ -548,6 +550,35 @@ static void *dnpds40_init(void)
 	((ctx->ver_major > (__major)) || \
 	 (ctx->ver_major == (__major) && ctx->ver_minor >= (__minor)))
 
+static int dnpds40_query_mqty(struct dnpds40_ctx *ctx)
+{
+	struct dnpds40_cmd cmd;
+	uint8_t *resp;
+	int len = 0, count;
+
+	/* Get Media remaining */
+	dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return -1;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	count = atoi((char*)resp+4);
+	free(resp);
+
+	if (count) {
+		/* Old-sk00l models report one less than they should */
+		if (!ctx->correct_count)
+			count++;
+
+		count -= ctx->mediaoffset;
+	}
+
+	return count;
+}
+
 static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
@@ -588,6 +619,8 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ptr = strtok(NULL, ".");
 			ctx->ver_minor = atoi(ptr);
 			free(resp);
+		} else {
+			return CUPS_BACKEND_FAILED;
 		}
 
 		/* Get Serial Number */
@@ -598,6 +631,8 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			dnpds40_cleanup_string((char*)resp, len);
 			ctx->serno = (char*) resp;
 			/* Do NOT free resp! */
+		} else {
+			return CUPS_BACKEND_FAILED;
 		}
 
 		/* Query Media Info */
@@ -619,6 +654,8 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 				ctx->media--;
 
 			free(resp);
+		} else {
+			return CUPS_BACKEND_FAILED;
 		}
 	}
 
@@ -667,6 +704,8 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 				ctx->duplex_media -= (ctx->duplex_media & 3);
 
 			free(resp);
+		} else {
+			return CUPS_BACKEND_FAILED;
 		}
 	}
 
@@ -809,6 +848,8 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 		if (resp) {
 			ctx->mediaoffset = atoi((char*)resp+4);
 			free(resp);
+		} else {
+			return CUPS_BACKEND_FAILED;
 		}
 	} else if (!ctx->correct_count) {
 		ctx->mediaoffset = 50;
@@ -827,6 +868,8 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->media_count_new = atoi((char*)resp+4);
 			free(resp);
 			ctx->media_count_new -= ctx->mediaoffset;
+		} else {
+			return CUPS_BACKEND_FAILED;
 		}
 	} else {
 		/* Look it up for legacy models & FW */
@@ -849,7 +892,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 				ctx->media_count_new = 180;
 				break;
 			default:
-				ctx->media_count_new = 999; // non-zero
+				ctx->media_count_new = 0;
 				break;
 			}
 			break;
@@ -865,7 +908,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 				ctx->media_count_new = 350;
 				break;
 			default:
-				ctx->media_count_new = 999; // non-zero
+				ctx->media_count_new = 0;
 				break;
 			}
 			break;
@@ -884,7 +927,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 				ctx->media_count_new = 280;
 				break;
 			default:
-				ctx->media_count_new = 999; // non-zero
+				ctx->media_count_new = 0;
 				break;
 			}
 			break;
@@ -900,7 +943,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 				ctx->media_count_new = 280;
 				break;
 			default:
-				ctx->media_count_new = 999; // non-zero
+				ctx->media_count_new = 0;
 				break;
 			}
 			break;
@@ -914,18 +957,25 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 				ctx->media_count_new = 110;
 				break;
 			default:
-				ctx->media_count_new = 999; // non-zero
+				ctx->media_count_new = 0;
 				break;
 			}
 			break;
 		default:
-			ctx->media_count_new = 999; // non-zero
+			ctx->media_count_new = 0;
 			break;
 		}
 	}
 
-	// TODO: fail out on other errors
-	// TODO: Update Marker
+	/* Fill out marker structure */
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = dnpds40_media_types(ctx->media);
+	ctx->marker.levelmax = ctx->media_count_new;
+	ctx->marker.levelnow = dnpds40_query_mqty(ctx);
+
+	if (ctx->marker.levelnow < 0)
+		return CUPS_BACKEND_FAILED;
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1484,14 +1534,6 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	if (!!ctx->matte != ctx->last_matte)
 		buf_needed = 2;
 
-	if (ctx->media_count_new) {
-		ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-		ATTR("marker-high-levels=100\n");
-		ATTR("marker-low-levels=10\n");
-		ATTR("marker-names='%s'\n", dnpds40_media_types(ctx->media));
-		ATTR("marker-types=ribbonWax\n");
-	}
-
 	/* RX1HS requires HS media, but the only way to tell is that the
 	   HS media reports a lot code, while the non-HS media does not. */
 	if (ctx->needs_mlot) {
@@ -1579,29 +1621,12 @@ top:
 
 	{
 		/* Figure out remaining native prints */
-		dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
-
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-		if (!resp)
+		ctx->marker.levelnow = dnpds40_query_mqty(ctx);
+		if (ctx->marker.levelnow < 0)
 			return CUPS_BACKEND_FAILED;
+		dump_markers(&ctx->marker, 1, 0);
 
-		dnpds40_cleanup_string((char*)resp, len);
-
-		count = atoi((char*)resp+4);
-		free(resp);
-
-		if (count) {
-			/* Old-sk00l models report one less than they should */
-			if (!ctx->correct_count)
-				count++;
-
-			count -= ctx->mediaoffset;
-		}
-
-		if (ctx->media_count_new) {
-			ATTR("marker-levels=%d\n", count * 100 / ctx->media_count_new);
-			ATTR("marker-message=\"%d native prints remaining on '%s' ribbon\"\n", count, dnpds40_media_types(ctx->media));
-		}
+		count = ctx->marker.levelnow; // For logic below.
 
 		/* See if we can rewind to save media */
 		if (ctx->can_rewind && ctx->supports_rewind) {
@@ -1648,7 +1673,6 @@ top:
 			return CUPS_BACKEND_STOP;
 		}
 #endif
-
 		if (count < copies) {
 			WARNING("Printer does not have sufficient remaining media (%d) to complete job (%d)\n", copies, count);
 		}
@@ -1771,11 +1795,8 @@ top:
 
 			count -= ctx->mediaoffset;
 		}
-
-		if (ctx->media_count_new) {
-			ATTR("marker-levels=%d\n", count * 100 / ctx->media_count_new);
-			ATTR("marker-message=\"%d native prints remaining on '%s' ribbon\"\n", count, dnpds40_media_types(ctx->media));
-		}
+		ctx->marker.levelnow = count;		
+		dump_markers(&ctx->marker, 1, 0);
 	}
 
 	/* Clean up */
@@ -2306,24 +2327,10 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 		INFO("Native Prints Available on New Media: %u\n", ctx->media_count_new);
 
 	/* Get Media remaining */
-	dnpds40_build_cmd(&cmd, "INFO", "MQTY", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
+	count = dnpds40_query_mqty(ctx);
+	if (count < 0)
 		return CUPS_BACKEND_FAILED;
 
-	dnpds40_cleanup_string((char*)resp, len);
-
-	count = atoi((char*)resp+4);
-	free(resp);
-
-	if (count) {
-		/* Old-sk00l models report one less than they should */
-		if (!ctx->correct_count)
-			count++;
-
-		count -= ctx->mediaoffset;
-	}
 	INFO("Native Prints Remaining on Media: %d\n", count);
 
 	if (ctx->supports_rewind) {
@@ -2699,6 +2706,20 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct dnpds40_ctx *ctx = vctx;
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	ctx->marker.levelnow = dnpds40_query_mqty(ctx);
+	if (ctx->marker.levelnow < 0)
+		return CUPS_BACKEND_FAILED;
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *dnpds40_prefixes[] = {
 	"dnp_citizen",
 	"dnpds40", "dnpds80", "dnpds80dx", "dnpds620", "dnpds820", "dnprx1",
@@ -2724,7 +2745,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.100",
+	.version = "0.101",
 	.uri_prefixes = dnpds40_prefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -2734,6 +2755,7 @@ struct dyesub_backend dnpds40_backend = {
 	.read_parse = dnpds40_read_parse,
 	.main_loop = dnpds40_main_loop,
 	.query_serno = dnpds40_query_serno,
+	.query_markers = dnpds40_query_markers,
 	.devices = {
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "dnpds40"},  // Also Citizen CX
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "dnpds80"},  // Also Citizen CX-W and Mitsubishi CP-3800DW

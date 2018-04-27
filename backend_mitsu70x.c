@@ -136,14 +136,16 @@ struct mitsu70x_ctx {
 	uint8_t *databuf;
 	int datalen;
 
+	struct marker marker[2];
+
 	uint32_t matte;
 
 	uint16_t jobid;
 	uint16_t rows;
 	uint16_t cols;
 
-	uint16_t last_donor_l;
-	uint16_t last_donor_u;
+	uint16_t last_l;
+	uint16_t last_u;
 	int num_decks;
 
 	char *laminatefname;
@@ -709,7 +711,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->type = lookup_printer_type(&mitsu70x_backend,
 					desc.idVendor, desc.idProduct);
 
-	ctx->last_donor_l = ctx->last_donor_u = 65535;
+	ctx->last_l = ctx->last_u = 65535;
 
 	/* Attempt to open the library */
 #if defined(WITH_DYNAMIC)
@@ -788,7 +790,19 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	else
 		ctx->num_decks = 1;
 
-	// TODO: Update Marker
+	/* Set up markers */
+	ctx->marker[0].color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker[0].name = mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type);
+	ctx->marker[0].levelmax = be16_to_cpu(resp.lower.capacity);
+	ctx->marker[0].levelnow = be16_to_cpu(resp.lower.remain);
+
+	if (ctx->num_decks == 2) {
+		ctx->marker[1].color = "#00FFFF#FF00FF#FFFF00";
+		ctx->marker[1].name = mitsu70x_media_types(resp.upper.media_brand, resp.upper.media_type);
+		ctx->marker[1].levelmax = be16_to_cpu(resp.upper.capacity);
+		ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
+	}
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1528,23 +1542,6 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	if (ctx->num_decks == 2) {
-		ATTR("marker-colors=#00FFFF#FF00FF#FFFF00,#00FFFF#FF00FF#FFFF00\n");
-		ATTR("marker-high-levels=100,100\n");
-		ATTR("marker-low-levels=10,10\n");
-		ATTR("marker-names='\"%s\"','\"%s\"'\n",
-		     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type),
-		     mitsu70x_media_types(resp.upper.media_brand, resp.upper.media_type));
-		ATTR("marker-types=ribbonWax,ribbonWax\n");
-	} else {
-		ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-		ATTR("marker-high-levels=100\n");
-		ATTR("marker-low-levels=10\n");
-		ATTR("marker-names='%s'\n",
-		     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type));
-		ATTR("marker-types=ribbonWax\n");
-	}
-
 	/* FW sanity checking */
 	if (ctx->type == P_KODAK_305) {
 		/* Known versions:
@@ -1685,37 +1682,23 @@ skip_status:
 	INFO("Waiting for printer to acknowledge completion\n");
 
 	do {
-		uint16_t donor_u, donor_l;
-
 		sleep(1);
 
 		ret = mitsu70x_get_printerstatus(ctx, &resp);
 		if (ret)
 			return CUPS_BACKEND_FAILED;
 
-		donor_l = be16_to_cpu(resp.lower.remain) * 100 / be16_to_cpu(resp.lower.capacity);
-
+		ctx->marker[0].levelmax = be16_to_cpu(resp.lower.capacity);
+		ctx->marker[0].levelnow = be16_to_cpu(resp.lower.remain);
 		if (ctx->num_decks == 2) {
-			donor_u = be16_to_cpu(resp.upper.remain) * 100 / be16_to_cpu(resp.upper.capacity);
-			if (donor_l != ctx->last_donor_l ||
-			    donor_u != ctx->last_donor_u) {
-				ctx->last_donor_l = donor_l;
-				ctx->last_donor_u = donor_u;
-				ATTR("marker-levels=%d,%d\n", donor_l, donor_u);
-				ATTR("marker-message='\"%d native prints remaining on %s media\"','\"%d native prints remaining on %s media\"'\n",
-				     be16_to_cpu(resp.lower.remain),
-				     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type),
-				     be16_to_cpu(resp.upper.remain),
-				     mitsu70x_media_types(resp.upper.media_brand, resp.upper.media_type));
-			}
-		} else {
-			if (donor_l != ctx->last_donor_l) {
-				ctx->last_donor_l = donor_l;
-				ATTR("marker-levels=%d\n", donor_l);
-				ATTR("marker-message=\"%d native prints remaining on %s media\"\n",
-				     be16_to_cpu(resp.lower.remain),
-				     mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type));
-			}
+			ctx->marker[1].levelmax = be16_to_cpu(resp.upper.capacity);
+			ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
+		}
+		if (ctx->marker[0].levelnow != ctx->last_l ||
+		    ctx->marker[1].levelnow != ctx->last_u) {
+			dump_markers(ctx->marker, ctx->num_decks, 0);
+			ctx->last_l = ctx->marker[0].levelnow;
+			ctx->last_u = ctx->marker[1].levelnow;
 		}
 
 		/* Query job status for our used jobid */
@@ -1916,7 +1899,7 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (!ret)
 		mitsu70x_dump_printerstatus(ctx, &resp);
-	
+
 	return ret;
 }
 
@@ -1998,6 +1981,40 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static int mitsu70x_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct mitsu70x_ctx *ctx = vctx;
+	struct mitsu70x_printerstatus_resp resp;
+	int ret;
+
+	*markers = ctx->marker;
+	*count = ctx->num_decks;
+
+	/* Tell CUPS about the consumables we report */
+	ret = mitsu70x_get_printerstatus(ctx, &resp);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
+
+	if (resp.power) {
+		ret = mitsu70x_wakeup(ctx, 1);
+		if (ret)
+			return CUPS_BACKEND_FAILED;
+
+		ret = mitsu70x_get_printerstatus(ctx, &resp);
+		if (ret)
+			return CUPS_BACKEND_FAILED;
+	}
+	
+	ctx->marker[0].levelmax = be16_to_cpu(resp.lower.capacity);
+	ctx->marker[0].levelnow = be16_to_cpu(resp.lower.remain);
+	if (ctx->num_decks == 2) {
+		ctx->marker[1].levelmax = be16_to_cpu(resp.upper.capacity);
+		ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
+	}
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *mitsu70x_prefixes[] = {
 	"mitsu70x",
 	"mitsud80", "mitsuk60", "kodak305", "fujiask300",
@@ -2007,7 +2024,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.77",
+	.version = "0.78",
 	.uri_prefixes = mitsu70x_prefixes,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
@@ -2017,6 +2034,7 @@ struct dyesub_backend mitsu70x_backend = {
 	.read_parse = mitsu70x_read_parse,
 	.main_loop = mitsu70x_main_loop,
 	.query_serno = mitsu70x_query_serno,
+	.query_markers = mitsu70x_query_markers,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, NULL, "mitsu70x"},
 		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, NULL, "mitsuk60"},

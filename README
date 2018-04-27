@@ -299,6 +299,8 @@
 
   Notes:
 
+    This backend does not support reporting marker levels.
+
     [1]  Format of curvedata file:
 
 	 256 entries each of Yellow, Magenta, Cyan mappings:
@@ -598,6 +600,8 @@
 
   This backend does not support additional commands.
 
+  This backend does not support reporting marker levels.
+
  *************************************************************************** 
   BACKEND=mitsu70x
 
@@ -725,6 +729,8 @@
    
      -s                 Query printer status
 
+  This backend does not support reporting marker levels.
+
  *************************************************************************** 
   BACKEND=dnpds40
 
@@ -806,5 +812,7 @@ Notes:
      -T                 Print self-test card
      -E                 Eject card in printer
      -R                 Reset printer
+
+  This backend does not support reporting marker levels.
 
 ***************************************************************************

@@ -78,8 +78,6 @@
 
 #define READBACK_LEN 12
 
-struct printer_data;  /* Forward declaration */
-
 struct printer_data {
 	int  type;  /* P_??? */
 	char *model; /* eg "SELPHY ES1" */
@@ -122,19 +120,16 @@ static char *generic_pgcode_names(uint8_t *rdbuf, struct printer_data *printer)
 static uint8_t es1_error_detect(uint8_t *rdbuf)
 {
 	if (rdbuf[1] == 0x01) {
-		if (rdbuf[9] == 0x00) {
+		if (rdbuf[9] == 0x00)
 			ERROR("Cover open!\n");
-		} else {
+		else
 			ERROR("Unknown error %02x\n", rdbuf[9]);
-		}
 		return 1;
 	} else if (rdbuf[4] == 0x01 && rdbuf[5] == 0xff &&
 		   rdbuf[6] == 0xff && rdbuf[7] == 0xff) {
-		ATTR("marker-levels=%d\n", 0);
 		ERROR("No media loaded!\n");
 		return 1;
 	} else if (rdbuf[0] == 0x0f) {
-		ATTR("marker-levels=%d\n", 0);
 		ERROR("Out of media!\n");
 		return 1;
 	}
@@ -154,13 +149,11 @@ static uint8_t es2_error_detect(uint8_t *rdbuf)
 	    rdbuf[4] == 0x05 &&
 	    rdbuf[5] == 0x05 &&
 	    rdbuf[6] == 0x02) {
-		ATTR("marker-levels=%d\n", 0);
 		ERROR("No media loaded!\n");
 		return 1;
 	}
 
 	if (rdbuf[0] == 0x14) {
-		ATTR("marker-levels=%d\n", 0);
 		ERROR("Out of media!\n");
 		return 1;
 	}
@@ -171,19 +164,16 @@ static uint8_t es2_error_detect(uint8_t *rdbuf)
 static uint8_t es3_error_detect(uint8_t *rdbuf)
 {
 	if (rdbuf[8] == 0x01) {
-		if (rdbuf[10] == 0x0f) {
+		if (rdbuf[10] == 0x0f)
 			ERROR("Communications Error\n");
-		} else if (rdbuf[10] == 0x01) {
-			ATTR("marker-levels=%d\n", 0);
+		else if (rdbuf[10] == 0x01)
 			ERROR("No media loaded!\n");
-		} else {
+		else
 			ERROR("Unknown error - %02x + %02x\n",
 			      rdbuf[8], rdbuf[10]);
-		}
 		return 1;
 	} else if (rdbuf[8] == 0x03 &&
 		   rdbuf[10] == 0x02) {
-		ATTR("marker-levels=%d\n", 0);
 		ERROR("No media loaded!\n");
 		return 1;
 	} else if (rdbuf[8] == 0x08 &&
@@ -213,12 +203,10 @@ static uint8_t es40_error_detect(uint8_t *rdbuf)
 
 	if (rdbuf[3] == 0x01)
 		ERROR("Generic communication error\n");
-	else if (rdbuf[3] == 0x32) {
-		ATTR("marker-levels=%d\n", 0);
+	else if (rdbuf[3] == 0x32)
 		ERROR("Cover open or media empty!\n");
-	} else
+	else
 		ERROR("Unknown error - %02x\n", rdbuf[3]);
-
 
 	return 1;
 }
@@ -233,18 +221,15 @@ static uint8_t cp790_error_detect(uint8_t *rdbuf)
 		ERROR("No paper tray loaded!\n");
 		return 1;
 	} else if (rdbuf[3]) {
-		if ((rdbuf[3] & 0xf) == 0x02) { // 0x12 0x22
-			ATTR("marker-levels=%d\n", 0);
+		if ((rdbuf[3] & 0xf) == 0x02) // 0x12 0x22
 			ERROR("No paper tray loaded!\n");
-		} else if ((rdbuf[3] & 0xf) == 0x03) { // 0x13 0x23
-			ATTR("marker-levels=%d\n", 0);
+		else if ((rdbuf[3] & 0xf) == 0x03) // 0x13 0x23
 			ERROR("Empty paper tray or feed error!\n");
-		} else if (rdbuf[3] == 0x11)
+		else if (rdbuf[3] == 0x11)
 			ERROR("Paper feed error!\n");
-		else if (rdbuf[3] == 0x21) {
-			ATTR("marker-levels=%d\n", 0);
+		else if (rdbuf[3] == 0x21)
 			ERROR("Ribbon depleted!\n");
-		} else
+		else
 			ERROR("Unknown error - %02x\n", rdbuf[3]);
 		return 1;
 	}
@@ -265,16 +250,13 @@ static uint8_t cp10_error_detect(uint8_t *rdbuf)
 	if (!rdbuf[2])
 		return 0;
 
-	if (rdbuf[2] == 0x80) {
-		ATTR("marker-levels=%d\n", 0);
+	if (rdbuf[2] == 0x80)
 		ERROR("No ribbon loaded\n");
-	} else if (rdbuf[2] == 0x08) {
-		ATTR("marker-levels=%d\n", 0);
+	else if (rdbuf[2] == 0x08)
 		ERROR("Ribbon depleted!\n");
-	} else if (rdbuf[2] == 0x01) {
-		ATTR("marker-levels=%d\n", 0);
+	else if (rdbuf[2] == 0x01)
 		ERROR("No paper loaded!\n");
-	} else
+	else
 		ERROR("Unknown error - %02x\n", rdbuf[2]);
 	return 1;
 }
@@ -284,15 +266,13 @@ static uint8_t cpxxx_error_detect(uint8_t *rdbuf)
 	if (!rdbuf[2])
 		return 0;
 
-	if (rdbuf[2] == 0x01) {
-		ATTR("marker-levels=%d\n", 0);
+	if (rdbuf[2] == 0x01)
 		ERROR("Paper feed problem!\n");
-	} else if (rdbuf[2] == 0x04)
+	else if (rdbuf[2] == 0x04)
 		ERROR("Ribbon problem!\n");
-	else if (rdbuf[2] == 0x08) {
-		ATTR("marker-levels=%d\n", 0);
+	else if (rdbuf[2] == 0x08)
 		ERROR("Ribbon depleted!\n");
-	} else
+	else
 		ERROR("Unknown error - %02x\n", rdbuf[2]);
 	return 1;
 }
@@ -563,6 +543,7 @@ struct canonselphy_ctx {
 	int type;
 
 	struct printer_data *printer;
+	struct marker marker;
 
 	uint8_t bw_mode;
 
@@ -648,7 +629,8 @@ static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 	struct canonselphy_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
-	int i;
+	int i, num;
+	uint8_t rdbuf[READBACK_LEN];
 
 	UNUSED(jobid);
 
@@ -675,7 +657,27 @@ static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 		return CUPS_BACKEND_FAILED;
 	}
 
-	/* TODO:  Query & Update Marker */
+	/* Read printer status. Twice. */
+	i = read_data(ctx->dev, ctx->endp_up,
+		      rdbuf, READBACK_LEN, &num);
+	if (i < 0)
+		return CUPS_BACKEND_FAILED;
+
+	i = read_data(ctx->dev, ctx->endp_up,
+		      rdbuf, READBACK_LEN, &num);
+	if (i < 0)
+		return CUPS_BACKEND_FAILED;
+
+	/* Fill out marker structure */
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf, ctx->printer) : "Unknown";
+	ctx->marker.levelmax = -1; /* Unknown */
+
+	if (ctx->printer->error_detect(rdbuf))
+		ctx->marker.levelnow = 0;  /* Out of media */
+	else
+		ctx->marker.levelnow = -3; /* Unknown but OK */
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -866,14 +868,6 @@ static int canonselphy_main_loop(void *vctx, int copies) {
 
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
-
-	ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-	ATTR("marker-high-levels=100\n");
-	ATTR("marker-low-levels=10\n");
-	ATTR("marker-names='%s'\n", ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf, ctx->printer) : "Unknown");
-	ATTR("marker-types=ribbonWax\n");
-	ATTR("marker-levels=%d\n", -3); /* ie Unknown but OK */
-
 top:
 
 	if (state != last_state) {
@@ -894,6 +888,7 @@ top:
 
 	/* Error detection */
 	if (ctx->printer->error_detect(rdbuf)) {
+		dump_markers(&ctx->marker, 1, 0);
 		if (ctx->printer->clear_error_len)
 			/* Try to clear error state */
 			if ((ret = send_data(ctx->dev, ctx->endp_down, ctx->printer->clear_error, ctx->printer->clear_error_len)))
@@ -1104,6 +1099,35 @@ static void canonselphy_cmdline(void)
 	DEBUG("\t\t[ -s ]           # Query printer status\n");
 }
 
+static int canonselphy_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct canonselphy_ctx *ctx = vctx;
+	uint8_t rdbuf[READBACK_LEN];
+	int ret, num;
+
+	/* Read in the printer status, twice. */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) rdbuf, READBACK_LEN, &num);
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) rdbuf, READBACK_LEN, &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	if (ctx->printer->error_detect(rdbuf))
+		ctx->marker.levelnow = 0;
+	else
+		ctx->marker.levelnow = -3;
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *canonselphy_prefixes[] = {
 	"canonselphy",
 	"selphycp10", "selphycp100", "selphycp200", "selphycp220",
@@ -1119,7 +1143,7 @@ static const char *canonselphy_prefixes[] = {
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES (legacy)",
-	.version = "0.99",
+	.version = "0.100",
 	.uri_prefixes = canonselphy_prefixes,
 	.cmdline_usage = canonselphy_cmdline,
 	.cmdline_arg = canonselphy_cmdline_arg,
@@ -1128,6 +1152,7 @@ struct dyesub_backend canonselphy_backend = {
 	.teardown = canonselphy_teardown,
 	.read_parse = canonselphy_read_parse,
 	.main_loop = canonselphy_main_loop,
+	.query_markers = canonselphy_query_markers,
 	.devices = {
 		{ USB_VID_CANON, USB_PID_CANON_CP10, P_CP10, NULL, "selphycp10"},
 		{ USB_VID_CANON, USB_PID_CANON_CP100, P_CP_XXX, NULL, "selphycp100"},

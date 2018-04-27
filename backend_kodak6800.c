@@ -239,7 +239,7 @@ struct kodak6800_ctx {
 	uint8_t *databuf;
 	int datalen;
 
-	uint8_t last_donor;
+	struct marker marker;
 };
 
 static const char *kodak68xx_mediatypes(int type)
@@ -277,8 +277,6 @@ static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
 
         return 0;
 }
-
-
 
 static void kodak68x0_dump_mediainfo(struct kodak68x0_media_readback *media)
 {
@@ -1018,6 +1016,7 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 	struct kodak6800_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
+	struct kodak68x0_status_readback status;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -1034,16 +1033,21 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 	if (!ctx->jobid)
 		ctx->jobid++;
 
-	/* Init */
-	ctx->last_donor = 255;
-
 	/* Query media info */
 	if (kodak6800_get_mediainfo(ctx, ctx->media)) {
 		ERROR("Can't query media\n");
 		return CUPS_BACKEND_FAILED;
 	}
 
-	// TODO: Update Marker
+	/* Query printer status */
+	if (kodak6800_get_status(ctx, &status))
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = kodak68xx_mediatypes(ctx->media->type);
+	ctx->marker.levelmax = 100; /* Ie percentage */
+	ctx->marker.levelnow = status.donor;
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1143,22 +1147,15 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_HOLD;
 	}
 
-        /* Tell CUPS about the consumables we report */
-        ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-        ATTR("marker-high-levels=100\n");
-        ATTR("marker-low-levels=10\n");
-        ATTR("marker-names='%s'\n", kodak68xx_mediatypes(ctx->media->type));
-        ATTR("marker-types=ribbonWax\n");
-
 	INFO("Waiting for printer idle\n");
 
 	while(1) {
 		if (kodak6800_get_status(ctx, &status))
 			return CUPS_BACKEND_FAILED;
 
-		if (ctx->last_donor != status.donor) {
-			ctx->last_donor = status.donor;
-			ATTR("marker-levels=%u\n", status.donor);
+		if (ctx->marker.levelnow != status.donor) {
+			ctx->marker.levelnow = status.donor;
+			dump_markers(&ctx->marker, 1, 0);
 		}
 
 		if (status.status1 == STATE_STATUS1_ERROR) {
@@ -1231,9 +1228,9 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 		if (kodak6800_get_status(ctx, &status))
 			return CUPS_BACKEND_FAILED;
 
-		if (ctx->last_donor != status.donor) {
-			ctx->last_donor = status.donor;
-			ATTR("marker-levels=%u\n", status.donor);
+		if (ctx->marker.levelnow != status.donor) {
+			ctx->marker.levelnow = status.donor;
+			dump_markers(&ctx->marker, 1, 0);
 		}
 
 		if (status.status1 == STATE_STATUS1_ERROR) {
@@ -1261,6 +1258,23 @@ static int kodak6800_main_loop(void *vctx, int copies) {
 	return CUPS_BACKEND_OK;
 }
 
+static int kodak6800_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct kodak6800_ctx *ctx = vctx;
+	struct kodak68x0_status_readback status;
+
+	/* Query printer status */
+	if (kodak6800_get_status(ctx, &status))
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.levelnow = status.donor;
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *kodak6800_prefixes[] = {
 	"kodak68x0",
 	"kodak6800", "kodak6850",
@@ -1270,7 +1284,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.60",
+	.version = "0.61",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
@@ -1280,6 +1294,7 @@ struct dyesub_backend kodak6800_backend = {
 	.read_parse = kodak6800_read_parse,
 	.main_loop = kodak6800_main_loop,
 	.query_serno = kodak6800_query_serno,
+	.query_markers = kodak6800_query_markers,
 	.devices = {
 		{ USB_VID_KODAK, USB_PID_KODAK_6800, P_KODAK_6800, "Kodak", "kodak6800"},
 		{ USB_VID_KODAK, USB_PID_KODAK_6850, P_KODAK_6850, "Kodak", "kodak6850"},

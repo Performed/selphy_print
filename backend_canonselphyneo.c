@@ -69,6 +69,8 @@ struct selphyneo_ctx {
 
 	uint8_t *databuf;
 	uint32_t datalen;
+
+	struct marker marker;
 };
 
 static char *selphyneo_statuses(uint8_t sts)
@@ -195,6 +197,8 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev,
 	struct selphyneo_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
+	struct selphyneo_readback rdback;
+	int ret, num;
 
 	UNUSED(jobid);
 
@@ -205,7 +209,24 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev,
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
 
-	// TODO:  Query & Update Marker
+	/* Read in the printer status to clear last state */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) &rdback, sizeof(rdback), &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	/* And again, for the markers */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) &rdback, sizeof(rdback), &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = selphynew_pgcodes(rdback.data[6]);
+	ctx->marker.levelmax = -1;
+	ctx->marker.levelnow = -3;
 
 	return CUPS_BACKEND_OK;
 }
@@ -292,20 +313,6 @@ static int selphyneo_main_loop(void *vctx, int copies) {
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
 
-	/* And again, for the markers */
-	ret = read_data(ctx->dev, ctx->endp_up,
-			(uint8_t*) &rdback, sizeof(rdback), &num);
-
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
-
-	ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-	ATTR("marker-high-levels=100\n");
-	ATTR("marker-low-levels=10\n");
-	ATTR("marker-names='%s'\n", selphynew_pgcodes(rdback.data[6]));
-
-	ATTR("marker-types=ribbonWax\n");
-
 top:
 	INFO("Waiting for printer idle\n");
 
@@ -326,18 +333,20 @@ top:
 			break;
 		case 0x0A:
 			ERROR("Printer error: %s (%02x)\n", selphyneo_errors(rdback.data[2]), rdback.data[2]);
-			ATTR("marker-levels=%d\n", 0);
+			ctx->marker.levelnow = 0;
+			dump_markers(&ctx->marker, 1, 0);
 			return CUPS_BACKEND_CANCEL;
 		default:
 			ERROR("Printer error: %s (%02x)\n", selphyneo_errors(rdback.data[2]), rdback.data[2]);
-			ATTR("marker-levels=%d\n", 0);
+			ctx->marker.levelnow = 0;
+			dump_markers(&ctx->marker, 1, 0);
 			return CUPS_BACKEND_STOP;
 		}
 
 		sleep(1);
 	} while(1);
 
-	ATTR("marker-levels=%d\n", -3); /* ie Unknown but OK */
+	dump_markers(&ctx->marker, 1, 0);
 
 	INFO("Sending spool data\n");
 	/* Send the data over in 256K chunks */
@@ -380,11 +389,13 @@ top:
 			break;
 		case 0x0A:
 			ERROR("Printer error: %s (%02x)\n", selphyneo_errors(rdback.data[2]), rdback.data[2]);
-			ATTR("marker-levels=%d\n", 0);
+			ctx->marker.levelnow = 0;
+			dump_markers(&ctx->marker, 1, 0);
 			return CUPS_BACKEND_CANCEL;
 		default:
 			ERROR("Printer error: %s (%02x)\n", selphyneo_errors(rdback.data[2]), rdback.data[2]);
-			ATTR("marker-levels=%d\n", 0);
+			ctx->marker.levelnow = 0;
+			dump_markers(&ctx->marker, 1, 0);
 			return CUPS_BACKEND_STOP;
 		}
 
@@ -440,6 +451,37 @@ static void selphyneo_cmdline(void)
 	DEBUG("\t\t[ -s ]           # Query printer status\n");
 }
 
+static int selphyneo_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct selphyneo_ctx *ctx = vctx;
+	struct selphyneo_readback rdback;
+	int ret, num;
+
+	/* Read in the printer status to clear last state */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) &rdback, sizeof(rdback), &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	/* And again, for the markers */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) &rdback, sizeof(rdback), &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	if (rdback.data[2])
+		ctx->marker.levelnow = 0;
+	else
+		ctx->marker.levelnow = -3;
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *canonselphyneo_prefixes[] = {
 	"canonselphyneo",
 	"selphycp820", "selphycp910", "selphycp1000", "selphycp1200", "selphycp1300",
@@ -448,7 +490,7 @@ static const char *canonselphyneo_prefixes[] = {
 
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CP (new)",
-	.version = "0.15",
+	.version = "0.16",
 	.uri_prefixes = canonselphyneo_prefixes,
 	.cmdline_usage = selphyneo_cmdline,
 	.cmdline_arg = selphyneo_cmdline_arg,
@@ -457,6 +499,7 @@ struct dyesub_backend canonselphyneo_backend = {
 	.teardown = selphyneo_teardown,
 	.read_parse = selphyneo_read_parse,
 	.main_loop = selphyneo_main_loop,
+	.query_markers = selphyneo_query_markers,
 	.devices = {
 		{ USB_VID_CANON, USB_PID_CANON_CP820, P_CP910, NULL, "selphycp820"},
 		{ USB_VID_CANON, USB_PID_CANON_CP910, P_CP910, NULL, "selphycp910"},
