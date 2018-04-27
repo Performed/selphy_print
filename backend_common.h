@@ -142,6 +142,13 @@ struct device_id {
 	char *prefix;
 };
 
+struct marker {
+	const char *color;  /* Eg "#00FFFF" */
+	const char *name;   /* Eg "CK9015 (4x6)" */
+	int levelmax; /* Max media count, eg '600', or '-1' */
+	int levelnow; /* Remaining media, -3, -2, -1, 0..N.  See CUPS. */
+};
+
 /* Backend Functions */
 struct dyesub_backend {
 	const char *name;
@@ -156,6 +163,7 @@ struct dyesub_backend {
 	int  (*read_parse)(void *ctx, int data_fd);
 	int  (*main_loop)(void *ctx, int copies);
 	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len); /* Optional */
+	int  (*query_markers)(void *ctx, struct marker **markers, int *count);
 	const struct device_id devices[];
 };
 
@@ -165,6 +173,8 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int buflen, int *readlen);
 int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor, uint16_t idProduct);
+
+void dump_markers(struct marker *markers, int marker_count, int full);
 
 void print_license_blurb(void);
 void print_help(char *argv0, struct dyesub_backend *backend);

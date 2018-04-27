@@ -116,6 +116,8 @@ static char *get_device_id(struct libusb_device_handle *dev, int iface)
 		goto done;
 	}
 
+	// XXX some printers have 'length' include the header.  WTF.
+
 	/* Move, and terminate */
 	memmove(buf, buf + 2, length);
 	buf[length] = '\0';
@@ -742,6 +744,24 @@ static struct dyesub_backend *find_backend(char *uri_prefix)
 	return NULL;
 }
 
+static int query_markers(struct dyesub_backend *backend, void *ctx, int full)
+{
+	struct marker *markers = NULL;
+	int marker_count = 0;
+	int ret;
+
+	if (!backend->query_markers)
+		return CUPS_BACKEND_OK;
+
+	ret = backend->query_markers(ctx, &markers, &marker_count);
+	if (ret)
+		return ret;
+
+	dump_markers(markers, marker_count, full);
+
+	return CUPS_BACKEND_OK;
+}
+
 void print_license_blurb(void)
 {
 	const char *license = "\n\
@@ -1098,6 +1118,11 @@ newpage:
 		else
 			goto done_claimed;
 	}
+	
+	/* Dump the full marker dump */
+	ret = query_markers(backend, backend_ctx, !current_page);
+	if (ret)
+		goto done_claimed;
 
 	INFO("Printing page %d\n", ++current_page);
 
@@ -1109,6 +1134,11 @@ newpage:
 	if (!uri)
 		PAGE("%d %d\n", current_page, copies);
 
+	/* Dump a marker status update */
+	ret = query_markers(backend, backend_ctx, !current_page);
+	if (ret)
+		goto done_claimed;
+	
 	/* Since we have no way of telling if there's more data remaining
 	   to be read (without actually trying to read it), always assume
 	   multiple print jobs. */
@@ -1164,6 +1194,94 @@ int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor, uint1
 	}
 
 	return type;
+}
+
+void dump_markers(struct marker *markers, int marker_count, int full)
+{
+	int i;
+
+	if (!full)
+		goto minimal;
+
+	ATTR("marker-colors=");
+	for (i = 0 ; i < marker_count; i++) {
+		DEBUG2(markers[i].color);
+		if ((i+1) < marker_count)
+			DEBUG2(",");
+	}
+	DEBUG2("\n");
+
+	ATTR("marker-high-levels=");
+	for (i = 0 ; i < marker_count; i++) {
+		DEBUG2("%d", 100);
+		if ((i+1) < marker_count)
+			DEBUG2(",");
+	}
+	DEBUG2("\n");
+
+	ATTR("marker-low-levels=");
+	for (i = 0 ; i < marker_count; i++) {
+		DEBUG2("%d", 10);
+		if ((i+1) < marker_count)
+			DEBUG2(",");
+	}
+	DEBUG2("\n");
+
+	ATTR("marker-names=");
+	for (i = 0 ; i < marker_count; i++) {
+		DEBUG2("'\"%s\"'", markers[i].name);
+		if ((i+1) < marker_count)
+			DEBUG2(",");
+	}
+	DEBUG2("\n");
+
+	ATTR("marker-types=");
+	for (i = 0 ; i < marker_count; i++) {
+		DEBUG2("ribbonWax");
+		if ((i+1) < marker_count)
+			DEBUG2(",");
+	}
+	DEBUG2("\n");
+
+minimal:
+	ATTR("marker-levels=");
+	for (i = 0 ; i < marker_count; i++) {
+		int val;
+		if (markers[i].levelmax <= 0 || markers[i].levelnow < 0)
+			val = (markers[i].levelnow < 0) ? markers[i].levelnow : -1;
+		else if (markers[i].levelmax == 100)
+			val = markers[i].levelnow;
+		else
+			val = markers[i].levelnow * 100 / markers[i].levelmax;
+		DEBUG2("%d", val);
+		if ((i+1) < marker_count)
+			DEBUG2(",");
+	}
+	DEBUG2("\n");
+
+	/* Only dump a message if the marker is not a percentage */
+	if (markers[0].levelmax != 100) {
+		ATTR("marker-message=");
+		for (i = 0 ; i < marker_count; i++) {
+			switch (markers[i].levelnow) {
+			case -1:
+				DEBUG2("'\"Unable to query remaining prints on %s media\"'", markers[i].name);
+				break;
+			case -2:
+				DEBUG2("'\"Unknown remaining prints on %s media\"'", markers[i].name);
+				break;
+			case -3:
+				DEBUG2("'\"One or more remaining prints on %s media\"'", markers[i].name);
+				break;
+			default:
+				DEBUG2("'\"%d native prints remaining on %s media\"'", markers[i].levelnow, markers[i].name);
+				break;
+			}
+			if ((i+1) < marker_count)
+				DEBUG2(",");
+		}
+		DEBUG2("\n");
+	}
 }
 
 uint16_t uint16_to_packed_bcd(uint16_t val)
