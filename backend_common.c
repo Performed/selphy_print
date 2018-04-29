@@ -1297,7 +1297,7 @@ minimal:
 	for (i = 0 ; i < marker_count; i++) {
 		int val;
 		if (markers[i].levelmax <= 0 || markers[i].levelnow < 0)
-			val = (markers[i].levelnow < 0) ? markers[i].levelnow : -1;
+			val = (markers[i].levelnow <= 0) ? markers[i].levelnow : -1;
 		else if (markers[i].levelmax == 100)
 			val = markers[i].levelnow;
 		else
