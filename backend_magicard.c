@@ -124,6 +124,8 @@ struct magicard_ctx {
 	int datalen;
 
 	int hdr_len;
+
+	struct marker marker;
 };
 
 struct magicard_cmd_header {
@@ -469,6 +471,11 @@ static int magicard_attach(void *vctx, struct libusb_device_handle *dev,
 
 	ctx->type = lookup_printer_type(&magicard_backend,
 					desc.idVendor, desc.idProduct);
+
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";  // XXX YMCK too!
+	ctx->marker.name = "Unknown"; // LC1/LC3/LC6/LC8
+	ctx->marker.levelmax = -1;
+	ctx->marker.levelnow = -2;
 
 	return CUPS_BACKEND_OK;
 }
@@ -890,6 +897,16 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static int magicard_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct magicard_ctx *ctx = vctx;
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *magicard_prefixes[] = {
 	"magicard",
 	"tango2e", "enduro", "enduroplus",
@@ -898,7 +915,7 @@ static const char *magicard_prefixes[] = {
 
 struct dyesub_backend magicard_backend = {
 	.name = "Magicard family",
-	.version = "0.11",
+	.version = "0.12",
 	.uri_prefixes = magicard_prefixes,
 	.cmdline_arg = magicard_cmdline_arg,
 	.cmdline_usage = magicard_cmdline,
@@ -907,6 +924,7 @@ struct dyesub_backend magicard_backend = {
 	.teardown = magicard_teardown,
 	.read_parse = magicard_read_parse,
 	.main_loop = magicard_main_loop,
+	.query_markers = magicard_query_markers,
 	.devices = {
 		{ USB_VID_MAGICARD, USB_PID_MAGICARD_TANGO2E, P_MAGICARD, NULL, "tango2e"},
 		{ USB_VID_MAGICARD, USB_PID_MAGICARD_ENDURO, P_MAGICARD, NULL, "enduro"},

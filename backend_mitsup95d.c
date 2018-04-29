@@ -74,8 +74,29 @@ struct mitsup95d_ctx {
 	uint32_t datalen;
 
 	uint8_t ftr[2];
+
+	struct marker marker;
 };
 
+#define QUERYRESP_SIZE_MAX 9
+
+static const char *mitsup93d_errors(uint8_t code)
+{
+	switch (code) {
+	case 0x6f: return "Door Open";
+	case 0x50: return "No Paper";
+	default:   return "Unknown Error";
+	}
+}
+
+static const char *mitsup95d_errors(uint8_t code)
+{
+	switch (code & 0xf) {
+	case 3: return "Door Open";
+	case 4: return "No Paper";
+	default: return "Unknown Error";
+	}
+}
 
 static void *mitsup95d_init(void)
 {
@@ -87,6 +108,35 @@ static void *mitsup95d_init(void)
 	memset(ctx, 0, sizeof(struct mitsup95d_ctx));
 
 	return ctx;
+}
+
+static int mitsup95d_get_status(struct mitsup95d_ctx *ctx, uint8_t *resp)
+{
+	uint8_t querycmd[4] = { 0x1b, 0x72, 0x00, 0x00 };
+	int ret;
+	int num;
+
+	/* P93D is ... special.  Windows switches to this halfway through
+	   but it seems be okay to use it everywhere */
+	if (ctx->type == P_MITSU_P93D) {
+		querycmd[2] = 0x03;
+	}
+
+	/* Query Status to sanity-check job */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     querycmd, sizeof(querycmd))))
+		return CUPS_BACKEND_FAILED;
+	ret = read_data(ctx->dev, ctx->endp_up,
+			resp, QUERYRESP_SIZE_MAX, &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+	if (ctx->type == P_MITSU_P95D && num != 9) {
+		return CUPS_BACKEND_FAILED;
+	} else if (ctx->type == P_MITSU_P93D && num != 8) {
+		return CUPS_BACKEND_FAILED;
+	}
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev,
@@ -107,6 +157,11 @@ static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev,
 
 	ctx->type = lookup_printer_type(&mitsup95d_backend,
 					desc.idVendor, desc.idProduct);
+
+	ctx->marker.color = "#000000";  /* Ie black! */
+	ctx->marker.name = "Unknown";
+	ctx->marker.levelmax = -1;
+	ctx->marker.levelnow = -2;
 
 	return CUPS_BACKEND_OK;
 }
@@ -267,20 +322,11 @@ top:
 
 static int mitsup95d_main_loop(void *vctx, int copies) {
 	struct mitsup95d_ctx *ctx = vctx;
-	uint8_t querycmd[4] = { 0x1b, 0x72, 0x00, 0x00 };
-	uint8_t queryresp[9];
-
+	uint8_t queryresp[QUERYRESP_SIZE_MAX];
 	int ret;
-	int num;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
-
-	/* P93D is ... special.  Windows switches to this halfway through
-	   but it seems be okay to use it everywhere */
-	if (ctx->type == P_MITSU_P93D) {
-		querycmd[2] = 0x03;
-	}
 
 	/* Update printjob header to reflect number of requested copies */
 	if (ctx->hdr2[13] != 0xff)
@@ -296,22 +342,13 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 
         /* Query Status to make sure printer is idle */
 	do {
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     querycmd, sizeof(querycmd))))
-			return CUPS_BACKEND_FAILED;
-		ret = read_data(ctx->dev, ctx->endp_up,
-				queryresp, sizeof(queryresp), &num);
-		if (ret < 0)
-			return CUPS_BACKEND_FAILED;
-		if (ctx->type == P_MITSU_P95D && num != 9) {
-			return CUPS_BACKEND_FAILED;
-		} else if (ctx->type == P_MITSU_P93D && num != 8) {
-			return CUPS_BACKEND_FAILED;
-		}
+		ret = mitsup95d_get_status(ctx, queryresp);
+		if (ret)
+			return ret;
 
 		if (ctx->type == P_MITSU_P95D) {
-			if (queryresp[5] & 0x40) {
-				ERROR("Printer error %02x\n", queryresp[5]); // XXX decode
+			if (queryresp[6] & 0x40) {
+				INFO("Printer Status: %s (%02x)\n", mitsup95d_errors(queryresp[6]), queryresp[6]);
 				return CUPS_BACKEND_STOP;
 			}
 			if (queryresp[5] == 0x00)
@@ -365,28 +402,13 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 		return CUPS_BACKEND_FAILED;
 
 	/* Query Status to sanity-check job */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     querycmd, sizeof(querycmd))))
-		return CUPS_BACKEND_FAILED;
-	ret = read_data(ctx->dev, ctx->endp_up,
-			queryresp, sizeof(queryresp), &num);
-
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
-	if (ctx->type == P_MITSU_P95D && num != 9) {
-		return CUPS_BACKEND_FAILED;
-	} else if (ctx->type == P_MITSU_P93D && num != 8) {
-		return CUPS_BACKEND_FAILED;
-	}
-
-	if (queryresp[5] & 0x40) {
-		ERROR("Printer error %02x\n", queryresp[5]); // XXX decode
-		return CUPS_BACKEND_STOP;
-	}
+	ret = mitsup95d_get_status(ctx, queryresp);
+	if (ret)
+		return ret;
 
 	if (ctx->type == P_MITSU_P95D) {
-		if (queryresp[5] & 0x40) {
-			ERROR("Printer error %02x\n", queryresp[5]); // XXX decode
+		if (queryresp[6] & 0x40) {
+			INFO("Printer Status: %s (%02x)\n", mitsup95d_errors(queryresp[6]), queryresp[6]);
 			return CUPS_BACKEND_STOP;
 		}
 		if (queryresp[5] != 0x00) {
@@ -395,7 +417,7 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 		}
 	} else {
 		if (queryresp[6] == 0x45) {
-			ERROR("Printer error %02x\n", queryresp[7]);
+			INFO("Printer Status: %s (%02x)\n", mitsup93d_errors(queryresp[7]), queryresp[7]);
 			return CUPS_BACKEND_STOP;
 		}
 		if (queryresp[6] != 0x30) {
@@ -416,23 +438,13 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 		sleep(1);
 
 		/* Query Status */
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     querycmd, sizeof(querycmd))))
-			return CUPS_BACKEND_FAILED;
-		ret = read_data(ctx->dev, ctx->endp_up,
-				queryresp, sizeof(queryresp), &num);
-
-		if (ret < 0)
-			return CUPS_BACKEND_FAILED;
-		if (ctx->type == P_MITSU_P95D && num != 9) {
-			return CUPS_BACKEND_FAILED;
-		} else if (ctx->type == P_MITSU_P93D && num != 8) {
-			return CUPS_BACKEND_FAILED;
-		}
+		ret = mitsup95d_get_status(ctx, queryresp);
+		if (ret)
+			return ret;
 
 		if (ctx->type == P_MITSU_P95D) {
-			if (queryresp[5] & 0x40) {
-				ERROR("Printer error %02x\n", queryresp[5]); // XXX decode
+			if (queryresp[6] & 0x40) {
+				INFO("Printer Status: %s (%02x)\n", mitsup95d_errors(queryresp[6]), queryresp[6]);
 				return CUPS_BACKEND_STOP;
 			}
 			if (queryresp[5] == 0x00)
@@ -446,7 +458,7 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 			}
 		} else {
 			if (queryresp[6] == 0x45) {
-				ERROR("Printer error %02x\n", queryresp[7]);
+				INFO("Printer Status: %s (%02x)\n", mitsup93d_errors(queryresp[7]), queryresp[7]);
 				return CUPS_BACKEND_STOP;
 			}
 			if (queryresp[6] == 0x30)
@@ -464,31 +476,18 @@ static int mitsup95d_main_loop(void *vctx, int copies) {
 	return CUPS_BACKEND_OK;
 }
 
-static int mitsup95d_get_status(struct mitsup95d_ctx *ctx)
+static int mitsup95d_dump_status(struct mitsup95d_ctx *ctx)
 {
-	uint8_t querycmd[4] = { 0x1b, 0x72, 0x00, 0x00 };
-	uint8_t queryresp[9];
+	uint8_t queryresp[QUERYRESP_SIZE_MAX];
 	int ret;
-	int num;
 
-	/* Query Status to sanity-check job */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     querycmd, sizeof(querycmd))))
-		return CUPS_BACKEND_FAILED;
-	ret = read_data(ctx->dev, ctx->endp_up,
-			queryresp, sizeof(queryresp), &num);
-
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
-	if (ctx->type == P_MITSU_P95D && num != 9) {
-		return CUPS_BACKEND_FAILED;
-	} else if (ctx->type == P_MITSU_P93D && num != 8) {
-		return CUPS_BACKEND_FAILED;
-	}
+	ret = mitsup95d_get_status(ctx, queryresp);
+	if (ret)
+		return ret;
 
 	if (ctx->type == P_MITSU_P95D) {
-		if (queryresp[5] & 0x40) {
-			INFO("Printer Status: error %02x\n", queryresp[5]);
+		if (queryresp[6] & 0x40) {
+			INFO("Printer Status: %s (%02x)\n", mitsup95d_errors(queryresp[6]), queryresp[6]);
 		} else if (queryresp[5] == 0x00) {
 			INFO("Printer Status: Idle\n");
 		} else if (queryresp[5] == 0x02 && queryresp[7] > 0) {
@@ -496,9 +495,9 @@ static int mitsup95d_get_status(struct mitsup95d_ctx *ctx)
 		}
 	} else {
 		if (queryresp[6] == 0x45) {
-			INFO("Printer Status: error %02x\n", queryresp[7]);
+			INFO("Printer Status: %s (%02x)\n", mitsup93d_errors(queryresp[7]), queryresp[7]);
 		} else if (queryresp[6] == 0x30) {
-			INFO("Printer Status: Idle");
+			INFO("Printer Status: Idle\n");
 		} else if (queryresp[6] == 0x43 && queryresp[7] > 0) {
 			INFO("Printer Status: Printing (%d) copies remaining\n", queryresp[7]);
 		}
@@ -524,7 +523,7 @@ static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 's':
-			j = mitsup95d_get_status(ctx);
+			j = mitsup95d_dump_status(ctx);
 			break;
 		default:
 			break;  /* Ignore completely */
@@ -536,6 +535,32 @@ static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static int mitsup95d_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct mitsup95d_ctx *ctx = vctx;
+	uint8_t queryresp[QUERYRESP_SIZE_MAX];
+
+	if (mitsup95d_get_status(ctx, queryresp))
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.levelnow = -3;
+
+	if (ctx->type == P_MITSU_P95D) {
+		if (queryresp[6] & 0x40) {
+			ctx->marker.levelnow = 0;
+		}
+	} else {
+		if (queryresp[6] == 0x45) {
+			ctx->marker.levelnow = 0;
+		}
+	}
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *mitsup95d_prefixes[] = {
 	"mitsup9x",
 	"mitsup95d", "mitsup93d",
@@ -545,7 +570,7 @@ static const char *mitsup95d_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsup95d_backend = {
 	.name = "Mitsubishi P93D/P95D",
-	.version = "0.07",
+	.version = "0.08",
 	.uri_prefixes = mitsup95d_prefixes,
 	.cmdline_arg = mitsup95d_cmdline_arg,
 	.cmdline_usage = mitsup95d_cmdline,
@@ -554,6 +579,7 @@ struct dyesub_backend mitsup95d_backend = {
 	.teardown = mitsup95d_teardown,
 	.read_parse = mitsup95d_read_parse,
 	.main_loop = mitsup95d_main_loop,
+	.query_markers = mitsup95d_query_markers,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_P93D, P_MITSU_P93D, NULL, "mitsup93d"},
 		{ USB_VID_MITSU, USB_PID_MITSU_P95D, P_MITSU_P95D, NULL, "mitsup95d"},
@@ -705,12 +731,14 @@ struct dyesub_backend mitsup95d_backend = {
  STATUS query
 
  -> 1b 72 00 00
- <- e4 72 00 00  04 XX 00 YY  00
+ <- e4 72 00 00  04 XX ZZ YY  00
 
   YY == remaining copies
   XX == Status?
     00 == Idle
     02 == Printing
+  ZZ == Error!
+    00 == None
     43 == Door open
     44 == No Paper
     4? == "Button"

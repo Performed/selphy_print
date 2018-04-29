@@ -87,6 +87,8 @@ struct kodak1400_ctx {
 	uint8_t *plane_r;
 	uint8_t *plane_g;
 	uint8_t *plane_b;
+
+	struct marker marker;
 };
 
 static int send_plane(struct kodak1400_ctx *ctx,
@@ -312,6 +314,11 @@ static int kodak1400_attach(void *vctx, struct libusb_device_handle *dev,
 
 	ctx->type = lookup_printer_type(&kodak1400_backend,
 					desc.idVendor, desc.idProduct);
+
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = "Unknown";
+	ctx->marker.levelmax = -1;
+	ctx->marker.levelnow = -2;
 
 	return CUPS_BACKEND_OK;
 }
@@ -608,6 +615,16 @@ top:
 	return CUPS_BACKEND_OK;
 }
 
+static int kodak1400_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct kodak1400_ctx *ctx = vctx;
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
 /* Exported */
 #define USB_VID_KODAK       0x040A
 #define USB_PID_KODAK_1400  0x4022
@@ -623,7 +640,7 @@ static const char *kodak1400_prefixes[] = {
 
 struct dyesub_backend kodak1400_backend = {
 	.name = "Kodak 1400/805",
-	.version = "0.35",
+	.version = "0.36",
 	.uri_prefixes = kodak1400_prefixes,
 	.cmdline_usage = kodak1400_cmdline,
 	.cmdline_arg = kodak1400_cmdline_arg,
@@ -632,6 +649,7 @@ struct dyesub_backend kodak1400_backend = {
 	.teardown = kodak1400_teardown,
 	.read_parse = kodak1400_read_parse,
 	.main_loop = kodak1400_main_loop,
+	.query_markers = kodak1400_query_markers,
 	.devices = {
 		{ USB_VID_KODAK, USB_PID_KODAK_1400, P_KODAK_1400_805, "Kodak", "kodak1400"},
 		{ USB_VID_KODAK, USB_PID_KODAK_805, P_KODAK_1400_805, "Kodak", "kodak805"},
