@@ -1948,23 +1948,10 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev,
 	}
 	memcpy(&ctx->media, resp, sizeof(*resp));
 
-	/* Query Status */
-	struct s6145_status_resp *sts = (struct s6145_status_resp *) rdbuf;
-	cmd.cmd = cpu_to_le16(S6145_CMD_GETSTATUS);
-	cmd.len = cpu_to_le16(0);
-
-	if (s6145_do_cmd(ctx,
-			 (uint8_t*)&cmd, sizeof(cmd),
-			 sizeof(*sts),
-			 &num)) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return CUPS_BACKEND_FAILED;
-	}
-
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = print_ribbons(ctx->media.ribbon);
 	ctx->marker.levelmax = ribbon_sizes(ctx->media.ribbon);
-	ctx->marker.levelnow = ctx->marker.levelmax - le32_to_cpu(sts->count_ribbon_left);
+	ctx->marker.levelnow = -2;
 
 	return CUPS_BACKEND_OK;
 }

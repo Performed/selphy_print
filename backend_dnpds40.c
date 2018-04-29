@@ -971,7 +971,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = dnpds40_media_types(ctx->media);
 	ctx->marker.levelmax = ctx->media_count_new;
-	ctx->marker.levelnow = dnpds40_query_mqty(ctx);
+	ctx->marker.levelnow = -2;
 
 	if (ctx->marker.levelnow < 0)
 		return CUPS_BACKEND_FAILED;

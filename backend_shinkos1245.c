@@ -1282,7 +1282,6 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
 	struct shinkos1245_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
-	struct shinkos1245_resp_status status;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -1307,14 +1306,10 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
 		return CUPS_BACKEND_FAILED;
 	}
 
-	/* Query status */
-	if (shinkos1245_get_status(ctx, &status))
-		return CUPS_BACKEND_FAILED;
-
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = ctx->media_8x12 ? "8x12" : "8x10";
 	ctx->marker.levelmax = ctx->media_8x12 ? 230 : 280;
-	ctx->marker.levelnow = ctx->marker.levelmax - be32_to_cpu(status.counters.media);
+	ctx->marker.levelnow = -2;
 
 	return CUPS_BACKEND_OK;
 }

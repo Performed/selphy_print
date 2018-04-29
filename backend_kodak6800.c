@@ -1016,7 +1016,6 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 	struct kodak6800_ctx *ctx = vctx;
 	struct libusb_device *device;
 	struct libusb_device_descriptor desc;
-	struct kodak68x0_status_readback status;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -1039,14 +1038,10 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
 		return CUPS_BACKEND_FAILED;
 	}
 
-	/* Query printer status */
-	if (kodak6800_get_status(ctx, &status))
-		return CUPS_BACKEND_FAILED;
-
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = kodak68xx_mediatypes(ctx->media->type);
 	ctx->marker.levelmax = 100; /* Ie percentage */
-	ctx->marker.levelnow = status.donor;
+	ctx->marker.levelnow = -2;
 
 	return CUPS_BACKEND_OK;
 }
