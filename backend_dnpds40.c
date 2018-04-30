@@ -973,9 +973,6 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->marker.levelmax = ctx->media_count_new;
 	ctx->marker.levelnow = -2;
 
-	if (ctx->marker.levelnow < 0)
-		return CUPS_BACKEND_FAILED;
-
 	return CUPS_BACKEND_OK;
 }
 
