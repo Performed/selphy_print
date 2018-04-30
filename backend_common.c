@@ -880,7 +880,7 @@ int parse_cmdstream(struct dyesub_backend *backend, void *backend_ctx, int fd)
 			continue;
 
 		/* Parse command! */
-		if (strncasecmp(lp, "ReportLevels", 5) == 0) {
+		if (strncasecmp(lp, "ReportLevels", 12) == 0) {
 			query_markers(backend, backend_ctx, 1);
 /* XXX TODO: ReportStatus, AutoConfigure, PrintSelfTestPage?  What about others, eg reset or cancel job? */
 		} else {
