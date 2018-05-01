@@ -68,9 +68,9 @@
 #endif
 #endif
 
-#define MITSU_M98xx_LAMINATE_FILE CORRTABLE_PATH "M98MATTE.raw"
-#define MITSU_M98xx_DATATABLE_FILE CORRTABLE_PATH "M98TABLE.dat"
-#define MITSU_M98xx_LUT_FILE       CORRTABLE_PATH "M98XXL01.lut"
+#define MITSU_M98xx_LAMINATE_FILE CORRTABLE_PATH "/M98MATTE.raw"
+#define MITSU_M98xx_DATATABLE_FILE CORRTABLE_PATH "/M98TABLE.dat"
+#define MITSU_M98xx_LUT_FILE       CORRTABLE_PATH "/M98XXL01.lut"
 #define LAMINATE_STRIDE 1868
 #define DATATABLE_SIZE  42204
 
@@ -219,8 +219,8 @@ struct mitsu9550_status {
 } __attribute__((packed));
 
 struct mitsu9550_status2 {
-	uint8_t  hdr[2]; /* 21 2e */
-	uint8_t  unk[39];
+	uint8_t  hdr[2]; /* 21 2e / 24 2e  on 9550/9800 */
+	uint8_t  unk[38];
 	uint16_t remain; /* BE, media remaining */
 	uint8_t  unkb[4]; /* 0a 00 00 01 */
 } __attribute__((packed));
@@ -1231,19 +1231,6 @@ top:
 
 	/* Now it's time for the actual print job! */
 
-#if 0
-	if (ctx->is_s) {
-		/* This is a job cancel..? */
-		cmd.cmd[0] = 0x1b;
-		cmd.cmd[1] = 0x44;
-		cmd.cmd[2] = 0;
-		cmd.cmd[3] = 0;
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) &cmd, 4)))
-			return CUPS_BACKEND_FAILED;
-	}
-#endif
-
 	QUERY_STATUS();
 
 	/* Send printjob headers from spool data */
@@ -1642,7 +1629,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.34",
+	.version = "0.35",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
