@@ -662,28 +662,6 @@ top:
 
 hdr_done:
 
-	if (is_raw) {
-		/* We have three planes and the final terminator to read */
-		remain = 3 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
-	} else {
-		/* We have one planes and the final terminator to read */
-		remain = planelen * 3 + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
-	}
-
-	/* Mitsu9600 windows spool uses more, smaller blocks, but plane data is the same */
-	if (ctx->type == P_MITSU_9600) {
-		remain += 128 * sizeof(struct mitsu9550_plane); /* 39 extra seen on 4x6" */
-	}
-
-	/* 9550S/9800S doesn't typically sent over hdr4! */
-	if (ctx->type == P_MITSU_9550S ||
-	    ctx->type == P_MITSU_9800S) {
-		/* XXX Has to do with error policy, but not sure what.
-		   Mitsu9550-S/9800-S will set this based on a command,
-		   but it's not part of the standard job spool */
-		ctx->hdr4_present = 0;
-	}
-
 	/* Read in CP98xx data tables if necessary */
 	if (ctx->is_98xx && !is_raw && !ctx->m98xxdata) {
 		int fd;
@@ -707,6 +685,28 @@ hdr_done:
 			remain -= i;
 		}
 		close(fd);
+	}
+
+	if (is_raw) {
+		/* We have three planes and the final terminator to read */
+		remain = 3 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+	} else {
+		/* We have one planes and the final terminator to read */
+		remain = planelen * 3 + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
+	}
+
+	/* Mitsu9600 windows spool uses more, smaller blocks, but plane data is the same */
+	if (ctx->type == P_MITSU_9600) {
+		remain += 128 * sizeof(struct mitsu9550_plane); /* 39 extra seen on 4x6" */
+	}
+
+	/* 9550S/9800S doesn't typically sent over hdr4! */
+	if (ctx->type == P_MITSU_9550S ||
+	    ctx->type == P_MITSU_9800S) {
+		/* XXX Has to do with error policy, but not sure what.
+		   Mitsu9550-S/9800-S will set this based on a command,
+		   but it's not part of the standard job spool */
+		ctx->hdr4_present = 0;
 	}
 
 	/* Disable matte if the printer doesn't support it */
