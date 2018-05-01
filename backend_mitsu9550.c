@@ -701,7 +701,7 @@ hdr_done:
 		}
 		remain = DATATABLE_SIZE;
 		while (remain) {
-			i = read(fd, ((uint8_t*)&ctx->m98xxdata) + (DATATABLE_SIZE - remain), remain);
+			i = read(fd, ((uint8_t*)ctx->m98xxdata) + (DATATABLE_SIZE - remain), remain);
 			if (i < 0)
 				return CUPS_BACKEND_CANCEL;
 			remain -= i;
