@@ -398,6 +398,8 @@ static int kodak1400_read_parse(void *vctx, int data_fd) {
 				ptr = ctx->plane_g + i * ctx->hdr.columns;
 			else if (j == 2)
 				ptr = ctx->plane_b + i * ctx->hdr.columns;
+			else
+				ptr = NULL;
 
 			remain = ctx->hdr.columns;
 			do {
