@@ -611,9 +611,11 @@ top:
 	/* Sanity check */
 	if (buf[0] != 0x1b || buf[1] != 0x57 || buf[3] != 0x2e) {
 		if (!ctx->hdr1_present || !ctx->hdr2_present) {
-			ERROR("Unrecognized data format!\n");
+			ERROR("Unrecognized data format (%02x%02x%02x%02x)!\n",
+			      buf[0], buf[1], buf[2], buf[3]);
 			return CUPS_BACKEND_CANCEL;
-		} else if (buf[0] == 0x1b && buf[1] == 0x5a &&
+		} else if (buf[0] == 0x1b &&
+			   buf[1] == 0x5a &&
 			   buf[2] == 0x54) {
 
 			/* We're in the data portion now */
@@ -624,7 +626,8 @@ top:
 
 			goto hdr_done;
 		} else {
-			ERROR("Unrecognized data block!\n");
+			ERROR("Unrecognized data block (%02x%02x%02x%02x)!\n",
+			      buf[0], buf[1], buf[2], buf[3]);
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
@@ -688,10 +691,10 @@ hdr_done:
 	}
 
 	if (is_raw) {
-		/* We have three planes and the final terminator to read */
+		/* We have three planes + headers and the final terminator to read */
 		remain = 3 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
 	} else {
-		/* We have one planes and the final terminator to read */
+		/* We have one plane + header and the final terminator to read */
 		remain = planelen * 3 + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
 	}
 
@@ -772,9 +775,9 @@ hdr_done:
 			return CUPS_BACKEND_CANCEL;
 
 		/* Is this a "job end" marker? */
-		if (plane->cmd[0] != 0x1b ||
-		    plane->cmd[1] != 0x5a ||
-		    plane->cmd[2] != 0x54) {
+		if (plane->cmd[0] == 0x1b &&
+		    plane->cmd[1] == 0x50 &&
+		    plane->cmd[3] == 0x00) {
 			/* store it in the buffer */
 			memcpy(ctx->databuf + ctx->datalen, buf, 4);
 			ctx->datalen += 4;
