@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.81"
+#define BACKEND_VERSION "0.82"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -116,7 +116,8 @@ static char *get_device_id(struct libusb_device_handle *dev, int iface)
 		goto done;
 	}
 
-	// XXX some printers have 'length' include the header.  WTF.
+	/* IEEE1284 length field includs the header! */
+	length -= 2;
 
 	/* Move, and terminate */
 	memmove(buf, buf + 2, length);
