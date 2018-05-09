@@ -282,6 +282,8 @@ static void mitsu98xx_dogamma(uint8_t *src, uint16_t *dest, uint8_t plane,
 		*dest++ = table[*src];
 		src += 3;
 	}
+	/* TODO:  Eventually, when we do real processing of this data, we will need to
+	   have the gamma table in native endian format and generate BE data at the end. */
 }
 
 static int mitsu98xx_fillmatte(struct mitsu9550_ctx *ctx)
@@ -507,6 +509,7 @@ void CColorConv3D_DoColorConv(struct CColorConv3D *this, uint8_t *data, uint16_t
 		data += stride;
 	}
 }
+
 /* ---- end 3D LUT ---- */
 static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int status, int status2, int media);
 static char *mitsu9550_media_types(uint8_t type, uint8_t is_s);
@@ -748,6 +751,8 @@ hdr_done:
 		planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
 		if (plane->cmd[3] == 0x10)
 			planelen *= 2;
+		if (plane->cmd[3] == 0x80)
+			planelen *= 3;
 
 		/* Copy plane header into buffer */
 		memcpy(ctx->databuf + ctx->datalen, buf, sizeof(buf));
@@ -1633,7 +1638,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.35",
+	.version = "0.36",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
