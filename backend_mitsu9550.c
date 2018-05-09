@@ -739,7 +739,8 @@ hdr_done:
 		if (plane->cmd[0] != 0x1b ||
 		    plane->cmd[1] != 0x5a ||
 		    plane->cmd[2] != 0x54) {
-			ERROR("Unexpected data read, aborting job\n");
+			ERROR("Unrecognized data read (%02x%02x%02x%02x)!\n",
+			      plane->cmd[0], plane->cmd[1], plane->cmd[2], plane->cmd[3]);
 			return CUPS_BACKEND_CANCEL;
 		}
 
@@ -1701,7 +1702,7 @@ struct dyesub_backend mitsu9550_backend = {
    Format is:  planar YMC16 for 98x0 (but only 12 bits used, BIG endian)
                planar RGB for all others
 
-   1b 5a 54 ?? RR RR  CC CC 07 14 04 d8  :: 0714 == columns, 04d8 == rows
+   1b 5a 54 ?? RR RR CC CC  07 14 04 d8  :: 0714 == columns, 04d8 == rows
                                          :: RRRR == row offset for data, CCCC == col offset for data
 		                         :: ?? == 0x00 for 8bpp, 0x10 for 16/12bpp.
 					 ::    0x80 for PACKED BGR!
