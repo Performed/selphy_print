@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.82"
+#define BACKEND_VERSION "0.83"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -936,8 +936,8 @@ int main (int argc, char **argv)
 	if (getenv("EXTRA_PID"))
 		extra_pid = strtol(getenv("EXTRA_PID"), NULL, 16);
 	if (getenv("EXTRA_VID"))
-		extra_pid = strtol(getenv("EXTRA_VID"), NULL, 16);
-	if (getenv("EXTRA_PID"))
+		extra_vid = strtol(getenv("EXTRA_VID"), NULL, 16);
+	if (getenv("EXTRA_TYPE"))
 		extra_type = atoi(getenv("EXTRA_TYPE"));
 	if (getenv("BACKEND"))
 		backend = find_backend(getenv("BACKEND"));
