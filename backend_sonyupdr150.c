@@ -73,24 +73,17 @@ static void* updr150_init(void)
 	return ctx;
 }
 
-static int updr150_attach(void *vctx, struct libusb_device_handle *dev,
+static int updr150_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct updr150_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&updr150_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	ctx->copies_offset = 0;
 
@@ -303,7 +296,7 @@ static const char *sonyupdr150_prefixes[] = {
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10",
-	.version = "0.22",
+	.version = "0.23",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.init = updr150_init,

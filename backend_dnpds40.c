@@ -541,8 +541,6 @@ static void *dnpds40_init(void)
 	}
 	memset(ctx, 0, sizeof(struct dnpds40_ctx));
 
-	ctx->type = P_ANY;
-
 	return ctx;
 }
 
@@ -579,24 +577,17 @@ static int dnpds40_query_mqty(struct dnpds40_ctx *ctx)
 	return count;
 }
 
-static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
+static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct dnpds40_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&dnpds40_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	{
 		struct dnpds40_cmd cmd;
@@ -817,7 +808,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev,
 			ctx->supports_gamma = 1;
 		break;
 	default:
-		ERROR("Unknown vid/pid %04x/%04x (%d)\n", desc.idVendor, desc.idProduct, ctx->type);
+		ERROR("Unknown printer type %d\n", ctx->type);
 		return CUPS_BACKEND_FAILED;
 	}
 
@@ -2742,7 +2733,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.101",
+	.version = "0.102",
 	.uri_prefixes = dnpds40_prefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,

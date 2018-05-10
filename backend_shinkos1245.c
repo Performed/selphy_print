@@ -1276,22 +1276,15 @@ static void *shinkos1245_init(void)
 	return ctx;
 }
 
-static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev,
+static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos1245_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&shinkos1245_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	/* Ensure jobid is sane */
 	ctx->jobid = jobid & 0x7f;
@@ -1661,7 +1654,7 @@ static const char *shinkos1245_prefixes[] = {
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245/E1",
-	.version = "0.21",
+	.version = "0.22",
 	.uri_prefixes = shinkos1245_prefixes,
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,

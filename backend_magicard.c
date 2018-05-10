@@ -114,7 +114,7 @@ struct magicard_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
-	uint8_t type;
+	int type;
 
 	uint8_t x_gp_8bpp;
 	uint8_t x_gp_rk;
@@ -453,24 +453,17 @@ static void* magicard_init(void)
 	return ctx;
 }
 
-static int magicard_attach(void *vctx, struct libusb_device_handle *dev,
+static int magicard_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct magicard_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&magicard_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";  // XXX YMCK too!
 	ctx->marker.name = "Unknown"; // LC1/LC3/LC6/LC8
@@ -915,7 +908,7 @@ static const char *magicard_prefixes[] = {
 
 struct dyesub_backend magicard_backend = {
 	.name = "Magicard family",
-	.version = "0.12",
+	.version = "0.13",
 	.uri_prefixes = magicard_prefixes,
 	.cmdline_arg = magicard_cmdline_arg,
 	.cmdline_usage = magicard_cmdline,

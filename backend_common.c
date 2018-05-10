@@ -76,6 +76,30 @@ static int backend_claim_interface(struct libusb_device_handle *dev, int iface,
 	return ret;
 }
 
+static int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor, uint16_t idProduct)
+{
+	int i;
+	int type = P_UNKNOWN;
+
+	for (i = 0 ; backend->devices[i].vid ; i++) {
+		if (extra_pid != -1 &&
+		    extra_vid != -1 &&
+		    extra_type != -1) {
+			if (backend->devices[i].type == extra_type &&
+			    extra_vid == idVendor &&
+			    extra_pid == idProduct) {
+				return extra_type;
+			}
+		}
+		if (idVendor == backend->devices[i].vid &&
+		    idProduct == backend->devices[i].pid) {
+			return backend->devices[i].type;
+		}
+	}
+
+	return type;
+}
+
 /* Interface **MUST** already be claimed! */
 #define ID_BUF_SIZE 2048
 static char *get_device_id(struct libusb_device_handle *dev, int iface)
@@ -922,6 +946,7 @@ int main (int argc, char **argv)
 	char *type;
 	char *fname = NULL;
 	char *use_serno = NULL;
+	int  printer_type;
 
 	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
 	      BACKEND_VERSION);
@@ -1102,8 +1127,29 @@ int main (int argc, char **argv)
 	      backend->name, backend->version);
 	backend_ctx = backend->init();
 
+	{
+		struct libusb_device *device;
+		struct libusb_device_descriptor desc;
+
+		device = libusb_get_device(dev);
+		libusb_get_device_descriptor(device, &desc);
+
+		printer_type = lookup_printer_type(backend,
+					   desc.idVendor, desc.idProduct);
+		if (printer_type <= P_UNKNOWN) {
+			ERROR("Unable to lookup printer type\n");
+			ret = CUPS_BACKEND_FAILED;
+			goto done_close;
+		}
+
+	}
 	/* Attach backend to device */
-	backend->attach(backend_ctx, dev, endp_up, endp_down, jobid);
+	if (backend->attach(backend_ctx, dev, printer_type, endp_up, endp_down, jobid)) {
+		ERROR("Unable to attach to printer!");
+		ret = CUPS_BACKEND_FAILED;
+		goto done_close;
+	}
+
 //	STATE("+org.gutenprint-attached-to-device\n");
 
 	if (!uri) {
@@ -1220,30 +1266,6 @@ done:
 	libusb_exit(ctx);
 
 	return ret;
-}
-
-int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor, uint16_t idProduct)
-{
-	int i;
-	int type = -1;
-
-	for (i = 0 ; backend->devices[i].vid ; i++) {
-		if (extra_pid != -1 &&
-		    extra_vid != -1 &&
-		    extra_type != -1) {
-			if (backend->devices[i].type == extra_type &&
-			    extra_vid == idVendor &&
-			    extra_pid == idProduct) {
-				return extra_type;
-			}
-		}
-		if (idVendor == backend->devices[i].vid &&
-		    idProduct == backend->devices[i].pid) {
-			return backend->devices[i].type;
-		}
-	}
-
-	return type;
 }
 
 void dump_markers(struct marker *markers, int marker_count, int full)

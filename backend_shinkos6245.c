@@ -1466,12 +1466,10 @@ static void *shinkos6245_init(void)
 	return ctx;
 }
 
-static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev,
+static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos6245_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 	struct s6245_cmd_hdr cmd;
 
 	int num;
@@ -1479,12 +1477,7 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&shinkos6245_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	/* Ensure jobid is sane */
 	ctx->jobid = jobid & 0x7f;
@@ -1889,7 +1882,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Shinko/Sinfonia CHC-S6245",
-	.version = "0.10WIP",
+	.version = "0.11WIP",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,

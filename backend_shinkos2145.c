@@ -793,6 +793,8 @@ struct shinkos2145_ctx {
 
 	uint8_t jobid;
 
+	int type;
+
 	struct s2145_printjob_hdr hdr;
 
 	uint8_t *databuf;
@@ -1383,7 +1385,7 @@ static void *shinkos2145_init(void)
 	return ctx;
 }
 
-static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev,
+static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos2145_ctx *ctx = vctx;
@@ -1392,6 +1394,7 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+	ctx->type = type;
 
 	/* Ensure jobid is sane */
 	ctx->jobid = (jobid & 0x7f);
@@ -1770,7 +1773,7 @@ static const char *shinkos2145_prefixes[] = {
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S2",
-	.version = "0.51",
+	.version = "0.52",
 	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

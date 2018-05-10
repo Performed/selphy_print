@@ -526,12 +526,10 @@ static void *mitsu9550_init(void)
 	return ctx;
 }
 
-static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
+static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu9550_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 	struct mitsu9550_media media;
 
 	UNUSED(jobid);
@@ -539,12 +537,7 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&mitsu9550_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	if (ctx->type == P_MITSU_9550S ||
 	    ctx->type == P_MITSU_9800S)
@@ -1638,7 +1631,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.36",
+	.version = "0.37",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

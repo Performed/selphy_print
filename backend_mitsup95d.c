@@ -139,24 +139,17 @@ static int mitsup95d_get_status(struct mitsup95d_ctx *ctx, uint8_t *resp)
 	return CUPS_BACKEND_OK;
 }
 
-static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev,
+static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsup95d_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&mitsup95d_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	ctx->marker.color = "#000000";  /* Ie black! */
 	ctx->marker.name = "Unknown";
@@ -570,7 +563,7 @@ static const char *mitsup95d_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsup95d_backend = {
 	.name = "Mitsubishi P93D/P95D",
-	.version = "0.08",
+	.version = "0.09",
 	.uri_prefixes = mitsup95d_prefixes,
 	.cmdline_arg = mitsup95d_cmdline_arg,
 	.cmdline_usage = mitsup95d_cmdline,

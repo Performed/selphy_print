@@ -89,7 +89,7 @@
 
 /* To enumerate supported devices */
 enum {
-	P_ANY = 0,
+	P_UNKNOWN = 0,
 	P_ES1,
 	P_ES2_20,
 	P_ES3_30,
@@ -97,6 +97,7 @@ enum {
 	P_CP790,
 	P_CP_XXX,
 	P_CP10,
+	P_CP900,
 	P_CP910,
 	P_KODAK_6800,
 	P_KODAK_6850,
@@ -156,7 +157,7 @@ struct dyesub_backend {
 	const char **uri_prefixes;
 	void (*cmdline_usage)(void);  /* Optional */
 	void *(*init)(void);
-	int  (*attach)(void *ctx, struct libusb_device_handle *dev,
+	int  (*attach)(void *ctx, struct libusb_device_handle *dev, int type,
 		       uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
 	void (*teardown)(void *ctx);
 	int  (*cmdline_arg)(void *ctx, int argc, char **argv);
@@ -172,7 +173,6 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int len);
 int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int buflen, int *readlen);
-int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor, uint16_t idProduct);
 
 void dump_markers(struct marker *markers, int marker_count, int full);
 

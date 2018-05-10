@@ -66,6 +66,7 @@ struct selphyneo_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int type;
 
 	uint8_t *databuf;
 	uint32_t datalen;
@@ -191,7 +192,7 @@ static void *selphyneo_init(void)
 
 extern struct dyesub_backend selphyneo_backend;
 
-static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev,
+static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct selphyneo_ctx *ctx = vctx;
@@ -205,6 +206,7 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+	ctx->type = type;
 
 	device = libusb_get_device(dev);
 	libusb_get_device_descriptor(device, &desc);
@@ -494,7 +496,7 @@ static const char *canonselphyneo_prefixes[] = {
 
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CP (new)",
-	.version = "0.16",
+	.version = "0.17",
 	.uri_prefixes = canonselphyneo_prefixes,
 	.cmdline_usage = selphyneo_cmdline,
 	.cmdline_arg = selphyneo_cmdline_arg,

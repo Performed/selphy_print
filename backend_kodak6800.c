@@ -1005,27 +1005,18 @@ static void *kodak6800_init(void)
 
 	ctx->media = malloc(MAX_MEDIA_LEN);
 
-	ctx->type = P_ANY;
-
 	return ctx;
 }
 
-static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev,
+static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct kodak6800_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&kodak6800_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
         /* Ensure jobid is sane */
         ctx->jobid = jobid & 0x7f;
@@ -1279,7 +1270,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.61",
+	.version = "0.62",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

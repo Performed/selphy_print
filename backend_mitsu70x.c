@@ -690,12 +690,10 @@ static void *mitsu70x_init(void)
 	return ctx;
 }
 
-static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
+static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu70x_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	ctx->jobid = jobid;
 	if (!ctx->jobid)
@@ -704,12 +702,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&mitsu70x_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	ctx->last_l = ctx->last_u = 65535;
 
@@ -2024,7 +2017,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.78",
+	.version = "0.79",
 	.uri_prefixes = mitsu70x_prefixes,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,

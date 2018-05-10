@@ -623,12 +623,10 @@ static void *canonselphy_init(void)
 
 extern struct dyesub_backend canonselphy_backend;
 
-static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
+static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct canonselphy_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 	int i, num;
 	uint8_t rdbuf[READBACK_LEN];
 
@@ -637,16 +635,12 @@ static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev,
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+	ctx->type = type;
 
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	if (desc.idProduct == USB_PID_CANON_CP900)
+	if (ctx->type == P_CP900) {
+		ctx->type = P_CP_XXX;
 		ctx->cp900 = 1;
-
-	ctx->type = lookup_printer_type(&canonselphy_backend,
-					desc.idVendor, desc.idProduct);
-
+	}
 	for (i = 0 ; selphy_printers[i].type != -1; i++) {
 		if (selphy_printers[i].type == ctx->type) {
 			ctx->printer = &selphy_printers[i];
@@ -1143,7 +1137,7 @@ static const char *canonselphy_prefixes[] = {
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES (legacy)",
-	.version = "0.100",
+	.version = "0.101",
 	.uri_prefixes = canonselphy_prefixes,
 	.cmdline_usage = canonselphy_cmdline,
 	.cmdline_arg = canonselphy_cmdline_arg,

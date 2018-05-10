@@ -1234,7 +1234,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	INFO("Head Distance:         %08u inches\n", le32_to_cpu(resp2->head_distance));
 
 	/* Query various params */
-	if(ctx->type == P_SHINKO_S6145D) {
+	if (ctx->type == P_SHINKO_S6145D) {
 		if ((ret = get_param(ctx, PARAM_REGION_CODE, &val))) {
 			ERROR("Failed to execute command\n");
 			return ret;
@@ -1891,22 +1891,15 @@ static void *shinkos6145_init(void)
 	return ctx;
 }
 
-static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev,
+static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos6145_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&shinkos6145_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	/* Attempt to open the library */
 #if defined(WITH_DYNAMIC)
@@ -2507,7 +2500,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2",
-	.version = "0.25",
+	.version = "0.26",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
