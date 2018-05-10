@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.83"
+#define BACKEND_VERSION "0.84"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -50,6 +50,7 @@ int extra_vid = -1;
 int extra_pid = -1;
 int extra_type = -1;
 int copies = 1;
+int test_mode = 0;
 
 static int max_xfer_size = URB_XFER_SIZE;
 static int xfer_timeout = XFER_TIMEOUT;
@@ -696,6 +697,15 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	int found = -1;
 	const char *prefix = NULL;
 
+	if (test_mode > 1) {
+		found = 1;
+		*r_endp_up = 0x82;
+		*r_endp_down = 0x01;
+		*r_iface = 0;
+		*r_altset = 0;
+		return found;
+	}
+
 	STATE("+org.gutenprint-searching-for-device\n");
 
 	/* Enumerate and find suitable device */
@@ -972,6 +982,14 @@ int main (int argc, char **argv)
 		max_xfer_size = atoi(getenv("MAX_XFER_SIZE"));
 	if (getenv("XFER_TIMEOUT"))
 		xfer_timeout = atoi(getenv("XFER_TIMEOUT"));
+	if (getenv("TEST_MODE"))
+		test_mode = atoi(getenv("TEST_MODE"));
+
+	if (test_mode > 1 && (extra_vid == -1 || extra_pid == -1 || extra_type == -1)) {
+		ERROR("Must specify EXTRA_VID, EXTRA_PID, EXTRA_TYPE in test mode > 1!\n");
+		exit(1);
+	}
+
 	use_serno = getenv("SERIAL");
 	uri = getenv("DEVICE_URI");  /* CUPS backend mode! */
 	type = getenv("FINAL_CONTENT_TYPE"); /* CUPS content type -- ie raster or command */
@@ -1086,6 +1104,12 @@ int main (int argc, char **argv)
 		goto done;
 	}
 
+	if (test_mode) {
+		WARNING("**** TEST MODE %d!\n", test_mode);
+		if (test_mode > 1)
+			goto bypass;
+	}
+
 	/* Open an appropriate device */
 	ret = libusb_open(list[found], &dev);
 	if (ret) {
@@ -1122,12 +1146,13 @@ int main (int argc, char **argv)
 		}
 	}
 
+bypass:
 	/* Initialize backend */
 	DEBUG("Initializing '%s' backend (version %s)\n",
 	      backend->name, backend->version);
 	backend_ctx = backend->init();
 
-	{
+	if (test_mode < 2) {
 		struct libusb_device *device;
 		struct libusb_device_descriptor desc;
 
@@ -1141,8 +1166,10 @@ int main (int argc, char **argv)
 			ret = CUPS_BACKEND_FAILED;
 			goto done_close;
 		}
-
+	} else {
+		printer_type = extra_type;
 	}
+
 	/* Attach backend to device */
 	if (backend->attach(backend_ctx, dev, printer_type, endp_up, endp_down, jobid)) {
 		ERROR("Unable to attach to printer!");
@@ -1222,9 +1249,15 @@ newpage:
 
 	INFO("Printing page %d\n", ++current_page);
 
+	if (test_mode) {
+		WARNING("**** TEST MODE, bypassing printing!\n");
+		goto bypass2;
+	}
+
 	ret = backend->main_loop(backend_ctx, copies);
 	if (ret)
 		goto done_claimed;
+bypass2:
 
 	/* Log the completed page */
 	if (!uri)
