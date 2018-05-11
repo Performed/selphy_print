@@ -635,7 +635,7 @@ static char *mitsu70x_errors(uint8_t *err)
 	return "Unknown error";
 }
 
-static const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
+const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
 {
 	if (brand == 0xff && type == 0x01)
 		return "CK-D735 (3.5x5)";
@@ -863,8 +863,8 @@ repeat:
 	}
 
 	/* Sanity check header */
-	if (mhdr.hdr[0] != 0x1b &&
-	    mhdr.hdr[1] != 0x5a &&
+	if (mhdr.hdr[0] != 0x1b ||
+	    mhdr.hdr[1] != 0x5a ||
 	    mhdr.hdr[2] != 0x54) {
 		ERROR("Unrecognized data format!\n");
 		return CUPS_BACKEND_CANCEL;
