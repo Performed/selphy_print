@@ -548,9 +548,15 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	    ctx->type == P_MITSU_9810)
 		ctx->is_98xx = 1;
 
-	if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
-		return CUPS_BACKEND_FAILED;
-	
+	if (test_mode < TEST_MODE_NOATTACH) {
+		if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
+			return CUPS_BACKEND_FAILED;
+	} else {
+		media.max = cpu_to_be16(400);
+		media.levelnow = cpu_to_be16(330);
+		media.type = 0x02;
+	}
+
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = mitsu9550_media_types(media.type, ctx->is_s);
 	ctx->marker.levelmax = be16_to_cpu(media.max);
