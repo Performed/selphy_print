@@ -553,7 +553,7 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 			return CUPS_BACKEND_FAILED;
 	} else {
 		media.max = cpu_to_be16(400);
-		media.levelnow = cpu_to_be16(330);
+		media.remain = cpu_to_be16(330);
 		media.type = 0x02;
 	}
 
