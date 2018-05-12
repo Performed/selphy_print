@@ -697,7 +697,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	int found = -1;
 	const char *prefix = NULL;
 
-	if (test_mode > 1) {
+	if (test_mode >= TEST_MODE_NOATTACH) {
 		found = 1;
 		*r_endp_up = 0x82;
 		*r_endp_down = 0x01;
@@ -985,7 +985,7 @@ int main (int argc, char **argv)
 	if (getenv("TEST_MODE"))
 		test_mode = atoi(getenv("TEST_MODE"));
 
-	if (test_mode > 1 && (extra_vid == -1 || extra_pid == -1 || extra_type == -1)) {
+	if (test_mode >= TEST_MODE_NOATTACH && (extra_vid == -1 || extra_pid == -1 || extra_type == -1)) {
 		ERROR("Must specify EXTRA_VID, EXTRA_PID, EXTRA_TYPE in test mode > 1!\n");
 		exit(1);
 	}
@@ -1106,7 +1106,7 @@ int main (int argc, char **argv)
 
 	if (test_mode) {
 		WARNING("**** TEST MODE %d!\n", test_mode);
-		if (test_mode > 1)
+		if (test_mode >= TEST_MODE_NOATTACH)
 			goto bypass;
 	}
 
@@ -1152,7 +1152,7 @@ bypass:
 	      backend->name, backend->version);
 	backend_ctx = backend->init();
 
-	if (test_mode < 2) {
+	if (test_mode < TEST_MODE_NOATTACH) {
 		struct libusb_device *device;
 		struct libusb_device_descriptor desc;
 
@@ -1249,15 +1249,13 @@ newpage:
 
 	INFO("Printing page %d\n", ++current_page);
 
-	if (test_mode) {
+	if (test_mode >= TEST_MODE_NOPRINT ) {
 		WARNING("**** TEST MODE, bypassing printing!\n");
-		goto bypass2;
+	} else {
+		ret = backend->main_loop(backend_ctx, copies);
+		if (ret)
+			goto done_claimed;
 	}
-
-	ret = backend->main_loop(backend_ctx, copies);
-	if (ret)
-		goto done_claimed;
-bypass2:
 
 	/* Log the completed page */
 	if (!uri)
@@ -1282,10 +1280,12 @@ done_multiple:
 	ret = CUPS_BACKEND_OK;
 
 done_claimed:
-	libusb_release_interface(dev, iface);
+	if (test_mode < TEST_MODE_NOATTACH)
+		libusb_release_interface(dev, iface);
 
 done_close:
-	libusb_close(dev);
+	if (test_mode < TEST_MODE_NOATTACH)
+		libusb_close(dev);
 done:
 
 	if (backend && backend_ctx) {

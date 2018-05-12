@@ -190,6 +190,14 @@ extern int extra_vid;
 extern int extra_pid;
 extern int extra_type;
 extern int copies;
+extern int test_mode;
+
+enum {
+	TEST_MODE_NONE = 0,
+	TEST_MODE_NOPRINT,
+	TEST_MODE_NOATTACH,
+	TEST_MODE_MAX,
+};
 
 #if defined(BACKEND)
 extern struct dyesub_backend BACKEND;
