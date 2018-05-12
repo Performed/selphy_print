@@ -670,6 +670,18 @@
     [1]  Printer will need to be power-cycled for this to take effect.
     [2]  Job ID is the Internal Job ID (reported via job status query)
 
+ ***************************************************************************
+  BACKEND=mitsud90
+
+   Work-in-progress printers:
+
+    Mitsubishi CP-D90DW
+
+   Valid commands:
+
+     -m                 Query printer media
+     -s                 Query printer status
+
  *************************************************************************** 
   BACKEND=mitsu9550
 
