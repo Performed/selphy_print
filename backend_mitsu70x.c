@@ -769,10 +769,23 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	struct mitsu70x_printerstatus_resp resp;
 	int ret;
 
-	ret = mitsu70x_get_printerstatus(ctx, &resp);
-	if (ret) {
-		ERROR("Unable to get printer status! (%d)\n", ret);
-		return CUPS_BACKEND_FAILED;
+	if (test_mode < TEST_MODE_NOATTACH) {
+		ret = mitsu70x_get_printerstatus(ctx, &resp);
+		if (ret) {
+			ERROR("Unable to get printer status! (%d)\n", ret);
+			return CUPS_BACKEND_FAILED;
+		}
+	} else {
+		resp.upper.mecha_status[0] = MECHA_STATUS_INIT;
+		resp.lower.mecha_status[0] = MECHA_STATUS_INIT;
+		resp.upper.capacity = cpu_to_be16(230);
+		resp.lower.capacity = cpu_to_be16(230);
+		resp.upper.remain = cpu_to_be16(200);
+		resp.lower.remain = cpu_to_be16(200);
+		resp.upper.media_brand = 0xff;
+		resp.lower.media_brand = 0xff;
+		resp.upper.media_type = 0x0f;
+		resp.lower.media_type = 0x0f;
 	}
 
 	if (ctx->type == P_MITSU_D70X &&
