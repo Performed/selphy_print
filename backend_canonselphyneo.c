@@ -196,8 +196,6 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev, int ty
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct selphyneo_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 	struct selphyneo_readback rdback;
 	int ret, num;
 
@@ -208,22 +206,24 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	ctx->endp_down = endp_down;
 	ctx->type = type;
 
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Read in the printer status to clear last state */
+		ret = read_data(ctx->dev, ctx->endp_up,
+				(uint8_t*) &rdback, sizeof(rdback), &num);
 
-	/* Read in the printer status to clear last state */
-	ret = read_data(ctx->dev, ctx->endp_up,
-			(uint8_t*) &rdback, sizeof(rdback), &num);
+		if (ret < 0)
+			return CUPS_BACKEND_FAILED;
 
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
+		/* And again, for the markers */
+		ret = read_data(ctx->dev, ctx->endp_up,
+				(uint8_t*) &rdback, sizeof(rdback), &num);
 
-	/* And again, for the markers */
-	ret = read_data(ctx->dev, ctx->endp_up,
-			(uint8_t*) &rdback, sizeof(rdback), &num);
-
-	if (ret < 0)
-		return CUPS_BACKEND_FAILED;
+		if (ret < 0)
+			return CUPS_BACKEND_FAILED;
+	} else {
+		rdback.data[2] = 0;
+		rdback.data[6] = 0x01;
+	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = selphynew_pgcodes(rdback.data[6]);

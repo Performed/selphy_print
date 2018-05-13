@@ -651,26 +651,30 @@ static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev, int 
 		return CUPS_BACKEND_FAILED;
 	}
 
-	/* Read printer status. Twice. */
-	i = read_data(ctx->dev, ctx->endp_up,
-		      rdbuf, READBACK_LEN, &num);
-	if (i < 0)
-		return CUPS_BACKEND_FAILED;
-
-	i = read_data(ctx->dev, ctx->endp_up,
-		      rdbuf, READBACK_LEN, &num);
-	if (i < 0)
-		return CUPS_BACKEND_FAILED;
-
 	/* Fill out marker structure */
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker.name = ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf, ctx->printer) : "Unknown";
 	ctx->marker.levelmax = -1; /* Unknown */
 
-	if (ctx->printer->error_detect(rdbuf))
-		ctx->marker.levelnow = 0;  /* Out of media */
-	else
-		ctx->marker.levelnow = -3; /* Unknown but OK */
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Read printer status. Twice. */
+		i = read_data(ctx->dev, ctx->endp_up,
+			      rdbuf, READBACK_LEN, &num);
+		if (i < 0)
+			return CUPS_BACKEND_FAILED;
+
+		i = read_data(ctx->dev, ctx->endp_up,
+			      rdbuf, READBACK_LEN, &num);
+		if (i < 0)
+			return CUPS_BACKEND_FAILED;
+
+		if (ctx->printer->error_detect(rdbuf))
+			ctx->marker.levelnow = 0;  /* Out of media */
+		else
+			ctx->marker.levelnow = -3; /* Unknown but OK */
+		ctx->marker.name = ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf, ctx->printer) : "Unknown";
+	} else {
+		ctx->marker.name = "Unknown";
+	}
 
 	return CUPS_BACKEND_OK;
 }
