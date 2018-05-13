@@ -1927,19 +1927,23 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int 
 	/* Ensure jobid is sane */
 	ctx->jobid = (jobid & 0x7f) + 1;
 
-	/* Query Media */
-	struct s6145_mediainfo_resp *resp = (struct s6145_mediainfo_resp *) rdbuf;
-	struct s6145_cmd_hdr cmd;
-	int num;
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Query Media */
+		struct s6145_mediainfo_resp *resp = (struct s6145_mediainfo_resp *) rdbuf;
+		struct s6145_cmd_hdr cmd;
+		int num;
 
-	if (s6145_do_cmd(ctx,
-			 (uint8_t*)&cmd, sizeof(cmd),
-			 sizeof(*resp),
-			 &num)) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return CUPS_BACKEND_FAILED;
+		if (s6145_do_cmd(ctx,
+				 (uint8_t*)&cmd, sizeof(cmd),
+				 sizeof(*resp),
+				 &num)) {
+			ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
+			return CUPS_BACKEND_FAILED;
+		}
+		memcpy(&ctx->media, resp, sizeof(*resp));
+	} else {
+		ctx->media.ribbon = RIBBON_6x8;
 	}
-	memcpy(&ctx->media, resp, sizeof(*resp));
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = print_ribbons(ctx->media.ribbon);

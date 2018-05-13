@@ -1291,14 +1291,18 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev, int 
 	if (!ctx->jobid)
 		ctx->jobid++;
 
-	/* Query Media */
-	if (shinkos1245_get_media(ctx))
-		return CUPS_BACKEND_FAILED;
-	if (!ctx->num_medias) {
-		ERROR("Media Query Error\n");
-		return CUPS_BACKEND_FAILED;
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Query Media */
+		if (shinkos1245_get_media(ctx))
+			return CUPS_BACKEND_FAILED;
+		if (!ctx->num_medias) {
+			ERROR("Media Query Error\n");
+			return CUPS_BACKEND_FAILED;
+		}
+	} else {
+		ctx->media_8x12 = 1;
+		ctx->num_medias = 0;
 	}
-
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = ctx->media_8x12 ? "8x12" : "8x10";
 	ctx->marker.levelmax = ctx->media_8x12 ? 230 : 280;

@@ -1401,30 +1401,35 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int 
 	if (!ctx->jobid)
 		ctx->jobid++;
 
-	/* Query Media */
-	struct s2145_cmd_hdr cmd;
-	struct s2145_mediainfo_resp *resp = (struct s2145_mediainfo_resp *) rdbuf;
-	int num = 0;
-
-	cmd.cmd = cpu_to_le16(S2145_CMD_MEDIAINFO);
-	cmd.len = cpu_to_le16(0);
-
-	if (s2145_do_cmd(ctx,
-			 (uint8_t*)&cmd, sizeof(cmd),
-			 sizeof(*resp),
-			 &num)) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return CUPS_BACKEND_FAILED;
-	}
-	memcpy(&ctx->media, resp, sizeof(ctx->media));
-
-	/* Figure out the media type... */
 	int media_prints = 65536;
-	for (i = 0 ; i < ctx->media.count ; i++) {
-		if (print_counts(ctx->media.items[i].code) < media_prints) {
-			media_prints = print_counts(ctx->media.items[i].code);
-			ctx->media_code = ctx->media.items[i].code;
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Query Media */
+		struct s2145_cmd_hdr cmd;
+		struct s2145_mediainfo_resp *resp = (struct s2145_mediainfo_resp *) rdbuf;
+		int num = 0;
+
+		cmd.cmd = cpu_to_le16(S2145_CMD_MEDIAINFO);
+		cmd.len = cpu_to_le16(0);
+
+		if (s2145_do_cmd(ctx,
+				 (uint8_t*)&cmd, sizeof(cmd),
+				 sizeof(*resp),
+				 &num)) {
+			ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
+			return CUPS_BACKEND_FAILED;
 		}
+		memcpy(&ctx->media, resp, sizeof(ctx->media));
+
+		/* Figure out the media type... */
+		for (i = 0 ; i < ctx->media.count ; i++) {
+			if (print_counts(ctx->media.items[i].code) < media_prints) {
+				media_prints = print_counts(ctx->media.items[i].code);
+				ctx->media_code = ctx->media.items[i].code;
+			}
+		}
+	} else {
+		media_prints = 680;
+		ctx->media_code = PRINT_MEDIA_6x9;
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";

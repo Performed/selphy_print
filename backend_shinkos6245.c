@@ -1470,7 +1470,6 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos6245_ctx *ctx = vctx;
-	struct s6245_cmd_hdr cmd;
 
 	int num;
 
@@ -1485,15 +1484,20 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 		ctx->jobid++;
 
 	/* Query Media */
-	cmd.cmd = cpu_to_le16(S6245_CMD_MEDIAINFO);
-	cmd.len = cpu_to_le16(0);
+	if (test_mode < TEST_MODE_NOATTACH) {
+		struct s6245_cmd_hdr cmd;
+		cmd.cmd = cpu_to_le16(S6245_CMD_MEDIAINFO);
+		cmd.len = cpu_to_le16(0);
 
-	if (s6245_do_cmd(ctx,
-			 (uint8_t*)&cmd, sizeof(cmd),
-			 sizeof(ctx->media),
-			 &num, (void*)&ctx->media)) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return CUPS_BACKEND_FAILED;
+		if (s6245_do_cmd(ctx,
+				 (uint8_t*)&cmd, sizeof(cmd),
+				 sizeof(ctx->media),
+				 &num, (void*)&ctx->media)) {
+			ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
+			return CUPS_BACKEND_FAILED;
+		}
+	} else {
+		ctx->media.ribbon_code = 0x12;
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
