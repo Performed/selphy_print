@@ -1023,10 +1023,14 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	if (!ctx->jobid)
 		ctx->jobid++;
 
-	/* Query media info */
-	if (kodak6800_get_mediainfo(ctx, ctx->media)) {
-		ERROR("Can't query media\n");
-		return CUPS_BACKEND_FAILED;
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Query media info */
+		if (kodak6800_get_mediainfo(ctx, ctx->media)) {
+			ERROR("Can't query media\n");
+			return CUPS_BACKEND_FAILED;
+		}
+	} else {
+		ctx->media->type = KODAK68x0_MEDIA_6R;
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";

@@ -281,10 +281,14 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	if (!ctx->jobid)
 		ctx->jobid++;
 
-	/* Query media info */
-	if (kodak605_get_media(ctx, ctx->media)) {
-		ERROR("Can't query media\n");
-		return CUPS_BACKEND_FAILED;
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Query media info */
+		if (kodak605_get_media(ctx, ctx->media)) {
+			ERROR("Can't query media\n");
+			return CUPS_BACKEND_FAILED;
+		}
+	} else {
+		ctx->media->type = KODAK68x0_MEDIA_6R;
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
