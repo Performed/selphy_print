@@ -589,7 +589,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	ctx->endp_down = endp_down;
 	ctx->type = type;
 
-	{
+	if (test_mode < TEST_MODE_NOATTACH) {
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
 		int len = 0;
@@ -648,55 +648,66 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		} else {
 			return CUPS_BACKEND_FAILED;
 		}
-	}
 
+		if (ctx->type == P_DNP_DS80D) {
+			struct dnpds40_cmd cmd;
+			uint8_t *resp;
+			int len = 0;
+
+			/* Query Duplex Media Info */
+			dnpds40_build_cmd(&cmd, "INFO", "CUT_PAPER", 0);
+
+			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+			if (resp) {
+				char tmp[5];
+
+				dnpds40_cleanup_string((char*)resp, len);
+
+				memcpy(tmp, resp + 4, 4);
+				tmp[4] = 0;
+
+				ctx->duplex_media = atoi(tmp);
+
+				/* Subtract out the paper status */
+				if (ctx->duplex_media & 3)
+					ctx->duplex_media -= (ctx->duplex_media & 3);
+
+				free(resp);
+			} else {
+				return CUPS_BACKEND_FAILED;
+			}
+		}
+
+#if (defined(DNP_ONLY) || defined(CITIZEN_ONLY))
+		{
+			char buf[256];
+			buf[0] = 0;
+			libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
+			sanitize_string(buf);
 #ifdef DNP_ONLY  /* Only allow DNP printers to work. */
-	{ /* Validate USB Vendor String is "Dai Nippon Printing" */
-		char buf[256];
-		buf[0] = 0;
-		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
-		sanitize_string(buf);
-		if (strncmp(buf, "Dai", 3))
-			return CUPS_BACKEND_FAILED;
-	}
+			if (strncmp(buf, "Dai", 3)) /* "Dai Nippon Printing" */
+				return CUPS_BACKEND_FAILED;
 #endif
 #ifdef CITIZEN_ONLY   /* Only allow CITIZEN printers to work. */
-	{ /* Validate USB Vendor String is "CITIZEN SYSTEMS" */
-		char buf[256];
-		buf[0] = 0;
-		libusb_get_string_descriptor_ascii(dev, desc->iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
-		sanitize_string(buf);
-		if (strncmp(buf, "CIT", 3))
-			return CUPS_BACKEND_FAILED;
-	}
+			if (strncmp(buf, "CIT", 3)) /* "CITIZEN SYSTEMS" */
+				return CUPS_BACKEND_FAILED;
 #endif
-
-	if (ctx->type == P_DNP_DS80D) {
-		struct dnpds40_cmd cmd;
-		uint8_t *resp;
-		int len = 0;
-
-		/* Query Duplex Media Info */
-		dnpds40_build_cmd(&cmd, "INFO", "CUT_PAPER", 0);
-
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-		if (resp) {
-			char tmp[5];
-
-			dnpds40_cleanup_string((char*)resp, len);
-
-			memcpy(tmp, resp + 4, 4);
-			tmp[4] = 0;
-
-			ctx->duplex_media = atoi(tmp);
-
-			/* Subtract out the paper status */
-			if (ctx->duplex_media & 3)
-				ctx->duplex_media -= (ctx->duplex_media & 3);
-
-			free(resp);
-		} else {
-			return CUPS_BACKEND_FAILED;
+		}
+#endif
+	} else {
+		ctx->ver_major = 3;
+		ctx->ver_minor = 0;
+		switch(ctx->type) {
+		case P_DNP_DS80D:
+			ctx->duplex_media = 200;
+			/* Intentional fallthrough */
+		case P_DNP_DS80:
+		case P_DNP_DS820:
+			ctx->media = 510;
+			break;
+		default:
+			ctx->media = 310;
+			break;
 		}
 	}
 
@@ -828,7 +839,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	}
 #endif
 
-	if (ctx->supports_mediaoffset) {
+	if (test_mode < TEST_MODE_NOATTACH && ctx->supports_mediaoffset) {
 		/* Get Media Offset */
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
@@ -846,7 +857,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		ctx->mediaoffset = 50;
 	}
 
-	if (ctx->supports_mqty_default) {
+	if (test_mode < TEST_MODE_NOATTACH && ctx->supports_mqty_default) {
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
 		int len = 0;
@@ -973,7 +984,7 @@ static void dnpds40_teardown(void *vctx) {
 	if (!ctx)
 		return;
 
-	if (ctx->type == P_DNP_DS80D) {
+	if (test_mode < TEST_MODE_NOATTACH && ctx->type == P_DNP_DS80D) {
 		struct dnpds40_cmd cmd;
 
 		/* Check to see if last print was the front side
