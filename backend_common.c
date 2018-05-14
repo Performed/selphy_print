@@ -1244,16 +1244,16 @@ newpage:
 			goto done_claimed;
 	}
 
-	/* Dump the full marker dump */
-	ret = query_markers(backend, backend_ctx, !current_page);
-	if (ret)
-		goto done_claimed;
-
 	INFO("Printing page %d\n", ++current_page);
 
 	if (test_mode >= TEST_MODE_NOPRINT ) {
 		WARNING("**** TEST MODE, bypassing printing!\n");
 	} else {
+		/* Dump the full marker dump */
+		ret = query_markers(backend, backend_ctx, !current_page);
+		if (ret)
+			goto done_claimed;
+
 		ret = backend->main_loop(backend_ctx, copies);
 		if (ret)
 			goto done_claimed;
@@ -1263,10 +1263,12 @@ newpage:
 	if (!uri)
 		PAGE("%d %d\n", current_page, copies);
 
-	/* Dump a marker status update */
-	ret = query_markers(backend, backend_ctx, !current_page);
-	if (ret)
-		goto done_claimed;
+	if (test_mode < TEST_MODE_NOPRINT ) {
+		/* Dump a marker status update */
+		ret = query_markers(backend, backend_ctx, !current_page);
+		if (ret)
+			goto done_claimed;
+	}
 
 	/* Since we have no way of telling if there's more data remaining
 	   to be read (without actually trying to read it), always assume
