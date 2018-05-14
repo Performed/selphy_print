@@ -70,16 +70,19 @@ struct mitsud90_job_hdr {
 	uint8_t  mcut;   /* 0x01 for 8x6div2 */
 
 	union {
+#if 0
 		struct {
 			uint16_t pos;
-			uint16_t flag;
-		} cuts[2];
+			uint8_t flag;
+		} cuts __attribute__((packed));
+#endif
 		uint8_t cutzero[6];
-	};
+	} __attribute__((packed));
 	uint8_t  zero[26];
 
 	uint8_t  overcoat;
 	uint8_t  quality;
+	uint8_t  colorcorr;
 	uint8_t  sharp_h;
 	uint8_t  sharp_v;
 	uint8_t  zero_b[5];
@@ -92,12 +95,12 @@ struct mitsud90_job_hdr {
 			uint16_t pano_rows2; /* Always 0x30 less than pano_rows */
 			uint16_t pano_zero; /* 0x0000 */
 			uint8_t  pano_unk[6];  /* 02 58 00 0c 00 06 */
-		} pano;
+		} pano __attribute__((packed));
 		uint8_t zero_c[16];
 	};
 	uint8_t zero_d[6];
 	uint8_t zero_fill[432];
-};
+} __attribute__((packed));
 
 struct mitsud90_plane_hdr {
 	uint8_t  hdr[10]; /* 1b 5a 54 01 00 09 00 00 00 00 */
@@ -108,7 +111,8 @@ struct mitsud90_plane_hdr {
 
 struct mitsud90_job_footer {
 	uint8_t hdr[4]; /* 1b 42 51 31 */
-	uint16_t seconds; /* 0x0005 by default (windows) BE */
+	uint8_t pad;
+	uint8_t seconds; /* 0x05 by default (windows) */
 };
 
 struct mitsud90_memcheck {
@@ -136,6 +140,9 @@ struct mitsud90_ctx {
 
 	uint8_t *databuf;
 	int datalen;
+
+	struct mitsud90_job_footer holdover;
+	int holdover_on;
 
 	struct marker marker;
 };
@@ -288,8 +295,15 @@ static int mitsud90_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
-	/* Read in first header */
-	remain = sizeof(struct mitsud90_job_hdr);
+	/* Make sure there's no holdover */
+	if (ctx->holdover_on) {
+		memcpy(ctx->databuf, &ctx->holdover, sizeof(ctx->holdover));
+		ctx->datalen += sizeof(ctx->holdover);
+		ctx->holdover_on = 0;
+	}
+
+	/* Read in first header. */
+	remain = sizeof(struct mitsud90_job_hdr) - ctx->datalen;
 	while (remain) {
 		i = read(data_fd, (ctx->databuf + ctx->datalen), remain);
 		if (i == 0)
@@ -306,12 +320,13 @@ static int mitsud90_read_parse(void *vctx, int data_fd) {
 	    hdr->hdr[1] != 0x53 ||
 	    hdr->hdr[2] != 0x50 ||
 	    hdr->hdr[3] != 0x30 ) {
-		ERROR("Unrecognized data format!\n");
+		ERROR("Unrecognized data format (%02x%02x%02x%02x)!\n",
+		      hdr->hdr[0], hdr->hdr[1], hdr->hdr[2], hdr->hdr[3]);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* Now read in the rest */
-	remain = sizeof(struct mitsud90_plane_hdr) + be16_to_cpu(hdr->cols) * be16_to_cpu(hdr->rows) * 3 + sizeof(struct mitsud90_job_footer);
+	remain = sizeof(struct mitsud90_plane_hdr) + be16_to_cpu(hdr->cols) * be16_to_cpu(hdr->rows) * 3;
 	while(remain) {
 		i = read(data_fd, ctx->databuf + ctx->datalen, remain);
 		if (i == 0)
@@ -320,6 +335,26 @@ static int mitsud90_read_parse(void *vctx, int data_fd) {
 			return CUPS_BACKEND_CANCEL;
 		ctx->datalen += i;
 		remain -= i;
+	}
+
+	/* Read in the footer.  Hopefully. */
+	remain = sizeof(struct mitsud90_job_footer);
+	i = read(data_fd, ctx->databuf + ctx->datalen, remain);
+	if (i == 0)
+		return CUPS_BACKEND_CANCEL;
+	if (i < 0)
+		return CUPS_BACKEND_CANCEL;
+
+	/* See if this is a job footer.  If it is, keep, else holdover. */
+	if (ctx->databuf[ctx->datalen + 0] != 0x1b ||
+	    ctx->databuf[ctx->datalen + 1] != 0x42 ||
+	    ctx->databuf[ctx->datalen + 2] != 0x51 ||
+	    ctx->databuf[ctx->datalen + 3] != 0x31) {
+		memcpy(&ctx->holdover, ctx->databuf + ctx->datalen, sizeof(struct mitsud90_job_footer));
+	        ctx->holdover_on = 1;
+	} else {
+		ctx->datalen += i;
+		ctx->holdover_on = 0;
 	}
 
 	/* Sanity check */
@@ -533,7 +568,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.01WIP",
+	.version = "0.02WIP",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
