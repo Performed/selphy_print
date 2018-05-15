@@ -1335,7 +1335,10 @@ parsed:
 	}
 
 	/* Sanity-check type vs loaded media */
-	if (ctx->multicut && ctx->multicut < 100) {
+	if (ctx->multicut == 0)
+		goto skip_multicut;
+
+	if (ctx->multicut < 100) {
 		switch(ctx->media) {
 		case 200: //"5x3.5 (L)"
 			if (ctx->multicut != MULTICUT_5x3_5) {
@@ -1480,6 +1483,8 @@ parsed:
 		ERROR("Printer does not support 3.5x5*2 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
+
+skip_multicut:
 
 	if (ctx->fullcut && !ctx->supports_adv_fullcut &&
 	    ctx->multicut != MULTICUT_6x8) {
