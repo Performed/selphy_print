@@ -790,20 +790,20 @@ hdr_done:
 			/* Unless we have a matte plane following, we're done */
 			if (ctx->hdr1.matte != 0x01)
 				break;
-			planelen = sizeof(buf);
+			remain = sizeof(buf);
 		} else {
 			/* It's part of a block header, mark what we've read */
-			planelen = sizeof(buf) - 4;
+			remain = sizeof(buf) - 4;
 		}
 
 		/* Read in the rest of the header */
-		while (planelen > 0) {
-			i = read(data_fd, buf + sizeof(buf) - planelen, planelen);
+		while (remain > 0) {
+			i = read(data_fd, buf + sizeof(buf) - remain, remain);
 			if (i == 0)
 				return CUPS_BACKEND_CANCEL;
 			if (i < 0)
 				return CUPS_BACKEND_CANCEL;
-			planelen -= i;
+			remain -= i;
 		}
 	}
 
@@ -816,6 +816,7 @@ hdr_done:
 
 		/* Apply LUT */
 		if (ctx->hdr2.unkc[9]) {
+			DEBUG("Applying 3D LUT\n");
 			uint8_t *buf = malloc(LUT_LEN);
 			if (!buf) {
 				ERROR("Memory allocation failure!\n");
@@ -837,8 +838,8 @@ hdr_done:
 			ctx->hdr2.unkc[9] = 0;
 		}
 
-		planelen *= 2;
-		remain = 4 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+		planelen = ctx->rows * ctx->cols * 2;
+		remain = (ctx->hdr1.matte ? 3 : 4) * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
 		newbuf = malloc(remain);
 		if (!newbuf) {
 			ERROR("Memory allocation Failure!\n");
@@ -858,6 +859,7 @@ hdr_done:
 			break;
 		}
 
+		DEBUG("Applying 8bpp->12bpp Gamma Correction\n");
 		/* For B/Y plane */
 		memcpy(newbuf + newlen, ctx->databuf, sizeof(struct mitsu9550_plane));
 		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
@@ -1637,7 +1639,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.37",
+	.version = "0.38",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
