@@ -1335,7 +1335,7 @@ parsed:
 	}
 
 	/* Sanity-check type vs loaded media */
-	if (ctx->multicut < 100) {
+	if (ctx->multicut && ctx->multicut < 100) {
 		switch(ctx->media) {
 		case 200: //"5x3.5 (L)"
 			if (ctx->multicut != MULTICUT_5x3_5) {
@@ -2744,7 +2744,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.102",
+	.version = "0.103",
 	.uri_prefixes = dnpds40_prefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
