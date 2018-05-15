@@ -1133,7 +1133,7 @@ static const char *canonselphy_prefixes[] = {
 	"selphycp510", "selphycp520", "selphycp530", "selphycp600",
 	"selphycp710", "selphycp720", "selphycp730", "selphycp740",
 	"selphycp750", "selphycp760", "selphycp770", "selphycp780",
-	"selpyhcp790", "selphycp800", "selphycp810", "selphycp900",
+	"selphycp790", "selphycp800", "selphycp810", "selphycp900",
 	"selphyes1", "selphyes2", "selphyes20", "selphyes3",
 	"selphyes30", "selphyes40",
 	NULL
