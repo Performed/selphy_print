@@ -1632,7 +1632,7 @@ static int mitsu9550_query_markers(void *vctx, struct marker **markers, int *cou
 
 static const char *mitsu9550_prefixes[] = {
 	"mitsu9xxx",
-	"mitsu9000", "mitsu9500", "mitsu9550", "mitsi9600", "mitsu9800", "mitsu9810",
+	"mitsu9000", "mitsu9500", "mitsu9550", "mitsu9600", "mitsu9800", "mitsu9810",
 	NULL
 };
 
