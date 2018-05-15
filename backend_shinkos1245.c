@@ -875,7 +875,8 @@ static char* shinkos1245_tonecurves(int type, int table)
 	}
 }
 
-static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
+static void shinkos1245_dump_status(struct shinkos1245_ctx *ctx,
+				    struct shinkos1245_resp_status *sts)
 {
 	char *detail;
 	switch (sts->print_status) {
@@ -901,8 +902,8 @@ static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 	INFO("\tLifetime     :  %u\n", be32_to_cpu(sts->counters.lifetime));
 	INFO("\tThermal Head :  %u\n", be32_to_cpu(sts->counters.maint));
 	INFO("\tMedia        :  %u\n", be32_to_cpu(sts->counters.media));
+	INFO("\tRemaining    :  %u\n", ctx->marker.levelmax - be32_to_cpu(sts->counters.media));
 	INFO("\tCutter       :  %u\n", be32_to_cpu(sts->counters.cutter));
-
 	INFO("Versions:\n");
 	INFO("\tUSB Boot    : %u\n", sts->counters.ver_boot);
 	INFO("\tUSB Control : %u\n", sts->counters.ver_ctrl);
@@ -939,7 +940,8 @@ static void shinkos1245_dump_status(struct shinkos1245_resp_status *sts)
 	INFO("Tone Curve Status: %s\n", detail);
 }
 
-static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias, int media_8x12,
+static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
+				   int media_8x12,
 				   int count)
 {
 	int i;
@@ -1232,7 +1234,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 			struct shinkos1245_resp_status sts;
 			j = shinkos1245_get_status(ctx, &sts);
 			if (!j)
-				shinkos1245_dump_status(&sts);
+				shinkos1245_dump_status(ctx, &sts);
 			break;
 		}
 		case 'u': {
@@ -1658,7 +1660,7 @@ static const char *shinkos1245_prefixes[] = {
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245/E1",
-	.version = "0.22",
+	.version = "0.23",
 	.uri_prefixes = shinkos1245_prefixes,
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
