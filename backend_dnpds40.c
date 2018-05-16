@@ -697,6 +697,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	} else {
 		ctx->ver_major = 3;
 		ctx->ver_minor = 0;
+		ctx->version = strdup("UNKNOWN");
 		switch(ctx->type) {
 		case P_DNP_DS80D:
 			ctx->duplex_media = 200;
@@ -2766,7 +2767,7 @@ struct dyesub_backend dnpds40_backend = {
 		{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL, "dnpdx1"}, // Also Citizen CY
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS620_OLD, P_DNP_DS620, NULL, "dnpds620"},
 		{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, NULL, "dnpds620"},
-		{ USB_VID_DNP, USB_PID_DNP_DS80D, P_DNP_DS80D, NULL, "dnpds80dx"},
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS80D, P_DNP_DS80D, NULL, "dnpds80dx"},
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, NULL, "citizencw01"}, // Also OP900 ?
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL, "citizencw02"}, // Also OP900II
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX02, P_DNP_DS620, NULL, "citizencx02"},
