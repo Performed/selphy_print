@@ -51,6 +51,7 @@
    Mitsubishi CP-D70DW
    Mitsubishi CP-D80DW
    Mitsubishi CP-K60DW-S
+   Mitsubishi CP-D90DW
    Mitsubishi P95DW
    Mitsubishi P93DW
    Fujifilm ASK-300
@@ -67,7 +68,6 @@
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Mitsubishi CP-D707DW
-   Mitsubishi CP-D90DW
    Olmec OP900
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-CR10L (aka DNP DS-SL10)
@@ -673,7 +673,7 @@
  ***************************************************************************
   BACKEND=mitsud90
 
-   Work-in-progress printers:
+   Supported and tested printers:
 
     Mitsubishi CP-D90DW
 
