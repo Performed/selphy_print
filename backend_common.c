@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.84"
+#define BACKEND_VERSION "0.85"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -790,6 +790,9 @@ static int query_markers(struct dyesub_backend *backend, void *ctx, int full)
 	if (!backend->query_markers)
 		return CUPS_BACKEND_OK;
 
+	if (test_mode >= TEST_MODE_NOPRINT)
+		return CUPS_BACKEND_OK;
+
 	ret = backend->query_markers(ctx, &markers, &marker_count);
 	if (ret)
 		return ret;
@@ -987,8 +990,8 @@ int main (int argc, char **argv)
 	if (getenv("TEST_MODE"))
 		test_mode = atoi(getenv("TEST_MODE"));
 
-	if (test_mode >= TEST_MODE_NOATTACH && (extra_vid == -1 || extra_pid == -1 || extra_type == -1)) {
-		ERROR("Must specify EXTRA_VID, EXTRA_PID, EXTRA_TYPE in test mode > 1!\n");
+	if (test_mode >= TEST_MODE_NOATTACH && (extra_vid == -1 || extra_pid == -1)) {
+		ERROR("Must specify EXTRA_VID, EXTRA_PID in test mode > 1!\n");
 		exit(1);
 	}
 
@@ -1162,14 +1165,16 @@ bypass:
 		libusb_get_device_descriptor(device, &desc);
 
 		printer_type = lookup_printer_type(backend,
-					   desc.idVendor, desc.idProduct);
-		if (printer_type <= P_UNKNOWN) {
-			ERROR("Unable to lookup printer type\n");
-			ret = CUPS_BACKEND_FAILED;
-			goto done_close;
-		}
+						   desc.idVendor, desc.idProduct);
 	} else {
-		printer_type = extra_type;
+		printer_type = lookup_printer_type(backend,
+						   extra_vid, extra_pid);
+	}
+
+	if (printer_type <= P_UNKNOWN) {
+		ERROR("Unable to lookup printer type\n");
+		ret = CUPS_BACKEND_FAILED;
+		goto done_close;
 	}
 
 	/* Attach backend to device */
@@ -1244,16 +1249,16 @@ newpage:
 			goto done_claimed;
 	}
 
+	/* Dump the full marker dump */
+	ret = query_markers(backend, backend_ctx, !current_page);
+	if (ret)
+		goto done_claimed;
+
 	INFO("Printing page %d\n", ++current_page);
 
 	if (test_mode >= TEST_MODE_NOPRINT ) {
 		WARNING("**** TEST MODE, bypassing printing!\n");
 	} else {
-		/* Dump the full marker dump */
-		ret = query_markers(backend, backend_ctx, !current_page);
-		if (ret)
-			goto done_claimed;
-
 		ret = backend->main_loop(backend_ctx, copies);
 		if (ret)
 			goto done_claimed;
@@ -1263,12 +1268,10 @@ newpage:
 	if (!uri)
 		PAGE("%d %d\n", current_page, copies);
 
-	if (test_mode < TEST_MODE_NOPRINT ) {
-		/* Dump a marker status update */
-		ret = query_markers(backend, backend_ctx, !current_page);
-		if (ret)
-			goto done_claimed;
-	}
+	/* Dump a marker status update */
+	ret = query_markers(backend, backend_ctx, !current_page);
+	if (ret)
+		goto done_claimed;
 
 	/* Since we have no way of telling if there's more data remaining
 	   to be read (without actually trying to read it), always assume
