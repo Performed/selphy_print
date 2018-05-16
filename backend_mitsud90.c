@@ -59,8 +59,9 @@ struct mitsud90_media_resp {
 
 struct mitsud90_status_resp {
 	uint8_t  hdr[4];  /* e4 47 44 30 */
-	uint8_t  code;    /* 00 is ok, nonzero is error */
-	uint8_t  unk[10];
+	uint8_t  code1;    /* 00 is ok, nonzero is error */
+	uint8_t  code2;    /* sub-code. */
+	uint8_t  unk[9];
 };
 
 struct mitsud90_job_hdr {
@@ -131,17 +132,143 @@ struct mitsud90_memcheck_resp {
 	uint8_t  mem_bad;  /* 0x00 is ok */
 };
 
-const char *mitsud90_error_codes(uint8_t code)
+const char *mitsud90_error_codes(uint8_t code1, uint8_t code2)
 {
-	switch(code) {
+	switch(code1) {
 	case 0x00:
-		return "Idle";
+		if (code2 & 0x40)
+			return "Heating";
+		else if (code2 & 0x80)
+			return "Cooling Down";
+		else
+			return "Idle";
 	case 0x21:
-		return "No ribbon";
+		switch (code2) {
+		case 0x00:
+			return "Ribbon exhausted";
+		case 0x10:
+			return "Insufficient remaining ribbon";
+		case 0x20:
+			return "Ribbon Cue Timeout";
+		case 0x30:
+			return "Cannot Cue Ribbon";
+		case 0x90:
+			return "No ribbon";
+		default:
+			return "Unknown Ribbon Error";
+		}
+	case 0x22:
+		switch (code2) {
+		case 0x00:
+			return "No paper";
+		case 0x02:
+			return "Paper exhausted";
+		default:
+			return "Unknown Paper Error";
+		}
+	case 0x23:
+		switch (code2) {
+		case 0x00:
+			return "Ribbon/Paper mismatch";
+		case 0x90:
+			return "Ribbon/Job mismatch";
+		default:
+			return "Unknown ribbon match error";
+		}
+	case 0x26:
+		return "Illegal Ribbon";
 	case 0x28:
 		return "Cut Bin Missing";
 	case 0x29:
-		return "Printer Open";
+		switch (code2) {
+		case 0x00:
+			return "Printer Open during Stop";
+		case 0x10:
+			return "Printer Open during Initialization";
+		case 0x90:
+			return "Printer Open during Printing";
+		default:
+			return "Unknown Door error";
+		}
+	case 0x2f:
+		return "Printer turned off during printing";
+	case 0x31:
+		return "Ink feed stop";
+	case 0x32:
+		return "Ink Skip 1 timeout";
+	case 0x33:
+		return "Ink Skip 2 timeout";
+	case 0x34:
+		return "Ink Sticking";
+	case 0x35:
+		return "Ink return stop";
+	case 0x36:
+		return "Ink Rewind timeout";
+	case 0x37:
+		return "Winding sensing error";
+	case 0x40:
+	case 0x41:
+	case 0x42:
+	case 0x43:
+	case 0x44:
+		return "Paper Jam";
+	case 0x60:
+		if (code2 == 0x20)
+			return "Preheat error";
+		else if (code2 == 0x04)
+			return "Humidity sensor error";
+		else if (code2 & 0x1f)
+			return "Thermistor error";
+		else
+			return "Unknown error";
+	case 0x61:
+		if (code2 == 0x00)
+			return "Color Sensor Error";
+		else if (code2 & 0x10)
+			return "Matte OP Error";
+		else
+			return "Unknown error";
+	case 0x62:
+		return "Data Transfer error";
+	case 0x63:
+		return "EEPROM error";
+	case 0x64:
+		return "Flash access error";
+	case 0x65:
+		return "FPGA configuration error";
+	case 0x66:
+		return "Power voltage Error";
+	case 0x67:
+		return "RFID access error";
+	case 0x68:
+		if (code2 == 0x00)
+			return "Fan Lock Error";
+		else if (code2 == 0x90)
+			return "MDA Error";
+		else
+			return "Unknown error";
+	case 0x69:
+		if (code2 == 0x10)
+			return "DDR Error";
+		else if (code2 == 0x00)
+			return "Firmware Error";
+		else
+			return "Unknown error";
+	case 0x70:
+	case 0x71:
+	case 0x73:
+	case 0x75:
+		return "Mechanical Error (check ribbon and power cycle)";
+	case 0x82:
+		return "USB Timeout";
+	case 0x83:
+		return "Illegal paper size";
+	case 0x84:
+		return "Illegal parameter";
+	case 0x85:
+		return "Job Cancel";
+	case 0x89:
+		return "Last Job Error";
 	default:
 		return "Unknown";
 	}
@@ -405,11 +532,20 @@ top:
 	do {
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
-		if (resp.code == 0x00) {
+		if (resp.code1 == 0x00) {
+			if (resp.code2 & 0x40) {
+				INFO("Printer warming up\n");
+				sleep(1);
+				continue;
+			} else if (resp.code2 & 0x80) {
+				INFO("Printer cooling down\n");
+				sleep(1);
+				continue;
+			}
 			break; // XXX figure out idle vs non-idle!
 		} else {
-			ERROR("Printer reported error condition: %s (%02x)\n",
-			      mitsud90_error_codes(resp.code), resp.code);
+			ERROR("Printer reported error condition: %s (%02x %02x)\n",
+			      mitsud90_error_codes(resp.code1, resp.code2), resp.code1, resp.code2);
 			return CUPS_BACKEND_STOP;
 		}
 	} while(1);
@@ -476,11 +612,11 @@ top:
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
 
-		if (resp.code == 0x00) {
+		if (resp.code1 == 0x00 && resp.code2 == 0x00) {
 			break; // XXX figure out idle vs non-idle!
 		} else {
-			ERROR("Printer reported error condition: %s (%02x)\n",
-			      mitsud90_error_codes(resp.code), resp.code);
+			ERROR("Printer reported error condition: %s (%02x %02x)\n",
+			      mitsud90_error_codes(resp.code1, resp.code2), resp.code1, resp.code2);
 			return CUPS_BACKEND_STOP;
 		}
 
@@ -528,12 +664,12 @@ static int mitsud90_dump_status(struct mitsud90_ctx *ctx)
 	if (mitsud90_query_status(ctx, &resp))
 		return CUPS_BACKEND_FAILED;
 
-	INFO("Status: %s (%02x) -- %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x\n",
-	     mitsud90_error_codes(resp.code),
-	     resp.code,
+	INFO("Status: %s (%02x %02x) -- %02x %02x %02x %02x  %02x %02x %02x %02x  %02x\n",
+	     mitsud90_error_codes(resp.code1, resp.code2),
+	     resp.code1, resp.code2,
 	     resp.unk[0], resp.unk[1], resp.unk[2], resp.unk[3],
 	     resp.unk[4], resp.unk[5], resp.unk[6], resp.unk[7],
-	     resp.unk[8], resp.unk[9]);
+	     resp.unk[8]);
 
 	return CUPS_BACKEND_OK;
 }
