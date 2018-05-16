@@ -399,13 +399,11 @@ top:
 		struct mitsud90_memcheck_resp mem_resp;
 		int num;
 
-		memcpy(hdr, &mem, sizeof(mem));
+		memcpy(&mem, hdr, sizeof(mem));
 		mem.hdr[0] = 0x1b;
 		mem.hdr[1] = 0x47;
 		mem.hdr[2] = 0x44;
 		mem.hdr[3] = 0x33;
-		mem.unk[0] = 0x00;
-		mem.unk[1] = 0x33;
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*) &mem, sizeof(mem))))
