@@ -531,7 +531,7 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 		case 'm':
 			j = mitsud90_dump_media(ctx);
 			break;
-		case '2':
+		case 's':
 			j = mitsud90_dump_status(ctx);
 			break;
 		default:
@@ -568,7 +568,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.02WIP",
+	.version = "0.03WIP",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
