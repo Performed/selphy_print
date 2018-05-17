@@ -356,7 +356,7 @@ int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_status_resp 
 	cmdbuf[3] = 0x30;
 	cmdbuf[4] = 0;
 	cmdbuf[5] = 0;
-	cmdbuf[6] = 0x01;  /* Number of commands */
+	cmdbuf[6] = 0x04;  /* Number of commands */
 	cmdbuf[7] = 0x16;  /* Query status commmand */
 	cmdbuf[8] = 0x17;  /* Unknown commmand */
 	cmdbuf[9] = 0x1f;  /* Unknown commmand */
@@ -762,7 +762,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.04",
+	.version = "0.05",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
