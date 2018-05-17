@@ -384,7 +384,7 @@ static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_
 
 /* Error dumps, etc */
 
-static char *mitsu70x_temperatures(uint8_t temp)
+const char *mitsu70x_temperatures(uint8_t temp)
 {
 	switch(temp) {
 	case TEMPERATURE_NORMAL:
@@ -399,7 +399,7 @@ static char *mitsu70x_temperatures(uint8_t temp)
 	return "Unknown Temperature Status";
 }
 
-static char *mitsu70x_mechastatus(uint8_t *sts)
+static const char *mitsu70x_mechastatus(uint8_t *sts)
 {
 	switch(sts[0]) {
 	case MECHA_STATUS_INIT:

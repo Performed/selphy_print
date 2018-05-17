@@ -45,32 +45,60 @@
 #define USB_PID_MITSU_D90   0x3B60
 
 const char *mitsu70x_media_types(uint8_t brand, uint8_t type);
+const char *mitsu70x_temperatures(uint8_t temp);
 
 /* Printer data structures */
 struct mitsud90_media_resp {
 	uint8_t  hdr[4];  /* e4 47 44 30 */
-	uint8_t  media_brand;
-	uint8_t  media_type;
-	uint8_t  unk_a[2];
-	uint16_t media_capacity; /* BE */
-	uint16_t media_remain;  /* BE */
-	uint8_t  unk_b[2];
-};
+	struct {
+		uint8_t  brand;
+		uint8_t  type;
+		uint8_t  unk_a[2];
+		uint16_t capacity; /* BE */
+		uint16_t remain;  /* BE */
+		uint8_t  unk_b[2];
+	} __attribute__((packed)) media; /* D90_STATUS_TYPE_MEDIA */
+} __attribute__((packed));
+
+#define D90_STATUS_TYPE_ERROR  0x16
+#define D90_STATUS_TYPE_MECHA  0x17
+#define D90_STATUS_TYPE_TEMP   0x1f
+#define D90_STATUS_TYPE_x28    0x28
+#define D90_STATUS_TYPE_MEDIA  0x2a
 
 struct mitsud90_status_resp {
 	uint8_t  hdr[4];  /* e4 47 44 30 */
 	struct {
 		uint8_t  code[2]; /* 00 is ok, nonzero is error */
 		uint8_t  unk[9];
-	} __attribute__((packed)) error; /* Type 0x16 */
+	} __attribute__((packed)) error; /* D90_STATUS_TYPE_ERROR */
 	struct {
-		uint8_t  mecha[2]; /* Mechanical status */
-		uint8_t  unk1;
-	} __attribute__((packed)) type_17_1f; /* Combined x17 and x1f */
+		uint8_t  mecha[2]; /* Mechanical status, D90_MECHA_STATUS_* */
+	} __attribute__((packed)) mecha; /* D90_STATUS_TYPE_MECHA */
+	struct {
+		uint8_t  temp;
+	} __attribute__((packed)) temp; /* D90_STATUS_TYPE_TEMP */
 	struct {
 		uint8_t unk[2];
-	} type_28; /* Type 0x28 */
+	} type_28; /* D90_STATUS_TYPE_x28 */
 } __attribute__((packed));
+
+#define D90_MECHA_STATUS_IDLE         0x00
+#define D90_MECHA_STATUS_PRINTING     0x50
+#define D90_MECHA_STATUS_INIT         0x80
+#define D90_MECHA_STATUS_INIT_FEEDCUT 0x10
+
+#define D90_MECHA_STATUS_PRINTING_x22 0x22
+#define D90_MECHA_STATUS_PRINTING_x23 0x23
+#define D90_MECHA_STATUS_PRINTING_x24 0x24
+#define D90_MECHA_STATUS_PRINTING_x26 0x26
+#define D90_MECHA_STATUS_PRINTING_x28 0x28
+#define D90_MECHA_STATUS_PRINTING_x2f 0x2f
+#define D90_MECHA_STATUS_PRINTING_x38 0x38
+
+#define D90_ERROR_STATUS_OK         0x00
+#define D90_ERROR_STATUS_OK_WARMING 0x40
+#define D90_ERROR_STATUS_OK_COOLING 0x80
 
 struct mitsud90_job_query {
 	uint8_t  hdr[4];  /* 1b 47 44 31 */
@@ -89,18 +117,16 @@ struct mitsud90_job_hdr {
 	uint16_t cols;   /* BE */
 	uint16_t rows;   /* BE */
 	uint8_t  unk[5]; /* 64 00 00 01 00 */
-	uint8_t  mcut;   /* 0x01 for 8x6div2 */
-
 	union {
 #if 0
 		struct {
-			uint16_t pos;
-			uint8_t flag;
-		} cuts[4] __attribute__((packed));
+			uint8_t  margin;
+			uint16_t position;
+		} cuts[3] __attribute__((packed));
 #endif
-		uint8_t cutzero[12];
+		uint8_t cutzero[9];
 	} __attribute__((packed));
-	uint8_t  zero[20];
+	uint8_t  zero[24];
 
 	uint8_t  overcoat;
 	uint8_t  quality;
@@ -152,13 +178,30 @@ struct mitsud90_memcheck_resp {
 	uint8_t  mem_bad;  /* 0x00 is ok */
 };
 
+const char *mitsud90_mecha_statuses(const uint8_t *code)
+{
+	switch (code[0]) {
+	case D90_MECHA_STATUS_IDLE:
+		return "Idle";
+	case D90_MECHA_STATUS_PRINTING:
+		return "Printing";
+	case D90_MECHA_STATUS_INIT:
+		if (code[1] == D90_MECHA_STATUS_INIT_FEEDCUT)
+			return "Feed & Cut paper";
+		else
+			return "Initializing";
+	default:
+		return "Unknown";
+	}
+}
+
 const char *mitsud90_error_codes(const uint8_t *code)
 {
 	switch(code[0]) {
-	case 0x00:
-		if (code[1] & 0x40)
+	case D90_ERROR_STATUS_OK:
+		if (code[1] & D90_ERROR_STATUS_OK_WARMING)
 			return "Heating";
-		else if (code[1] & 0x80)
+		else if (code[1] & D90_ERROR_STATUS_OK_COOLING)
 			return "Cooling Down";
 		else
 			return "Idle";
@@ -294,6 +337,22 @@ const char *mitsud90_error_codes(const uint8_t *code)
 	}
 }
 
+static void mitsud90_dump_status(struct mitsud90_status_resp *resp)
+{
+	INFO("Error Status: %s (%02x %02x) -- %02x %02x %02x %02x  %02x %02x %02x %02x  %02x\n",
+	     mitsud90_error_codes(resp->error.code),
+	     resp->error.code[0], resp->error.code[1],
+	     resp->error.unk[0], resp->error.unk[1], resp->error.unk[2], resp->error.unk[3],
+	     resp->error.unk[4], resp->error.unk[5], resp->error.unk[6], resp->error.unk[7],
+	     resp->error.unk[8]);
+	INFO("Printer Status: %s (%02x %02x)\n",
+	     mitsud90_mecha_statuses(resp->mecha.mecha),
+	     resp->mecha.mecha[0], resp->mecha.mecha[1]);
+	INFO("Temperature Status: %sx\n",
+	     mitsu70x_temperatures(resp->temp.temp));
+	INFO("Status_x28: (%02x %02x)\n", resp->type_28.unk[0], resp->type_28.unk[1]);
+}
+
 /* Private data structure */
 struct mitsud90_ctx {
 	struct libusb_device_handle *dev;
@@ -323,7 +382,7 @@ int mitsud90_query_media(struct mitsud90_ctx *ctx, struct mitsud90_media_resp *r
 	cmdbuf[4] = 0;
 	cmdbuf[5] = 0;
 	cmdbuf[6] = 0x01;  /* Number of commands */
-	cmdbuf[7] = 0x2a;  /* Query Media commmand */
+	cmdbuf[7] = D90_STATUS_TYPE_MEDIA;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, sizeof(cmdbuf))))
@@ -355,11 +414,10 @@ int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_status_resp 
 	cmdbuf[4] = 0;
 	cmdbuf[5] = 0;
 	cmdbuf[6] = 0x04;  /* Number of commands */
-	cmdbuf[7] = 0x16;  /* Query status commmand */
-	cmdbuf[8] = 0x17;  /* Unknown commmand */
-	cmdbuf[9] = 0x1f;  /* Unknown commmand */
-	cmdbuf[10] = 0x28; /* Unknown command */
-
+	cmdbuf[7] = D90_STATUS_TYPE_ERROR;
+	cmdbuf[8] = D90_STATUS_TYPE_MECHA;
+	cmdbuf[9] = D90_STATUS_TYPE_TEMP;
+	cmdbuf[10] = D90_STATUS_TYPE_x28;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, sizeof(cmdbuf))))
@@ -410,16 +468,16 @@ static int mitsud90_attach(void *vctx, struct libusb_device_handle *dev, int typ
 		if (mitsud90_query_media(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
 	} else {
-		resp.media_brand = 0xff;
-		resp.media_type = 0x0f;
-		resp.media_capacity = cpu_to_be16(230);
-		resp.media_remain = cpu_to_be16(200);
+		resp.media.brand = 0xff;
+		resp.media.type = 0x0f;
+		resp.media.capacity = cpu_to_be16(230);
+		resp.media.remain = cpu_to_be16(200);
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker.name = mitsu70x_media_types(resp.media_brand, resp.media_type);
-	ctx->marker.levelmax = be16_to_cpu(resp.media_capacity);
-	ctx->marker.levelnow = be16_to_cpu(resp.media_remain);
+	ctx->marker.name = mitsu70x_media_types(resp.media.brand, resp.media.type);
+	ctx->marker.levelmax = be16_to_cpu(resp.media.capacity);
+	ctx->marker.levelnow = be16_to_cpu(resp.media.remain);
 
 	return CUPS_BACKEND_OK;
 }
@@ -556,17 +614,23 @@ top:
 	do {
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
-		if (resp.error.code[0] == 0x00) {
-			if (resp.error.code[1] & 0x40) {
+		mitsud90_dump_status(&resp);  // XXX crude, temporary.
+		if (resp.error.code[0] == D90_ERROR_STATUS_OK) {
+			if (resp.error.code[1] & D90_ERROR_STATUS_OK_WARMING ||
+			    resp.temp.temp & D90_ERROR_STATUS_OK_WARMING ) {
 				INFO("Printer warming up\n");
 				sleep(1);
 				continue;
-			} else if (resp.error.code[1] & 0x80) {
+			} else if (resp.error.code[1] & D90_ERROR_STATUS_OK_COOLING ||
+				resp.temp.temp & D90_ERROR_STATUS_OK_COOLING) {
 				INFO("Printer cooling down\n");
 				sleep(1);
 				continue;
+			} else if (resp.mecha.mecha == D90_MECHA_STATUS_IDLE) {
+				break;
+				// XXX what about checking to see if we
+				// have available buffers to spool a job?
 			}
-			break; // XXX figure out idle vs non-idle!
 		} else {
 			ERROR("Printer reported error condition: %s (%02x %02x)\n",
 			      mitsud90_error_codes(resp.error.code), resp.error.code[0], resp.error.code[1]);
@@ -635,9 +699,10 @@ top:
 
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
-
-		if (resp.error.code[0] == 0x00 && resp.error.code[1] == 0x00) {
-			break; // XXX figure out idle vs non-idle!
+		mitsud90_dump_status(&resp);  // XXX crude, temporary.
+		/* Terminate when printing complete */
+		if (resp.mecha.mecha[0] == D90_MECHA_STATUS_IDLE) {
+			break;
 		} else {
 			ERROR("Printer reported error condition: %s (%02x %02x)\n",
 			      mitsud90_error_codes(resp.error.code), resp.error.code[0], resp.error.code[1]);
@@ -663,7 +728,7 @@ top:
 	return CUPS_BACKEND_OK;
 }
 
-static int mitsud90_dump_media(struct mitsud90_ctx *ctx)
+static int mitsud90_get_media(struct mitsud90_ctx *ctx)
 {
 	struct mitsud90_media_resp resp;
 
@@ -671,33 +736,24 @@ static int mitsud90_dump_media(struct mitsud90_ctx *ctx)
 		return CUPS_BACKEND_FAILED;
 
 	INFO("Media Type:  %s (%02x/%02x)\n",
-	     mitsu70x_media_types(resp.media_brand, resp.media_type),
-	     resp.media_brand,
-	     resp.media_type);
+	     mitsu70x_media_types(resp.media.brand, resp.media.type),
+	     resp.media.brand,
+	     resp.media.type);
 	INFO("Prints Remaining:  %03d/%03d\n",
-	     be16_to_cpu(resp.media_remain),
-	     be16_to_cpu(resp.media_capacity));
+	     be16_to_cpu(resp.media.remain),
+	     be16_to_cpu(resp.media.capacity));
 
 	return CUPS_BACKEND_OK;
 }
 
-static int mitsud90_dump_status(struct mitsud90_ctx *ctx)
+static int mitsud90_get_status(struct mitsud90_ctx *ctx)
 {
 	struct mitsud90_status_resp resp;
 
 	if (mitsud90_query_status(ctx, &resp))
 		return CUPS_BACKEND_FAILED;
 
-	INFO("Error Status: %s (%02x %02x) -- %02x %02x %02x %02x  %02x %02x %02x %02x  %02x\n",
-	     mitsud90_error_codes(resp.error.code),
-	     resp.error.code[0], resp.error.code[1],
-	     resp.error.unk[0], resp.error.unk[1], resp.error.unk[2], resp.error.unk[3],
-	     resp.error.unk[4], resp.error.unk[5], resp.error.unk[6], resp.error.unk[7],
-	     resp.error.unk[8]);
-	INFO("Status_B+C: Mecha(%02x %02x) %02x\n",
-	     resp.type_17_1f.mecha[0], resp.type_17_1f.mecha[1],
-	     resp.type_17_1f.unk1);
-	INFO("Status_D: (%02x %02x)\n", resp.type_28.unk[0], resp.type_28.unk[1]);
+	mitsud90_dump_status(&resp);
 	return CUPS_BACKEND_OK;
 }
 
@@ -719,10 +775,10 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'm':
-			j = mitsud90_dump_media(ctx);
+			j = mitsud90_get_media(ctx);
 			break;
 		case 's':
-			j = mitsud90_dump_status(ctx);
+			j = mitsud90_get_status(ctx);
 			break;
 		default:
 			break;  /* Ignore completely */
@@ -745,7 +801,7 @@ static int mitsud90_query_markers(void *vctx, struct marker **markers, int *coun
 	if (mitsud90_query_media(ctx, &resp))
 		return CUPS_BACKEND_FAILED;
 
-	ctx->marker.levelnow = be16_to_cpu(resp.media_remain);
+	ctx->marker.levelnow = be16_to_cpu(resp.media.remain);
 
 	return CUPS_BACKEND_OK;
 }
@@ -758,7 +814,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.05",
+	.version = "0.06",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
@@ -774,7 +830,6 @@ struct dyesub_backend mitsud90_backend = {
 	}
 };
 
-
 /*
    Mitsubishi CP-D90DW data format
 
@@ -782,20 +837,26 @@ struct dyesub_backend mitsud90_backend = {
 
  [[HEADER 1]]
 
-   1b 53 50 30 00 33 XX XX  YY YY 64 00 00 01 00 ZZ  XX XX == COLS, YY XX ROWS (BE), ZZ == 01 for 8x6div2
-   ?? ?? ?? ?? ?? ?? 00 00  00 00 00 00 00 00 00 00  <-- cut position, see below
+   1b 53 50 30 00 33 XX XX  YY YY 64 00 00 01 00 ??  XX XX == COLS, YY XX ROWS (BE)
+   ?? ?? ?? ?? ?? ?? ?? ??  00 00 00 00 00 00 00 00  <-- cut position, see below
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
    QQ RR SS HH VV 00 00 00  00 00 01 00 03 II 09 7c  QQ == 02 matte, 00 glossy,
    09 4c 00 00 02 58 00 0c  00 06                    RR == 00 auto, 03 == fine, 02 == superfine.
-                                                  SS == 00 colorcorr, 01 == none
-                                                  HH/VV sharpening for Horiz/Vert, 0-8, 0 is off, 4 is normal
+                                                     SS == 00 colorcorr, 01 == none
+                                                     HH/VV sharpening for Horiz/Vert, 0-8, 0 is off, 4 is normal
   [pad to 512b]
 
-                normal  == 00 00 00 00 00 00
-                4x6div2 == 02 65 01 00 00 01
-                8x6div2 == 04 be 00 00 00 00  <-- suspect XX XX ?? XX XX ??  where XX XX is the row of a cut.
+                normal  == rows  00  00 00  00  00 00  00  00 00
+                4x6div2 == 1226  00  02 65  01  00 00  01  00 00
+                8x6div2 == 2488  01  04 be  00  00 00  00  00 00
 
-   from [01 00 03 03] onwards, only shows in 8x20" PANORAMA prints.  Assume 2" overlap.
+		    guesses based on SDK docs:
+
+		9x6div2 == 2728  01  05 36  00  00 00  00  00 00
+		9x6div3 == 2724  00  03 90  00  07 14  00  00 00
+		9x6div4 == 2628  00  02 97  00  05 22  00  07 ad
+
+    from [01 00 03 03] onwards, only shows in 8x20" PANORAMA prints.  Assume 2" overlap.
     II == 01 02 03 (which panel # in panorama!)
     [02 58] == 600
     [09 4c] == 2380  (??)
@@ -838,16 +899,23 @@ Comms Protocol for D90:
 <- e4 47 44 30 ff 0f 50 00  01 ae 01 9b 01 00      [Normal/OK]
 <- e4 47 44 30 ff ff ff ff  ff ff ff ff ff ff      [Error]
 
- [[ UNKNOWN STATUS QUERIES]]
+ [[ MECHA STATUS ]]
 
 -> 1b 47 44 30 00 00 01 17
--> 1b 47 44 30 00 00 01 1f  (this and above are 7 bytes combined, see below)
+<- e4 47 44 30 SS SS
+
+ [[ UNKNOWN STATUS QUERIES]]
+
+-> 1b 47 44 30 00 00 01 1f
+<- e4 47 44 30 HH           UNKNOWN!
 
 -> 1b 47 44 30 00 00 01 28
-<- e4 47 44 30 XX XX        Unknown!
+<- e4 47 44 30 XX XX        Unknown, seems to increment.
 
--> 1b 47 44 31 00 00 JJ JJ  (Jobid?)
-<- e4 47 44 31 XX YY ZZ ZZ  Not sure.
+  [[ JOB STATUS QUERY ?? ]]
+
+-> 1b 47 44 31 00 00 JJ JJ  Jobid?
+<- e4 47 44 31 XX YY ZZ ZZ  No idea.. sure.
 
  [[ COMBINED STATUS QUERIES ]]
 
@@ -855,7 +923,8 @@ Comms Protocol for D90:
 <- e4 47 44 30
 
    MM NN 00 00 ZZ 00 00 00  00 QQ QQ   [id 16, total 11]
-   SS SS HH                            [id 17 & 1f, total 3 between them]
+   SS SS                               [id 17, total 2]
+   HH                                  [id 1f, total 1]
    VV TT WW 00 XX XX YY YY  01 00      [id 2a, total 10]
 
    WW    == 0x50 or 0x00 (seen, no idea what it means)
@@ -866,8 +935,8 @@ Comms Protocol for D90:
    QQ QQ == 00 00 normal, 3f 37 error
    MM NN == MM major err (00 if no error) NN minor error.
    ZZ    == 01 seen for _some_ errors.
-   SS SS == Mecha Status  (see mitsu70x_mechastatus. 00 == ready, 50 == printing, 80+10 == feedandcut, 80 == initializing?
-   HH    == ?? 0x40 and 0x80 are "good"?
+   SS SS == Mecha Status  (00 == ready, 50 == printing, 80+10 == feedandcut, 80 == initializing?
+   HH    == Temperature state.  00 is OK, 0x40 is low, 0x80 is hot.
    II II == ??
    JJ JJ == ??
 
