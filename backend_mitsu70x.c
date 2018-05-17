@@ -2009,7 +2009,7 @@ static int mitsu70x_query_markers(void *vctx, struct marker **markers, int *coun
 		if (ret)
 			return CUPS_BACKEND_FAILED;
 	}
-	
+
 	ctx->marker[0].levelmax = be16_to_cpu(resp.lower.capacity);
 	ctx->marker[0].levelnow = be16_to_cpu(resp.lower.remain);
 	if (ctx->num_decks == 2) {
