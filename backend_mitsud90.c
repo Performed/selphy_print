@@ -57,12 +57,22 @@ struct mitsud90_media_resp {
 	uint8_t  unk_b[2];
 };
 
-struct mitsud90_error_resp {
+struct mitsud90_status_resp {
 	uint8_t  hdr[4];  /* e4 47 44 30 */
-	uint8_t  code1;    /* 00 is ok, nonzero is error */
-	uint8_t  code2;    /* sub-code. */
-	uint8_t  unk[9];
-};
+	struct {
+		uint8_t  code[2]; /* 00 is ok, nonzero is error */
+		uint8_t  unk[9];
+	} __attribute__((packed)) error; /* Type 0x16 */
+	struct {
+		uint8_t  mecha[2]; /* Mechanical status */
+		uint8_t  unk1;
+		uint8_t  unk2[2];
+		uint8_t  unk3[2];
+	} __attribute__((packed)) type_17_1f; /* Combined x17 and x1f */
+	struct {
+		uint8_t unk[2];
+	} type_28; /* Type 0x28 */
+} __attribute__((packed));
 
 struct mitsud90_job_query {
 	uint8_t  hdr[4];  /* 1b 47 44 31 */
@@ -144,18 +154,18 @@ struct mitsud90_memcheck_resp {
 	uint8_t  mem_bad;  /* 0x00 is ok */
 };
 
-const char *mitsud90_error_codes(uint8_t code1, uint8_t code2)
+const char *mitsud90_error_codes(const uint8_t *code)
 {
-	switch(code1) {
+	switch(code[0]) {
 	case 0x00:
-		if (code2 & 0x40)
+		if (code[1] & 0x40)
 			return "Heating";
-		else if (code2 & 0x80)
+		else if (code[1] & 0x80)
 			return "Cooling Down";
 		else
 			return "Idle";
 	case 0x21:
-		switch (code2) {
+		switch (code[1]) {
 		case 0x00:
 			return "Ribbon exhausted";
 		case 0x10:
@@ -170,7 +180,7 @@ const char *mitsud90_error_codes(uint8_t code1, uint8_t code2)
 			return "Unknown Ribbon Error";
 		}
 	case 0x22:
-		switch (code2) {
+		switch (code[1]) {
 		case 0x00:
 			return "No paper";
 		case 0x02:
@@ -179,7 +189,7 @@ const char *mitsud90_error_codes(uint8_t code1, uint8_t code2)
 			return "Unknown Paper Error";
 		}
 	case 0x23:
-		switch (code2) {
+		switch (code[1]) {
 		case 0x00:
 			return "Ribbon/Paper mismatch";
 		case 0x90:
@@ -192,7 +202,7 @@ const char *mitsud90_error_codes(uint8_t code1, uint8_t code2)
 	case 0x28:
 		return "Cut Bin Missing";
 	case 0x29:
-		switch (code2) {
+		switch (code[1]) {
 		case 0x00:
 			return "Printer Open during Stop";
 		case 0x10:
@@ -225,18 +235,18 @@ const char *mitsud90_error_codes(uint8_t code1, uint8_t code2)
 	case 0x44:
 		return "Paper Jam";
 	case 0x60:
-		if (code2 == 0x20)
+		if (code[1] == 0x20)
 			return "Preheat error";
-		else if (code2 == 0x04)
+		else if (code[1] == 0x04)
 			return "Humidity sensor error";
-		else if (code2 & 0x1f)
+		else if (code[1] & 0x1f)
 			return "Thermistor error";
 		else
 			return "Unknown error";
 	case 0x61:
-		if (code2 == 0x00)
+		if (code[1] == 0x00)
 			return "Color Sensor Error";
-		else if (code2 & 0x10)
+		else if (code[1] & 0x10)
 			return "Matte OP Error";
 		else
 			return "Unknown error";
@@ -253,16 +263,16 @@ const char *mitsud90_error_codes(uint8_t code1, uint8_t code2)
 	case 0x67:
 		return "RFID access error";
 	case 0x68:
-		if (code2 == 0x00)
+		if (code[1] == 0x00)
 			return "Fan Lock Error";
-		else if (code2 == 0x90)
+		else if (code[1] == 0x90)
 			return "MDA Error";
 		else
 			return "Unknown error";
 	case 0x69:
-		if (code2 == 0x10)
+		if (code[1] == 0x10)
 			return "DDR Error";
-		else if (code2 == 0x00)
+		else if (code[1] == 0x00)
 			return "Firmware Error";
 		else
 			return "Unknown error";
@@ -335,9 +345,9 @@ int mitsud90_query_media(struct mitsud90_ctx *ctx, struct mitsud90_media_resp *r
 	return CUPS_BACKEND_OK;
 }
 
-int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_error_resp *resp)
+int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_status_resp *resp)
 {
-	uint8_t cmdbuf[8];
+	uint8_t cmdbuf[11];
 	int ret, num;
 
 	cmdbuf[0] = 0x1b;
@@ -348,6 +358,10 @@ int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_error_resp *
 	cmdbuf[5] = 0;
 	cmdbuf[6] = 0x01;  /* Number of commands */
 	cmdbuf[7] = 0x16;  /* Query status commmand */
+	cmdbuf[8] = 0x17;  /* Unknown commmand */
+	cmdbuf[9] = 0x1f;  /* Unknown commmand */
+	cmdbuf[10] = 0x28; /* Unknown command */
+
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, sizeof(cmdbuf))))
@@ -525,7 +539,7 @@ static int mitsud90_read_parse(void *vctx, int data_fd) {
 static int mitsud90_main_loop(void *vctx, int copies) {
 	struct mitsud90_ctx *ctx = vctx;
 	struct mitsud90_job_hdr *hdr;
-	struct mitsud90_error_resp resp;
+	struct mitsud90_status_resp resp;
 
 	int sent;
 	int ret;
@@ -544,12 +558,12 @@ top:
 	do {
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
-		if (resp.code1 == 0x00) {
-			if (resp.code2 & 0x40) {
+		if (resp.error.code[0] == 0x00) {
+			if (resp.error.code[1] & 0x40) {
 				INFO("Printer warming up\n");
 				sleep(1);
 				continue;
-			} else if (resp.code2 & 0x80) {
+			} else if (resp.error.code[1] & 0x80) {
 				INFO("Printer cooling down\n");
 				sleep(1);
 				continue;
@@ -557,7 +571,7 @@ top:
 			break; // XXX figure out idle vs non-idle!
 		} else {
 			ERROR("Printer reported error condition: %s (%02x %02x)\n",
-			      mitsud90_error_codes(resp.code1, resp.code2), resp.code1, resp.code2);
+			      mitsud90_error_codes(resp.error.code), resp.error.code[0], resp.error.code[1]);
 			return CUPS_BACKEND_STOP;
 		}
 	} while(1);
@@ -624,11 +638,11 @@ top:
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
 
-		if (resp.code1 == 0x00 && resp.code2 == 0x00) {
+		if (resp.error.code[0] == 0x00 && resp.error.code[1] == 0x00) {
 			break; // XXX figure out idle vs non-idle!
 		} else {
 			ERROR("Printer reported error condition: %s (%02x %02x)\n",
-			      mitsud90_error_codes(resp.code1, resp.code2), resp.code1, resp.code2);
+			      mitsud90_error_codes(resp.error.code), resp.error.code[0], resp.error.code[1]);
 			return CUPS_BACKEND_STOP;
 		}
 
@@ -671,18 +685,23 @@ static int mitsud90_dump_media(struct mitsud90_ctx *ctx)
 
 static int mitsud90_dump_status(struct mitsud90_ctx *ctx)
 {
-	struct mitsud90_error_resp resp;
+	struct mitsud90_status_resp resp;
 
 	if (mitsud90_query_status(ctx, &resp))
 		return CUPS_BACKEND_FAILED;
 
-	INFO("Status: %s (%02x %02x) -- %02x %02x %02x %02x  %02x %02x %02x %02x  %02x\n",
-	     mitsud90_error_codes(resp.code1, resp.code2),
-	     resp.code1, resp.code2,
-	     resp.unk[0], resp.unk[1], resp.unk[2], resp.unk[3],
-	     resp.unk[4], resp.unk[5], resp.unk[6], resp.unk[7],
-	     resp.unk[8]);
-
+	INFO("Error Status: %s (%02x %02x) -- %02x %02x %02x %02x  %02x %02x %02x %02x  %02x\n",
+	     mitsud90_error_codes(resp.error.code),
+	     resp.error.code[0], resp.error.code[1],
+	     resp.error.unk[0], resp.error.unk[1], resp.error.unk[2], resp.error.unk[3],
+	     resp.error.unk[4], resp.error.unk[5], resp.error.unk[6], resp.error.unk[7],
+	     resp.error.unk[8]);
+	INFO("Status_B+C: Mecha(%02x %02x) %02x (%02x %02x) (%02x %02x)\n",
+	     resp.type_17_1f.mecha[0], resp.type_17_1f.mecha[1],
+	     resp.type_17_1f.unk1,
+	     resp.type_17_1f.unk2[0], resp.type_17_1f.unk2[1],
+	     resp.type_17_1f.unk3[0], resp.type_17_1f.unk3[1]);
+	INFO("Status_D: (%02x %02x)\n", resp.type_28.unk[0], resp.type_28.unk[1]);
 	return CUPS_BACKEND_OK;
 }
 
