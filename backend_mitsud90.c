@@ -728,6 +728,48 @@ top:
 	return CUPS_BACKEND_OK;
 }
 
+static int mitsud90_query_job(struct mitsud90_ctx *ctx, uint16_t jobid,
+	struct mitsud90_job_resp *resp)
+{
+	struct mitsud90_job_query req;
+	int ret, num;
+
+	req.hdr[0] = 0x1b;
+	req.hdr[1] = 0x47;
+	req.hdr[2] = 0x44;
+	req.hdr[3] = 0x31;
+	req.jobid = cpu_to_be16(jobid);
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) &req, sizeof(req))))
+		return ret;
+	memset(resp, 0, sizeof(*resp));
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) resp, sizeof(*resp), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num != sizeof(*resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(*resp));
+		return 4;
+	}
+
+	return CUPS_BACKEND_OK;
+}
+
+static int mitsud90_get_jobstatus(struct mitsud90_ctx *ctx, uint16_t jobid)
+{
+	struct mitsud90_job_resp resp;
+
+	if (mitsud90_query_job(ctx, jobid, &resp))
+		return CUPS_BACKEND_FAILED;
+
+	INFO("Job Status:  %04x = %02x/%02x/%04x\n",
+	     jobid, resp.unk1, resp.unk2, be16_to_cpu(resp.unk3));
+
+	return CUPS_BACKEND_OK;
+}
+
 static int mitsud90_get_media(struct mitsud90_ctx *ctx)
 {
 	struct mitsud90_media_resp resp;
@@ -759,6 +801,7 @@ static int mitsud90_get_status(struct mitsud90_ctx *ctx)
 
 static void mitsud90_cmdline(void)
 {
+	DEBUG("\t\t[ -j jobid ]     # Query job status\n");
 	DEBUG("\t\t[ -m ]           # Query printer media\n");
 	DEBUG("\t\t[ -s ]           # Query printer status\n");
 }
@@ -771,9 +814,12 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ms")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "j:ms")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 'j':
+			j = mitsud90_get_jobstatus(ctx, atoi(optarg));
+			break;
 		case 'm':
 			j = mitsud90_get_media(ctx);
 			break;
@@ -814,7 +860,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.06",
+	.version = "0.07",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
