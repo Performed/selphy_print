@@ -57,11 +57,23 @@ struct mitsud90_media_resp {
 	uint8_t  unk_b[2];
 };
 
-struct mitsud90_status_resp {
+struct mitsud90_error_resp {
 	uint8_t  hdr[4];  /* e4 47 44 30 */
 	uint8_t  code1;    /* 00 is ok, nonzero is error */
 	uint8_t  code2;    /* sub-code. */
 	uint8_t  unk[9];
+};
+
+struct mitsud90_job_query {
+	uint8_t  hdr[4];  /* 1b 47 44 31 */
+	uint16_t jobid;   /* BE */
+};
+
+struct mitsud90_job_resp {
+	uint8_t  hdr[4];  /* e4 47 44 31 */
+	uint8_t  unk1;
+	uint8_t  unk2;
+	uint16_t unk3;
 };
 
 struct mitsud90_job_hdr {
@@ -76,11 +88,11 @@ struct mitsud90_job_hdr {
 		struct {
 			uint16_t pos;
 			uint8_t flag;
-		} cuts __attribute__((packed));
+		} cuts[4] __attribute__((packed));
 #endif
-		uint8_t cutzero[6];
+		uint8_t cutzero[12];
 	} __attribute__((packed));
-	uint8_t  zero[26];
+	uint8_t  zero[20];
 
 	uint8_t  overcoat;
 	uint8_t  quality;
@@ -323,7 +335,7 @@ int mitsud90_query_media(struct mitsud90_ctx *ctx, struct mitsud90_media_resp *r
 	return CUPS_BACKEND_OK;
 }
 
-int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_status_resp *resp)
+int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_error_resp *resp)
 {
 	uint8_t cmdbuf[8];
 	int ret, num;
@@ -513,7 +525,7 @@ static int mitsud90_read_parse(void *vctx, int data_fd) {
 static int mitsud90_main_loop(void *vctx, int copies) {
 	struct mitsud90_ctx *ctx = vctx;
 	struct mitsud90_job_hdr *hdr;
-	struct mitsud90_status_resp resp;
+	struct mitsud90_error_resp resp;
 
 	int sent;
 	int ret;
@@ -659,7 +671,7 @@ static int mitsud90_dump_media(struct mitsud90_ctx *ctx)
 
 static int mitsud90_dump_status(struct mitsud90_ctx *ctx)
 {
-	struct mitsud90_status_resp resp;
+	struct mitsud90_error_resp resp;
 
 	if (mitsud90_query_status(ctx, &resp))
 		return CUPS_BACKEND_FAILED;
@@ -796,7 +808,7 @@ struct dyesub_backend mitsud90_backend = {
 
 Comms Protocol for D90:
 
- [[ STATUS QUERIES ]]
+ [[ ERROR STATUS ]]
 
 -> 1b 47 44 30 00 00 01 16
 <- e4 47 44 30 00 00 00 00  00 00 00 00 00 00 00   [Normal/OK]
@@ -805,22 +817,44 @@ Comms Protocol for D90:
                                                          28 (cut bin missing)
 <- e4 47 44 30 21 90 00 00  01 00 00 00 00 3f 37   No ribbon
 
+ [[ MEDIA STATUS ]]
+
 -> 1b 47 44 30 00 00 01 2a
 <- e4 47 44 30 ff 0f 50 00  01 ae 01 9b 01 00      [Normal/OK]
 <- e4 47 44 30 ff ff ff ff  ff ff ff ff ff ff      [Error]
 
-  [[ looks like 0x16 and 0x2a return different parameters
-     that can stack.  0x2a is MEDIA STATUS/TYPE/REMAIN ]]
+ [[ UNKNOWN STATUS QUERIES]]
 
--> 1b 47 44 30 00 00 02 16  2a
-<- e4 47 44 30 00 00 00 00  00 00 00 00 00 00 00 VV  [Normal/OK]
-   TT ?? 00 XX XX YY YY 01  00
+-> 1b 47 44 30 00 00 01 17
+-> 1b 47 44 30 00 00 01 1f  (this and above are 7 bytes combined, see below)
 
-   ??    == 0x50 or 0x00 (seen, no idea what it means)
+-> 1b 47 44 30 00 00 01 28
+<- e4 47 44 30 XX XX        Unknown!
+
+-> 1b 47 44 31 00 00 JJ JJ  (Jobid?)
+<- e4 47 44 31 XX YY ZZ ZZ  Not sure.
+
+ [[ COMBINED STATUS QUERIES ]]
+
+-> 1b 47 44 30 00 00 04 16  17 1f 2a
+<- e4 47 44 30
+
+   MM NN 00 00 ZZ 00 00 00  00 QQ QQ   [id 16, total 11]
+   SS SS HH II II JJ JJ                [id 17 & 1f, total 7 between them]
+   VV TT WW 00 XX XX YY YY  01 00      [id 2a, total 10]
+
+   WW    == 0x50 or 0x00 (seen, no idea what it means)
    VV    == Media vendor (0xff etc)
    TT    == Media type, 0x02/0x0f etc (see mitsu70x_media_types!)
-   XX XX == Media total, BE (0x190 == 400)
-   YY YY == Media remain, BE (0x119 == 281)
+   XX XX == Media capacity, BE
+   YY YY == Media remain,   BE
+   QQ QQ == 00 00 normal, 3f 37 error
+   MM NN == MM major err (00 if no error) NN minor error.
+   ZZ    == 01 seen for _some_ errors.
+   SS SS == Mecha Status  (see mitsu70x_mechastatus. 00 == ready, 50 == printing, 80+10 == feedandcut, 80 == initializing?
+   HH    == ?? 0x40 and 0x80 are "good"?
+   II II == ??
+   JJ JJ == ??
 
  [[ SANITY CHECK PRINT ARGUMENTS? ]]
 
