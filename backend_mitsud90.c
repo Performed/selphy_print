@@ -66,8 +66,6 @@ struct mitsud90_status_resp {
 	struct {
 		uint8_t  mecha[2]; /* Mechanical status */
 		uint8_t  unk1;
-		uint8_t  unk2[2];
-		uint8_t  unk3[2];
 	} __attribute__((packed)) type_17_1f; /* Combined x17 and x1f */
 	struct {
 		uint8_t unk[2];
@@ -696,11 +694,9 @@ static int mitsud90_dump_status(struct mitsud90_ctx *ctx)
 	     resp.error.unk[0], resp.error.unk[1], resp.error.unk[2], resp.error.unk[3],
 	     resp.error.unk[4], resp.error.unk[5], resp.error.unk[6], resp.error.unk[7],
 	     resp.error.unk[8]);
-	INFO("Status_B+C: Mecha(%02x %02x) %02x (%02x %02x) (%02x %02x)\n",
+	INFO("Status_B+C: Mecha(%02x %02x) %02x\n",
 	     resp.type_17_1f.mecha[0], resp.type_17_1f.mecha[1],
-	     resp.type_17_1f.unk1,
-	     resp.type_17_1f.unk2[0], resp.type_17_1f.unk2[1],
-	     resp.type_17_1f.unk3[0], resp.type_17_1f.unk3[1]);
+	     resp.type_17_1f.unk1);
 	INFO("Status_D: (%02x %02x)\n", resp.type_28.unk[0], resp.type_28.unk[1]);
 	return CUPS_BACKEND_OK;
 }
@@ -859,7 +855,7 @@ Comms Protocol for D90:
 <- e4 47 44 30
 
    MM NN 00 00 ZZ 00 00 00  00 QQ QQ   [id 16, total 11]
-   SS SS HH II II JJ JJ                [id 17 & 1f, total 7 between them]
+   SS SS HH                            [id 17 & 1f, total 3 between them]
    VV TT WW 00 XX XX YY YY  01 00      [id 2a, total 10]
 
    WW    == 0x50 or 0x00 (seen, no idea what it means)
