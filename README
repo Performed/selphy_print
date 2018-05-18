@@ -719,12 +719,13 @@
 
     The CP-98xx family is similar to the CP-D70 family in that it requires
     the input data to be gamma corrected (and likely transformed in other
-    ways) before it is sent to the printer.  Currently, Gutenprint performs
-    a relatively crude linear conversion that results in poor quality output.
+    ways) before it is sent to the printer.
 
     Unlike the D70 family, the data tables used are embedded into the driver
     instead of being bundled separately, further complicating the process
-    of figuring out how everything works. Progress is limited.
+    of figuring out how everything works.  Some progress has been made,
+    allowing for proper gamma correction/linearization to at least generate
+    usable prints, although the quality is not considered up to par.
 
  ***************************************************************************
   BACKEND=mitsup95d
