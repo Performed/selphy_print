@@ -419,7 +419,7 @@ static const char *mitsu70x_mechastatus(uint8_t *sts)
 	return "Unknown Mechanical Status";
 }
 
-static char *mitsu70x_jobstatuses(uint8_t *sts)
+static const char *mitsu70x_jobstatuses(uint8_t *sts)
 {
 	switch(sts[0]) {
 	case JOB_STATUS0_NONE:
@@ -506,7 +506,7 @@ static char *mitsu70x_jobstatuses(uint8_t *sts)
 	return "Unknown status0";
 }
 
-static char *mitsu70x_errorclass(uint8_t *err)
+static const char *mitsu70x_errorclass(uint8_t *err)
 {
 	switch(err[1]) {
 	case ERROR_STATUS1_PAPER:
@@ -537,7 +537,7 @@ static char *mitsu70x_errorclass(uint8_t *err)
 	return "Unknown error class";
 }
 
-static char *mitsu70x_errorrecovery(uint8_t *err)
+static const char *mitsu70x_errorrecovery(uint8_t *err)
 {
 	switch(err[1]) {
 	case ERROR_STATUS2_AUTO:
@@ -568,7 +568,7 @@ static char *mitsu70x_errorrecovery(uint8_t *err)
 	return "Unknown recovery";
 }
 
-static char *mitsu70x_errors(uint8_t *err)
+static const char *mitsu70x_errors(uint8_t *err)
 {
 	switch(err[0]) {
 	case ERROR_STATUS0_NOSTRIPBIN:
