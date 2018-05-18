@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.85"
+#define BACKEND_VERSION "0.86"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -829,7 +829,6 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 {
 	struct libusb_context *ctx = NULL;
 	struct libusb_device **list = NULL;
-	int i;
 
 	char *ptr = strrchr(argv0, '/');
 	if (ptr)
@@ -885,14 +884,8 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 	}
 
 	/* Probe for printers */
-	i = libusb_init(&ctx);
-	if (i) {
-		ERROR("Failed to initialize libusb (%d)\n", i);
-		exit(CUPS_BACKEND_RETRY_CURRENT);
-	}
 	find_and_enumerate(ctx, &list, backend, NULL, 1, 1, NULL, NULL, NULL, NULL);
 	libusb_free_device_list(list, 1);
-	libusb_exit(ctx);
 }
 
 int parse_cmdstream(struct dyesub_backend *backend, void *backend_ctx, int fd)
@@ -1087,16 +1080,16 @@ int main (int argc, char **argv)
 	/* If we don't have a valid backend, print help and terminate */
 	if (!backend) {
 		print_help(argv[0], NULL); // probes all devices
-		libusb_exit(ctx);
-		exit(1);
+		ret = CUPS_BACKEND_OK;
+		goto done;
 	}
 
 	/* If we're in standalone mode, print help only if no args */
 	if (!uri) {
 		if (argc < 2) {
 			print_help(argv[0], backend); // probes all devices
-			libusb_exit(ctx);
-			exit(1);
+			ret = CUPS_BACKEND_OK;
+			goto done;
 		}
 	}
 
@@ -1205,8 +1198,8 @@ bypass:
 		data_fd = open(fname, O_RDONLY);
 		if (data_fd < 0) {
 			perror("ERROR:Can't open input file");
-			libusb_exit(ctx);
-			exit(1);
+			ret = CUPS_BACKEND_FAILED;
+			goto done;
 		}
 	}
 
@@ -1214,15 +1207,15 @@ bypass:
 	i = fcntl(data_fd, F_GETFL, 0);
 	if (i < 0) {
 		perror("ERROR:Can't open input");
-		libusb_exit(ctx);
-		exit(1);
+		ret = CUPS_BACKEND_FAILED;
+		goto done;
 	}
 	i &= ~O_NONBLOCK;
 	i = fcntl(data_fd, F_SETFL, i);
 	if (i < 0) {
 		perror("ERROR:Can't open input");
-		libusb_exit(ctx);
-		exit(1);
+		ret = CUPS_BACKEND_FAILED;
+		goto done;
 	}
 
 	/* Ignore SIGPIPE */
