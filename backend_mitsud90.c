@@ -60,6 +60,13 @@ struct mitsud90_media_resp {
 	} __attribute__((packed)) media; /* D90_STATUS_TYPE_MEDIA */
 } __attribute__((packed));
 
+#define D90_STATUS_TYPE_x0c    0x0c
+#define D90_STATUS_TYPE_x0d    0x0d
+#define D90_STATUS_TYPE_x0e    0x0e
+#define D90_STATUS_TYPE_x13    0x13 // this set combined to 0x60, 24byte each.
+
+#define D90_STATUS_TYPE_x02    0x02 // resp length 0x1
+
 #define D90_STATUS_TYPE_ERROR  0x16
 #define D90_STATUS_TYPE_MECHA  0x17
 #define D90_STATUS_TYPE_TEMP   0x1f
@@ -796,6 +803,50 @@ static int mitsud90_get_status(struct mitsud90_ctx *ctx)
 		return CUPS_BACKEND_FAILED;
 
 	mitsud90_dump_status(&resp);
+
+	return CUPS_BACKEND_OK;
+}
+
+static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
+{
+	int i;
+	uint8_t cmdbuf[8];
+	uint8_t buf[256];
+
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x47;
+	cmdbuf[2] = 0x44;
+	cmdbuf[3] = 0x30;
+	cmdbuf[4] = 0;
+	cmdbuf[5] = 0;
+	cmdbuf[6] = 0x01;  /* Number of commands */
+
+	for (i = 0 ; i < 256 ; i++) {
+		int num, ret;
+
+		cmdbuf[7] = i;
+
+		DEBUG("QUERYING %02x\n", i);
+
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     cmdbuf, sizeof(cmdbuf))))
+			return ret;
+		memset(buf, 0, sizeof(buf));
+
+		ret = read_data(ctx->dev, ctx->endp_up,
+				buf, sizeof(buf), &num);
+
+		if (ret <= 0)
+			continue;
+
+		DEBUG("RESP LEN: %02x -> %d (%d)\n", i, num, num - 4);
+		DEBUG("<--");
+		for (ret = 0; ret < num ; ret ++) {
+			DEBUG2(" %x", buf[ret]);
+		}
+		DEBUG2("\n");
+	}
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -814,7 +865,7 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "j:ms")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "j:msZ")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'j':
@@ -825,6 +876,9 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 's':
 			j = mitsud90_get_status(ctx);
+			break;
+		case 'Z':
+			j = mitsud90_dumpall(ctx);
 			break;
 		default:
 			break;  /* Ignore completely */
