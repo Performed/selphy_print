@@ -91,7 +91,7 @@ dnpds40,0x1343,0x0003,dnp_ds40_4x6.raw,ADDMORE
 dnpds620,0x1452,0x8b01,dnp_ds40_4x6.raw,ADDMORE
 dnpds80,0x1343,0x0004,dnp_ds80_8x12.raw,ADDMORE
 dnpds80dx,0x1343,0x0007,dnp_ds80_8x12.raw,FIXME?
-dnpds820,0x1452,0x9001,dnp_ds8_8x10.raw,ADDMORE
+dnpds820,0x1452,0x9001,dnp_ds80_8x10.raw,ADDMORE
 dnprx1,0x1343,0x0005,dnp_ds40_4x6.raw,ADDMORE
 citizencw02,0x1343,0x0006,citizen_cw01_4x6.raw
 fujiask300,0x04cb,0x5006,mitsu_d70x_4x6-16bpp.raw,FIXME?
