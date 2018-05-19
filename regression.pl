@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 
-my @array;
+my $retval = 0;
 
 while (<STDIN>) {
     chomp;
@@ -19,11 +19,13 @@ while (<STDIN>) {
     my $rval = system(@args);
 
     if ($rval < 0) {
-	print "***** FAIL: failure to launch ($rval)\n";	
+	print "***** FAIL: failure to launch ($rval)\n";
+	$retval++;
     } elsif ($rval > 0) {
 	print "***** FAIL: failure to parse/execute ($rval) $row[0] $row[1] $row[2] $row[3] \n";
+	$retval++;
     } else {
 	print "***** PASS\n";
     }
 }
-    
+exit($retval);

@@ -35,7 +35,7 @@ RM ?= rm
 
 # Flags
 CFLAGS += -Wall -Wextra -g -Og -D_GNU_SOURCE -std=c99 # -Wconversion
-LDFLAGS += `pkg-config --libs libusb-1.0` 
+LDFLAGS += `pkg-config --libs libusb-1.0`
 CPPFLAGS += `pkg-config --cflags libusb-1.0`
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
 CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\"
@@ -78,6 +78,9 @@ $(BACKENDS): $(EXEC_NAME)
 
 cppcheck:
 	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" --include=lib70x/libMitsuD70ImageReProcess.h $(CPPFLAGS) $(SOURCES)
+
+test: dyesub_backend
+	./regression.pl < regression.csv 2>&1 |grep FAIL
 
 install:
 	$(MKDIR) -p $(CUPS_BACKEND_DIR)
