@@ -65,12 +65,18 @@ struct mitsud90_media_resp {
 #define D90_STATUS_TYPE_x0e    0x0e
 #define D90_STATUS_TYPE_x13    0x13 // this set combined to 0x60, 24byte each.
 
-#define D90_STATUS_TYPE_x02    0x02 // resp length 0x1
+#define D90_STATUS_TYPE_x02    0x02 // len 1 ?? no idea.
+
+#define D90_STATUS_TYPE_x03    0x03 // 1 ?? iserial?
+#define D90_STATUS_TYPE_x1e    0x1e // 1 ?? cut limit / resume flag?
+#define D90_STATUS_TYPE_x83    0x83 // 1 ?? sleep mode / time?
+#define D90_STATUS_TYPE_x85    0x85 // 2 ?? BE, wait time?
+
 
 #define D90_STATUS_TYPE_ERROR  0x16
 #define D90_STATUS_TYPE_MECHA  0x17
 #define D90_STATUS_TYPE_TEMP   0x1f
-#define D90_STATUS_TYPE_x28    0x28
+#define D90_STATUS_TYPE_x28    0x28 // 2, appears to be some kind of counter
 #define D90_STATUS_TYPE_MEDIA  0x2a
 
 struct mitsud90_status_resp {
@@ -143,7 +149,7 @@ struct mitsud90_job_hdr {
 	uint8_t  zero_b[5];
 	union {
 		struct {
-			uint16_t pano_on; /* 0x0001 (BE) when pano is on,  */
+			uint16_t pano_on;   /* 0x0001 when pano is on,  */
 			uint8_t  pano_tot;  /* 2 or 3 */
 			uint8_t  pano_pg;   /* 1, 2, 3 */
 			uint16_t pano_rows; /* always 0x097c (BE), ie 2428 ie 8" print */
@@ -958,14 +964,14 @@ struct dyesub_backend mitsud90_backend = {
 
     from [01 00 03 03] onwards, only shows in 8x20" PANORAMA prints.  Assume 2" overlap.
     II == 01 02 03 (which panel # in panorama!)
-    [02 58] == 600
-    [09 4c] == 2380  (??)
+    [02 58] == 600, aka 2" * 300dpi?
+    [09 4c] == 2380  (48 less than 8 size? (trim length on ends?)
     [09 7c] == 2428  (ie 8" print)
 
      (6x20 == 1852x6036)
      (6x14 == 1852x4232)
 
-     3*8" panels == 2428*3=7284.  -6036 = 1248.  /3 = 416 (0x1a0)
+     3*8" panels == 2428*3=7284.  -6036 = 1248.  /2 = 624 (0x270)
 
  [[DATA PLANE HEADER]]
 
@@ -1004,15 +1010,16 @@ Comms Protocol for D90:
 -> 1b 47 44 30 00 00 01 17
 <- e4 47 44 30 SS SS
 
- [[ UNKNOWN STATUS QUERIES]]
+ [[ TEMPERATURE QUERY ]]
 
 -> 1b 47 44 30 00 00 01 1f
-<- e4 47 44 30 HH           UNKNOWN!
+<- e4 47 44 30 HH
 
+ [[ UNKNOWN QUERY ]]
 -> 1b 47 44 30 00 00 01 28
 <- e4 47 44 30 XX XX        Unknown, seems to increment.
 
-  [[ JOB STATUS QUERY ?? ]]
+ [[ JOB STATUS QUERY ?? ]]
 
 -> 1b 47 44 31 00 00 JJ JJ  Jobid?
 <- e4 47 44 31 XX YY ZZ ZZ  No idea.. sure.
@@ -1039,6 +1046,34 @@ Comms Protocol for D90:
    HH    == Temperature state.  00 is OK, 0x40 is low, 0x80 is hot.
    II II == ??
    JJ JJ == ??
+
+ [[ UNKNOWN SETTING.  Might not be D90...]]
+
+-> 1b 53 44 31 85 00 XX XX     XX XX = (255 max) <-- delay time between prints?
+-> 1b 61 36 30 45 00 00 00
+   00 01 00 00 04 00 XX        XX = 0x80 or 0x00
+
+-> 1b 61 36 30 1b b7 00 00
+   00 02 00 00 05 02 f0 ff
+   ff ff ff fd ff fa XX XX     XX XX == param.  Unknown.  Sleep time?
+-> 1b 61 36 30 1b b7 00 00
+   00 01 00 00 00 11 ff ff
+   ff ff fe ff ff ee XX        XX = 0x80 or 0x00
+-> 1b 61 36 30 1b b7 00 00
+   00 01 00 00 05 06 ff ff
+   ff ff fe ff f9 fa XX        XX = 0x80 or 0x00
+-> 1b 61 36 30 1b b7 00 00
+   00 01 00 00 05 07 ff ff
+   ff ff fe ff f8 fa XX        XX = 0 or 1
+-> 1b 61 36 30 1b b7 00 00
+   00 01 00 00 05 04 ff ff
+   ff ff fe ff fb fa XX        XX = param.  Unknown. sleep or delay time?
+
+ [[ QUERY?? ]]
+
+-> 1b 76 4d XX                 XX = 0x00 or 0x01 <-- cutlimit or resume flag?
+<- e4 44 4f 4e XX XX           check XX == 0x45 for success?
+
 
  [[ SANITY CHECK PRINT ARGUMENTS? ]]
 
