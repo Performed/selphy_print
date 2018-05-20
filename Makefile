@@ -76,11 +76,14 @@ $(EXEC_NAME): $(SOURCES:.c=.o) $(DEPS)
 $(BACKENDS): $(EXEC_NAME)
 	$(LN) -sf $(EXEC_NAME) $@
 
-cppcheck:
-	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" --include=lib70x/libMitsuD70ImageReProcess.h $(CPPFLAGS) $(SOURCES)
+sloccount:
+	sloccount *.[ch] lib*/*.[ch] *.pl
 
 test: dyesub_backend
 	./regression.pl < regression.csv 2>&1 |grep FAIL
+
+cppcheck:
+	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" --include=lib70x/libMitsuD70ImageReProcess.h $(CPPFLAGS) $(SOURCES)
 
 install:
 	$(MKDIR) -p $(CUPS_BACKEND_DIR)
