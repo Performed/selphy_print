@@ -67,11 +67,10 @@ struct mitsud90_media_resp {
 
 #define D90_STATUS_TYPE_x02    0x02 // len 1 ?? no idea.
 
-#define D90_STATUS_TYPE_x03    0x03 // 1 ?? iserial?
-#define D90_STATUS_TYPE_x1e    0x1e // 1 ?? cut limit / resume flag?
-#define D90_STATUS_TYPE_x83    0x83 // 1 ?? sleep mode / time?
+#define D90_STATUS_TYPE_x1e    0x1e // 2 ?? BE, power state & time?  maybe?
+#define D90_STATUS_TYPE_x83    0x83 // 1 ?? iserial or other flags?
 #define D90_STATUS_TYPE_x85    0x85 // 2 ?? BE, wait time?
-
+                                    // combined total of 5.
 
 #define D90_STATUS_TYPE_ERROR  0x16
 #define D90_STATUS_TYPE_MECHA  0x17
@@ -1047,35 +1046,20 @@ Comms Protocol for D90:
    II II == ??
    JJ JJ == ??
 
- [[ UNKNOWN SETTING.  Might not be D90...]]
+ [[ WAKE UP PRINTER ]]
+-> 1b 45 57 55
+
+ [[ UNKNOWN SETTINGS! ]]
 
 -> 1b 53 44 31 85 00 XX XX     XX XX = (255 max) <-- delay time between prints?
+
 -> 1b 61 36 30 45 00 00 00
-   00 01 00 00 04 00 XX        XX = 0x80 or 0x00
-
--> 1b 61 36 30 1b b7 00 00
-   00 02 00 00 05 02 f0 ff
-   ff ff ff fd ff fa XX XX     XX XX == param.  Unknown.  Sleep time?
--> 1b 61 36 30 1b b7 00 00
-   00 01 00 00 00 11 ff ff
-   ff ff fe ff ff ee XX        XX = 0x80 or 0x00
--> 1b 61 36 30 1b b7 00 00
-   00 01 00 00 05 06 ff ff
-   ff ff fe ff f9 fa XX        XX = 0x80 or 0x00
--> 1b 61 36 30 1b b7 00 00
-   00 01 00 00 05 07 ff ff
-   ff ff fe ff f8 fa XX        XX = 0 or 1
--> 1b 61 36 30 1b b7 00 00
-   00 01 00 00 05 04 ff ff
-   ff ff fe ff fb fa XX        XX = param.  Unknown. sleep or delay time?
-
- [[ QUERY?? ]]
+   00 01 00 00 04 00 XX        XX = 0x80 or 0x00 <-- set iserial?
 
 -> 1b 76 4d XX                 XX = 0x00 or 0x01 <-- cutlimit or resume flag?
-<- e4 44 4f 4e XX XX           check XX == 0x45 for success?
+<- e4 44 4f 4e RR RR           check RR == 0x0045 for success?
 
-
- [[ SANITY CHECK PRINT ARGUMENTS? ]]
+ [[ SANITY CHECK PRINT ARGUMENTS / MEMTEST ]]
 
 -> 1b 47 44 33 00 33 07 3c  04 ca 64 00 00 01 00 00
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00

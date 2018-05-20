@@ -1318,7 +1318,8 @@ static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x56;
 	cmdbuf[2] = 0x32;
-	cmdbuf[3] = 0x30;
+	cmdbuf[3] = 0x30; /* or x31 or x32, for SINGLE DECK query!
+			     Results will only have one deck. */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, 4)))
 		return ret;
@@ -1430,6 +1431,7 @@ static int mitsu70x_set_printermode(struct mitsu70x_ctx *ctx, uint8_t enabled)
 	return 0;
 }
 #endif
+
 static int mitsu70x_wakeup(struct mitsu70x_ctx *ctx, int wait)
 {
 	int ret;
