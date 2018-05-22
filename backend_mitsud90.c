@@ -48,6 +48,38 @@ const char *mitsu70x_media_types(uint8_t brand, uint8_t type);
 const char *mitsu70x_temperatures(uint8_t temp);
 
 /* Printer data structures */
+#define D90_STATUS_TYPE_MODEL  0x01 // 10, null-terminated ASCII. 'CPD90D'
+#define D90_STATUS_TYPE_x02    0x02 // 1, 0x5f ?
+#define D90_STATUS_TYPE_FW_0b  0x0b // 8, 34 31 34 42 31 31 a7 de (414D11)
+#define D90_STATUS_TYPE_FW_MA  0x0c // 8, 34 31 35 41 38 31 86 bf (415A81)  // MAIN FW
+#define D90_STATUS_TYPE_FW_F   0x0d // 8, 34 31 36 41 35 31 dc 8a (416A51)  // FPGA FW
+#define D90_STATUS_TYPE_FW_T   0x0e // 8, 34 31 37 45 31 31 e7 e6 (417E11)  // TABLE FW
+#define D90_STATUS_TYPE_FW_0f  0x0f // 8, 34 31 38 41 31 32 6c 64 (418A12)
+#define D90_STATUS_TYPE_FW_11  0x11 // 8, 34 32 31 51 31 31 74 f2 (421Q11)
+#define D90_STATUS_TYPE_FW_ME  0x13 // 8, 34 31 39 45 31 31 15 bf (419E11)  // MECHA FW
+
+#define D90_STATUS_TYPE_ERROR  0x16 // 11 (see below)
+#define D90_STATUS_TYPE_MECHA  0x17 // 2  (see below)
+#define D90_STATUS_TYPE_x1e    0x1e // 1, power state or time?  (x00)
+#define D90_STATUS_TYPE_TEMP   0x1f // 1  (see below)
+#define D90_STATUS_TYPE_x22    0x22 // 2,  all 0
+#define D90_STATUS_TYPE_x28    0x28 // 2,  all 0, seen some sort of counter?
+#define D90_STATUS_TYPE_x29    0x29 // 8,  e0 07 00 00 21 e6 b3 22
+#define D90_STATUS_TYPE_MEDIA  0x2a // 10 (see below)
+#define D90_STATUS_TYPE_x2b    0x2b // 2,  all 0
+#define D90_STATUS_TYPE_x2c    0x2c // 2,  00 56
+#define D90_STATUS_TYPE_x65    0x65 // 50, ac 80 00 01 bb b8 fe 48 05 13 5d 9c  00 33 00 00 00 00 00 00 00 00 00 00 00 00 02 39  00 00 00 00 03 13 00 02 10 40 00 00 00 00 00 00  05 80 00 3a 00 00
+#define D90_STATUS_TYPE_x82    0x82 // 1,  80
+#define D90_STATUS_TYPE_x83    0x83 // 1,  00 (iserial or other flags?)
+
+//#define D90_STATUS_TYPE_x85    0x85 // 2, 00 ?? BE, wait time?
+                                    // combined total of 5.
+
+struct mituud90_fw_resp_single {
+	uint8_t  version[6];
+	uint16_t csum;
+};
+
 struct mitsud90_media_resp {
 	uint8_t  hdr[4];  /* e4 47 44 30 */
 	struct {
@@ -60,39 +92,15 @@ struct mitsud90_media_resp {
 	} __attribute__((packed)) media; /* D90_STATUS_TYPE_MEDIA */
 } __attribute__((packed));
 
-#define D90_STATUS_TYPE_x0c    0x0c
-#define D90_STATUS_TYPE_x0d    0x0d
-#define D90_STATUS_TYPE_x0e    0x0e
-#define D90_STATUS_TYPE_x13    0x13 // this set combined to 0x60, 24byte each.
-
-#define D90_STATUS_TYPE_x02    0x02 // len 1 ?? no idea.
-
-#define D90_STATUS_TYPE_x1e    0x1e // 2 ?? BE, power state & time?  maybe?
-#define D90_STATUS_TYPE_x83    0x83 // 1 ?? iserial or other flags?
-#define D90_STATUS_TYPE_x85    0x85 // 2 ?? BE, wait time?
-                                    // combined total of 5.
-
-#define D90_STATUS_TYPE_ERROR  0x16
-#define D90_STATUS_TYPE_MECHA  0x17
-#define D90_STATUS_TYPE_TEMP   0x1f
-#define D90_STATUS_TYPE_x28    0x28 // 2, appears to be some kind of counter
-#define D90_STATUS_TYPE_MEDIA  0x2a
-
 struct mitsud90_status_resp {
 	uint8_t  hdr[4];  /* e4 47 44 30 */
-	struct {
-		uint8_t  code[2]; /* 00 is ok, nonzero is error */
-		uint8_t  unk[9];
-	} __attribute__((packed)) error; /* D90_STATUS_TYPE_ERROR */
-	struct {
-		uint8_t  mecha[2]; /* Mechanical status, D90_MECHA_STATUS_* */
-	} __attribute__((packed)) mecha; /* D90_STATUS_TYPE_MECHA */
-	struct {
-		uint8_t  temp;
-	} __attribute__((packed)) temp; /* D90_STATUS_TYPE_TEMP */
-	struct {
-		uint8_t unk[2];
-	} type_28; /* D90_STATUS_TYPE_x28 */
+	/* D90_STATUS_TYPE_ERROR */
+	uint8_t  code[2]; /* 00 is ok, nonzero is error */
+	uint8_t  unk[9];
+	/* D90_STATUS_TYPE_MECHA */
+	uint8_t  mecha[2];
+	/* D90_STATUS_TYPE_TEMP */
+	uint8_t  temp;
 } __attribute__((packed));
 
 #define D90_MECHA_STATUS_IDLE         0x00
@@ -111,6 +119,10 @@ struct mitsud90_status_resp {
 #define D90_ERROR_STATUS_OK         0x00
 #define D90_ERROR_STATUS_OK_WARMING 0x40
 #define D90_ERROR_STATUS_OK_COOLING 0x80
+#define D90_ERROR_STATUS_RIBBON     0x21
+#define D90_ERROR_STATUS_PAPER      0x22
+#define D90_ERROR_STATUS_PAP_RIB    0x23
+#define D90_ERROR_STATUS_OPEN       0x29
 
 struct mitsud90_job_query {
 	uint8_t  hdr[4];  /* 1b 47 44 31 */
@@ -217,7 +229,7 @@ const char *mitsud90_error_codes(const uint8_t *code)
 			return "Cooling Down";
 		else
 			return "Idle";
-	case 0x21:
+	case D90_ERROR_STATUS_RIBBON:
 		switch (code[1]) {
 		case 0x00:
 			return "Ribbon exhausted";
@@ -232,7 +244,7 @@ const char *mitsud90_error_codes(const uint8_t *code)
 		default:
 			return "Unknown Ribbon Error";
 		}
-	case 0x22:
+	case D90_ERROR_STATUS_PAPER:
 		switch (code[1]) {
 		case 0x00:
 			return "No paper";
@@ -241,7 +253,7 @@ const char *mitsud90_error_codes(const uint8_t *code)
 		default:
 			return "Unknown Paper Error";
 		}
-	case 0x23:
+	case D90_ERROR_STATUS_PAP_RIB:
 		switch (code[1]) {
 		case 0x00:
 			return "Ribbon/Paper mismatch";
@@ -254,7 +266,7 @@ const char *mitsud90_error_codes(const uint8_t *code)
 		return "Illegal Ribbon";
 	case 0x28:
 		return "Cut Bin Missing";
-	case 0x29:
+	case D90_ERROR_STATUS_OPEN:
 		switch (code[1]) {
 		case 0x00:
 			return "Printer Open during Stop";
@@ -352,17 +364,16 @@ const char *mitsud90_error_codes(const uint8_t *code)
 static void mitsud90_dump_status(struct mitsud90_status_resp *resp)
 {
 	INFO("Error Status: %s (%02x %02x) -- %02x %02x %02x %02x  %02x %02x %02x %02x  %02x\n",
-	     mitsud90_error_codes(resp->error.code),
-	     resp->error.code[0], resp->error.code[1],
-	     resp->error.unk[0], resp->error.unk[1], resp->error.unk[2], resp->error.unk[3],
-	     resp->error.unk[4], resp->error.unk[5], resp->error.unk[6], resp->error.unk[7],
-	     resp->error.unk[8]);
+	     mitsud90_error_codes(resp->code),
+	     resp->code[0], resp->code[1],
+	     resp->unk[0], resp->unk[1], resp->unk[2], resp->unk[3],
+	     resp->unk[4], resp->unk[5], resp->unk[6], resp->unk[7],
+	     resp->unk[8]);
 	INFO("Printer Status: %s (%02x %02x)\n",
-	     mitsud90_mecha_statuses(resp->mecha.mecha),
-	     resp->mecha.mecha[0], resp->mecha.mecha[1]);
-	INFO("Temperature Status: %sx\n",
-	     mitsu70x_temperatures(resp->temp.temp));
-	INFO("Status_x28: (%02x %02x)\n", resp->type_28.unk[0], resp->type_28.unk[1]);
+	     mitsud90_mecha_statuses(resp->mecha),
+	     resp->mecha[0], resp->mecha[1]);
+	INFO("Temperature Status: %s\n",
+	     mitsu70x_temperatures(resp->temp));
 }
 
 /* Private data structure */
@@ -416,7 +427,7 @@ int mitsud90_query_media(struct mitsud90_ctx *ctx, struct mitsud90_media_resp *r
 
 int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_status_resp *resp)
 {
-	uint8_t cmdbuf[11];
+	uint8_t cmdbuf[10];
 	int ret, num;
 
 	cmdbuf[0] = 0x1b;
@@ -425,11 +436,10 @@ int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_status_resp 
 	cmdbuf[3] = 0x30;
 	cmdbuf[4] = 0;
 	cmdbuf[5] = 0;
-	cmdbuf[6] = 0x04;  /* Number of commands */
+	cmdbuf[6] = 0x03;  /* Number of commands */
 	cmdbuf[7] = D90_STATUS_TYPE_ERROR;
 	cmdbuf[8] = D90_STATUS_TYPE_MECHA;
 	cmdbuf[9] = D90_STATUS_TYPE_TEMP;
-	cmdbuf[10] = D90_STATUS_TYPE_x28;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, sizeof(cmdbuf))))
@@ -627,25 +637,25 @@ top:
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
 		mitsud90_dump_status(&resp);  // XXX crude, temporary.
-		if (resp.error.code[0] == D90_ERROR_STATUS_OK) {
-			if (resp.error.code[1] & D90_ERROR_STATUS_OK_WARMING ||
-			    resp.temp.temp & D90_ERROR_STATUS_OK_WARMING ) {
+		if (resp.code[0] == D90_ERROR_STATUS_OK) {
+			if (resp.code[1] & D90_ERROR_STATUS_OK_WARMING ||
+			    resp.temp & D90_ERROR_STATUS_OK_WARMING ) {
 				INFO("Printer warming up\n");
 				sleep(1);
 				continue;
-			} else if (resp.error.code[1] & D90_ERROR_STATUS_OK_COOLING ||
-				resp.temp.temp & D90_ERROR_STATUS_OK_COOLING) {
+			} else if (resp.code[1] & D90_ERROR_STATUS_OK_COOLING ||
+				resp.temp & D90_ERROR_STATUS_OK_COOLING) {
 				INFO("Printer cooling down\n");
 				sleep(1);
 				continue;
-			} else if (resp.mecha.mecha == D90_MECHA_STATUS_IDLE) {
+			} else if (resp.mecha == D90_MECHA_STATUS_IDLE) {
 				break;
 				// XXX what about checking to see if we
 				// have available buffers to spool a job?
 			}
 		} else {
 			ERROR("Printer reported error condition: %s (%02x %02x)\n",
-			      mitsud90_error_codes(resp.error.code), resp.error.code[0], resp.error.code[1]);
+			      mitsud90_error_codes(resp.code), resp.code[0], resp.code[1]);
 			return CUPS_BACKEND_STOP;
 		}
 	} while(1);
@@ -713,11 +723,11 @@ top:
 			return CUPS_BACKEND_FAILED;
 		mitsud90_dump_status(&resp);  // XXX crude, temporary.
 		/* Terminate when printing complete */
-		if (resp.mecha.mecha[0] == D90_MECHA_STATUS_IDLE) {
+		if (resp.mecha[0] == D90_MECHA_STATUS_IDLE) {
 			break;
-		} else {
+		} else if (resp.code[0] != D90_ERROR_STATUS_OK) {
 			ERROR("Printer reported error condition: %s (%02x %02x)\n",
-			      mitsud90_error_codes(resp.error.code), resp.error.code[0], resp.error.code[1]);
+			      mitsud90_error_codes(resp.code), resp.code[0], resp.code[1]);
 			return CUPS_BACKEND_STOP;
 		}
 
