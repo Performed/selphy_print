@@ -68,7 +68,7 @@ const char *mitsu70x_temperatures(uint8_t temp);
 #define D90_STATUS_TYPE_MEDIA  0x2a // 10 (see below)
 #define D90_STATUS_TYPE_x2b    0x2b // 2,  all 0
 #define D90_STATUS_TYPE_x2c    0x2c // 2,  00 56
-#define D90_STATUS_TYPE_x65    0x65 // 50, ac 80 00 01 bb b8 fe 48 05 13 5d 9c  00 33 00 00 00 00 00 00 00 00 00 00 00 00 02 39  00 00 00 00 03 13 00 02 10 40 00 00 00 00 00 00  05 80 00 3a 00 00
+#define D90_STATUS_TYPE_x65    0x65 // 50, ac 80 00 01 bb b8 fe 48 05 13 5d 9c 00 33 00 00  00 00 00 00 00 00 00 00 00 00 02 39 00 00 00 00  03 13 00 02 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
 #define D90_STATUS_TYPE_x82    0x82 // 1,  80
 #define D90_STATUS_TYPE_x83    0x83 // 1,  00 (iserial or other flags?)
 
@@ -648,7 +648,7 @@ top:
 				INFO("Printer cooling down\n");
 				sleep(1);
 				continue;
-			} else if (resp.mecha == D90_MECHA_STATUS_IDLE) {
+			} else if (resp.mecha[0] == D90_MECHA_STATUS_IDLE) {
 				break;
 				// XXX what about checking to see if we
 				// have available buffers to spool a job?
@@ -929,7 +929,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.07",
+	.version = "0.08",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
