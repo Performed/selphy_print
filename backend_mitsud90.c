@@ -990,8 +990,6 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 
 		cmdbuf[7] = i;
 
-		DEBUG("QUERYING %02x\n", i);
-
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     cmdbuf, sizeof(cmdbuf))))
 			return ret;
@@ -1003,12 +1001,14 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 		if (ret <= 0)
 			continue;
 
-		DEBUG("RESP LEN: %02x -> %d (%d)\n", i, num, num - 4);
-		DEBUG("<--");
-		for (ret = 0; ret < num ; ret ++) {
-			DEBUG2(" %x", buf[ret]);
+		if (num > 4) {
+			DEBUG("TYPE %02x LEN: %d (%d)\n", i, num, num - 4);
+			DEBUG("<--");
+			for (ret = 0; ret < num ; ret ++) {
+				DEBUG2(" %x", buf[ret]);
+			}
+			DEBUG2("\n");
 		}
-		DEBUG2("\n");
 	}
 
 	return CUPS_BACKEND_OK;
