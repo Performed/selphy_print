@@ -108,13 +108,17 @@ struct mitsud90_status_resp {
 #define D90_MECHA_STATUS_INIT         0x80
 #define D90_MECHA_STATUS_INIT_FEEDCUT 0x10
 
-#define D90_MECHA_STATUS_PRINTING_x22 0x22
-#define D90_MECHA_STATUS_PRINTING_x23 0x23
-#define D90_MECHA_STATUS_PRINTING_x24 0x24
-#define D90_MECHA_STATUS_PRINTING_x26 0x26
-#define D90_MECHA_STATUS_PRINTING_x28 0x28
-#define D90_MECHA_STATUS_PRINTING_x2f 0x2f
-#define D90_MECHA_STATUS_PRINTING_x38 0x38
+#define D90_MECHA_STATUS_PRINT_FEEDING 0x10  // feeding ?
+#define D90_MECHA_STATUS_PRINT_PRE_Y   0x21  // pre Y ?
+#define D90_MECHA_STATUS_PRINT_Y       0x22  // Y ?
+#define D90_MECHA_STATUS_PRINT_PRE_M   0x23  // pre M ?
+#define D90_MECHA_STATUS_PRINT_M       0x24  // M ?
+#define D90_MECHA_STATUS_PRINT_PRE_C   0x25  // pre C ? guess!
+#define D90_MECHA_STATUS_PRINT_C       0x26  // C ?
+#define D90_MECHA_STATUS_PRINT_PRE_OC  0x27  // pre OC ? guess!
+#define D90_MECHA_STATUS_PRINT_OC      0x28  // O C?
+#define D90_MECHA_STATUS_PRINTING_x2f  0x2f  // ??
+#define D90_MECHA_STATUS_PRINTING_x38  0x38  // eject ?
 
 #define D90_ERROR_STATUS_OK         0x00
 #define D90_ERROR_STATUS_OK_WARMING 0x40
@@ -208,7 +212,27 @@ const char *mitsud90_mecha_statuses(const uint8_t *code)
 	case D90_MECHA_STATUS_IDLE:
 		return "Idle";
 	case D90_MECHA_STATUS_PRINTING:
-		return "Printing";
+		switch (code[1]) {
+		case D90_MECHA_STATUS_PRINT_FEEDING:
+			return "Feeding Media";
+		case D90_MECHA_STATUS_PRINT_PRE_Y:
+		case D90_MECHA_STATUS_PRINT_Y:
+			return "Printing Yellow";
+		case D90_MECHA_STATUS_PRINT_PRE_M:
+		case D90_MECHA_STATUS_PRINT_M:
+			return "Printing Magenta";
+		case D90_MECHA_STATUS_PRINT_PRE_C:
+		case D90_MECHA_STATUS_PRINT_C:
+			return "Printing Cyan";
+		case D90_MECHA_STATUS_PRINT_PRE_OC:
+		case D90_MECHA_STATUS_PRINT_OC:
+			return "Applying Overcoat";
+		case D90_MECHA_STATUS_PRINTING_x2f:
+		case D90_MECHA_STATUS_PRINTING_x38:
+			return "Ejecting Media?";
+		default:
+			return "Printing (Unknown)";
+		}
 	case D90_MECHA_STATUS_INIT:
 		if (code[1] == D90_MECHA_STATUS_INIT_FEEDCUT)
 			return "Feed & Cut paper";
@@ -618,6 +642,7 @@ static int mitsud90_main_loop(void *vctx, int copies) {
 	struct mitsud90_ctx *ctx = vctx;
 	struct mitsud90_job_hdr *hdr;
 	struct mitsud90_status_resp resp;
+	uint8_t last_status[2] = {0xff, 0xff};
 
 	int sent;
 	int ret;
@@ -636,27 +661,39 @@ top:
 	do {
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
-		mitsud90_dump_status(&resp);  // XXX crude, temporary.
-		if (resp.code[0] == D90_ERROR_STATUS_OK) {
-			if (resp.code[1] & D90_ERROR_STATUS_OK_WARMING ||
-			    resp.temp & D90_ERROR_STATUS_OK_WARMING ) {
-				INFO("Printer warming up\n");
-				sleep(1);
-				continue;
-			} else if (resp.code[1] & D90_ERROR_STATUS_OK_COOLING ||
-				resp.temp & D90_ERROR_STATUS_OK_COOLING) {
-				INFO("Printer cooling down\n");
-				sleep(1);
-				continue;
-			} else if (resp.mecha[0] == D90_MECHA_STATUS_IDLE) {
-				break;
-				// XXX what about checking to see if we
-				// have available buffers to spool a job?
-			}
-		} else {
+
+		if (resp.code[0] != D90_ERROR_STATUS_OK) {
 			ERROR("Printer reported error condition: %s (%02x %02x)\n",
 			      mitsud90_error_codes(resp.code), resp.code[0], resp.code[1]);
 			return CUPS_BACKEND_STOP;
+		}
+
+		if (resp.code[1] & D90_ERROR_STATUS_OK_WARMING ||
+		    resp.temp & D90_ERROR_STATUS_OK_WARMING ) {
+			INFO("Printer warming up\n");
+			sleep(1);
+			continue;
+		}
+		if (resp.code[1] & D90_ERROR_STATUS_OK_COOLING ||
+			   resp.temp & D90_ERROR_STATUS_OK_COOLING) {
+			INFO("Printer cooling down\n");
+			sleep(1);
+			continue;
+		}
+
+		if (resp.mecha[0] != last_status[0] ||
+		    resp.mecha[1] != last_status[1]) {
+			INFO("Printer status: %s\n",
+			     mitsud90_mecha_statuses(resp.mecha));
+			last_status[0] = resp.mecha[0];
+			last_status[1] = resp.mecha[1];
+		}
+
+		if (resp.mecha[0] == D90_MECHA_STATUS_IDLE) {
+			break;
+			// we don't have to wait until idle, just
+			// until we have free buffers.  Don't know how
+			// to check this though.. XXXX
 		}
 	} while(1);
 
@@ -721,14 +758,24 @@ top:
 
 		if (mitsud90_query_status(ctx, &resp))
 			return CUPS_BACKEND_FAILED;
-		mitsud90_dump_status(&resp);  // XXX crude, temporary.
-		/* Terminate when printing complete */
-		if (resp.mecha[0] == D90_MECHA_STATUS_IDLE) {
-			break;
-		} else if (resp.code[0] != D90_ERROR_STATUS_OK) {
+
+		if (resp.code[0] != D90_ERROR_STATUS_OK) {
 			ERROR("Printer reported error condition: %s (%02x %02x)\n",
 			      mitsud90_error_codes(resp.code), resp.code[0], resp.code[1]);
 			return CUPS_BACKEND_STOP;
+		}
+
+		if (resp.mecha[0] != last_status[0] ||
+		    resp.mecha[1] != last_status[1]) {
+			INFO("Printer status: %s\n",
+			     mitsud90_mecha_statuses(resp.mecha));
+			last_status[0] = resp.mecha[0];
+			last_status[1] = resp.mecha[1];
+		}
+
+		/* Terminate when printing complete */
+		if (resp.mecha[0] == D90_MECHA_STATUS_IDLE) {
+			break;
 		}
 
 		if (fast_return && copies <= 1) { /* Copies generated by backend? */
@@ -929,7 +976,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.08",
+	.version = "0.09",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
