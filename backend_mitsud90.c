@@ -71,11 +71,12 @@ const char *mitsu70x_temperatures(uint8_t temp);
 #define D90_STATUS_TYPE_x65    0x65 // 50, ac 80 00 01 bb b8 fe 48 05 13 5d 9c 00 33 00 00  00 00 00 00 00 00 00 00 00 00 02 39 00 00 00 00  03 13 00 02 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
 #define D90_STATUS_TYPE_x82    0x82 // 1,  80
 #define D90_STATUS_TYPE_x83    0x83 // 1,  00 (iserial or other flags?)
+#define D90_STATUS_TYPE_x84    0x84 // 1,  00 (iserial or other flags?)
 
 //#define D90_STATUS_TYPE_x85    0x85 // 2, 00 ?? BE, wait time?
                                     // combined total of 5.
 
-struct mituud90_fw_resp_single {
+struct mitsud90_fw_resp_single {
 	uint8_t  version[6];
 	uint16_t csum;
 };
@@ -101,6 +102,23 @@ struct mitsud90_status_resp {
 	uint8_t  mecha[2];
 	/* D90_STATUS_TYPE_TEMP */
 	uint8_t  temp;
+} __attribute__((packed));
+
+struct mitsud90_info_resp {
+	uint8_t  hdr[4];  /* e4 47 44 30 */
+	uint8_t  model[10];
+	uint8_t  x02;
+	struct mitsud90_fw_resp_single fw_vers[7];
+	uint8_t  x1e;
+	uint8_t  x22[2];
+	uint8_t  x28[2];
+	uint8_t  x29[8];
+	uint8_t  x2b[2];
+	uint8_t  x2c[2];
+	uint8_t  x65[50];
+	uint8_t  x82;
+	uint8_t  x83;
+	uint8_t  x84;
 } __attribute__((packed));
 
 #define D90_MECHA_STATUS_IDLE         0x00
@@ -417,7 +435,7 @@ struct mitsud90_ctx {
 	struct marker marker;
 };
 
-int mitsud90_query_media(struct mitsud90_ctx *ctx, struct mitsud90_media_resp *resp)
+static int mitsud90_query_media(struct mitsud90_ctx *ctx, struct mitsud90_media_resp *resp)
 {
 	uint8_t cmdbuf[8];
 	int ret, num;
@@ -449,7 +467,7 @@ int mitsud90_query_media(struct mitsud90_ctx *ctx, struct mitsud90_media_resp *r
 	return CUPS_BACKEND_OK;
 }
 
-int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_status_resp *resp)
+static int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_status_resp *resp)
 {
 	uint8_t cmdbuf[10];
 	int ret, num;
@@ -869,6 +887,90 @@ static int mitsud90_get_status(struct mitsud90_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
+int mitsud90_get_info(struct mitsud90_ctx *ctx)
+{
+	uint8_t cmdbuf[26];
+	int ret, num;
+	struct mitsud90_info_resp resp;
+
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x47;
+	cmdbuf[2] = 0x44;
+	cmdbuf[3] = 0x30;
+	cmdbuf[4] = 0;
+	cmdbuf[5] = 0;
+	cmdbuf[6] = 18;  /* Number of commands */
+
+	cmdbuf[7] = D90_STATUS_TYPE_MODEL;
+	cmdbuf[8] = 0x02;
+	cmdbuf[9] = 0x0b;
+	cmdbuf[10] = 0x0c;
+
+	cmdbuf[11] = 0x0d;
+	cmdbuf[12] = 0x0e;
+	cmdbuf[13] = 0x0f;
+	cmdbuf[14] = 0x11;
+
+	cmdbuf[15] = 0x13;
+	cmdbuf[16] = 0x1e;
+	cmdbuf[17] = 0x22;
+	cmdbuf[18] = 0x28;
+
+	cmdbuf[19] = 0x29;
+	cmdbuf[20] = 0x2b;
+	cmdbuf[21] = 0x2c;
+	cmdbuf[22] = 0x65;
+
+	cmdbuf[23] = 0x82;
+	cmdbuf[24] = 0x83;
+	cmdbuf[25] = 0x84;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, sizeof(cmdbuf))))
+		return ret;
+	memset(&resp, 0, sizeof(resp));
+
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) &resp, sizeof(resp), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num != sizeof(resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(resp));
+		return 4;
+	}
+
+	/* start dumping output */
+	memset(cmdbuf, 0, sizeof(cmdbuf));
+	memcpy(cmdbuf, resp.model, sizeof(resp.model));
+	INFO("Model: %s\n", (char*)cmdbuf);
+	for (num = 0; num < 7 ; num++) {
+		memset(cmdbuf, 0, sizeof(cmdbuf));
+		memcpy(cmdbuf, resp.fw_vers[num].version, sizeof(resp.fw_vers[num].version));
+		INFO("FW Component %02d: %s (%04x)\n",
+		     num, cmdbuf, be16_to_cpu(resp.fw_vers[num].csum));
+	}
+	INFO("TYPE_02: %02x\n", resp.x02);
+	INFO("TYPE_1e: %02x\n", resp.x1e);
+	INFO("TYPE_22: %02x %02x\n", resp.x22[0], resp.x22[1]);
+	INFO("TYPE_28: %02x %02x\n", resp.x28[0], resp.x28[1]);
+	INFO("TYPE_29: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	     resp.x29[0], resp.x29[1], resp.x29[2], resp.x29[3],
+	     resp.x29[4], resp.x29[5], resp.x29[6], resp.x29[7]);
+	INFO("TYPE_2b: %02x %02x\n", resp.x2b[0], resp.x2b[1]);
+	INFO("TYPE_2c: %02x %02x\n", resp.x2c[0], resp.x2c[1]);
+
+	INFO("TYPE_65:");
+	for (num = 0; num < 50 ; num++) {
+		DEBUG2(" %02x", resp.x65[num]);
+	}
+	DEBUG2("\n");
+	INFO("TYPE_1e: %82x\n", resp.x82);
+	INFO("TYPE_1e: %83x\n", resp.x83);
+
+	return CUPS_BACKEND_OK;
+}
+
 static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 {
 	int i;
@@ -914,6 +1016,7 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 
 static void mitsud90_cmdline(void)
 {
+	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -j jobid ]     # Query job status\n");
 	DEBUG("\t\t[ -m ]           # Query printer media\n");
 	DEBUG("\t\t[ -s ]           # Query printer status\n");
@@ -927,9 +1030,12 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "j:msZ")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ij:msZ")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 'i':
+			j = mitsud90_get_info(ctx);
+			break;
 		case 'j':
 			j = mitsud90_get_jobstatus(ctx, atoi(optarg));
 			break;

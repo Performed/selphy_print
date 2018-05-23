@@ -679,6 +679,7 @@
 
    Valid commands:
 
+     -i                 Query printer information
      -j jobid           Query job status
      -m                 Query printer media
      -s                 Query printer status
