@@ -69,9 +69,9 @@ const char *mitsu70x_temperatures(uint8_t temp);
 #define D90_STATUS_TYPE_x2b    0x2b // 2,  all 0
 #define D90_STATUS_TYPE_x2c    0x2c // 2,  00 56
 #define D90_STATUS_TYPE_x65    0x65 // 50, ac 80 00 01 bb b8 fe 48 05 13 5d 9c 00 33 00 00  00 00 00 00 00 00 00 00 00 00 02 39 00 00 00 00  03 13 00 02 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
-#define D90_STATUS_TYPE_x82    0x82 // 1,  80
-#define D90_STATUS_TYPE_x83    0x83 // 1,  00 (iserial or other flags?)
-#define D90_STATUS_TYPE_x84    0x84 // 1,  00 (iserial or other flags?)
+#define D90_STATUS_TYPE_x82    0x82 // 1,  80 (iserial disabled?)
+#define D90_STATUS_TYPE_x83    0x83 // 1,  00
+#define D90_STATUS_TYPE_x84    0x84 // 1,  00
 
 //#define D90_STATUS_TYPE_x85    0x85 // 2, 00 ?? BE, wait time?
                                     // combined total of 5.
@@ -1014,12 +1014,83 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
+static int mitsud90_set_iserial(struct mitsud90_ctx *ctx, uint8_t enabled)
+{
+	uint8_t cmdbuf[15];
+	int ret, num;
+
+	if (enabled)
+		enabled = 0;
+	else
+		enabled = 0x80;
+
+	/* Send Parameter.. */
+	memset(cmdbuf, 0, 4);
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x61;
+	cmdbuf[2] = 0x36;
+	cmdbuf[3] = 0x30;
+	cmdbuf[4] = 0x45;
+	cmdbuf[5] = 0x00;
+	cmdbuf[6] = 0x00;
+	cmdbuf[7] = 0x00;
+	cmdbuf[8] = 0x00;
+	cmdbuf[9] = 0x01;
+	cmdbuf[10] = 0x00;
+	cmdbuf[11] = 0x00;
+	cmdbuf[12] = 0x04;
+	cmdbuf[13] = 0x00;
+	cmdbuf[14] = enabled;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, sizeof(cmdbuf))))
+		return ret;
+
+	ret = read_data(ctx->dev, ctx->endp_up,
+			cmdbuf, sizeof(cmdbuf), &num);
+
+	// check response, 6 bytes, [4] == 0x45 for success.
+
+	return ret;
+}
+
+static int mitsud90_set_sleeptime(struct mitsud90_ctx *ctx, uint16_t time)
+{
+	uint8_t cmdbuf[8];
+	int ret;
+
+	/* 255 minutes max, according to RE work */
+	if (time > 255)
+		time = 255;
+
+	/* Send Parameter.. */
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x53;
+	cmdbuf[2] = 0x44;
+	cmdbuf[3] = 0x31;
+	cmdbuf[4] = 0x85;
+	cmdbuf[5] = 0x00;
+	cmdbuf[6] = (time >> 8) & 0xff;
+	cmdbuf[7] = time & 0xff;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		return ret;
+
+	// No response.
+
+	return 0;
+}
+
 static void mitsud90_cmdline(void)
 {
 	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -j jobid ]     # Query job status\n");
+	DEBUG("\t\t[ -k time ]      # Set sleep time in minutes\n");
 	DEBUG("\t\t[ -m ]           # Query printer media\n");
 	DEBUG("\t\t[ -s ]           # Query printer status\n");
+	DEBUG("\t\t[ -x 0|1 ]       # Enable/disable iSerial reporting\n");
+//	DEBUG("\t\t[ -Z ]           # Dump all parameters\n");
 }
 
 static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
@@ -1030,7 +1101,7 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ij:msZ")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ij:k:msx:Z")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'i':
@@ -1039,11 +1110,17 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 		case 'j':
 			j = mitsud90_get_jobstatus(ctx, atoi(optarg));
 			break;
+		case 'k':
+			j = mitsud90_set_sleeptime(ctx, atoi(optarg));
+			break;
 		case 'm':
 			j = mitsud90_get_media(ctx);
 			break;
 		case 's':
 			j = mitsud90_get_status(ctx);
+			break;
+		case 'x':
+			j = mitsud90_set_iserial(ctx, atoi(optarg));
 			break;
 		case 'Z':
 			j = mitsud90_dumpall(ctx);
@@ -1082,7 +1159,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.09",
+	.version = "0.10",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
@@ -1212,15 +1289,20 @@ Comms Protocol for D90:
  [[ WAKE UP PRINTER ]]
 -> 1b 45 57 55
 
+ [[ iSerial enable/disable ]]
+-> 1b 61 36 30 45 00 00 00
+   00 01 00 00 04 00 XX        XX = 0x80 disabled, or 0x00 enabled
+<- e4 44 4f 4e RR RR           check RR == 0x4500 for success?
+
+ [[ SET SLEEP TIME! ]]
+
+-> 1b 53 44 31 85 00 XX XX     XX XX = (255 max) <-- sleep time.
+
+
  [[ UNKNOWN SETTINGS! ]]
 
--> 1b 53 44 31 85 00 XX XX     XX XX = (255 max) <-- delay time between prints?
-
--> 1b 61 36 30 45 00 00 00
-   00 01 00 00 04 00 XX        XX = 0x80 or 0x00 <-- set iserial?
-
 -> 1b 76 4d XX                 XX = 0x00 or 0x01 <-- cutlimit or resume flag?
-<- e4 44 4f 4e RR RR           check RR == 0x0045 for success?
+<- e4 44 4f 4e RR RR           check RR == 0x4500 for success?
 
  [[ SANITY CHECK PRINT ARGUMENTS / MEMTEST ]]
 

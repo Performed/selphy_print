@@ -660,7 +660,7 @@
    Valid commands:
 
      -j			Query Job status
-     -k num		Specify standby delay (1-10 minutes, 0 disables)
+     -k num		Specify standby delay (1-60 minutes, 0 disables)
      -s                 Query printer status
      -w                 Wake up printer
      -W                 Wake up printer (and wait)
@@ -680,9 +680,14 @@
    Valid commands:
 
      -i                 Query printer information
-     -j jobid           Query job status
+     -j jobid           Query job status [1]
+     -k num		Specify standby delay (1-255 minutes, 0 disables)
      -m                 Query printer media
      -s                 Query printer status
+     -x num             Set USB iSerialNumber reporting (1 yes, 0 no) [2]
+
+    [1]  Job ID is the Internal Job ID (reported via job status query)
+    [2]  Printer will need to be power-cycled for this to take effect.
 
  ***************************************************************************
   BACKEND=mitsu9550
