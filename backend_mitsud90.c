@@ -675,6 +675,8 @@ static int mitsud90_main_loop(void *vctx, int copies) {
 top:
 	sent = 0;
 
+	// XXX Figure out if printer is asleep, and wake it up if necessary.
+
 	/* Query status, wait for idle or error out */
 	do {
 		if (mitsud90_query_status(ctx, &resp))
@@ -968,6 +970,9 @@ int mitsud90_get_info(struct mitsud90_ctx *ctx)
 	INFO("TYPE_1e: %82x\n", resp.x82);
 	INFO("TYPE_1e: %83x\n", resp.x83);
 
+	/* XXX Dump iSerial, sleep time settings */
+	// XXX what about resume, wait time, "cut limit" ?
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1016,31 +1021,37 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 
 static int mitsud90_set_iserial(struct mitsud90_ctx *ctx, uint8_t enabled)
 {
-	uint8_t cmdbuf[15];
+	uint8_t cmdbuf[23];
 	int ret, num;
 
-	if (enabled)
-		enabled = 0;
-	else
-		enabled = 0x80;
+	enabled = (enabled) ? 0: 0x80;
 
 	/* Send Parameter.. */
-	memset(cmdbuf, 0, 4);
 	cmdbuf[0] = 0x1b;
-	cmdbuf[1] = 0x61;
+	cmdbuf[1] = 0x31;
 	cmdbuf[2] = 0x36;
 	cmdbuf[3] = 0x30;
-	cmdbuf[4] = 0x45;
-	cmdbuf[5] = 0x00;
+	cmdbuf[4] = 0x41;
+	cmdbuf[5] = 0xbe;
 	cmdbuf[6] = 0x00;
 	cmdbuf[7] = 0x00;
+
 	cmdbuf[8] = 0x00;
 	cmdbuf[9] = 0x01;
 	cmdbuf[10] = 0x00;
 	cmdbuf[11] = 0x00;
-	cmdbuf[12] = 0x04;
-	cmdbuf[13] = 0x00;
-	cmdbuf[14] = enabled;
+	cmdbuf[12] = 0x00;
+	cmdbuf[13] = 0x11;
+	cmdbuf[14] = 0xff;
+	cmdbuf[15] = 0xff;
+
+	cmdbuf[16] = 0xff;
+	cmdbuf[17] = 0xfe;
+	cmdbuf[18] = 0xff;
+	cmdbuf[19] = 0xff;
+	cmdbuf[20] = 0xff;
+	cmdbuf[21] = 0xfe;
+	cmdbuf[22] = enabled;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, sizeof(cmdbuf))))
@@ -1049,14 +1060,14 @@ static int mitsud90_set_iserial(struct mitsud90_ctx *ctx, uint8_t enabled)
 	ret = read_data(ctx->dev, ctx->endp_up,
 			cmdbuf, sizeof(cmdbuf), &num);
 
-	// check response, 6 bytes, [4] == 0x45 for success.
+	/* No response */
 
 	return ret;
 }
 
 static int mitsud90_set_sleeptime(struct mitsud90_ctx *ctx, uint16_t time)
 {
-	uint8_t cmdbuf[8];
+	uint8_t cmdbuf[24];
 	int ret;
 
 	/* 255 minutes max, according to RE work */
@@ -1065,19 +1076,37 @@ static int mitsud90_set_sleeptime(struct mitsud90_ctx *ctx, uint16_t time)
 
 	/* Send Parameter.. */
 	cmdbuf[0] = 0x1b;
-	cmdbuf[1] = 0x53;
-	cmdbuf[2] = 0x44;
-	cmdbuf[3] = 0x31;
-	cmdbuf[4] = 0x85;
-	cmdbuf[5] = 0x00;
-	cmdbuf[6] = (time >> 8) & 0xff;
-	cmdbuf[7] = time & 0xff;
+	cmdbuf[1] = 0x31;
+	cmdbuf[2] = 0x36;
+	cmdbuf[3] = 0x30;
+	cmdbuf[4] = 0x41;
+	cmdbuf[5] = 0xbe;
+	cmdbuf[6] = 0x00;
+	cmdbuf[7] = 0x00;
+
+	cmdbuf[8] = 0x00;
+	cmdbuf[9] = 0x02;
+	cmdbuf[10] = 0x00;
+	cmdbuf[11] = 0x00;
+	cmdbuf[12] = 0x05;
+	cmdbuf[13] = 0x02;
+	cmdbuf[14] = 0xff;
+	cmdbuf[15] = 0xff;
+
+	cmdbuf[16] = 0xff;
+	cmdbuf[17] = 0xfd;
+	cmdbuf[18] = 0xff;
+	cmdbuf[19] = 0xff;
+	cmdbuf[20] = 0xfa;
+	cmdbuf[21] = 0xff;
+	cmdbuf[22] = (time >> 8) & 0xff;
+	cmdbuf[23] = time & 0xff;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, 4)))
 		return ret;
 
-	// No response.
+	/* No response */
 
 	return 0;
 }
@@ -1289,20 +1318,62 @@ Comms Protocol for D90:
  [[ WAKE UP PRINTER ]]
 -> 1b 45 57 55
 
- [[ iSerial enable/disable ]]
--> 1b 61 36 30 45 00 00 00
-   00 01 00 00 04 00 XX        XX = 0x80 disabled, or 0x00 enabled
-<- e4 44 4f 4e RR RR           check RR == 0x4500 for success?
+ [[ GET iSERIAL ]]
+
+-> 1b 61 36 36 41 be 00 00
+   00 01 00 00 00 11 ff ff
+   ff fe ff ff ff ee
+<- e4 61 36 36 41 be 00 00
+   00 01 00 00 00 11 ff ff
+   ff fe ff ff ff ee XX      <- XX is 0x80 or 0x00.  (0x80)  ISERIAL OFF
+
+ [[ GET CUT? ]]
+
+-> 1b 61 36 36 45 ba 00 00
+   00 01 00 00 05 07 ff ff
+   ff fe ff ff fa f8
+-> e4 61 36 36 45 ba 00 00
+   00 01 00 00 05 07 ff ff
+   ff fe ff ff fa f8 XX      <- XX is 0x80 or 0x00    (0x00)  CUT ON?
+
+ [[ GET WAIT TIME ]]
+
+-> 1b 61 36 36 45 00 00 00
+   00 01 00 00 05 05 ff ff
+   ff fe ff ff fa fb
+-> 1b 61 36 36 45 00 00 00
+   00 01 00 00 05 05 ff ff
+   ff fe ff ff fa fb XX      <- XX is time in seconds.
+
+ [[ GET RESUME? ]]
+
+-> 1b 61 36 36 45 ba 00 00
+   00 01 00 00 05 06 ff ff
+   ff fe ff ff fa f9
+-> e4 61 36 36 45 ba 00 00
+   00 01 00 00 05 06 ff ff
+   ff fe ff ff fa f9 XX      <- XX is 0x80 or 0x00    (0x80)  (OFF)
+
+ [[ GET SLEEP TIME! ]]
+
+-> 1b 61 36 36 45 ba 00 00
+   00 02 00 00 05 02 ff ff
+   ff fd ff ff fa fd
+<- e4 61 36 36 45 00 00 00
+   00 02 00 00 05 02 ff ff
+   ff fd ff ff fa fd XX 00     <- XX, sleep time in minutes.
 
  [[ SET SLEEP TIME! ]]
 
--> 1b 53 44 31 85 00 XX XX     XX XX = (255 max) <-- sleep time.
+-> 1b 61 36 30 45 ba 00 00
+   00 02 00 00 05 02 ff ff
+   ff fd ff ff fa fd XX 00     <- XX, sleep time in minutes.
 
+ [[ SET iSERIAL ]]
 
- [[ UNKNOWN SETTINGS! ]]
-
--> 1b 76 4d XX                 XX = 0x00 or 0x01 <-- cutlimit or resume flag?
-<- e4 44 4f 4e RR RR           check RR == 0x4500 for success?
+-> 1b 61 36 30 41 be 00 00
+   00 01 00 00 00 11 ff ff
+   ff fe ff ff ff ee XX        <- XX 0x80 OFF, 0x00 ON.
 
  [[ SANITY CHECK PRINT ARGUMENTS / MEMTEST ]]
 

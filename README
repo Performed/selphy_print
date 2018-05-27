@@ -677,6 +677,12 @@
 
     Mitsubishi CP-D90DW
 
+   Please note:  The CP-D90DW printer does not export a serial number
+   by default.  This means that only one of these can be plugged into
+   the same system.  If you wish to use more than one of these
+   simultaneously, you must enable the 'iSerial' mode by using the '-x'
+   command as described below.
+
    Valid commands:
 
      -i                 Query printer information
