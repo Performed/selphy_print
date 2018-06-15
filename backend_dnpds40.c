@@ -56,6 +56,21 @@
 #include "backend_common.h"
 
 /* Private data structure */
+struct dnpds40_printjob {
+	uint8_t *databuf;
+	int datalen;
+
+	int copies;
+	uint32_t dpi;
+	int matte;
+	int cutter;
+	uint32_t multicut;
+	int fullcut;
+	int printspeed;
+	int can_rewind;
+	int buf_needed;
+};
+
 struct dnpds40_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
@@ -63,36 +78,27 @@ struct dnpds40_ctx {
 
 	int type;
 
+	/* Version and whatnot */
 	char *serno;
 	char *version;
-
-	int buf_needed;
-
 	int ver_major;
 	int ver_minor;
 
+	/* State */
 	uint32_t media;
 	uint32_t duplex_media;
 	uint16_t media_count_new;
-	uint32_t multicut;
 
 	uint32_t last_multicut;
 	int last_matte;
 
-	int fullcut;
-	int matte;
-	int cutter;
-	int can_rewind;
-
-	int printspeed;
-
 	int mediaoffset;
-	int manual_copies;
 	int correct_count;
 	int needs_mlot;
 
 	struct marker marker;
 
+	/* Printer capabilities */
 	uint32_t native_width;
 	int supports_6x9;
 	int supports_2x6;
@@ -117,8 +123,6 @@ struct dnpds40_ctx {
 	int supports_lowspeed;
 	int supports_highdensity;
 	int supports_gamma;
-	uint8_t *databuf;
-	int datalen;
 };
 
 struct dnpds40_cmd {
@@ -213,10 +217,8 @@ struct cw01_spool_hdr {
 #define TYPE_A6   6
 /* Legacy CW-01 spool file support */
 
-static int cw01_read_parse(struct dnpds40_ctx *ctx, int data_fd,
+static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
 			   struct cw01_spool_hdr *hdr, int read_data);
-
-
 
 static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, uint32_t arg3_len)
 {
@@ -979,6 +981,15 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	return CUPS_BACKEND_OK;
 }
 
+static void dnpds40_cleanup_job(const void *vjob) {
+	const struct dnpds40_printjob *job = vjob;
+
+	if (job->databuf)
+		free(job->databuf);
+
+	free((void*)job);
+}
+
 static void dnpds40_teardown(void *vctx) {
 	struct dnpds40_ctx *ctx = vctx;
 
@@ -998,8 +1009,6 @@ static void dnpds40_teardown(void *vctx) {
 		}
 	}
 
-	if (ctx->databuf)
-		free(ctx->databuf);
 	if (ctx->serno)
 		free(ctx->serno);
 	if (ctx->version)
@@ -1009,20 +1018,24 @@ static void dnpds40_teardown(void *vctx) {
 
 #define MAX_PRINTJOB_LEN (((2560*7536+1024+54))*3+1024) /* Worst-case, YMC */
 
-static int dnpds40_read_parse(void *vctx, int data_fd) {
+static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct dnpds40_ctx *ctx = vctx;
 	int run = 1;
 	char buf[9] = { 0 };
 
-	uint32_t dpi;
+	struct dnpds40_printjob *job = NULL;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	if (ctx->databuf) {
-		free(ctx->databuf);
-		ctx->databuf = NULL;
+	job = malloc(sizeof(*job));
+	if (!job) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
+	memset(job, 0, sizeof(*job));
+	job->printspeed = -1;
+	job->copies = copies;
 
 	/* There's no way to figure out the total job length in advance, we
 	   have to parse the stream until we get to the image plane data,
@@ -1033,28 +1046,16 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 	   the end of the job.
 	*/
 
-	ctx->datalen = 0;
-	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
-	if (!ctx->databuf) {
+	job->databuf = malloc(MAX_PRINTJOB_LEN);
+	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
-	/* Clear everything out */
-	dpi = 0;
-	ctx->matte = 0;
-	ctx->cutter = 0;
-	ctx->manual_copies = 0;
-	ctx->multicut = 0;
-	ctx->fullcut = 0;
-	ctx->printspeed = -1;
-	ctx->can_rewind = 0;
-	ctx->buf_needed = 0;
-
 	while (run) {
 		int remain, i, j;
 		/* Read in command header */
-		i = read(data_fd, ctx->databuf + ctx->datalen,
+		i = read(data_fd, job->databuf + job->datalen,
 			 sizeof(struct dnpds40_cmd));
 		if (i < 0)
 			return i;
@@ -1063,20 +1064,20 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		if (i < (int) sizeof(struct dnpds40_cmd))
 			return CUPS_BACKEND_CANCEL;
 
-		if (ctx->databuf[ctx->datalen + 0] != 0x1b ||
-		    ctx->databuf[ctx->datalen + 1] != 0x50) {
+		if (job->databuf[job->datalen + 0] != 0x1b ||
+		    job->databuf[job->datalen + 1] != 0x50) {
 			struct cw01_spool_hdr hdr;
 			/* See if it's the "classic" CW01 header */
-			memcpy(&hdr, ctx->databuf + ctx->datalen, sizeof(hdr));
+			memcpy(&hdr, job->databuf + job->datalen, sizeof(hdr));
 			hdr.plane_len = le32_to_cpu(hdr.plane_len);
 
 			if (hdr.type > 0x06 ||
 			    hdr.res > 0x01 ||
 			    hdr.null1[0] || hdr.null1[1] || hdr.null1[2] || hdr.null1[3]) {
-				ERROR("Unrecognized header data format @%d!\n", ctx->datalen);
+				ERROR("Unrecognized header data format @%d!\n", job->datalen);
 			} else {
-				dpi = (hdr.res == DPI_600) ? 600 : 334;
-				i = cw01_read_parse(ctx, data_fd, &hdr, i);
+				job->dpi = (hdr.res == DPI_600) ? 600 : 334;
+				i = cw01_read_parse(job, data_fd, &hdr, i);
 				if (i == CUPS_BACKEND_OK)
 					goto parsed;
 				else
@@ -1087,63 +1088,63 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 		}
 
 		/* Parse out length of data chunk, if any */
-		memcpy(buf, ctx->databuf + ctx->datalen + 24, 8);
+		memcpy(buf, job->databuf + job->datalen + 24, 8);
 		j = atoi(buf);
 
 		/* Read in data chunk as quickly as possible */
 		remain = j;
 		while (remain > 0) {
-			i = read(data_fd, ctx->databuf + ctx->datalen + sizeof(struct dnpds40_cmd),
+			i = read(data_fd, job->databuf + job->datalen + sizeof(struct dnpds40_cmd),
 				 remain);
 			if (i < 0) {
-				ERROR("Data Read Error: %d (%d/%d @%d)\n", i, remain, j, ctx->datalen);
+				ERROR("Data Read Error: %d (%d/%d @%d)\n", i, remain, j, job->datalen);
 				return i;
 			}
 			if (i == 0)
 				return 1;
-			ctx->datalen += i;
+			job->datalen += i;
 			remain -= i;
 		}
-		ctx->datalen -= j; /* Back it off */
+		job->datalen -= j; /* Back it off */
 
 		/* Check for some offsets */
-		if(!memcmp("CNTRL QTY", ctx->databuf + ctx->datalen+2, 9)) {
+		if(!memcmp("CNTRL QTY", job->databuf + job->datalen+2, 9)) {
 			/* Ignore this.  We will insert our own later on */
 			continue;
 		}
-		if(!memcmp("CNTRL CUTTER", ctx->databuf + ctx->datalen+2, 12)) {
-			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
-			ctx->cutter = atoi(buf);
+		if(!memcmp("CNTRL CUTTER", job->databuf + job->datalen+2, 12)) {
+			memcpy(buf, job->databuf + job->datalen + 32, 8);
+			job->cutter = atoi(buf);
 			/* We'll insert it ourselves later */
 			continue;
 		}
-		if(!memcmp("CNTRL BUFFCNTRL", ctx->databuf + ctx->datalen+2, 15)) {
+		if(!memcmp("CNTRL BUFFCNTRL", job->databuf + job->datalen+2, 15)) {
 			/* Ignore this.  We will insert our own later on
 			   if the printer and job support it. */
 			continue;
 		}
-		if(!memcmp("CNTRL OVERCOAT", ctx->databuf + ctx->datalen+2, 14)) {
+		if(!memcmp("CNTRL OVERCOAT", job->databuf + job->datalen+2, 14)) {
 			if (ctx->supports_matte) {
-				memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
-				ctx->matte = atoi(buf);
+				memcpy(buf, job->databuf + job->datalen + 32, 8);
+				job->matte = atoi(buf);
 			} else {
 				WARNING("Printer FW does not support matte prints, using glossy mode\n");
 			}
 			/* We'll insert our own later, if appropriate */
 			continue;
 		}
-		if(!memcmp("IMAGE MULTICUT", ctx->databuf + ctx->datalen+2, 14)) {
-			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
-			ctx->multicut = atoi(buf);
+		if(!memcmp("IMAGE MULTICUT", job->databuf + job->datalen+2, 14)) {
+			memcpy(buf, job->databuf + job->datalen + 32, 8);
+			job->multicut = atoi(buf);
 			/* Backend automatically handles rewind support, so
 			   ignore application requests to use it. */
-			if (ctx->multicut > 400)
-				ctx->multicut -= 400;
+			if (job->multicut > 400)
+				job->multicut -= 400;
 
 			/* We'll insert this ourselves later. */
 			continue;
 		}
-		if(!memcmp("CNTRL FULL_CUTTER_SET", ctx->databuf + ctx->datalen+2, 21)) {
+		if(!memcmp("CNTRL FULL_CUTTER_SET", job->databuf + job->datalen+2, 21)) {
 			if (!ctx->supports_fullcut) {
 				WARNING("Printer FW does not support full cutter control!\n");
 				continue;
@@ -1158,30 +1159,30 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 				WARNING("Full cutter argument length incorrect, ignoring!\n");
 				continue;
 			} else if (!ctx->supports_adv_fullcut) {
-				if (ctx->databuf[ctx->datalen + 32 + 12] != '0' ||
-				    ctx->databuf[ctx->datalen + 32 + 13] != '0' ||
-				    ctx->databuf[ctx->datalen + 32 + 14] != '0') {
+				if (job->databuf[job->datalen + 32 + 12] != '0' ||
+				    job->databuf[job->datalen + 32 + 13] != '0' ||
+				    job->databuf[job->datalen + 32 + 14] != '0') {
 					WARNING("Full cutter scrap setting not supported on this firmware, ignoring!\n");
 					continue;
 				}
 			}
 			// XXX enforce cut counts/sizes?
 
-			ctx->fullcut = 1;
+			job->fullcut = 1;
 		}
-		if(!memcmp("IMAGE YPLANE", ctx->databuf + ctx->datalen + 2, 12)) {
+		if(!memcmp("IMAGE YPLANE", job->databuf + job->datalen + 2, 12)) {
 			uint32_t y_ppm; /* Pixels Per Meter */
 
 			/* Validate vertical resolution */
-			memcpy(&y_ppm, ctx->databuf + ctx->datalen + 32 + 42, sizeof(y_ppm));
+			memcpy(&y_ppm, job->databuf + job->datalen + 32 + 42, sizeof(y_ppm));
 			y_ppm = le32_to_cpu(y_ppm);
 
 			switch (y_ppm) {
 			case 11808:
-				dpi = 300;
+				job->dpi = 300;
 				break;
 			case 23615:
-				dpi = 600;
+				job->dpi = 600;
 				break;
 			default:
 				ERROR("Unrecognized printjob resolution (%u ppm)\n", y_ppm);
@@ -1189,103 +1190,103 @@ static int dnpds40_read_parse(void *vctx, int data_fd) {
 			}
 
 			/* Validate horizontal size */
-			memcpy(&y_ppm, ctx->databuf + ctx->datalen + 32 + 18, sizeof(y_ppm));
+			memcpy(&y_ppm, job->databuf + job->datalen + 32 + 18, sizeof(y_ppm));
 			y_ppm = le32_to_cpu(y_ppm);
 			if (y_ppm != ctx->native_width) {
 				ERROR("Incorrect horizontal resolution (%u), aborting!\n", y_ppm);
 				return CUPS_BACKEND_CANCEL;
 			}
 		}
-		if(!memcmp("CNTRL PRINTSPEED", ctx->databuf + ctx->datalen + 2, 16)) {
+		if(!memcmp("CNTRL PRINTSPEED", job->databuf + job->datalen + 2, 16)) {
 			if (!ctx->supports_printspeed) {
 				WARNING("Printer does not support PRINTSPEED\n");
 				continue;
 			}
-			memcpy(buf, ctx->databuf + ctx->datalen + 32, 8);
-			ctx->printspeed = atoi(buf) / 10;
+			memcpy(buf, job->databuf + job->datalen + 32, 8);
+			job->printspeed = atoi(buf) / 10;
 
 			/* We'll insert this ourselves later. */
 			continue;
 		}
 
 		/* This is the last block.. */
-	        if(!memcmp("CNTRL START", ctx->databuf + ctx->datalen + 2, 11))
+	        if(!memcmp("CNTRL START", job->databuf + job->datalen + 2, 11))
 			run = 0;
 
 		/* Add in the size of this chunk */
-		ctx->datalen += sizeof(struct dnpds40_cmd) + j;
+		job->datalen += sizeof(struct dnpds40_cmd) + j;
 	}
 parsed:
 	/* If we have no data.. don't bother */
-	if (!ctx->datalen)
+	if (!job->datalen)
 		return CUPS_BACKEND_CANCEL;
 
 	/* Sanity check matte mode */
-	if (ctx->matte == 21 && !ctx->supports_finematte) {
+	if (job->matte == 21 && !ctx->supports_finematte) {
 		WARNING("Printer FW does not support Fine Matte mode, downgrading to normal matte\n");
-		ctx->matte = 1;
-	} else if (ctx->matte == 22 && !ctx->supports_luster) {
+		job->matte = 1;
+	} else if (job->matte == 22 && !ctx->supports_luster) {
 		WARNING("Printer FW does not support Luster mode, downgrading to normal matte\n");
-		ctx->matte = 1;
-	} else if (ctx->matte > 1 && !ctx->supports_advmatte) {
+		job->matte = 1;
+	} else if (job->matte > 1 && !ctx->supports_advmatte) {
 		WARNING("Printer FW does not support advanced matte modes, downgrading to normal matte\n");
-		ctx->matte = 1;
+		job->matte = 1;
 	}
 
 	/* Pick a sane default value for printspeed if not specified */
-	if (ctx->printspeed == -1 || ctx->printspeed > 3)
+	if (job->printspeed == -1 || job->printspeed > 3)
 	{
-		if (dpi == 600)
-			ctx->printspeed = 1;
+		if (job->dpi == 600)
+			job->printspeed = 1;
 		else
-			ctx->printspeed = 0;
+			job->printspeed = 0;
 	}
 	/* And sanity-check whatever value is there */
-	if (ctx->printspeed == 0 && dpi == 600) {
-		ctx->printspeed = 1;
-	} else if (ctx->printspeed == 1 && dpi == 300) {
-		ctx->printspeed = 0;
+	if (job->printspeed == 0 && job->dpi == 600) {
+		job->printspeed = 1;
+	} else if (job->printspeed == 1 && job->dpi == 300) {
+		job->printspeed = 0;
 	}
 
 	/* Make sure MULTICUT is sane, most validation needs this */
-	if (!ctx->multicut && ctx->type != P_CITIZEN_CW01) {
+	if (!job->multicut && ctx->type != P_CITIZEN_CW01) {
 		WARNING("Missing or illegal MULTICUT command!\n");
-		if (dpi == 300)
-			ctx->buf_needed = 1;
+		if (job->dpi == 300)
+			job->buf_needed = 1;
 		else
-			ctx->buf_needed = 2;
+			job->buf_needed = 2;
 
 		goto skip_checks;
 	}
 
 	/* Only DS80D supports Cut Paper types */
-	if (ctx->multicut > 100 &&
+	if (job->multicut > 100 &&
 	    ctx->type != P_DNP_DS80D) {
 		ERROR("Only DS80D supports cut-paper sizes!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* Figure out the number of buffers we need. */
-	ctx->buf_needed = 1;
+	job->buf_needed = 1;
 
-	if (dpi == 600) {
+	if (job->dpi == 600) {
 		switch(ctx->type) {
 		case P_DNP_DS620:
-			if (ctx->multicut == MULTICUT_6x9 ||
-			    ctx->multicut == MULTICUT_6x4_5X2)
-				ctx->buf_needed = 2;
+			if (job->multicut == MULTICUT_6x9 ||
+			    job->multicut == MULTICUT_6x4_5X2)
+				job->buf_needed = 2;
 			break;
 		case P_DNP_DS80:  /* DS80/CX-W */
-			if (ctx->matte && (ctx->multicut == MULTICUT_8xA4LEN ||
-					   ctx->multicut == MULTICUT_8x4X3 ||
-					   ctx->multicut == MULTICUT_8x8_8x4 ||
-					   ctx->multicut == MULTICUT_8x6X2 ||
-					   ctx->multicut == MULTICUT_8x12))
-				ctx->buf_needed = 2;
+			if (job->matte && (job->multicut == MULTICUT_8xA4LEN ||
+					   job->multicut == MULTICUT_8x4X3 ||
+					   job->multicut == MULTICUT_8x8_8x4 ||
+					   job->multicut == MULTICUT_8x6X2 ||
+					   job->multicut == MULTICUT_8x12))
+				job->buf_needed = 2;
 			break;
 		case P_DNP_DS80D:
-			if (ctx->matte) {
-				int mcut = ctx->multicut;
+			if (job->matte) {
+				int mcut = job->multicut;
 
 				if (mcut > MULTICUT_S_BACK)
 					mcut -= MULTICUT_S_BACK;
@@ -1297,140 +1298,140 @@ parsed:
 				    mcut == MULTICUT_8x8_8x4 ||
 				    mcut == MULTICUT_8x6X2 ||
 				    mcut == MULTICUT_8x12)
-					ctx->buf_needed = 2;
+					job->buf_needed = 2;
 
 				if (mcut == MULTICUT_S_8x12 ||
 				    mcut == MULTICUT_S_8x6X2 ||
 				    mcut == MULTICUT_S_8x4X3)
-					ctx->buf_needed = 2;
+					job->buf_needed = 2;
 			}
 			break;
 		case P_DNP_DS820:
 			// Nothing; all sizes only need 1 buffer
 			break;
 		case P_CITIZEN_CW01:
-			ctx->buf_needed = 2;
+			job->buf_needed = 2;
 			break;
 		default: /* DS40/CX/RX1/CY/everything else */
-			if (ctx->matte) {
-				if (ctx->multicut == MULTICUT_6x8 ||
-				    ctx->multicut == MULTICUT_6x9 ||
-				    ctx->multicut == MULTICUT_6x4X2 ||
-				    ctx->multicut == MULTICUT_5x7 ||
-				    ctx->multicut == MULTICUT_5x3_5X2)
-					ctx->buf_needed = 2;
+			if (job->matte) {
+				if (job->multicut == MULTICUT_6x8 ||
+				    job->multicut == MULTICUT_6x9 ||
+				    job->multicut == MULTICUT_6x4X2 ||
+				    job->multicut == MULTICUT_5x7 ||
+				    job->multicut == MULTICUT_5x3_5X2)
+					job->buf_needed = 2;
 
 			} else {
-				if (ctx->multicut == MULTICUT_6x8 ||
-				    ctx->multicut == MULTICUT_6x9 ||
-				    ctx->multicut == MULTICUT_6x4X2)
-					ctx->buf_needed = 1;
+				if (job->multicut == MULTICUT_6x8 ||
+				    job->multicut == MULTICUT_6x9 ||
+				    job->multicut == MULTICUT_6x4X2)
+					job->buf_needed = 1;
 			}
 			break;
 		}
 	}
-	if (dpi == 334 && ctx->type != P_CITIZEN_CW01)
+	if (job->dpi == 334 && ctx->type != P_CITIZEN_CW01)
 	{
-		ERROR("Illegal resolution (%u) for printer!\n", dpi);
+		ERROR("Illegal resolution (%u) for printer!\n", job->dpi);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* Sanity-check type vs loaded media */
-	if (ctx->multicut == 0)
+	if (job->multicut == 0)
 		goto skip_multicut;
 
-	if (ctx->multicut < 100) {
+	if (job->multicut < 100) {
 		switch(ctx->media) {
 		case 200: //"5x3.5 (L)"
-			if (ctx->multicut != MULTICUT_5x3_5) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+			if (job->multicut != MULTICUT_5x3_5) {
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 210: //"5x7 (2L)"
-			if (ctx->multicut != MULTICUT_5x3_5 && ctx->multicut != MULTICUT_5x7 &&
-			    ctx->multicut != MULTICUT_5x3_5X2 && ctx->multicut != MULTICUT_5x5) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+			if (job->multicut != MULTICUT_5x3_5 && job->multicut != MULTICUT_5x7 &&
+			    job->multicut != MULTICUT_5x3_5X2 && job->multicut != MULTICUT_5x5) {
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			/* Only 3.5x5 on 7x5 media can be rewound */
-			if (ctx->multicut == MULTICUT_5x3_5)
-				ctx->can_rewind = 1;
+			if (job->multicut == MULTICUT_5x3_5)
+				job->can_rewind = 1;
 			break;
 		case 300: //"6x4 (PC)"
-			if (ctx->multicut != MULTICUT_6x4) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+			if (job->multicut != MULTICUT_6x4) {
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
 		case 310: //"6x8 (A5)"
-			if (ctx->multicut != MULTICUT_6x4 && ctx->multicut != MULTICUT_6x8 &&
-			    ctx->multicut != MULTICUT_6x4X2 &&
-			    ctx->multicut != MULTICUT_6x6 && ctx->multicut != 30) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+			if (job->multicut != MULTICUT_6x4 && job->multicut != MULTICUT_6x8 &&
+			    job->multicut != MULTICUT_6x4X2 &&
+			    job->multicut != MULTICUT_6x6 && job->multicut != 30) {
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			/* Only 6x4 on 6x8 media can be rewound */
-			if (ctx->multicut == MULTICUT_6x4)
-				ctx->can_rewind = 1;
+			if (job->multicut == MULTICUT_6x4)
+				job->can_rewind = 1;
 			break;
 		case 400: //"6x9 (A5W)"
-			if (ctx->multicut != MULTICUT_6x4 && ctx->multicut != MULTICUT_6x8 &&
-			    ctx->multicut != MULTICUT_6x9 && ctx->multicut != MULTICUT_6x4X2 &&
-			    ctx->multicut != MULTICUT_6x6 &&
-			    ctx->multicut != MULTICUT_6x4_5 && ctx->multicut != MULTICUT_6x4_5X2) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+			if (job->multicut != MULTICUT_6x4 && job->multicut != MULTICUT_6x8 &&
+			    job->multicut != MULTICUT_6x9 && job->multicut != MULTICUT_6x4X2 &&
+			    job->multicut != MULTICUT_6x6 &&
+			    job->multicut != MULTICUT_6x4_5 && job->multicut != MULTICUT_6x4_5X2) {
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			/* Only 6x4 or 6x4.5 on 6x9 media can be rewound */
-			if (ctx->multicut == MULTICUT_6x4 || ctx->multicut == MULTICUT_6x4_5)
-				ctx->can_rewind = 1;
+			if (job->multicut == MULTICUT_6x4 || job->multicut == MULTICUT_6x4_5)
+				job->can_rewind = 1;
 			break;
 		case 500: //"8x10"
 			if (ctx->type == P_DNP_DS820 &&
-			    (ctx->multicut == MULTICUT_8x7 || ctx->multicut == MULTICUT_8x9)) {
+			    (job->multicut == MULTICUT_8x7 || job->multicut == MULTICUT_8x9)) {
 				/* These are okay */
-			} else if (ctx->multicut < MULTICUT_8x10 || ctx->multicut == MULTICUT_8x12 ||
-			    ctx->multicut == MULTICUT_8x6X2 || ctx->multicut >= MULTICUT_8x6_8x5 ) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+			} else if (job->multicut < MULTICUT_8x10 || job->multicut == MULTICUT_8x12 ||
+			    job->multicut == MULTICUT_8x6X2 || job->multicut >= MULTICUT_8x6_8x5 ) {
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 
 			/* 8x4, 8x5 can be rewound */
-			if (ctx->multicut == MULTICUT_8x4 ||
-			    ctx->multicut == MULTICUT_8x5)
-				ctx->can_rewind = 1;
+			if (job->multicut == MULTICUT_8x4 ||
+			    job->multicut == MULTICUT_8x5)
+				job->can_rewind = 1;
 			break;
 		case 510: //"8x12"
-			if (ctx->multicut < MULTICUT_8x10 || (ctx->multicut > MULTICUT_8xA4LEN && !(ctx->multicut == MULTICUT_8x7 || ctx->multicut == MULTICUT_8x9))) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+			if (job->multicut < MULTICUT_8x10 || (job->multicut > MULTICUT_8xA4LEN && !(job->multicut == MULTICUT_8x7 || job->multicut == MULTICUT_8x9))) {
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 
 			/* 8x4, 8x5, 8x6 can be rewound */
-			if (ctx->multicut == MULTICUT_8x4 ||
-			    ctx->multicut == MULTICUT_8x5 ||
-			    ctx->multicut == MULTICUT_8x6)
-				ctx->can_rewind = 1;
+			if (job->multicut == MULTICUT_8x4 ||
+			    job->multicut == MULTICUT_8x5 ||
+			    job->multicut == MULTICUT_8x6)
+				job->can_rewind = 1;
 			break;
 		case 600: //"A4"
-			if (ctx->multicut < MULTICUT_A5 || ctx->multicut > MULTICUT_A4x5X2) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+			if (job->multicut < MULTICUT_A5 || job->multicut > MULTICUT_A4x5X2) {
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			/* A4xn and A5 can be rewound */
-			if (ctx->multicut == MULTICUT_A4x4 ||
-			    ctx->multicut == MULTICUT_A4x5 ||
-			    ctx->multicut == MULTICUT_A4x6 ||
-			    ctx->multicut == MULTICUT_A5)
-				ctx->can_rewind = 1;
+			if (job->multicut == MULTICUT_A4x4 ||
+			    job->multicut == MULTICUT_A4x5 ||
+			    job->multicut == MULTICUT_A4x6 ||
+			    job->multicut == MULTICUT_A5)
+				job->can_rewind = 1;
 			break;
 		default:
-			ERROR("Unknown media (%u vs %u)!\n", ctx->media, ctx->multicut);
+			ERROR("Unknown media (%u vs %u)!\n", ctx->media, job->multicut);
 			return CUPS_BACKEND_CANCEL;
 		}
-	} else if (ctx->multicut < 400) {
-		int mcut = ctx->multicut;
+	} else if (job->multicut < 400) {
+		int mcut = job->multicut;
 
 		switch(ctx->duplex_media) {
 		case 100: //"8x10.75"
@@ -1442,7 +1443,7 @@ parsed:
 			if (mcut == MULTICUT_S_8x12 ||
 			    mcut == MULTICUT_S_8x6X2 ||
 			    mcut == MULTICUT_S_8x4X3) {
-				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, ctx->multicut);
+				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->duplex_media, job->multicut);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
@@ -1450,51 +1451,51 @@ parsed:
 			/* Everything is legal */
 			break;
 		default:
-			ERROR("Unknown duplexer media (%u vs %u)!\n", ctx->duplex_media, ctx->multicut);
+			ERROR("Unknown duplexer media (%u vs %u)!\n", ctx->duplex_media, job->multicut);
 			return CUPS_BACKEND_CANCEL;
 		}
 	} else {
-		ERROR("Multicut value out of range! (%u)\n", ctx->multicut);
+		ERROR("Multicut value out of range! (%u)\n", job->multicut);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* Additional santity checks, make sure printer support exists */
-	if (!ctx->supports_6x6 && ctx->multicut == MULTICUT_6x6) {
+	if (!ctx->supports_6x6 && job->multicut == MULTICUT_6x6) {
 		ERROR("Printer does not support 6x6 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if (!ctx->supports_5x5 && ctx->multicut == MULTICUT_5x5) {
+	if (!ctx->supports_5x5 && job->multicut == MULTICUT_5x5) {
 		ERROR("Printer does not support 5x5 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if ((ctx->multicut == MULTICUT_6x4_5 || ctx->multicut == MULTICUT_6x4_5X2) &&
+	if ((job->multicut == MULTICUT_6x4_5 || job->multicut == MULTICUT_6x4_5X2) &&
 	    !ctx->supports_6x4_5) {
 		ERROR("Printer does not support 6x4.5 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if (ctx->multicut == MULTICUT_6x9 && !ctx->supports_6x9) {
+	if (job->multicut == MULTICUT_6x9 && !ctx->supports_6x9) {
 		ERROR("Printer does not support 6x9 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if (ctx->multicut == MULTICUT_5x3_5X2 && !ctx->supports_3x5x2) {
+	if (job->multicut == MULTICUT_5x3_5X2 && !ctx->supports_3x5x2) {
 		ERROR("Printer does not support 3.5x5*2 prints, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
 skip_multicut:
 
-	if (ctx->fullcut && !ctx->supports_adv_fullcut &&
-	    ctx->multicut != MULTICUT_6x8) {
+	if (job->fullcut && !ctx->supports_adv_fullcut &&
+	    job->multicut != MULTICUT_6x8) {
 		ERROR("Printer does not support full control on sizes other than 6x8, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if (ctx->cutter == 120) {
-		if (ctx->multicut == MULTICUT_6x4 || ctx->multicut == MULTICUT_6x8) {
+	if (job->cutter == 120) {
+		if (job->multicut == MULTICUT_6x4 || job->multicut == MULTICUT_6x8) {
 			if (!ctx->supports_2x6) {
 				ERROR("Printer does not support 2x6 prints, aborting!\n");
 				return CUPS_BACKEND_CANCEL;
@@ -1503,22 +1504,18 @@ skip_multicut:
 			ERROR("Printer only supports legacy 2-inch cuts on 4x6 or 8x6 jobs!");
 			return CUPS_BACKEND_CANCEL;
 		}
-
-		/* Work around firmware bug on DS40 where if we run out
-		   of media, we can't resume the job without losing the
-		   cutter setting. */
-		// XXX add version test? what about other printers?
-		ctx->manual_copies = 1;
 	}
 
 skip_checks:
-	DEBUG("dpi %u matte %d mcut %u cutter %d, bufs %d spd %d\n",
-	      dpi, ctx->matte, ctx->multicut, ctx->cutter, ctx->buf_needed, ctx->printspeed);
+	DEBUG("job->dpi %u matte %d mcut %u cutter %d, bufs %d spd %d\n",
+	      job->dpi, job->matte, job->multicut, job->cutter, job->buf_needed, job->printspeed);
+
+	*vjob = job;
 
 	return CUPS_BACKEND_OK;
 }
 
-static int dnpds40_main_loop(void *vctx, int copies) {
+static int dnpds40_main_loop(void *vctx, const void *vjob) {
 	struct dnpds40_ctx *ctx = vctx;
 	int ret;
 	struct dnpds40_cmd cmd;
@@ -1528,16 +1525,33 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 	char buf[9];
 	int status;
 	int buf_needed;
+	int multicut;
 	int count = 0;
+	int manual_copies = 0;
+	int copies;
+
+	const struct dnpds40_printjob *job = vjob;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
+	if (!job)
+		return CUPS_BACKEND_FAILED;
 
-	buf_needed = ctx->buf_needed;
+	buf_needed = job->buf_needed;
+	multicut = job->multicut;
+	copies = job->copies;
 
 	/* If we switch major overcoat modes, we need both buffers */
-	if (!!ctx->matte != ctx->last_matte)
+	if (!!job->matte != ctx->last_matte)
 		buf_needed = 2;
+
+	if (job->cutter == 120) {
+		/* Work around firmware bug on DS40 where if we run out
+		   of media, we can't resume the job without losing the
+		   cutter setting. */
+		// XXX add version test? what about other printers?
+		manual_copies = 1;
+	}
 
 	/* RX1HS requires HS media, but the only way to tell is that the
 	   HS media reports a lot code, while the non-HS media does not. */
@@ -1634,9 +1648,9 @@ top:
 		count = ctx->marker.levelnow; // For logic below.
 
 		/* See if we can rewind to save media */
-		if (ctx->can_rewind && ctx->supports_rewind) {
+		if (job->can_rewind && ctx->supports_rewind) {
 			/* Tell printer to use rewind */
-			ctx->multicut += 400;
+			multicut += 400;
 
 			/* Get Media remaining */
 			dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
@@ -1684,15 +1698,15 @@ top:
 	}
 
 	/* Store our last multicut state */
-	ctx->last_multicut = ctx->multicut;
+	ctx->last_multicut = multicut;
 
 	/* Tell printer how many copies to make */
-	snprintf(buf, sizeof(buf), "%07d\r", ctx->manual_copies ? 1 : copies);
+	snprintf(buf, sizeof(buf), "%07d\r", manual_copies ? 1 : copies);
 	dnpds40_build_cmd(&cmd, "CNTRL", "QTY", 8);
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
 		return CUPS_BACKEND_FAILED;
 
-	if (!ctx->manual_copies)
+	if (!manual_copies)
 		copies = 1;
 
 	/* Enable job resumption on correctable errors */
@@ -1701,7 +1715,7 @@ top:
 		/* DS80D does not support BUFFCNTRL when using
 		   cut media; all others support this */
 		if (ctx->type != P_DNP_DS80D ||
-		    ctx->multicut < 100) {
+		    multicut < 100) {
 			dnpds40_build_cmd(&cmd, "CNTRL", "BUFFCNTRL", 8);
 			if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
 				return CUPS_BACKEND_FAILED;
@@ -1710,15 +1724,15 @@ top:
 
 	/* Set overcoat parameters if appropriate */
 	if (ctx->supports_matte) {
-		snprintf(buf, sizeof(buf), "%08d", ctx->matte);
+		snprintf(buf, sizeof(buf), "%08d", job->matte);
 		dnpds40_build_cmd(&cmd, "CNTRL", "OVERCOAT", 8);
 		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
 			return CUPS_BACKEND_FAILED;
 	}
 
 	/* Program in the cutter setting */
-	if (ctx->cutter) {
-		snprintf(buf, sizeof(buf), "%08d", ctx->cutter);
+	if (job->cutter) {
+		snprintf(buf, sizeof(buf), "%08d", job->cutter);
 		dnpds40_build_cmd(&cmd, "CNTRL", "CUTTER", 8);
 		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
 			return CUPS_BACKEND_FAILED;
@@ -1726,23 +1740,23 @@ top:
 
 	/* Send over the printspeed if appropriate */
 	if (ctx->supports_printspeed) {
-		snprintf(buf, sizeof(buf), "%08d", ctx->printspeed * 10);
+		snprintf(buf, sizeof(buf), "%08d", job->printspeed * 10);
 		dnpds40_build_cmd(&cmd, "CNTRL", "PRINTSPEED", 8);
 		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
 			return CUPS_BACKEND_FAILED;
 	}
 
 	/* Program in the multicut setting, if one exists */
-	if (ctx->multicut) {
-		snprintf(buf, sizeof(buf), "%08u", ctx->multicut);
+	if (multicut) {
+		snprintf(buf, sizeof(buf), "%08u", multicut);
 		dnpds40_build_cmd(&cmd, "IMAGE", "MULTICUT", 8);
 		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
 			return CUPS_BACKEND_FAILED;
 	}
 
 	/* Finally, send the stream over as individual data chunks */
-	ptr = ctx->databuf;
-	while(ptr && ptr < (ctx->databuf + ctx->datalen)) {
+	ptr = job->databuf;
+	while(ptr && ptr < (job->databuf + job->datalen)) {
 		int i;
 		buf[8] = 0;
 		memcpy(buf, ptr + 24, 8);
@@ -1756,7 +1770,7 @@ top:
 	}
 	sleep(1);  /* Give things a moment */
 
-	if (fast_return && !ctx->manual_copies) {
+	if (fast_return && !manual_copies) {
 		INFO("Fast return mode enabled.\n");
 	} else {
 		INFO("Waiting for job to complete...\n");
@@ -1800,7 +1814,7 @@ top:
 
 			count -= ctx->mediaoffset;
 		}
-		ctx->marker.levelnow = count;		
+		ctx->marker.levelnow = count;
 		dump_markers(&ctx->marker, 1, 0);
 	}
 
@@ -1812,12 +1826,12 @@ top:
 
 	if (copies && --copies) {
 		/* No need to wait on buffers due to matte switching */
-		buf_needed = ctx->buf_needed;
+		buf_needed = job->buf_needed;
 		goto top;
 	}
 
 	/* Finally, account for overcoat mode of last print */
-	ctx->last_matte = !!ctx->matte;
+	ctx->last_matte = !!job->matte;
 #ifdef STATE_DIR
 	{
 		/* Store last matte status into file */
@@ -2750,7 +2764,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.103",
+	.version = "0.104",
 	.uri_prefixes = dnpds40_prefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
@@ -2758,6 +2772,7 @@ struct dyesub_backend dnpds40_backend = {
 	.attach = dnpds40_attach,
 	.teardown = dnpds40_teardown,
 	.read_parse = dnpds40_read_parse,
+	.cleanup_job = dnpds40_cleanup_job,
 	.main_loop = dnpds40_main_loop,
 	.query_serno = dnpds40_query_serno,
 	.query_markers = dnpds40_query_markers,
@@ -2778,7 +2793,7 @@ struct dyesub_backend dnpds40_backend = {
 
 /* Legacy CW-01 spool file support */
 
-static int cw01_read_parse(struct dnpds40_ctx *ctx, int data_fd,
+static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
 			   struct cw01_spool_hdr *hdr, int read_data)
 {
 	int i, remain;
@@ -2793,7 +2808,7 @@ static int cw01_read_parse(struct dnpds40_ctx *ctx, int data_fd,
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	j = read_data - sizeof(*hdr);
-	memcpy(buf, ctx->databuf, j);
+	memcpy(buf, job->databuf, j);
 	remain -= j;
 	/* Read in the remaining spool data */
 	while (remain) {
@@ -2817,54 +2832,54 @@ static int cw01_read_parse(struct dnpds40_ctx *ctx, int data_fd,
 	plane_hdr[10] = 0x40;
 	plane_hdr[11] = 0x04;
 
-	/* Okay, generate a new stream into ctx->databuf! */
+	/* Okay, generate a new stream into job->databuf! */
 #if 0
-	ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen,
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
 				"\033PCNTRL QTY             00000008%07d\r", hdr->copies);
-	ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen,
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
 				"\033PCNTRL CUTTER          0000000800000000");
 #else
 	/* QTY is stripped from the stream, and CUTTER is stashed away */
-	ctx->cutter = 0;
+	job->cutter = 0;
 #endif
 
 	j = 0;
 
 	/* Y plane */
-	ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen,
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
 				"\033PIMAGE YPLANE          %08u", hdr->plane_len + 24);
-	memcpy(ctx->databuf + ctx->datalen, plane_hdr, sizeof(plane_hdr));
-	ctx->datalen += sizeof(plane_hdr);
-	memcpy(ctx->databuf + ctx->datalen, buf + j, hdr->plane_len);
-	ctx->datalen += hdr->plane_len;
+	memcpy(job->databuf + job->datalen, plane_hdr, sizeof(plane_hdr));
+	job->datalen += sizeof(plane_hdr);
+	memcpy(job->databuf + job->datalen, buf + j, hdr->plane_len);
+	job->datalen += hdr->plane_len;
 	j += hdr->plane_len;
-	memset(ctx->databuf + ctx->datalen, 0, 10);
-	ctx->datalen += 10;
+	memset(job->databuf + job->datalen, 0, 10);
+	job->datalen += 10;
 
 	/* M plane */
-	ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen,
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
 				"\033PIMAGE MPLANE          %08u", hdr->plane_len + 24);
-	memcpy(ctx->databuf + ctx->datalen, plane_hdr, sizeof(plane_hdr));
-	ctx->datalen += sizeof(plane_hdr);
-	memcpy(ctx->databuf + ctx->datalen, buf + j, hdr->plane_len);
-	ctx->datalen += hdr->plane_len;
+	memcpy(job->databuf + job->datalen, plane_hdr, sizeof(plane_hdr));
+	job->datalen += sizeof(plane_hdr);
+	memcpy(job->databuf + job->datalen, buf + j, hdr->plane_len);
+	job->datalen += hdr->plane_len;
 	j += hdr->plane_len;
-	memset(ctx->databuf + ctx->datalen, 0, 10);
-	ctx->datalen += 10;
+	memset(job->databuf + job->datalen, 0, 10);
+	job->datalen += 10;
 
 	/* C plane */
-	ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen,
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
 				"\033PIMAGE CPLANE          %08u", hdr->plane_len + 24);
-	memcpy(ctx->databuf + ctx->datalen, plane_hdr, sizeof(plane_hdr));
-	ctx->datalen += sizeof(plane_hdr);
-	memcpy(ctx->databuf + ctx->datalen, buf + j, hdr->plane_len);
-	ctx->datalen += hdr->plane_len;
+	memcpy(job->databuf + job->datalen, plane_hdr, sizeof(plane_hdr));
+	job->datalen += sizeof(plane_hdr);
+	memcpy(job->databuf + job->datalen, buf + j, hdr->plane_len);
+	job->datalen += hdr->plane_len;
 	j += hdr->plane_len;
-	memset(ctx->databuf + ctx->datalen, 0, 10);
-	ctx->datalen += 10;
+	memset(job->databuf + job->datalen, 0, 10);
+	job->datalen += 10;
 
 	/* Start */
-	ctx->datalen += sprintf((char*)ctx->databuf + ctx->datalen,
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
 				"\033PCNTRL START                   ");
 
 	/* We're done */

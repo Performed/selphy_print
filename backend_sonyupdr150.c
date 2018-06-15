@@ -48,16 +48,17 @@
 #define USB_PID_SONY_UPCR10  0x0226
 
 /* Private data structure */
+struct updr150_printjob {
+	uint8_t *databuf;
+	int datalen;
+	int copies;
+};
+
 struct updr150_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
 	int type;
-
-	uint8_t *databuf;
-	int datalen;
-
-	uint32_t copies_offset;
 
 	struct marker marker;
 };
@@ -85,8 +86,6 @@ static int updr150_attach(void *vctx, struct libusb_device_handle *dev, int type
 	ctx->endp_down = endp_down;
 	ctx->type = type;
 
-	ctx->copies_offset = 0;
-
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = "Unknown";
 	ctx->marker.levelmax = -1;
@@ -95,33 +94,47 @@ static int updr150_attach(void *vctx, struct libusb_device_handle *dev, int type
 	return CUPS_BACKEND_OK;
 }
 
+static void updr150_cleanup_job(const void *vjob)
+{
+	const struct updr150_printjob *job = vjob;
+
+	if (job->databuf)
+		free(job->databuf);
+
+	free((void*)job);
+}
+
 static void updr150_teardown(void *vctx) {
 	struct updr150_ctx *ctx = vctx;
 
 	if (!ctx)
 		return;
 
-	if (ctx->databuf)
-		free(ctx->databuf);
 	free(ctx);
 }
 
 #define MAX_PRINTJOB_LEN 16736455
-static int updr150_read_parse(void *vctx, int data_fd) {
+static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct updr150_ctx *ctx = vctx;
 	int len, run = 1;
+	uint32_t copies_offset = 0;
+
+	struct updr150_printjob *job = NULL;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	if (ctx->databuf) {
-		free(ctx->databuf);
-		ctx->databuf = NULL;
+	job = malloc(sizeof(*job));
+	if (!job) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
+	memset(job, 0, sizeof(*job));
+	job->copies = copies;
 
-	ctx->datalen = 0;
-	ctx->databuf = malloc(MAX_PRINTJOB_LEN);
-	if (!ctx->databuf) {
+	job->datalen = 0;
+	job->databuf = malloc(MAX_PRINTJOB_LEN);
+	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
@@ -129,13 +142,13 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 	while(run) {
 		int i;
 		int keep = 0;
-		i = read(data_fd, ctx->databuf + ctx->datalen, 4);
+		i = read(data_fd, job->databuf + job->datalen, 4);
 		if (i < 0)
 			return CUPS_BACKEND_CANCEL;
 		if (i == 0)
 			break;
 
-		memcpy(&len, ctx->databuf + ctx->datalen, sizeof(len));
+		memcpy(&len, job->databuf + job->datalen, sizeof(len));
 		len = le32_to_cpu(len);
 
 		/* Filter out chunks we don't send to the printer */
@@ -189,59 +202,68 @@ static int updr150_read_parse(void *vctx, int data_fd) {
 			break;
 		}
 		if (keep)
-			ctx->datalen += sizeof(uint32_t);
+			job->datalen += sizeof(uint32_t);
 
 		/* Read in the data chunk */
 		while(len > 0) {
-			i = read(data_fd, ctx->databuf + ctx->datalen, len);
+			i = read(data_fd, job->databuf + job->datalen, len);
 			if (i < 0)
 				return CUPS_BACKEND_CANCEL;
 			if (i == 0)
 				break;
 
-			if (ctx->databuf[ctx->datalen] == 0x1b &&
-			    ctx->databuf[ctx->datalen + 1] == 0xee) {
+			if (job->databuf[job->datalen] == 0x1b &&
+			    job->databuf[job->datalen + 1] == 0xee) {
 				if (ctx->type == P_SONY_UPCR10)
-					ctx->copies_offset = ctx->datalen + 8;
+					copies_offset = job->datalen + 8;
 				else
-					ctx->copies_offset = ctx->datalen + 12;
+					copies_offset = job->datalen + 12;
 			}
 
 			if (keep)
-				ctx->datalen += i;
+				job->datalen += i;
 			len -= i;
 		}
 	}
-	if (!ctx->datalen)
+	if (!job->datalen)
 		return CUPS_BACKEND_CANCEL;
+
+	/* Some models specify copies in the print job */
+	if (copies_offset) {
+		job->databuf[copies_offset] = job->copies;
+		job->copies = 1;
+	}
+
+	*vjob = job;
 
 	return CUPS_BACKEND_OK;
 }
 
-static int updr150_main_loop(void *vctx, int copies) {
+static int updr150_main_loop(void *vctx, const void *vjob) {
 	struct updr150_ctx *ctx = vctx;
 	int i, ret;
+	int copies;
+
+	const struct updr150_printjob *job = vjob;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
+	if (!job)
+		return CUPS_BACKEND_FAILED;
 
-	/* Some models specify copies in the print job */
-	if (ctx->copies_offset) {
-		ctx->databuf[ctx->copies_offset] = copies;
-		copies = 1;
-	}
+	copies = job->copies;
 
 top:
 	i = 0;
-	while (i < ctx->datalen) {
+	while (i < job->datalen) {
 		uint32_t len;
-		memcpy(&len, ctx->databuf + i, sizeof(len));
+		memcpy(&len, job->databuf + i, sizeof(len));
 		len = le32_to_cpu(len);
 
 		i += sizeof(uint32_t);
 
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ctx->databuf + i, len)))
+				     job->databuf + i, len)))
 			return CUPS_BACKEND_FAILED;
 
 		i += len;
@@ -296,12 +318,13 @@ static const char *sonyupdr150_prefixes[] = {
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10",
-	.version = "0.23",
+	.version = "0.24",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.init = updr150_init,
 	.attach = updr150_attach,
 	.teardown = updr150_teardown,
+	.cleanup_job = updr150_cleanup_job,
 	.read_parse = updr150_read_parse,
 	.main_loop = updr150_main_loop,
 	.query_markers = updr150_query_markers,

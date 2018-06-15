@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.86"
+#define BACKEND_VERSION "0.87"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -268,7 +268,7 @@ done:
 }
 
 int send_data(struct libusb_device_handle *dev, uint8_t endp,
-	      uint8_t *buf, int len)
+	      const uint8_t *buf, int len)
 {
 	int num = 0;
 
@@ -279,7 +279,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 	while (len) {
 		int len2 = (len > max_xfer_size) ? max_xfer_size: len;
 		int ret = libusb_bulk_transfer(dev, endp,
-					       buf, len2,
+					       (uint8_t*) buf, len2,
 					       &num, xfer_timeout);
 
 		if ((dyesub_debug > 1 && len < 4096) ||
@@ -942,6 +942,8 @@ int main (int argc, char **argv)
 
 	int data_fd = fileno(stdin);
 
+	const void *job = NULL;
+
 	int i;
 
 	int ret = CUPS_BACKEND_OK;
@@ -1235,7 +1237,7 @@ bypass:
 newpage:
 
 	/* Read in data */
-	if ((ret = backend->read_parse(backend_ctx, data_fd))) {
+	if ((ret = backend->read_parse(backend_ctx, &job, data_fd, copies))) {
 		if (current_page)
 			goto done_multiple;
 		else
@@ -1252,7 +1254,9 @@ newpage:
 	if (test_mode >= TEST_MODE_NOPRINT ) {
 		WARNING("**** TEST MODE, bypassing printing!\n");
 	} else {
-		ret = backend->main_loop(backend_ctx, copies);
+		ret = backend->main_loop(backend_ctx, job);
+		if (backend->cleanup_job)
+			backend->cleanup_job(job);
 		if (ret)
 			goto done_claimed;
 	}

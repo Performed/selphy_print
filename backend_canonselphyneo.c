@@ -62,14 +62,18 @@ struct selphyneo_readback {
 } __attribute((packed));
 
 /* Private data structure */
+struct selphyneo_printjob {
+	uint8_t *databuf;
+	uint32_t datalen;
+
+	int copies;
+};
+
 struct selphyneo_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
 	int type;
-
-	uint8_t *databuf;
-	uint32_t datalen;
 
 	struct marker marker;
 };
@@ -237,26 +241,42 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	return CUPS_BACKEND_OK;
 }
 
+static void selphyneo_cleanup_job(const void *vjob) {
+	const struct selphyneo_printjob *job = vjob;
+
+	if (job->databuf)
+		free(job->databuf);
+
+	free((void*)job);
+}
+
 static void selphyneo_teardown(void *vctx) {
 	struct selphyneo_ctx *ctx = vctx;
 
 	if (!ctx)
 		return;
 
-	if (ctx->databuf)
-		free(ctx->databuf);
-
 	free(ctx);
 }
 
-static int selphyneo_read_parse(void *vctx, int data_fd)
+static int selphyneo_read_parse(void *vctx, const void **vjob, int data_fd, int copies)
 {
 	struct selphyneo_ctx *ctx = vctx;
 	struct selphyneo_hdr hdr;
 	int i, remain;
 
+	struct selphyneo_printjob *job = NULL;
+
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
+
+	job = malloc(sizeof(*job));
+	if (!job) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+	memset(job, 0, sizeof(*job));
+	job->copies = copies;
 
 	/* Read the header.. */
 	i = read(data_fd, &hdr, sizeof(hdr));
@@ -283,34 +303,46 @@ static int selphyneo_read_parse(void *vctx, int data_fd)
 	}
 
 	/* Allocate a buffer */
-	ctx->datalen = 0;
-	ctx->databuf = malloc(remain + sizeof(hdr));
-	if (!ctx->databuf) {
+	job->datalen = 0;
+	job->databuf = malloc(remain + sizeof(hdr));
+	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	/* Store the read-in header */
-	memcpy(ctx->databuf, &hdr, sizeof(hdr));
-	ctx->datalen += sizeof(hdr);
+	memcpy(job->databuf, &hdr, sizeof(hdr));
+	job->datalen += sizeof(hdr);
 
 	/* Read in data */
 	while (remain > 0) {
-		i = read(data_fd, ctx->databuf + ctx->datalen, remain);
+		i = read(data_fd, job->databuf + job->datalen, remain);
 		if (i < 0)
 			return CUPS_BACKEND_CANCEL;
 		remain -= i;
-		ctx->datalen += i;
+		job->datalen += i;
 	}
+
+	*vjob = job;
 
 	return CUPS_BACKEND_OK;
 }
 
-static int selphyneo_main_loop(void *vctx, int copies) {
+static int selphyneo_main_loop(void *vctx, const void *vjob) {
 	struct selphyneo_ctx *ctx = vctx;
 	struct selphyneo_readback rdback;
 
 	int ret, num;
+	int copies;
+
+	const struct selphyneo_printjob *job = vjob;
+
+	if (!ctx)
+		return CUPS_BACKEND_FAILED;
+	if (!job)
+		return CUPS_BACKEND_FAILED;
+
+	copies = job->copies;
 
 	/* Read in the printer status to clear last state */
 	ret = read_data(ctx->dev, ctx->endp_up,
@@ -361,10 +393,10 @@ top:
 		int sent = 0;
 		while (chunk > 0) {
 			if ((ret = send_data(ctx->dev, ctx->endp_down,
-					     ctx->databuf + sent, chunk)))
+					     job->databuf + sent, chunk)))
 				return CUPS_BACKEND_FAILED;
 			sent += chunk;
-			chunk = ctx->datalen - sent;
+			chunk = job->datalen - sent;
 			if (chunk > 256*1024)
 				chunk = 256*1024;
 		}
@@ -496,12 +528,13 @@ static const char *canonselphyneo_prefixes[] = {
 
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CP (new)",
-	.version = "0.17",
+	.version = "0.18",
 	.uri_prefixes = canonselphyneo_prefixes,
 	.cmdline_usage = selphyneo_cmdline,
 	.cmdline_arg = selphyneo_cmdline_arg,
 	.init = selphyneo_init,
 	.attach = selphyneo_attach,
+	.cleanup_job = selphyneo_cleanup_job,
 	.teardown = selphyneo_teardown,
 	.read_parse = selphyneo_read_parse,
 	.main_loop = selphyneo_main_loop,

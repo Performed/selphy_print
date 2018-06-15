@@ -1081,6 +1081,14 @@ struct s6145_imagecorr_data {
 } __attribute__((packed));
 
 /* Private data structure */
+struct shinkos6145_printjob {
+	uint8_t *databuf;
+	size_t datalen;
+
+	uint8_t input_ymc;
+	int copies;
+};
+
 struct shinkos6145_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
@@ -1092,11 +1100,6 @@ struct shinkos6145_ctx {
 	struct s6145_printjob_hdr hdr;
 
 	uint8_t image_avg[3]; /* CMY */
-
-	uint8_t *databuf;
-	size_t datalen;
-
-	uint8_t input_ymc;
 
 	struct marker marker;
 
@@ -1953,14 +1956,22 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int 
 	return CUPS_BACKEND_OK;
 }
 
+static void shinkos6145_cleanup_job(const void *vjob)
+{
+	const struct shinkos6145_printjob *job = vjob;
+
+	if (job->databuf)
+		free(job->databuf);
+
+	free((void*)job);
+}
+
 static void shinkos6145_teardown(void *vctx) {
 	struct shinkos6145_ctx *ctx = vctx;
 
 	if (!ctx)
 		return;
 
-	if (ctx->databuf)
-		free(ctx->databuf);
 	if (ctx->eeprom)
 		free(ctx->eeprom);
 	if (ctx->corrdata)
@@ -1973,7 +1984,9 @@ static void shinkos6145_teardown(void *vctx) {
 	free(ctx);
 }
 
-static void lib6145_calc_avg(struct shinkos6145_ctx *ctx, uint16_t rows, uint16_t cols)
+static void lib6145_calc_avg(struct shinkos6145_ctx *ctx,
+			     const struct shinkos6145_printjob *job,
+			     uint16_t rows, uint16_t cols)
 {
 	uint32_t plane, i, planelen;
 	planelen = rows * cols;
@@ -1982,7 +1995,7 @@ static void lib6145_calc_avg(struct shinkos6145_ctx *ctx, uint16_t rows, uint16_
 		uint64_t sum = 0;
 
 		for (i = 0 ; i < planelen ; i++) {
-			sum += ctx->databuf[(planelen * plane) + i];
+			sum += job->databuf[(planelen * plane) + i];
 		}
 		ctx->image_avg[plane] = (sum / planelen);
 	}
@@ -2063,13 +2076,23 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	}
 }
 
-static int shinkos6145_read_parse(void *vctx, int data_fd) {
+static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct shinkos6145_ctx *ctx = vctx;
 	int ret;
 	uint8_t tmpbuf[4];
 
+	struct shinkos6145_printjob *job = NULL;
+
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
+
+	job = malloc(sizeof(*job));
+	if (!job) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+	memset(job, 0, sizeof(*job));
+	job->copies = copies;  // XXX hdr.copies?
 
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
@@ -2104,28 +2127,23 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 	   When bit 0 is set, this tells the backend that the data is
 	   already in planar YMC format (vs packed RGB) so we don't need
 	   to do the conversion ourselves.  Saves some processing overhead */
-	ctx->input_ymc = le32_to_cpu(ctx->hdr.ext_flags) & 0x01;
+	job->input_ymc = le32_to_cpu(ctx->hdr.ext_flags) & 0x01;
 
-	if (ctx->databuf) {
-		free(ctx->databuf);
-		ctx->databuf = NULL;
-	}
-
-	ctx->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
-	ctx->databuf = malloc(ctx->datalen);
-	if (!ctx->databuf) {
+	job->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
+	job->databuf = malloc(job->datalen);
+	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	{
-		int remain = ctx->datalen;
-		uint8_t *ptr = ctx->databuf;
+		int remain = job->datalen;
+		uint8_t *ptr = job->databuf;
 		do {
 			ret = read(data_fd, ptr, remain);
 			if (ret < 0) {
 				ERROR("Read failed (%d/%d/%zu)\n",
-				      ret, remain, ctx->datalen);
+				      ret, remain, job->datalen);
 				perror("ERROR: Read failed");
 				return ret;
 			}
@@ -2150,10 +2168,12 @@ static int shinkos6145_read_parse(void *vctx, int data_fd) {
 		return CUPS_BACKEND_FAILED;
 	}
 
+	*vjob = job;
+
 	return CUPS_BACKEND_OK;
 }
 
-static int shinkos6145_main_loop(void *vctx, int copies) {
+static int shinkos6145_main_loop(void *vctx, const void *vjob) {
 	struct shinkos6145_ctx *ctx = vctx;
 
 	int ret, num;
@@ -2168,6 +2188,11 @@ static int shinkos6145_main_loop(void *vctx, int copies) {
 	struct s6145_mediainfo_resp *media = (struct s6145_mediainfo_resp *) rdbuf;
 
 	uint32_t cur_mode;
+
+	struct shinkos6145_printjob *job = (struct shinkos6145_printjob*) vjob; /* XXX stupid, we can't do this. */
+
+	if (!job)
+		return CUPS_BACKEND_FAILED;
 
 	/* Send Media Query */
 	memset(cmdbuf, 0, CMDBUF_LEN);
@@ -2311,44 +2336,44 @@ top:
 		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 
 		/* Convert packed RGB to planar YMC if necessary */
-		if (!ctx->input_ymc) {
+		if (!job->input_ymc) {
 			int planelen = le16_to_cpu(ctx->corrdata->width) * le16_to_cpu(ctx->corrdata->height);
-			uint8_t *databuf3 = malloc(ctx->datalen);
+			uint8_t *databuf3 = malloc(job->datalen);
 
 			for (i = 0 ; i < planelen ; i++) {
 				uint8_t r, g, b;
-				r = ctx->databuf[3*i];
-				g = ctx->databuf[3*i+1];
-				b = ctx->databuf[3*i+2];
+				r = job->databuf[3*i];
+				g = job->databuf[3*i+1];
+				b = job->databuf[3*i+2];
 				databuf3[i] = 255 - b;
 				databuf3[planelen + i] = 255 - g;
 				databuf3[planelen + planelen + i] = 255 - r;
 			}
-			free(ctx->databuf);
-			ctx->databuf = databuf3;
+			free(job->databuf);
+			job->databuf = databuf3;
 		}
 
 		/* Perform the actual library transform */
 		if (ctx->dl_handle) {
 			INFO("Calling image processing library...\n");
 
-			if (ctx->ImageAvrCalc(ctx->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
+			if (ctx->ImageAvrCalc(job->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
 				free(databuf2);
 				ERROR("Library returned error!\n");
 				return CUPS_BACKEND_FAILED;
 			}
-			ctx->ImageProcessing(ctx->databuf, databuf2, ctx->corrdata);
+			ctx->ImageProcessing(job->databuf, databuf2, ctx->corrdata);
 		} else {
 			WARNING("Utilizing fallback internal image processing code\n");
 			WARNING(" *** Output quality will be poor! *** \n");
 
-			lib6145_calc_avg(ctx, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
-			lib6145_process_image(ctx->databuf, databuf2, ctx->corrdata, oc_mode);
+			lib6145_calc_avg(ctx, job, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
+			lib6145_process_image(job->databuf, databuf2, ctx->corrdata, oc_mode);
 		}
 
-		free(ctx->databuf);
-		ctx->databuf = (uint8_t*) databuf2;
-		ctx->datalen = newlen;
+		free(job->databuf);
+		job->databuf = (uint8_t*) databuf2;
+		job->datalen = newlen;
 
 		INFO("Sending print job (internal id %u)\n", ctx->jobid);
 
@@ -2357,7 +2382,7 @@ top:
 		print->hdr.len = cpu_to_le16(sizeof (*print) - sizeof(*cmd));
 
 		print->id = ctx->jobid;
-		print->count = cpu_to_le16(copies);
+		print->count = cpu_to_le16(job->copies);
 		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
 		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
 		print->image_avg = ctx->image_avg[2]; /* Cyan level */
@@ -2393,7 +2418,7 @@ top:
 		// XXX we shouldn't send the lamination layer over if
 		// it's not needed.  hdr->oc_mode == PRINT_MODE_NO_OC
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ctx->databuf, ctx->datalen)))
+				     job->databuf, job->datalen)))
 			return CUPS_BACKEND_FAILED;
 
 		INFO("Waiting for printer to acknowledge completion\n");
@@ -2504,13 +2529,14 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2",
-	.version = "0.26",
+	.version = "0.27",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
 	.init = shinkos6145_init,
 	.attach = shinkos6145_attach,
 	.teardown = shinkos6145_teardown,
+	.cleanup_job = shinkos6145_cleanup_job,
 	.read_parse = shinkos6145_read_parse,
 	.main_loop = shinkos6145_main_loop,
 	.query_serno = shinkos6145_query_serno,
