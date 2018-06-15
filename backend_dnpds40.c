@@ -100,6 +100,7 @@ struct dnpds40_ctx {
 
 	/* Printer capabilities */
 	uint32_t native_width;
+	uint32_t max_height;
 	int supports_6x9;
 	int supports_2x6;
 	int supports_3x5x2;
@@ -718,6 +719,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	switch (ctx->type) {
 	case P_DNP_DS40:
 		ctx->native_width = 1920;
+		ctx->max_height = 5480;
 		ctx->supports_6x9 = 1;
 		if (FW_VER_CHECK(1,04))
 			ctx->supports_counterp = 1;
@@ -733,6 +735,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	case P_DNP_DS80:
 	case P_DNP_DS80D:
 		ctx->native_width = 2560;
+		ctx->max_height = 7536;
 		if (FW_VER_CHECK(1,02))
 			ctx->supports_counterp = 1;
 		if (FW_VER_CHECK(1,30))
@@ -740,6 +743,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		break;
 	case P_DNP_DSRX1:
 		ctx->native_width = 1920;
+		ctx->max_height = 5480;
 		ctx->supports_counterp = 1;
 		ctx->supports_matte = 1;
 		if (FW_VER_CHECK(1,10))
@@ -757,6 +761,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		break;
 	case P_CITIZEN_OP900II:
 		ctx->native_width = 1920;
+		ctx->max_height = 5480;
 		ctx->supports_counterp = 1;
 		ctx->supports_matte = 1;
 		ctx->supports_mqty_default = 1;
@@ -766,10 +771,12 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		break;
 	case P_CITIZEN_CW01:
 		ctx->native_width = 2048;
+		ctx->max_height = 5480;
 		ctx->supports_6x9 = 1;
 		break;
 	case P_DNP_DS620:
 		ctx->native_width = 1920;
+		ctx->max_height = 5480;
 		ctx->correct_count = 1;
 		ctx->supports_counterp = 1;
 		ctx->supports_matte = 1;
@@ -800,6 +807,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		break;
 	case P_DNP_DS820:
 		ctx->native_width = 2560;
+		ctx->max_height = 7536;
 		ctx->correct_count = 1;
 		ctx->supports_counterp = 1;
 		ctx->supports_matte = 1;
@@ -1016,7 +1024,7 @@ static void dnpds40_teardown(void *vctx) {
 	free(ctx);
 }
 
-#define MAX_PRINTJOB_LEN (((2560*7536+1024+54))*3+1024) /* Worst-case, YMC */
+#define MAX_PRINTJOB_LEN (((ctx->native_width*ctx->max_height+1024+54))*3+1024) /* Worst-case, YMC */
 
 static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct dnpds40_ctx *ctx = vctx;
