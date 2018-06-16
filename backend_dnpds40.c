@@ -221,6 +221,166 @@ struct cw01_spool_hdr {
 static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
 			   struct cw01_spool_hdr *hdr, int read_data);
 
+#define JOB_EQUIV(__x)  if (job1->__x != job2->__x) goto done
+
+static struct dnpds40_printjob *combine_jobs(const struct dnpds40_printjob *job1,
+					     const struct dnpds40_printjob *job2)
+{
+	struct dnpds40_printjob *newjob = NULL;
+	uint32_t new_multicut;
+	uint16_t new_w, new_h;
+	uint16_t gap_bytes;
+
+	/* Sanity check */
+	if (!job1 || !job2)
+		goto done;
+
+	/* Make sure pertinent paremeters are the same */
+	JOB_EQUIV(dpi);
+	JOB_EQUIV(matte);
+	JOB_EQUIV(cutter);
+	JOB_EQUIV(fullcut);
+	JOB_EQUIV(multicut);  // TODO:  Support fancier modes for 8" models (eg 8x4+8x6, etc)
+	JOB_EQUIV(datalen); // <-- cheating a little?
+	// JOV_EQUIV(printspeed); <-- does it matter?
+
+	/* Any cutter means we shouldn't bother */
+	if (job1->fullcut || job1->cutter)
+		goto done;
+
+#if 0
+	// XXX TODO:  2x6*2 + 2x6*2 --> 8x6+cutter!
+	// problem is that 8x6" size is 4 rows smaller than 2* 4x6" prints, posing a problem.
+
+	/* Only handle cutter if it's for 2x6" strips */
+	if (job1->cutter != 0 && job1->cutter != 120)
+		goto done;
+#endif
+
+	/* Make sure we can combine these two prints */
+	switch (job1->multicut) {
+	case MULTICUT_5x3_5:
+		new_multicut = MULTICUT_5x3_5X2;
+		new_w = 1920;
+		new_h = 2176;
+		gap_bytes = 0;
+		break;
+	case MULTICUT_6x4:
+#if 0
+		if (job1->cutter != 120) {
+			new_multicut = MULTICUT_6x8;
+			new_h = 2436;
+			gap_bytes = -4;
+		} else {
+#endif
+			new_multicut = MULTICUT_6x4X2;
+			new_h = 2498;
+			gap_bytes = 18;
+#if 0
+		}
+#endif
+		new_w = 1920;
+		break;
+	case MULTICUT_6x4_5:
+		new_multicut = MULTICUT_6x4_5X2;
+		new_w = 1920;
+		new_h = 2802;
+		gap_bytes = 30;
+		break;
+	case MULTICUT_8x4:
+		new_multicut = MULTICUT_8x4X2;
+		new_w = 2560;
+		new_h = 2502;
+		gap_bytes = 30;
+		break;
+	case MULTICUT_8x5:
+		new_multicut = MULTICUT_8x5X2;
+		new_w = 2560;
+		new_h = 3102;
+		gap_bytes = 30;
+		break;
+	case MULTICUT_8x6:
+		new_multicut = MULTICUT_8x6X2;
+		new_w = 2560;
+		new_h = 3702;
+		gap_bytes = 30;
+		break;
+	default:
+		// 2-up 8x6 prints too?
+		/* Everything else is NOT handled */
+		goto done;
+	}
+	gap_bytes *= new_w;
+	if (job1->dpi == 600) {
+		gap_bytes *= 2;
+		new_h *= 2;
+	}
+
+	DEBUG("Combining jobs to save media\n");
+
+	/* Okay, it's kosher to proceed */
+
+	newjob = malloc(sizeof(*newjob));
+	if (!newjob) {
+		ERROR("Memory allocation failure!\n");
+		goto done;
+	}
+	memcpy(newjob, job1, sizeof(*newjob));
+
+	newjob->databuf = malloc(((new_w*new_h+1024+54))*3+1024);
+	newjob->datalen = 0;
+	newjob->multicut = new_multicut;
+
+	/* Copy data blocks from job1 */
+	uint8_t *ptr, *ptr2;
+	char buf[9];
+	ptr = job1->databuf;
+	while(ptr && ptr < (job1->databuf + job1->datalen)) {
+		int i;
+		buf[8] = 0;
+		memcpy(buf, ptr + 24, 8);
+		i = atoi(buf) + 32;
+		memcpy(newjob->databuf + newjob->datalen, ptr, i);
+
+		/* If we're on a plane data block... */
+		if (!memcmp("PLANE", newjob->databuf + newjob->datalen + 9, 5)) {
+			long planelen = (new_w * new_h) + 1088;
+			uint32_t newlen;
+
+			/* Fix up length in command */
+			snprintf(buf, sizeof(buf), "%08ld", planelen);
+			memcpy(newjob->databuf + newjob->datalen + 24, buf, 8);
+
+			/* Alter BMP header */
+			newlen = cpu_to_le32(planelen);
+			memcpy(newjob->databuf + newjob->datalen + 32 + 2, &newlen, 4);
+
+			/* alter DIB header */
+			newlen = cpu_to_le32(new_h);
+			memcpy(newjob->databuf + newjob->datalen + 32 + 22, &newlen, 4);
+
+			/* Insert gap/padding after first image */
+			memset(newjob->databuf + newjob->datalen + i, 0, gap_bytes);
+			newjob->datalen += gap_bytes;
+
+			// locate job2's PLANE properly?  Assumption is it's in the same place.
+			ptr2 = job2->databuf + (ptr - job1->databuf);
+			/* Copy over job2's image data */
+			memcpy(newjob->databuf + newjob->datalen + i,
+			        ptr2 + 32 + 1088, i - 32 - 1088);
+			newjob->datalen += i - 32 - 1088;  /* add in job2 length */
+		}
+
+		newjob->datalen += i;
+		ptr += i;
+	}
+
+done:
+	return newjob;
+}
+
+#undef JOB_EQUIV
+
 static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, uint32_t arg3_len)
 {
 	memset(cmd, 0x20, sizeof(*cmd));
@@ -1032,6 +1192,7 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 	char buf[9] = { 0 };
 
 	struct dnpds40_printjob *job = NULL;
+	int can_combine = 0;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1515,6 +1676,45 @@ skip_multicut:
 	}
 
 skip_checks:
+	/* Try to combine prints */
+#if 0
+	if (job->multicut == MULTICUT_5x3_5 &&
+	    ctx->media == 210)
+		can_combine = 1;
+	else if (job->multicut == MULTICUT_6x4 &&
+	    (ctx->media == 310 || ctx->media == 400))
+		can_combine = 1;
+	else if (job->multicut == MULTICUT_6x4_5 &&
+		 ctx->media == 400)
+		can_combine = 1;
+	else if (job->multicut == MULTICUT_8x4 &&
+	    (ctx->media == 500 || ctx->media == 510))
+		can_combine = 1;
+	else if (job->multicut == MULTICUT_8x5 &&
+	    (ctx->media == 500 || ctx->media == 510))
+		can_combine = 1;
+	else if (job->multicut == MULTICUT_8x6 &&
+	    ctx->media == 510)
+		can_combine = 1;
+
+#else
+	can_combine = job->can_rewind;
+#endif
+
+	if (copies > 1 && can_combine) {
+		struct dnpds40_printjob *combined;
+		combined = combine_jobs(job, job);
+		if (combined) {
+			combined->copies = (job->copies + 1) / 2;
+			combined->can_rewind = 0;
+			dnpds40_cleanup_job(job);
+			job = combined;
+		}
+		// XXX Can result in an extra print!
+		// ideally, we'll submit two jobs, the combined print
+		// and one non-combined print.
+	}
+
 	DEBUG("job->dpi %u matte %d mcut %u cutter %d, bufs %d spd %d\n",
 	      job->dpi, job->matte, job->multicut, job->cutter, job->buf_needed, job->printspeed);
 
