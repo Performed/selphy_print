@@ -1688,42 +1688,27 @@ skip_multicut:
 
 skip_checks:
 	/* Try to combine prints */
-#if 0
-	if (job->multicut == MULTICUT_5x3_5 &&
-	    ctx->media == 210)
-		can_combine = 1;
-	else if (job->multicut == MULTICUT_6x4 &&
-	    (ctx->media == 310 || ctx->media == 400))
-		can_combine = 1;
-	else if (job->multicut == MULTICUT_6x4_5 &&
-		 ctx->media == 400)
-		can_combine = 1;
-	else if (job->multicut == MULTICUT_8x4 &&
-	    (ctx->media == 500 || ctx->media == 510))
-		can_combine = 1;
-	else if (job->multicut == MULTICUT_8x5 &&
-	    (ctx->media == 500 || ctx->media == 510))
-		can_combine = 1;
-	else if (job->multicut == MULTICUT_8x6 &&
-	    ctx->media == 510)
-		can_combine = 1;
 
-#else
-	can_combine = job->can_rewind;
-#endif
+	can_combine = job->can_rewind; /* Any rewindable size can be stacked */
+
+	/* Don't combine if we're an odd number on a printer that
+	   supports rewinding.  This way we won't waste a panel */
+	if (ctx->supports_rewind & !(copies & 1))
+		can_combine = 0;
 
 	if (copies > 1 && can_combine) {
 		struct dnpds40_printjob *combined;
 		combined = combine_jobs(job, job);
 		if (combined) {
+			/* This will result in an extra print since we
+			   round up. */
 			combined->copies = (job->copies + 1) / 2;
 			combined->can_rewind = 0;
 			dnpds40_cleanup_job(job);
 			job = combined;
 		}
-		// XXX Can result in an extra print!
-		// ideally, we'll submit two jobs, the combined print
-		// and one non-combined print.
+		// XXX down the line, submit the rounded-down combined print
+		// and a single copy of the original job.
 	}
 
 	DEBUG("job->dpi %u matte %d mcut %u cutter %d, bufs %d spd %d\n",
