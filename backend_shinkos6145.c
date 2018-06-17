@@ -1085,6 +1085,8 @@ struct shinkos6145_printjob {
 	uint8_t *databuf;
 	size_t datalen;
 
+	struct s6145_printjob_hdr hdr;
+
 	uint8_t input_ymc;
 	int copies;
 };
@@ -1096,8 +1098,6 @@ struct shinkos6145_ctx {
 	int type;
 
 	uint8_t jobid;
-
-	struct s6145_printjob_hdr hdr;
 
 	uint8_t image_avg[3]; /* CMY */
 
@@ -2095,31 +2095,34 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	job->copies = copies;  // XXX hdr.copies?
 
 	/* Read in then validate header */
-	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
-	if (ret < 0 || ret != sizeof(ctx->hdr)) {
+	ret = read(data_fd, &job->hdr, sizeof(job->hdr));
+	if (ret < 0 || ret != sizeof(job->hdr)) {
+		shinkos6145_cleanup_job(job);
 		if (ret == 0)
 			return CUPS_BACKEND_CANCEL;
 		ERROR("Read failed (%d/%d/%d)\n",
-		      ret, 0, (int)sizeof(ctx->hdr));
+		      ret, 0, (int)sizeof(job->hdr));
 		perror("ERROR: Read failed");
 		return ret;
 	}
 
-	if (le32_to_cpu(ctx->hdr.len1) != 0x10 ||
-	    le32_to_cpu(ctx->hdr.len2) != 0x64 ||
-	    le32_to_cpu(ctx->hdr.dpi) != 300) {
+	if (le32_to_cpu(job->hdr.len1) != 0x10 ||
+	    le32_to_cpu(job->hdr.len2) != 0x64 ||
+	    le32_to_cpu(job->hdr.dpi) != 300) {
 		ERROR("Unrecognized header data format!\n");
+		shinkos6145_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if (le32_to_cpu(ctx->hdr.model) != 6145) {
-		ERROR("Unrecognized printer (%u)!\n", le32_to_cpu(ctx->hdr.model));
-
+	if (le32_to_cpu(job->hdr.model) != 6145) {
+		ERROR("Unrecognized printer (%u)!\n", le32_to_cpu(job->hdr.model));
+		shinkos6145_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	if (!ctx->hdr.rows || !ctx->hdr.columns) {
+	if (!job->hdr.rows || !job->hdr.columns) {
 		ERROR("Bad print job header!\n");
+		shinkos6145_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -2127,12 +2130,13 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	   When bit 0 is set, this tells the backend that the data is
 	   already in planar YMC format (vs packed RGB) so we don't need
 	   to do the conversion ourselves.  Saves some processing overhead */
-	job->input_ymc = le32_to_cpu(ctx->hdr.ext_flags) & 0x01;
+	job->input_ymc = le32_to_cpu(job->hdr.ext_flags) & 0x01;
 
-	job->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
+	job->datalen = le32_to_cpu(job->hdr.rows) * le32_to_cpu(job->hdr.columns) * 3;
 	job->databuf = malloc(job->datalen);
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		shinkos6145_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -2145,6 +2149,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 				ERROR("Read failed (%d/%d/%zu)\n",
 				      ret, remain, job->datalen);
 				perror("ERROR: Read failed");
+				shinkos6145_cleanup_job(job);
 				return ret;
 			}
 			ptr += ret;
@@ -2158,6 +2163,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 		ERROR("Read failed (%d/%d/%d)\n",
 		      ret, 4, 4);
 		perror("ERROR: Read failed");
+		shinkos6145_cleanup_job(job);
 		return ret;
 	}
 	if (tmpbuf[0] != 0x04 ||
@@ -2165,6 +2171,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	    tmpbuf[2] != 0x02 ||
 	    tmpbuf[3] != 0x01) {
 		ERROR("Unrecognized footer data format!\n");
+		shinkos6145_cleanup_job(job);
 		return CUPS_BACKEND_FAILED;
 	}
 
@@ -2213,10 +2220,10 @@ static int shinkos6145_main_loop(void *vctx, const void *vjob) {
 	/* Validate print sizes */
 	for (i = 0; i < media->count ; i++) {
 		/* Look for matching media */
-		if (le16_to_cpu(media->items[i].columns) == cpu_to_le16(le32_to_cpu(ctx->hdr.columns)) &&
-		    le16_to_cpu(media->items[i].rows) == cpu_to_le16(le32_to_cpu(ctx->hdr.rows)) &&
-		    media->items[i].print_method == le32_to_cpu(ctx->hdr.method) &&
-		    media->items[i].media_code == le32_to_cpu(ctx->hdr.media))
+		if (le16_to_cpu(media->items[i].columns) == cpu_to_le16(le32_to_cpu(job->hdr.columns)) &&
+		    le16_to_cpu(media->items[i].rows) == cpu_to_le16(le32_to_cpu(job->hdr.rows)) &&
+		    media->items[i].print_method == le32_to_cpu(job->hdr.method) &&
+		    media->items[i].media_code == le32_to_cpu(job->hdr.media))
 			break;
 	}
 	if (i == media->count) {
@@ -2287,7 +2294,7 @@ top:
 	case S_PRINTER_READY_CMD: {
 		/* Set matte/etc */
 
-		uint32_t oc_mode = le32_to_cpu(ctx->hdr.oc_mode);
+		uint32_t oc_mode = le32_to_cpu(job->hdr.oc_mode);
 		uint32_t updated = 0;
 
 		if (!oc_mode) /* if nothing set, default to glossy */
@@ -2328,12 +2335,12 @@ top:
 
 		/* Set up library transform... */
 		uint32_t newlen = le16_to_cpu(ctx->corrdata->headDots) *
-			le32_to_cpu(ctx->hdr.rows) * sizeof(uint16_t) * 4;
+			le32_to_cpu(job->hdr.rows) * sizeof(uint16_t) * 4;
 		uint16_t *databuf2 = malloc(newlen);
 
 		/* Set the size in the correctiondata */
-		ctx->corrdata->width = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
-		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
+		ctx->corrdata->width = cpu_to_le16(le32_to_cpu(job->hdr.columns));
+		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(job->hdr.rows));
 
 		/* Convert packed RGB to planar YMC if necessary */
 		if (!job->input_ymc) {
@@ -2357,7 +2364,7 @@ top:
 		if (ctx->dl_handle) {
 			INFO("Calling image processing library...\n");
 
-			if (ctx->ImageAvrCalc(job->databuf, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows), ctx->image_avg)) {
+			if (ctx->ImageAvrCalc(job->databuf, le32_to_cpu(job->hdr.columns), le32_to_cpu(job->hdr.rows), ctx->image_avg)) {
 				free(databuf2);
 				ERROR("Library returned error!\n");
 				return CUPS_BACKEND_FAILED;
@@ -2367,7 +2374,7 @@ top:
 			WARNING("Utilizing fallback internal image processing code\n");
 			WARNING(" *** Output quality will be poor! *** \n");
 
-			lib6145_calc_avg(ctx, job, le32_to_cpu(ctx->hdr.columns), le32_to_cpu(ctx->hdr.rows));
+			lib6145_calc_avg(ctx, job, le32_to_cpu(job->hdr.columns), le32_to_cpu(job->hdr.rows));
 			lib6145_process_image(job->databuf, databuf2, ctx->corrdata, oc_mode);
 		}
 
@@ -2383,15 +2390,15 @@ top:
 
 		print->id = ctx->jobid;
 		print->count = cpu_to_le16(job->copies);
-		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
-		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
+		print->columns = cpu_to_le16(le32_to_cpu(job->hdr.columns));
+		print->rows = cpu_to_le16(le32_to_cpu(job->hdr.rows));
 		print->image_avg = ctx->image_avg[2]; /* Cyan level */
-		print->method = cpu_to_le32(ctx->hdr.method);
+		print->method = cpu_to_le32(job->hdr.method);
 		print->combo_wait = 0;
 
 		/* Brava21 header has a few quirks */
 		if(ctx->type == P_SHINKO_S6145D) {
-			print->media = ctx->hdr.media;
+			print->media = job->hdr.media;
 			print->unk_1 = 0x01;
 		}
 

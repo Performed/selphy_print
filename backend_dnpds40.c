@@ -1226,12 +1226,16 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		/* Read in command header */
 		i = read(data_fd, job->databuf + job->datalen,
 			 sizeof(struct dnpds40_cmd));
-		if (i < 0)
+		if (i < 0) {
+			dnpds40_cleanup_job(job);
 			return i;
+		}
 		if (i == 0)
 			break;
-		if (i < (int) sizeof(struct dnpds40_cmd))
+		if (i < (int) sizeof(struct dnpds40_cmd)) {
+			dnpds40_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 
 		if (job->databuf[job->datalen + 0] != 0x1b ||
 		    job->databuf[job->datalen + 1] != 0x50) {
@@ -1244,15 +1248,17 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			    hdr.res > 0x01 ||
 			    hdr.null1[0] || hdr.null1[1] || hdr.null1[2] || hdr.null1[3]) {
 				ERROR("Unrecognized header data format @%d!\n", job->datalen);
+				dnpds40_cleanup_job(job);
 			} else {
 				job->dpi = (hdr.res == DPI_600) ? 600 : 334;
 				i = cw01_read_parse(job, data_fd, &hdr, i);
 				if (i == CUPS_BACKEND_OK)
 					goto parsed;
-				else
+				else {
+					dnpds40_cleanup_job(job);
 					return i;
+				}
 			}
-
 			return CUPS_BACKEND_CANCEL;
 		}
 
@@ -1267,6 +1273,7 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 				 remain);
 			if (i < 0) {
 				ERROR("Data Read Error: %d (%d/%d @%d)\n", i, remain, j, job->datalen);
+				dnpds40_cleanup_job(job);
 				return i;
 			}
 			if (i == 0)
@@ -1355,6 +1362,7 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 				break;
 			default:
 				ERROR("Unrecognized printjob resolution (%u ppm)\n", y_ppm);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 
@@ -1363,6 +1371,7 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			y_ppm = le32_to_cpu(y_ppm);
 			if (y_ppm != ctx->native_width) {
 				ERROR("Incorrect horizontal resolution (%u), aborting!\n", y_ppm);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 		}
@@ -1387,8 +1396,10 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 	}
 parsed:
 	/* If we have no data.. don't bother */
-	if (!job->datalen)
+	if (!job->datalen) {
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
+	}
 
 	/* Sanity check matte mode */
 	if (job->matte == 21 && !ctx->supports_finematte) {

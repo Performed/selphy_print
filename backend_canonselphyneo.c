@@ -286,6 +286,7 @@ static int selphyneo_read_parse(void *vctx, const void **vjob, int data_fd, int 
 		ERROR("Read failed (%d/%d)\n",
 		      i, (int)sizeof(hdr));
 		perror("ERROR: Read failed");
+		selphyneo_cleanup_job(job);
 		return CUPS_BACKEND_FAILED;
 	}
 
@@ -307,6 +308,7 @@ static int selphyneo_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	job->databuf = malloc(remain + sizeof(hdr));
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		selphyneo_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -317,8 +319,10 @@ static int selphyneo_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	/* Read in data */
 	while (remain > 0) {
 		i = read(data_fd, job->databuf + job->datalen, remain);
-		if (i < 0)
+		if (i < 0) {
+			selphyneo_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 		job->datalen += i;
 	}

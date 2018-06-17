@@ -728,6 +728,7 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 			return CUPS_BACKEND_CANCEL;
 		ERROR("Read failed (%d/%d)\n", i, 4);
 		perror("ERROR: Read failed");
+		canonselphy_cleanup_job(job);
 		return CUPS_BACKEND_FAILED;
 	}
 	/* if it's not the null header.. don't ignore! */
@@ -746,6 +747,7 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 		ERROR("Read failed (%d/%d)\n",
 		      i, MAX_HEADER - offset);
 		perror("ERROR: Read failed");
+		canonselphy_cleanup_job(job);
 		return CUPS_BACKEND_FAILED;
 	}
 
@@ -759,14 +761,9 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 			printer_type = P_ES40;
 	}
 
-	/* Look up the printer entry */
-	if (!ctx->printer) {
-		ERROR("Unable to look up printer type!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
 	if (printer_type != ctx->type) {
 		ERROR("Printer/Job mismatch (%d/%d)\n", ctx->type, ctx->printer->type);
+		free(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -790,6 +787,7 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 	if (!job->plane_y || !job->plane_m || !job->plane_c || !job->header ||
 	    (ctx->printer->foot_length && !job->footer)) {
 		ERROR("Memory allocation failure!\n");
+		canonselphy_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -802,8 +800,10 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 	remain = job->plane_len - (MAX_HEADER-ctx->printer->init_length);
 	while (remain > 0) {
 		i = read(data_fd, job->plane_y + (job->plane_len - remain), remain);
-		if (i < 0)
+		if (i < 0) {
+			canonselphy_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 	}
 
@@ -811,8 +811,10 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 	remain = job->plane_len;
 	while (remain > 0) {
 		i = read(data_fd, job->plane_m + (job->plane_len - remain), remain);
-		if (i < 0)
+		if (i < 0) {
+			canonselphy_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 	}
 
@@ -820,8 +822,10 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 	remain = job->plane_len;
 	while (remain > 0) {
 		i = read(data_fd, job->plane_c + (job->plane_len - remain), remain);
-		if (i < 0)
+		if (i < 0) {
+			canonselphy_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 	}
 
@@ -830,8 +834,10 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 		remain = ctx->printer->foot_length;
 		while (remain > 0) {
 			i = read(data_fd, job->footer + (ctx->printer->foot_length - remain), remain);
-			if (i < 0)
+			if (i < 0) {
+				canonselphy_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
+			}
 			remain -= i;
 		}
 	}

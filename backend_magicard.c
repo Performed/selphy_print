@@ -591,11 +591,14 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 
 	/* Read in the first chunk */
 	i = read(data_fd, initial_buf, INITIAL_BUF_LEN);
-	if (i < 0)
+	if (i < 0) {
+		magicard_cleanup_job(job);
 		return i;
-	if (i == 0)
+	} else if (i == 0) {
+		magicard_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;  /* Ie no data, we're done */
-	if (i < INITIAL_BUF_LEN) {
+	} else if (i < INITIAL_BUF_LEN) {
+		magicard_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -604,6 +607,7 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	    initial_buf[64] != 0x01 ||
 	    initial_buf[65] != 0x2c) {
 		ERROR("Unrecognized header data format @%d!\n", job->datalen);
+		magicard_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -618,6 +622,7 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	job->databuf = malloc(MAX_PRINTJOB_LEN);
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		magicard_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -673,14 +678,17 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	/* Sanity checks */
 	if (!len_y || !len_m || !len_c) {
 		ERROR("Plane lengths missing? %u/%u/%u!\n", len_y, len_m, len_c);
+		magicard_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 	if (len_y != len_m || len_y != len_c) {
 		ERROR("Inconsistent data plane lengths! %u/%u/%u!\n", len_y, len_m, len_c);
+		magicard_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 	if (x_gp_rk && len_k) {
 		ERROR("Data stream already has a K layer!\n");
+		magicard_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -744,6 +752,7 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		uint32_t srcbuf_offset = INITIAL_BUF_LEN - buf_offset;
 		uint8_t *srcbuf = malloc(MAX_PRINTJOB_LEN);
 		if (!srcbuf) {
+			magicard_cleanup_job(job);
 			ERROR("Memory allocation failure!\n");
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
@@ -755,11 +764,13 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 			i = read(data_fd, srcbuf + srcbuf_offset, remain);
 			if (i < 0) {
 				ERROR("Data Read Error: %d (%u) @%u)\n", i, remain, srcbuf_offset);
+				magicard_cleanup_job(job);
 				free(srcbuf);
 				return i;
 			}
 			if (i == 0) {
 				ERROR("Short read! (%d/%u)\n", i, remain);
+				magicard_cleanup_job(job);
 				free(srcbuf);
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -817,10 +828,12 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		while (remain > 0) {
 			i = read(data_fd, job->databuf + job->datalen, remain);
 			if (i < 0) {
+				magicard_cleanup_job(job);
 				ERROR("Data Read Error: %d (%u) @%d)\n", i, remain, job->datalen);
 				return i;
 			}
 			if (i == 0) {
+				magicard_cleanup_job(job);
 				ERROR("Short read! (%d/%u)\n", i, remain);
 				return CUPS_BACKEND_CANCEL;
 			}

@@ -595,6 +595,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 			      1852*2729*3);
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		mitsud90_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -609,10 +610,14 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	remain = sizeof(struct mitsud90_job_hdr) - job->datalen;
 	while (remain) {
 		i = read(data_fd, (job->databuf + job->datalen), remain);
-		if (i == 0)
+		if (i == 0) {
+			mitsud90_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		if (i < 0)
+		}
+		if (i < 0) {
+			mitsud90_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 		job->datalen += i;
 	}
@@ -625,6 +630,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	    hdr->hdr[3] != 0x30 ) {
 		ERROR("Unrecognized data format (%02x%02x%02x%02x)!\n",
 		      hdr->hdr[0], hdr->hdr[1], hdr->hdr[2], hdr->hdr[3]);
+		mitsud90_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -632,10 +638,14 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	remain = sizeof(struct mitsud90_plane_hdr) + be16_to_cpu(hdr->cols) * be16_to_cpu(hdr->rows) * 3;
 	while(remain) {
 		i = read(data_fd, job->databuf + job->datalen, remain);
-		if (i == 0)
+		if (i == 0) {
+			mitsud90_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		if (i < 0)
+		}
+		if (i < 0) {
+			mitsud90_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		job->datalen += i;
 		remain -= i;
 	}
@@ -643,10 +653,14 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	/* Read in the footer.  Hopefully. */
 	remain = sizeof(struct mitsud90_job_footer);
 	i = read(data_fd, job->databuf + job->datalen, remain);
-	if (i == 0)
+	if (i == 0) {
+		mitsud90_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
-	if (i < 0)
+	}
+	if (i < 0) {
+		mitsud90_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
+	}
 
 	/* See if this is a job footer.  If it is, keep, else holdover. */
 	if (job->databuf[job->datalen + 0] != 0x1b ||
@@ -663,6 +677,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	/* Sanity check */
 	if (hdr->pano.pano_on) {
 		ERROR("Unable to handle panorama jobs yet\n");
+		mitsud90_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 

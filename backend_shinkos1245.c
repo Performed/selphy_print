@@ -1357,15 +1357,20 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 
 	/* Read in then validate header */
 	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
-	if (ret < 0)
+	if (ret < 0) {
+		shinkos1245_cleanup_job(job);
 		return ret;
-	if (ret != sizeof(ctx->hdr))
+	}
+	if (ret != sizeof(ctx->hdr)) {
+		shinkos1245_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
+	}
 
 	if (le32_to_cpu(ctx->hdr.len1) != 0x10 ||
 	    le32_to_cpu(ctx->hdr.len2) != 0x64 ||
 	    le32_to_cpu(ctx->hdr.dpi) != 300) {
 		ERROR("Unrecognized header data format!\n");
+		shinkos1245_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1373,6 +1378,7 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 
 	if(ctx->hdr.model != 1245) {
 		ERROR("Unrecognized printer (%u)!\n", ctx->hdr.model);
+		shinkos1245_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1391,6 +1397,7 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 	job->databuf = malloc(job->datalen);
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		shinkos1245_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -1403,6 +1410,7 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 				ERROR("Read failed (%d/%d/%d)\n",
 				      ret, remain, job->datalen);
 				perror("ERROR: Read failed");
+				shinkos1245_cleanup_job(job);
 				return ret;
 			}
 			ptr += ret;
@@ -1416,6 +1424,7 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 		ERROR("Read failed (%d/%d/%d)\n",
 		      ret, 4, 4);
 		perror("ERROR: Read failed");
+		shinkos1245_cleanup_job(job);
 		return ret;
 	}
 	if (tmpbuf[0] != 0x04 ||
@@ -1423,6 +1432,7 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 	    tmpbuf[2] != 0x02 ||
 	    tmpbuf[3] != 0x01) {
 		ERROR("Unrecognized footer data format!\n");
+		shinkos1245_cleanup_job(job);
 		return CUPS_BACKEND_FAILED;
 	}
 

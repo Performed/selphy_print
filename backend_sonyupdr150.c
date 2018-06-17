@@ -136,6 +136,7 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 	job->databuf = malloc(MAX_PRINTJOB_LEN);
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		updr150_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -143,8 +144,10 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		int i;
 		int keep = 0;
 		i = read(data_fd, job->databuf + job->datalen, 4);
-		if (i < 0)
+		if (i < 0) {
+			updr150_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		if (i == 0)
 			break;
 
@@ -207,8 +210,10 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		/* Read in the data chunk */
 		while(len > 0) {
 			i = read(data_fd, job->databuf + job->datalen, len);
-			if (i < 0)
+			if (i < 0) {
+				updr150_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
+			}
 			if (i == 0)
 				break;
 
@@ -225,8 +230,10 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			len -= i;
 		}
 	}
-	if (!job->datalen)
+	if (!job->datalen) {
+		updr150_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
+	}
 
 	/* Some models specify copies in the print job */
 	if (copies_offset) {
