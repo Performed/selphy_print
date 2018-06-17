@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use strict;
 
+my $copies = 2;
 my $retval = 0;
 
 while (<STDIN>) {
@@ -14,7 +15,7 @@ while (<STDIN>) {
     $ENV{"EXTRA_PID"} = $row[2];
 
     print "***** $row[0] $row[1] $row[2] $row[3]\n";
-    my @args = ("valgrind", "./dyesub_backend", "testjobs/${row[3]}");
+    my @args = ("valgrind", "./dyesub_backend", "-d", $copies, "testjobs/${row[3]}");
 
     my $rval = system(@args);
 
