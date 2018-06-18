@@ -1087,7 +1087,6 @@ struct shinkos6145_printjob {
 
 	struct s6145_printjob_hdr hdr;
 
-	uint8_t input_ymc;
 	int copies;
 };
 
@@ -2080,6 +2079,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	struct shinkos6145_ctx *ctx = vctx;
 	int ret;
 	uint8_t tmpbuf[4];
+	uint8_t input_ymc;
 
 	struct shinkos6145_printjob *job = NULL;
 
@@ -2130,7 +2130,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	   When bit 0 is set, this tells the backend that the data is
 	   already in planar YMC format (vs packed RGB) so we don't need
 	   to do the conversion ourselves.  Saves some processing overhead */
-	job->input_ymc = le32_to_cpu(job->hdr.ext_flags) & 0x01;
+	input_ymc = le32_to_cpu(job->hdr.ext_flags) & 0x01;
 
 	job->datalen = le32_to_cpu(job->hdr.rows) * le32_to_cpu(job->hdr.columns) * 3;
 	job->databuf = malloc(job->datalen);
@@ -2173,6 +2173,30 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 		ERROR("Unrecognized footer data format!\n");
 		shinkos6145_cleanup_job(job);
 		return CUPS_BACKEND_FAILED;
+	}
+
+	/* Convert packed RGB to planar YMC if necessary */
+	if (!input_ymc) {
+		INFO("Converting Packed RGB to Planar YMC\n");
+		int planelen = le32_to_cpu(job->hdr.columns) * le32_to_cpu(job->hdr.rows);
+		uint8_t *databuf3 = malloc(job->datalen);
+		int i;
+		if (!databuf3) {
+			ERROR("Memory allocation failure!\n");
+			shinkos6145_cleanup_job(job);
+			return CUPS_BACKEND_RETRY_CURRENT;
+		}
+		for (i = 0 ; i < planelen ; i++) {
+			uint8_t r, g, b;
+			r = job->databuf[3*i];
+			g = job->databuf[3*i+1];
+			b = job->databuf[3*i+2];
+			databuf3[i] = 255 - b;
+			databuf3[planelen + i] = 255 - g;
+			databuf3[planelen + planelen + i] = 255 - r;
+		}
+		free(job->databuf);
+		job->databuf = databuf3;
 	}
 
 	*vjob = job;
@@ -2342,23 +2366,6 @@ top:
 		ctx->corrdata->width = cpu_to_le16(le32_to_cpu(job->hdr.columns));
 		ctx->corrdata->height = cpu_to_le16(le32_to_cpu(job->hdr.rows));
 
-		/* Convert packed RGB to planar YMC if necessary */
-		if (!job->input_ymc) {
-			int planelen = le16_to_cpu(ctx->corrdata->width) * le16_to_cpu(ctx->corrdata->height);
-			uint8_t *databuf3 = malloc(job->datalen);
-
-			for (i = 0 ; i < planelen ; i++) {
-				uint8_t r, g, b;
-				r = job->databuf[3*i];
-				g = job->databuf[3*i+1];
-				b = job->databuf[3*i+2];
-				databuf3[i] = 255 - b;
-				databuf3[planelen + i] = 255 - g;
-				databuf3[planelen + planelen + i] = 255 - r;
-			}
-			free(job->databuf);
-			job->databuf = databuf3;
-		}
 
 		/* Perform the actual library transform */
 		if (ctx->dl_handle) {
