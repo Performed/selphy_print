@@ -165,6 +165,7 @@ struct mitsu9550_printjob {
 	uint16_t rows;
 	uint16_t cols;
 	uint32_t plane_len;
+	int is_raw;
 
 	int copies;
 
@@ -191,6 +192,7 @@ struct mitsu9550_ctx {
 
 	/* CP98xx stuff */
 	struct mitsu98xx_tables *m98xxdata;
+	struct CColorConv3D *lut;
 };
 
 /* Printer data structures */
@@ -585,6 +587,8 @@ static void mitsu9550_teardown(void *vctx) {
 	if (!ctx)
 		return;
 
+	if (ctx->lut)
+		CColorConv3D_Destroy3DColorTable(ctx->lut);
 	if (ctx->m98xxdata)
 		free(ctx->m98xxdata);
 	free(ctx);
@@ -595,7 +599,6 @@ static int mitsu9550_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	uint8_t buf[sizeof(struct mitsu9550_hdr1)];
 	int remain, i;
 	uint32_t planelen = 0;
-	int is_raw = 1;
 
 	struct mitsu9550_printjob *job = NULL;
 
@@ -608,11 +611,7 @@ static int mitsu9550_read_parse(void *vctx, const void **vjob, int data_fd, int 
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
-
-	job->hdr1_present = 0;
-	job->hdr2_present = 0;
-	job->hdr3_present = 0;
-	job->hdr4_present = 0;
+	job->is_raw = 1;
 
 top:
 	/* Read in initial header */
@@ -645,7 +644,7 @@ top:
 			if (buf[3] == 0x10)
 				planelen *= 2;
 			else if (ctx->is_98xx && buf[3] == 0x80)
-				is_raw = 0;
+				job->is_raw = 0;
 
 			goto hdr_done;
 		} else {
@@ -691,7 +690,7 @@ top:
 hdr_done:
 
 	/* Read in CP98xx data tables if necessary */
-	if (ctx->is_98xx && !is_raw && !ctx->m98xxdata) {
+	if (ctx->is_98xx && !job->is_raw && !ctx->m98xxdata) {
 		int fd;
 
 		DEBUG("Reading in 98xx data from disk\n");
@@ -719,7 +718,7 @@ hdr_done:
 		close(fd);
 	}
 
-	if (is_raw) {
+	if (job->is_raw) {
 		/* We have three planes + headers and the final terminator to read */
 		remain = 3 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
 	} else {
@@ -746,7 +745,7 @@ hdr_done:
 		if (ctx->type != P_MITSU_9810) {
 			WARNING("Matte not supported on this printer, disabling\n");
 			job->hdr1.matte = 0;
-		} else if (is_raw) {
+		} else if (job->is_raw) {
 			remain += planelen + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
 		}
 	}
@@ -848,16 +847,10 @@ hdr_done:
 		}
 	}
 
-	/* Do the 98xx processing here */
-	if (ctx->is_98xx && !is_raw) {
-		uint8_t *newbuf;
-		uint32_t newlen = 0;
-		struct mitsu98xx_data *table;
-		struct CColorConv3D *lut;
-
-		/* Apply LUT */
-		if (job->hdr2.unkc[9]) {
-			DEBUG("Applying 3D LUT\n");
+	/* Apply LUT */
+	if (ctx->is_98xx && !job->is_raw && job->hdr2.unkc[9]) {
+		DEBUG("Applying 3D LUT\n");
+		if (!ctx->lut) {
 			uint8_t *buf = malloc(LUT_LEN);
 			if (!buf) {
 				ERROR("Memory allocation failure!\n");
@@ -869,91 +862,17 @@ hdr_done:
 				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
-			lut = CColorConv3D_Load3DColorTable(buf);
+			ctx->lut = CColorConv3D_Load3DColorTable(buf);
 			free(buf);
-			if (!lut) {
+			if (!ctx->lut) {
 				ERROR("Unable to parse LUT\n");
 				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
-			CColorConv3D_DoColorConv(lut, job->databuf + sizeof(struct mitsu9550_plane),
-						 job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
-			CColorConv3D_Destroy3DColorTable(lut);
-			job->hdr2.unkc[9] = 0;
 		}
-
-		planelen = job->rows * job->cols * 2;
-		remain = (job->hdr1.matte ? 3 : 4) * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
-		newbuf = malloc(remain);
-		if (!newbuf) {
-			ERROR("Memory allocation Failure!\n");
-			mitsu9550_cleanup_job(job);
-			return CUPS_BACKEND_RETRY_CURRENT;
-		}
-		switch (job->hdr2.mode) {
-		case 0x80:
-			table = &ctx->m98xxdata->superfine;
-			break;
-		case 0x11:
-			table = &ctx->m98xxdata->fine_hg;
-			job->hdr2.mode = 0x10;
-			break;
-		case 0x10:
-		default:
-			table = &ctx->m98xxdata->fine_std;
-			break;
-		}
-
-		DEBUG("Applying 8bpp->12bpp Gamma Correction\n");
-		/* For B/Y plane */
-		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-				  (uint16_t*) (newbuf + newlen),
-				  0,
-				  table->GNMby,
-				  planelen / 2);
-		newlen += planelen;
-
-		/* For G/M plane */
-		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-				  (uint16_t*) (newbuf + newlen),
-				  1,
-				  table->GNMgm,
-				  planelen / 2);
-		newlen += planelen;
-
-		/* For R/C plane */
-		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-				  (uint16_t*) (newbuf + newlen),
-				  2,
-				  table->GNMrc,
-				  planelen / 2);
-		newlen += planelen;
-
-		/* And finally, the job footer. */
-		memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen * 3, sizeof(struct mitsu9550_cmd));
-		newlen += sizeof(struct mitsu9550_cmd);
-
-		/* Clean up */
-		free(job->databuf);
-		job->databuf = newbuf;
-		job->datalen = newlen;
-
-		/* Now handle the matte plane generation */
-		if (job->hdr1.matte) {
-			if ((i = mitsu98xx_fillmatte(job))) {
-				mitsu9550_cleanup_job(job);
-				return i;
-			}
-		}
+		CColorConv3D_DoColorConv(ctx->lut, job->databuf + sizeof(struct mitsu9550_plane),
+					 job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
+		job->hdr2.unkc[9] = 0;
 	}
 
 	/* Update printjob header to reflect number of requested copies */
@@ -1239,7 +1158,8 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 	int copies;
 #endif
 
-	const struct mitsu9550_printjob *job = vjob;
+//	const struct mitsu9550_printjob *job = vjob;
+	struct mitsu9550_printjob *job = (struct mitsu9550_printjob*) vjob; // XXX not good.
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1255,6 +1175,85 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 		copies = job->copies;
 	// XXX..
 #endif
+
+	/* Do the 98xx processing here */
+	if (ctx->is_98xx && !job->is_raw) {
+		uint8_t *newbuf;
+		uint32_t newlen = 0;
+		struct mitsu98xx_data *table;
+		int i, remain, planelen;
+
+		planelen = job->rows * job->cols * 2;
+		remain = (job->hdr1.matte ? 3 : 4) * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+		newbuf = malloc(remain);
+		if (!newbuf) {
+			ERROR("Memory allocation Failure!\n");
+			return CUPS_BACKEND_RETRY_CURRENT;
+		}
+		switch (job->hdr2.mode) {
+		case 0x80:
+			table = &ctx->m98xxdata->superfine;
+			break;
+		case 0x11:
+			table = &ctx->m98xxdata->fine_hg;
+			job->hdr2.mode = 0x10;
+			break;
+		case 0x10:
+		default:
+			table = &ctx->m98xxdata->fine_std;
+			break;
+		}
+
+		DEBUG("Applying 8bpp->12bpp Gamma Correction\n");
+		/* For B/Y plane */
+		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+		newlen += sizeof(struct mitsu9550_plane);
+		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+				  (uint16_t*) (newbuf + newlen),
+				  0,
+				  table->GNMby,
+				  planelen / 2);
+		newlen += planelen;
+
+		/* For G/M plane */
+		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+		newlen += sizeof(struct mitsu9550_plane);
+		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+				  (uint16_t*) (newbuf + newlen),
+				  1,
+				  table->GNMgm,
+				  planelen / 2);
+		newlen += planelen;
+
+		/* For R/C plane */
+		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+		newlen += sizeof(struct mitsu9550_plane);
+		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+				  (uint16_t*) (newbuf + newlen),
+				  2,
+				  table->GNMrc,
+				  planelen / 2);
+		newlen += planelen;
+
+		/* And finally, the job footer. */
+		memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen * 3, sizeof(struct mitsu9550_cmd));
+		newlen += sizeof(struct mitsu9550_cmd);
+
+		/* Clean up */
+		free(job->databuf);
+		job->databuf = newbuf;
+		job->datalen = newlen;
+
+		/* Now handle the matte plane generation */
+		if (job->hdr1.matte) {
+			if ((i = mitsu98xx_fillmatte(job))) {
+				return i;
+			}
+		}
+	}
 
 top:
 	if (ctx->is_s) {
@@ -1706,7 +1705,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.39",
+	.version = "0.40",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
