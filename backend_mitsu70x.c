@@ -130,8 +130,12 @@ struct mitsu70x_printjob {
 	uint8_t *databuf;
 	int datalen;
 
+	uint8_t *spoolbuf;
+	int spoolbuflen;
+
 	uint16_t rows;
 	uint16_t cols;
+	uint32_t planelen;
 	uint32_t matte;
 	int raw_format;
 	int copies;
@@ -818,6 +822,8 @@ static void mitsu70x_cleanup_job(const void *vjob) {
 
 	if (job->databuf)
 		free(job->databuf);
+	if (job->spoolbuf)
+		free(job->spoolbuf);
 
 	free((void*)job);
 }
@@ -847,9 +853,6 @@ static int mitsu70x_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	struct mitsu70x_ctx *ctx = vctx;
 	int i, remain;
 	struct mitsu70x_hdr mhdr;
-	uint32_t planelen;
-
-	uint8_t rew[2]; /* 1 for rewind ok (default!) */
 
 	struct mitsu70x_printjob *job = NULL;
 
@@ -863,10 +866,6 @@ static int mitsu70x_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	}
 	memset(job, 0, sizeof(*job));
 	job->copies = copies;
-
-	/* Reset some state */
-	rew[0] = 1;
-	rew[1] = 1;
 
 repeat:
 	/* Read in initial header */
@@ -1011,8 +1010,8 @@ repeat:
 	job->cols = be16_to_cpu(mhdr.cols);
 	job->rows = be16_to_cpu(mhdr.rows);
 
-	planelen = job->rows * job->cols * 2;
-	planelen = (planelen + 511) / 512 * 512; /* Round to nearest 512 bytes. */
+	job->planelen = job->rows * job->cols * 2;
+	job->planelen = (job->planelen + 511) / 512 * 512; /* Round to nearest 512 bytes. */
 
 	if (!mhdr.laminate && mhdr.laminate_mode) {
 		i = be16_to_cpu(mhdr.lamcols) * be16_to_cpu(mhdr.lamrows) * 2;
@@ -1020,7 +1019,7 @@ repeat:
 		job->matte = i;
 	}
 
-	remain = 3 * planelen + job->matte;
+	remain = 3 * job->planelen + job->matte;
 
 	job->datalen = 0;
 	job->databuf = malloc(sizeof(mhdr) + remain + LAMINATE_STRIDE*2);  /* Give us a bit extra */
@@ -1055,15 +1054,13 @@ repeat:
 	}
 
 	/* Non-RAW mode! */
-	int spoolbuflen = 0;
-	uint8_t *spoolbuf;
 
 	remain = job->rows * job->cols * 3;
 	DEBUG("Reading in %d bytes of 8bpp BGR data\n", remain);
 
-	spoolbuflen = 0;
-	spoolbuf = malloc(remain);
-	if (!spoolbuf) {
+	job->spoolbuflen = 0;
+	job->spoolbuf = malloc(remain);
+	if (!job->spoolbuf) {
 		ERROR("Memory allocation failure!\n");
 		mitsu70x_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
@@ -1071,18 +1068,16 @@ repeat:
 
 	/* Read in the BGR data */
 	while (remain) {
-		i = read(data_fd, spoolbuf + spoolbuflen, remain);
+		i = read(data_fd, job->spoolbuf + job->spoolbuflen, remain);
 		if (i == 0) {
 			mitsu70x_cleanup_job(job);
-			free(spoolbuf);
 			return CUPS_BACKEND_CANCEL;
 		}
 		if (i < 0) {
 			mitsu70x_cleanup_job(job);
-			free(spoolbuf);
 			return CUPS_BACKEND_CANCEL;
 		}
-		spoolbuflen += i;
+		job->spoolbuflen += i;
 		remain -= i;
 	}
 
@@ -1093,11 +1088,8 @@ repeat:
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	// XXX move to main loop after here?
-
 	/* Run through basic LUT, if present and enabled */
 	if (job->lutfname && !ctx->lut) {  /* printer-specific, it is fixed per-job */
-		DEBUG("Running print data through LUT\n");
 		uint8_t *buf = malloc(LUT_LEN);
 		if (!buf) {
 			ERROR("Memory allocation failure!\n");
@@ -1118,118 +1110,15 @@ repeat:
 		}
 	}
 
-	if (job->lutfname && ctx->lut)
-		ctx->DoColorConv(ctx->lut, spoolbuf, job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
-
-	struct BandImage input;
-
-	/* Load in the CPC file, if needed */
-	if (job->cpcfname && job->cpcfname != ctx->last_cpcfname) {
-		ctx->last_cpcfname = job->cpcfname;
-		if (ctx->cpcdata)
-			ctx->DestroyCPCData(ctx->cpcdata);
-		ctx->cpcdata = ctx->GetCPCData(job->cpcfname);
-		if (!ctx->cpcdata) {
-			ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
-			mitsu70x_cleanup_job(job);
-			return CUPS_BACKEND_CANCEL;
-		}
+	if (job->lutfname && ctx->lut) {
+		DEBUG("Running print data through LUT\n");
+		ctx->DoColorConv(ctx->lut, job->spoolbuf, job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
 	}
 
-	/* Load in the secondary CPC, if needed */
-	if (job->ecpcfname != ctx->last_ecpcfname) {
-		ctx->last_ecpcfname = job->ecpcfname;
-		if (ctx->ecpcdata)
-			ctx->DestroyCPCData(ctx->ecpcdata);
-		if (job->ecpcfname) {
-			ctx->ecpcdata = ctx->GetCPCData(job->ecpcfname);
-			if (!ctx->ecpcdata) {
-				ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
-				mitsu70x_cleanup_job(job);
-				return CUPS_BACKEND_CANCEL;
-			}
-		} else {
-			ctx->ecpcdata = NULL;
-		}
-	}
+	/* All further work is in main loop */
 
-	/* Convert using image processing library */
-	input.origin_rows = input.origin_cols = 0;
-	input.rows = job->rows;
-	input.cols = job->cols;
-	input.imgbuf = spoolbuf;
-	input.bytes_per_row = job->cols * 3;
-
-	ctx->output.origin_rows = ctx->output.origin_cols = 0;
-	ctx->output.rows = job->rows;
-	ctx->output.cols = job->cols;
-	ctx->output.imgbuf = job->databuf + job->datalen;
-	ctx->output.bytes_per_row = job->cols * 3 * 2;
-
-	DEBUG("Running print data through processing library\n");
-	if (ctx->DoImageEffect(ctx->cpcdata, ctx->ecpcdata,
-			       &input, &ctx->output, job->sharpen, job->reverse, rew)) {
-		ERROR("Image Processing failed, aborting!\n");
-		mitsu70x_cleanup_job(job);
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	/* Move up the pointer to after the image data */
-	job->datalen += 3*planelen;
-
-	/* Clean up */
-	free(spoolbuf);
-
-	/* Now that we've filled everything in, read matte from file */
-	if (job->matte) {
-		int fd;
-		uint32_t j;
-		DEBUG("Reading %u bytes of matte data from disk (%d/%d)\n", job->matte, job->cols, LAMINATE_STRIDE);
-		fd = open(job->laminatefname, O_RDONLY);
-		if (fd < 0) {
-			ERROR("Unable to open matte lamination data file '%s'\n", job->laminatefname);
-			mitsu70x_cleanup_job(job);
-			return CUPS_BACKEND_CANCEL;
-		}
-
-		for (j = 0 ; j < be16_to_cpu(mhdr.lamrows) ; j++) {
-			remain = LAMINATE_STRIDE * 2;
-
-			/* Read one row of lamination data at a time */
-			while (remain) {
-				i = read(fd, job->databuf + job->datalen, remain);
-				if (i < 0) {
-					mitsu70x_cleanup_job(job);
-					return CUPS_BACKEND_CANCEL;
-				}
-				if (i == 0) {
-					/* We hit EOF, restart from beginning */
-					lseek(fd, 0, SEEK_SET);
-					continue;
-				}
-				job->datalen += i;
-				remain -= i;
-			}
-			/* Back off the buffer so we "wrap" on the print row. */
-			job->datalen -= ((LAMINATE_STRIDE - job->cols) * 2);
-		}
-		/* We're done */
-		close(fd);
-
-		/* Zero out the tail end of the buffer. */
-		j = be16_to_cpu(mhdr.lamcols) * be16_to_cpu(mhdr.lamrows) * 2;
-		memset(job->databuf + job->datalen, 0, job->matte - j);
-	}
 done:
 	*vjob = job;
-
-	/* Twiddle rewind stuff if needed */
-	struct mitsu70x_hdr *hdr = (struct mitsu70x_hdr*) job->databuf;
-	if (ctx->type != P_MITSU_D70X) {
-		hdr->rewind[0] = !rew[0];
-		hdr->rewind[1] = !rew[1];
-		DEBUG("Rewind Inhibit? %02x %02x\n", hdr->rewind[0], hdr->rewind[1]);
-	}
 
 	return CUPS_BACKEND_OK;
 }
@@ -1555,7 +1444,8 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 	int ret;
 	int copies;
 
-	const struct mitsu70x_printjob *job = vjob;
+	struct mitsu70x_printjob *job = (struct mitsu70x_printjob *) vjob; // XXX not clean.
+//	const struct mitsu70x_printjob *job = vjob;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1563,8 +1453,117 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 		return CUPS_BACKEND_FAILED;
 
 	copies = job->copies;
-
 	hdr = (struct mitsu70x_hdr*) job->databuf;
+
+	if (job->raw_format)
+		goto bypass;
+
+	struct BandImage input;
+	uint8_t rew[2] = { 1, 1 }; /* 1 for rewind ok (default!) */
+
+	/* Load in the CPC file, if needed */
+	if (job->cpcfname && job->cpcfname != ctx->last_cpcfname) {
+		ctx->last_cpcfname = job->cpcfname;
+		if (ctx->cpcdata)
+			ctx->DestroyCPCData(ctx->cpcdata);
+		ctx->cpcdata = ctx->GetCPCData(job->cpcfname);
+		if (!ctx->cpcdata) {
+			ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
+			return CUPS_BACKEND_CANCEL;
+		}
+	}
+
+	/* Load in the secondary CPC, if needed */
+	if (job->ecpcfname != ctx->last_ecpcfname) {
+		ctx->last_ecpcfname = job->ecpcfname;
+		if (ctx->ecpcdata)
+			ctx->DestroyCPCData(ctx->ecpcdata);
+		if (job->ecpcfname) {
+			ctx->ecpcdata = ctx->GetCPCData(job->ecpcfname);
+			if (!ctx->ecpcdata) {
+				ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
+				return CUPS_BACKEND_CANCEL;
+			}
+		} else {
+			ctx->ecpcdata = NULL;
+		}
+	}
+
+	/* Convert using image processing library */
+	input.origin_rows = input.origin_cols = 0;
+	input.rows = job->rows;
+	input.cols = job->cols;
+	input.imgbuf = job->spoolbuf;
+	input.bytes_per_row = job->cols * 3;
+
+	ctx->output.origin_rows = ctx->output.origin_cols = 0;
+	ctx->output.rows = job->rows;
+	ctx->output.cols = job->cols;
+	ctx->output.imgbuf = job->databuf + job->datalen;
+	ctx->output.bytes_per_row = job->cols * 3 * 2;
+
+	DEBUG("Running print data through processing library\n");
+	if (ctx->DoImageEffect(ctx->cpcdata, ctx->ecpcdata,
+			       &input, &ctx->output, job->sharpen, job->reverse, rew)) {
+		ERROR("Image Processing failed, aborting!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* Twiddle rewind stuff if needed */
+	if (ctx->type != P_MITSU_D70X) {
+		hdr->rewind[0] = !rew[0];
+		hdr->rewind[1] = !rew[1];
+		DEBUG("Rewind Inhibit? %02x %02x\n", hdr->rewind[0], hdr->rewind[1]);
+	}
+
+	/* Move up the pointer to after the image data */
+	job->datalen += 3*job->planelen;
+
+	/* Clean up */
+	// XXX not really necessary.
+	free(job->spoolbuf);
+	job->spoolbuf = NULL;
+	job->spoolbuflen = 0;
+
+	/* Now that we've filled everything in, read matte from file */
+	if (job->matte) {
+		int fd;
+		uint32_t j;
+		DEBUG("Reading %u bytes of matte data from disk (%d/%d)\n", job->matte, job->cols, LAMINATE_STRIDE);
+		fd = open(job->laminatefname, O_RDONLY);
+		if (fd < 0) {
+			ERROR("Unable to open matte lamination data file '%s'\n", job->laminatefname);
+			return CUPS_BACKEND_CANCEL;
+		}
+
+		for (j = 0 ; j < be16_to_cpu(hdr->lamrows) ; j++) {
+			int remain = LAMINATE_STRIDE * 2;
+
+			/* Read one row of lamination data at a time */
+			while (remain) {
+				int i = read(fd, job->databuf + job->datalen, remain);
+				if (i < 0)
+					return CUPS_BACKEND_CANCEL;
+				if (i == 0) {
+					/* We hit EOF, restart from beginning */
+					lseek(fd, 0, SEEK_SET);
+					continue;
+				}
+				job->datalen += i;
+				remain -= i;
+			}
+			/* Back off the buffer so we "wrap" on the print row. */
+			job->datalen -= ((LAMINATE_STRIDE - job->cols) * 2);
+		}
+		/* We're done */
+		close(fd);
+
+		/* Zero out the tail end of the buffer. */
+		j = be16_to_cpu(hdr->lamcols) * be16_to_cpu(hdr->lamrows) * 2;
+		memset(job->databuf + job->datalen, 0, job->matte - j);
+	}
+
+bypass:
 
 	INFO("Waiting for printer idle...\n");
 
@@ -2082,7 +2081,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.80",
+	.version = "0.81",
 	.uri_prefixes = mitsu70x_prefixes,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
