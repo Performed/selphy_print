@@ -337,19 +337,20 @@ top:
 			job->datalen += i;
 		}
 	} else if (ptr == job->ftr) {
+
+		/* XXX Update unknown header field to match sniffs */
+		if (ctx->type == P_MITSU_P95D) {
+			if (job->hdr1[18] == 0x00)
+				job->hdr1[18] = 0x01;
+		}
+
+		/* Update printjob header to reflect number of requested copies */
+		if (job->hdr2[13] != 0xff)
+			job->hdr2[13] = copies;
+
 		*vjob = job;
 		return CUPS_BACKEND_OK;
 	}
-
-	/* XXX Update unknown header field to match sniffs */
-	if (ctx->type == P_MITSU_P95D) {
-		if (job->hdr1[18] == 0x00)
-			job->hdr1[18] = 0x01;
-	}
-
-	/* Update printjob header to reflect number of requested copies */
-	if (job->hdr2[13] != 0xff)
-		job->hdr2[13] = copies;
 
 	goto top;
 }
