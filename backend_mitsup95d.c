@@ -205,12 +205,17 @@ static int mitsup95d_read_parse(void *vctx, const void **vjob, int data_fd, int 
 top:
 	i = read(data_fd, buf, sizeof(buf));
 
-	if (i == 0)
+	if (i == 0) {
+		mitsup95d_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
-	if (i < 0)
+	}
+	if (i < 0) {
+		mitsup95d_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
+	}
 	if (buf[0] != 0x1b) {
 		ERROR("malformed data stream\n");
+		mitsup95d_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -244,6 +249,7 @@ top:
 		break;
 	default:
 		ERROR("Unrecognized command! (%02x %02x)\n", buf[0], buf[1]);
+		mitsup95d_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -253,10 +259,14 @@ top:
 
 	while (remain) {
 		i = read(data_fd, ptr + ptr_offset, remain);
-		if (i == 0)
+		if (i == 0) {
+			mitsup95d_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		if (i < 0)
+		}
+		if (i < 0) {
+			mitsup95d_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 		ptr_offset += i;
 
@@ -279,6 +289,7 @@ top:
 		if (tmphdr[3] != 46) {
 			ERROR("Unexpected header chunk: %02x %02x %02x %02x\n",
 			      tmphdr[0], tmphdr[1], tmphdr[2], tmphdr[3]);
+			mitsup95d_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 		switch (tmphdr[2]) {
@@ -292,7 +303,7 @@ top:
 			ptr = job->hdr3;
 			break;
 		default:
-			ERROR("Unexpected header chunk: %02x %02x %02x %02x\n",
+			WARNING("Unexpected header chunk: %02x %02x %02x %02x\n",
 			      tmphdr[0], tmphdr[1], tmphdr[2], tmphdr[3]);
 		}
 		memcpy(ptr, tmphdr, sizeof(tmphdr));
@@ -307,20 +318,26 @@ top:
 		job->databuf = malloc(remain);
 		if (!job->databuf) {
 			ERROR("Memory allocation failure!\n");
+			mitsup95d_cleanup_job(job);
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
 
 		/* Read it in */
 		while (remain) {
 			i = read(data_fd, job->databuf + job->datalen, remain);
-			if (i == 0)
+			if (i == 0) {
+				mitsup95d_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
-			if (i < 0)
+			}
+			if (i < 0) {
+				mitsup95d_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
+			}
 			remain -= i;
 			job->datalen += i;
 		}
 	} else if (ptr == job->ftr) {
+		*vjob = job;
 		return CUPS_BACKEND_OK;
 	}
 
@@ -333,8 +350,6 @@ top:
 	/* Update printjob header to reflect number of requested copies */
 	if (job->hdr2[13] != 0xff)
 		job->hdr2[13] = copies;
-
-	*vjob = job;
 
 	goto top;
 }

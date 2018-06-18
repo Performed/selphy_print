@@ -281,8 +281,10 @@ static int selphyneo_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	/* Read the header.. */
 	i = read(data_fd, &hdr, sizeof(hdr));
 	if (i != sizeof(hdr)) {
-		if (i == 0)
+		if (i == 0) {
+			selphyneo_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		ERROR("Read failed (%d/%d)\n",
 		      i, (int)sizeof(hdr));
 		perror("ERROR: Read failed");
@@ -300,6 +302,7 @@ static int selphyneo_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	default:
 		ERROR("Unknown print size! (%02x, %ux%u)\n",
 		      hdr.data[10], le32_to_cpu(hdr.cols), le32_to_cpu(hdr.rows));
+		selphyneo_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 

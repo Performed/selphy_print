@@ -873,10 +873,14 @@ repeat:
 	remain = sizeof(mhdr);
 	while (remain > 0) {
 		i = read(data_fd, ((uint8_t*)&mhdr) + sizeof(mhdr) - remain, remain);
-		if (i == 0)
+		if (i == 0) {
+			mitsu70x_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		if (i < 0)
+		}
+		if (i < 0) {
+			mitsu70x_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 	}
 
@@ -893,6 +897,7 @@ repeat:
 	    mhdr.hdr[1] != 0x5a ||
 	    mhdr.hdr[2] != 0x54) {
 		ERROR("Unrecognized data format!\n");
+		mitsu70x_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1022,6 +1027,7 @@ repeat:
 
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		mitsu70x_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -1034,10 +1040,14 @@ repeat:
 		/* Read in the spool data */
 		while(remain) {
 			i = read(data_fd, job->databuf + job->datalen, remain);
-			if (i == 0)
+			if (i == 0) {
+				mitsu70x_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
-			if (i < 0)
+			}
+			if (i < 0) {
+				mitsu70x_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
+			}
 			job->datalen += i;
 			remain -= i;
 		}
@@ -1052,6 +1062,7 @@ repeat:
 		spoolbuf = malloc(remain);
 		if (!spoolbuf) {
 			ERROR("Memory allocation failure!\n");
+			mitsu70x_cleanup_job(job);
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
 
@@ -1059,10 +1070,12 @@ repeat:
 		while (remain) {
 			i = read(data_fd, spoolbuf + spoolbuflen, remain);
 			if (i == 0) {
+				mitsu70x_cleanup_job(job);
 				free(spoolbuf);
 				return CUPS_BACKEND_CANCEL;
 			}
 			if (i < 0) {
+				mitsu70x_cleanup_job(job);
 				free(spoolbuf);
 				return CUPS_BACKEND_CANCEL;
 			}
@@ -1076,16 +1089,19 @@ repeat:
 			uint8_t *buf = malloc(LUT_LEN);
 			if (!buf) {
 				ERROR("Memory allocation failure!\n");
+				mitsu70x_cleanup_job(job);
 				return CUPS_BACKEND_RETRY_CURRENT;
 			}
 			if (ctx->Get3DColorTable(buf, job->lutfname)) {
 				ERROR("Unable to open LUT file '%s'\n", job->lutfname);
+				mitsu70x_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			ctx->lut = ctx->Load3DColorTable(buf);
 			free(buf);
 			if (!ctx->lut) {
 				ERROR("Unable to parse LUT file '%s'!\n", job->lutfname);
+				mitsu70x_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			ctx->DoColorConv(ctx->lut, spoolbuf, job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
@@ -1102,6 +1118,7 @@ repeat:
 				ctx->cpcdata = ctx->GetCPCData(job->cpcfname);
 				if (!ctx->cpcdata) {
 					ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
+					mitsu70x_cleanup_job(job);
 					return CUPS_BACKEND_CANCEL;
 				}
 			}
@@ -1115,6 +1132,7 @@ repeat:
 					ctx->ecpcdata = ctx->GetCPCData(job->ecpcfname);
 					if (!ctx->ecpcdata) {
 						ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
+						mitsu70x_cleanup_job(job);
 						return CUPS_BACKEND_CANCEL;
 					}
 				} else {
@@ -1139,11 +1157,13 @@ repeat:
 			if (ctx->DoImageEffect(ctx->cpcdata, ctx->ecpcdata,
 					       &input, &ctx->output, job->sharpen, job->reverse, rew)) {
 				ERROR("Image Processing failed, aborting!\n");
+				mitsu70x_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 		} else {
 			// XXXFALLBACK write fallback code?
 			ERROR("!!! Image Processing Library not found, aborting!\n");
+			mitsu70x_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 
@@ -1161,6 +1181,7 @@ repeat:
 			fd = open(job->laminatefname, O_RDONLY);
 			if (fd < 0) {
 				ERROR("Unable to open matte lamination data file '%s'\n", job->laminatefname);
+				mitsu70x_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 
@@ -1170,8 +1191,10 @@ repeat:
 				/* Read one row of lamination data at a time */
 				while (remain) {
 					i = read(fd, job->databuf + job->datalen, remain);
-					if (i < 0)
+					if (i < 0) {
+						mitsu70x_cleanup_job(job);
 						return CUPS_BACKEND_CANCEL;
+					}
 					if (i == 0) {
 						/* We hit EOF, restart from beginning */
 						lseek(fd, 0, SEEK_SET);

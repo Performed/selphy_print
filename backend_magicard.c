@@ -828,8 +828,8 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		while (remain > 0) {
 			i = read(data_fd, job->databuf + job->datalen, remain);
 			if (i < 0) {
-				magicard_cleanup_job(job);
 				ERROR("Data Read Error: %d (%u) @%d)\n", i, remain, job->datalen);
+				magicard_cleanup_job(job);
 				return i;
 			}
 			if (i == 0) {

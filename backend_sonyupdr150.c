@@ -195,6 +195,7 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		default:
 			if (len & 0xff000000) {
 				ERROR("Unknown block ID '%08x', aborting!\n", len);
+				updr150_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			} else {
 				/* Only keep these chunks */

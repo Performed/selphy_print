@@ -619,10 +619,14 @@ top:
 	remain = sizeof(buf);
 	while (remain > 0) {
 		i = read(data_fd, buf + sizeof(buf) - remain, remain);
-		if (i == 0)
+		if (i == 0) {
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		if (i < 0)
+		}
+		if (i < 0) {
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 	}
 
@@ -631,6 +635,7 @@ top:
 		if (!job->hdr1_present || !job->hdr2_present) {
 			ERROR("Unrecognized data format (%02x%02x%02x%02x)!\n",
 			      buf[0], buf[1], buf[2], buf[3]);
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		} else if (buf[0] == 0x1b &&
 			   buf[1] == 0x5a &&
@@ -646,6 +651,7 @@ top:
 		} else {
 			ERROR("Unrecognized data block (%02x%02x%02x%02x)!\n",
 			      buf[0], buf[1], buf[2], buf[3]);
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
@@ -675,6 +681,7 @@ top:
 		break;
 	default:
 		ERROR("Unrecognized header format (%02x)!\n", buf[2]);
+		mitsu9550_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -691,18 +698,22 @@ hdr_done:
 		fd = open(MITSU_M98xx_DATATABLE_FILE, O_RDONLY);
 		if (fd < 0) {
 			ERROR("Unable to open 98xx data table file '%s'\n", MITSU_M98xx_DATATABLE_FILE);
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_FAILED;
 		}
 		ctx->m98xxdata = malloc(DATATABLE_SIZE);
 		if (!ctx->m98xxdata) {
 			ERROR("Memory allocation Failure!\n");
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
 		remain = DATATABLE_SIZE;
 		while (remain) {
 			i = read(fd, ((uint8_t*)ctx->m98xxdata) + (DATATABLE_SIZE - remain), remain);
-			if (i < 0)
+			if (i < 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
+			}
 			remain -= i;
 		}
 		close(fd);
@@ -745,6 +756,7 @@ hdr_done:
 	job->databuf = malloc(remain);
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		mitsu9550_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -759,6 +771,7 @@ hdr_done:
 		    plane->cmd[2] != 0x54) {
 			ERROR("Unrecognized data read (%02x%02x%02x%02x)!\n",
 			      plane->cmd[0], plane->cmd[1], plane->cmd[2], plane->cmd[3]);
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 
@@ -777,10 +790,14 @@ hdr_done:
 		/* Read in the spool data */
 		while(planelen > 0) {
 			i = read(data_fd, job->databuf + job->datalen, planelen);
-			if (i == 0)
+			if (i == 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
-			if (i < 0)
+			}
+			if (i < 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
+			}
 			job->datalen += i;
 			planelen -= i;
 		}
@@ -790,10 +807,14 @@ hdr_done:
 		    - Job footer (4B)
 		*/
 		i = read(data_fd, buf, 4);
-		if (i == 0)
+		if (i == 0) {
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		if (i < 0)
+		}
+		if (i < 0) {
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 
 		/* Is this a "job end" marker? */
 		if (plane->cmd[0] == 0x1b &&
@@ -815,10 +836,14 @@ hdr_done:
 		/* Read in the rest of the header */
 		while (remain > 0) {
 			i = read(data_fd, buf + sizeof(buf) - remain, remain);
-			if (i == 0)
+			if (i == 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
-			if (i < 0)
+			}
+			if (i < 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
+			}
 			remain -= i;
 		}
 	}
@@ -836,16 +861,19 @@ hdr_done:
 			uint8_t *buf = malloc(LUT_LEN);
 			if (!buf) {
 				ERROR("Memory allocation failure!\n");
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_RETRY_CURRENT;
 			}
 			if (CColorConv3D_Get3DColorTable(buf, MITSU_M98xx_LUT_FILE)) {
 				ERROR("Unable to open LUT file '%s'\n", MITSU_M98xx_LUT_FILE);
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			lut = CColorConv3D_Load3DColorTable(buf);
 			free(buf);
 			if (!lut) {
 				ERROR("Unable to parse LUT\n");
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			CColorConv3D_DoColorConv(lut, job->databuf + sizeof(struct mitsu9550_plane),
@@ -859,6 +887,7 @@ hdr_done:
 		newbuf = malloc(remain);
 		if (!newbuf) {
 			ERROR("Memory allocation Failure!\n");
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
 		switch (job->hdr2.mode) {
@@ -920,8 +949,10 @@ hdr_done:
 
 		/* Now handle the matte plane generation */
 		if (job->hdr1.matte) {
-			if ((i = mitsu98xx_fillmatte(job)))
+			if ((i = mitsu98xx_fillmatte(job))) {
+				mitsu9550_cleanup_job(job);
 				return i;
+			}
 		}
 	}
 

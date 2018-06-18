@@ -1276,8 +1276,10 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 				dnpds40_cleanup_job(job);
 				return i;
 			}
-			if (i == 0)
+			if (i == 0) {
+				dnpds40_cleanup_job(job);
 				return 1;
+			}
 			job->datalen += i;
 			remain -= i;
 		}
@@ -1443,6 +1445,7 @@ parsed:
 	if (job->multicut > 100 &&
 	    ctx->type != P_DNP_DS80D) {
 		ERROR("Only DS80D supports cut-paper sizes!\n");
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1513,6 +1516,7 @@ parsed:
 	if (job->dpi == 334 && ctx->type != P_CITIZEN_CW01)
 	{
 		ERROR("Illegal resolution (%u) for printer!\n", job->dpi);
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1525,6 +1529,7 @@ parsed:
 		case 200: //"5x3.5 (L)"
 			if (job->multicut != MULTICUT_5x3_5) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
@@ -1532,6 +1537,7 @@ parsed:
 			if (job->multicut != MULTICUT_5x3_5 && job->multicut != MULTICUT_5x7 &&
 			    job->multicut != MULTICUT_5x3_5X2 && job->multicut != MULTICUT_5x5) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			/* Only 3.5x5 on 7x5 media can be rewound */
@@ -1541,6 +1547,7 @@ parsed:
 		case 300: //"6x4 (PC)"
 			if (job->multicut != MULTICUT_6x4) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
@@ -1549,6 +1556,7 @@ parsed:
 			    job->multicut != MULTICUT_6x4X2 &&
 			    job->multicut != MULTICUT_6x6 && job->multicut != 30) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			/* Only 6x4 on 6x8 media can be rewound */
@@ -1561,6 +1569,7 @@ parsed:
 			    job->multicut != MULTICUT_6x6 &&
 			    job->multicut != MULTICUT_6x4_5 && job->multicut != MULTICUT_6x4_5X2) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			/* Only 6x4 or 6x4.5 on 6x9 media can be rewound */
@@ -1574,6 +1583,7 @@ parsed:
 			} else if (job->multicut < MULTICUT_8x10 || job->multicut == MULTICUT_8x12 ||
 			    job->multicut == MULTICUT_8x6X2 || job->multicut >= MULTICUT_8x6_8x5 ) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 
@@ -1585,6 +1595,7 @@ parsed:
 		case 510: //"8x12"
 			if (job->multicut < MULTICUT_8x10 || (job->multicut > MULTICUT_8xA4LEN && !(job->multicut == MULTICUT_8x7 || job->multicut == MULTICUT_8x9))) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 
@@ -1597,6 +1608,7 @@ parsed:
 		case 600: //"A4"
 			if (job->multicut < MULTICUT_A5 || job->multicut > MULTICUT_A4x5X2) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			/* A4xn and A5 can be rewound */
@@ -1608,6 +1620,7 @@ parsed:
 			break;
 		default:
 			ERROR("Unknown media (%u vs %u)!\n", ctx->media, job->multicut);
+			dnpds40_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 	} else if (job->multicut < 400) {
@@ -1624,6 +1637,7 @@ parsed:
 			    mcut == MULTICUT_S_8x6X2 ||
 			    mcut == MULTICUT_S_8x4X3) {
 				ERROR("Incorrect media for job loaded (%u vs %u)\n", ctx->duplex_media, job->multicut);
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			break;
@@ -1632,37 +1646,44 @@ parsed:
 			break;
 		default:
 			ERROR("Unknown duplexer media (%u vs %u)!\n", ctx->duplex_media, job->multicut);
+			dnpds40_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 	} else {
 		ERROR("Multicut value out of range! (%u)\n", job->multicut);
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* Additional santity checks, make sure printer support exists */
 	if (!ctx->supports_6x6 && job->multicut == MULTICUT_6x6) {
 		ERROR("Printer does not support 6x6 prints, aborting!\n");
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	if (!ctx->supports_5x5 && job->multicut == MULTICUT_5x5) {
 		ERROR("Printer does not support 5x5 prints, aborting!\n");
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	if ((job->multicut == MULTICUT_6x4_5 || job->multicut == MULTICUT_6x4_5X2) &&
 	    !ctx->supports_6x4_5) {
 		ERROR("Printer does not support 6x4.5 prints, aborting!\n");
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	if (job->multicut == MULTICUT_6x9 && !ctx->supports_6x9) {
 		ERROR("Printer does not support 6x9 prints, aborting!\n");
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	if (job->multicut == MULTICUT_5x3_5X2 && !ctx->supports_3x5x2) {
 		ERROR("Printer does not support 3.5x5*2 prints, aborting!\n");
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1671,6 +1692,7 @@ skip_multicut:
 	if (job->fullcut && !ctx->supports_adv_fullcut &&
 	    job->multicut != MULTICUT_6x8) {
 		ERROR("Printer does not support full control on sizes other than 6x8, aborting!\n");
+		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -1678,10 +1700,12 @@ skip_multicut:
 		if (job->multicut == MULTICUT_6x4 || job->multicut == MULTICUT_6x8) {
 			if (!ctx->supports_2x6) {
 				ERROR("Printer does not support 2x6 prints, aborting!\n");
+				dnpds40_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 		} else {
 			ERROR("Printer only supports legacy 2-inch cuts on 4x6 or 8x6 jobs!");
+			dnpds40_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
