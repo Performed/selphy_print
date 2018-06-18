@@ -1253,13 +1253,15 @@ newpage:
 
 	if (test_mode >= TEST_MODE_NOPRINT ) {
 		WARNING("**** TEST MODE, bypassing printing!\n");
+		ret = 0;
 	} else {
 		ret = backend->main_loop(backend_ctx, job);
-		if (backend->cleanup_job)
-			backend->cleanup_job(job);
-		if (ret)
-			goto done_claimed;
 	}
+
+	if (backend->cleanup_job)
+		backend->cleanup_job(job);
+	if (ret)
+		goto done_claimed;
 
 	/* Log the completed page */
 	if (!uri)
