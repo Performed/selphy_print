@@ -387,6 +387,7 @@ struct mitsu70x_hdr {
 } __attribute__((packed));
 
 static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_printerstatus_resp *resp);
+static int mitsu70x_main_loop(void *vctx, const void *vjob);
 
 /* Error dumps, etc */
 
@@ -1116,7 +1117,8 @@ repeat:
 	}
 
 	/* All further work is in main loop */
-
+	if (test_mode >= TEST_MODE_NOPRINT)
+		mitsu70x_main_loop(ctx, job);
 done:
 	*vjob = job;
 
@@ -1562,6 +1564,10 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 		j = be16_to_cpu(hdr->lamcols) * be16_to_cpu(hdr->lamrows) * 2;
 		memset(job->databuf + job->datalen, 0, job->matte - j);
 	}
+
+	/* Bypass */
+	if (test_mode >= TEST_MODE_NOPRINT)
+		return CUPS_BACKEND_OK;
 
 bypass:
 

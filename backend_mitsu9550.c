@@ -231,6 +231,8 @@ struct mitsu9550_status2 {
 	uint8_t  unkb[4]; /* 0a 00 00 01 */
 } __attribute__((packed));
 
+static int mitsu9550_main_loop(void *vctx, const void *vjob);
+
 #define CMDBUF_LEN   64
 #define READBACK_LEN 128
 
@@ -882,6 +884,10 @@ hdr_done:
 	}
 	job->copies = copies;
 
+	/* All further work is in main loop */
+	if (test_mode >= TEST_MODE_NOPRINT)
+		mitsu9550_main_loop(ctx, job);
+
 	*vjob = job;
 
 	return CUPS_BACKEND_OK;
@@ -1177,83 +1183,89 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 #endif
 
 	/* Do the 98xx processing here */
-	if (ctx->is_98xx && !job->is_raw) {
-		uint8_t *newbuf;
-		uint32_t newlen = 0;
-		struct mitsu98xx_data *table;
-		int i, remain, planelen;
+	if (!ctx->is_98xx || job->is_raw)
+		goto bypass;
 
-		planelen = job->rows * job->cols * 2;
-		remain = (job->hdr1.matte ? 3 : 4) * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
-		newbuf = malloc(remain);
-		if (!newbuf) {
-			ERROR("Memory allocation Failure!\n");
-			return CUPS_BACKEND_RETRY_CURRENT;
-		}
-		switch (job->hdr2.mode) {
-		case 0x80:
-			table = &ctx->m98xxdata->superfine;
-			break;
-		case 0x11:
-			table = &ctx->m98xxdata->fine_hg;
-			job->hdr2.mode = 0x10;
-			break;
-		case 0x10:
-		default:
-			table = &ctx->m98xxdata->fine_std;
-			break;
-		}
+	uint8_t *newbuf;
+	uint32_t newlen = 0;
+	struct mitsu98xx_data *table;
+	int i, remain, planelen;
 
-		DEBUG("Applying 8bpp->12bpp Gamma Correction\n");
-		/* For B/Y plane */
-		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-				  (uint16_t*) (newbuf + newlen),
-				  0,
-				  table->GNMby,
-				  planelen / 2);
-		newlen += planelen;
+	planelen = job->rows * job->cols * 2;
+	remain = (job->hdr1.matte ? 3 : 4) * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+	newbuf = malloc(remain);
+	if (!newbuf) {
+		ERROR("Memory allocation Failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+	switch (job->hdr2.mode) {
+	case 0x80:
+		table = &ctx->m98xxdata->superfine;
+		break;
+	case 0x11:
+		table = &ctx->m98xxdata->fine_hg;
+		job->hdr2.mode = 0x10;
+		break;
+	case 0x10:
+	default:
+		table = &ctx->m98xxdata->fine_std;
+		break;
+	}
 
-		/* For G/M plane */
-		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-				  (uint16_t*) (newbuf + newlen),
-				  1,
-				  table->GNMgm,
-				  planelen / 2);
-		newlen += planelen;
+	DEBUG("Applying 8bpp->12bpp Gamma Correction\n");
+	/* For B/Y plane */
+	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+	newlen += sizeof(struct mitsu9550_plane);
+	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+			  (uint16_t*) (newbuf + newlen),
+			  0,
+			  table->GNMby,
+			  planelen / 2);
+	newlen += planelen;
 
-		/* For R/C plane */
-		memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-		newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-		newlen += sizeof(struct mitsu9550_plane);
-		mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-				  (uint16_t*) (newbuf + newlen),
-				  2,
-				  table->GNMrc,
-				  planelen / 2);
-		newlen += planelen;
+	/* For G/M plane */
+	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+	newlen += sizeof(struct mitsu9550_plane);
+	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+			  (uint16_t*) (newbuf + newlen),
+			  1,
+			  table->GNMgm,
+			  planelen / 2);
+	newlen += planelen;
 
-		/* And finally, the job footer. */
-		memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen * 3, sizeof(struct mitsu9550_cmd));
-		newlen += sizeof(struct mitsu9550_cmd);
+	/* For R/C plane */
+	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+	newlen += sizeof(struct mitsu9550_plane);
+	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+			  (uint16_t*) (newbuf + newlen),
+			  2,
+			  table->GNMrc,
+			  planelen / 2);
+	newlen += planelen;
 
-		/* Clean up */
-		free(job->databuf);
-		job->databuf = newbuf;
-		job->datalen = newlen;
+	/* And finally, the job footer. */
+	memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen * 3, sizeof(struct mitsu9550_cmd));
+	newlen += sizeof(struct mitsu9550_cmd);
 
-		/* Now handle the matte plane generation */
-		if (job->hdr1.matte) {
-			if ((i = mitsu98xx_fillmatte(job))) {
-				return i;
-			}
+	/* Clean up */
+	free(job->databuf);
+	job->databuf = newbuf;
+	job->datalen = newlen;
+
+	/* Now handle the matte plane generation */
+	if (job->hdr1.matte) {
+		if ((i = mitsu98xx_fillmatte(job))) {
+			return i;
 		}
 	}
+
+bypass:
+	/* Bypass */
+	if (test_mode >= TEST_MODE_NOPRINT)
+		return CUPS_BACKEND_OK;
 
 top:
 	if (ctx->is_s) {
