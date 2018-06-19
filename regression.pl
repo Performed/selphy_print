@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 
-my $copies = 2;
+my $copies = 3;
 my $retval = 0;
 
 while (<STDIN>) {
@@ -15,18 +15,21 @@ while (<STDIN>) {
     $ENV{"EXTRA_PID"} = $row[2];
 
     print "***** $row[0] $row[1] $row[2] $row[3]\n";
-    my @args = ("valgrind", "./dyesub_backend", "-d", $copies, "testjobs/${row[3]}");
 
-    my $rval = system(@args);
+    foreach (my $i = 1; $i <= $copies ; $i++) {
+	my @args = ("valgrind", "./dyesub_backend", "-d", $i, "testjobs/${row[3]}");
 
-    if ($rval < 0) {
-	print "***** FAIL: failure to launch ($rval)\n";
-	$retval++;
-    } elsif ($rval > 0) {
-	print "***** FAIL: failure to parse/execute ($rval) $row[0] $row[1] $row[2] $row[3] \n";
-	$retval++;
-    } else {
-	print "***** PASS\n";
+	my $rval = system(@args);
+
+	if ($rval < 0) {
+	    print "***** FAIL: failure to launch ($rval)\n";
+	    $retval++;
+	} elsif ($rval > 0) {
+	    print "***** FAIL: failure to parse/execute ($rval) $row[0] $row[1] $row[2] $row[3] \n";
+	    $retval++;
+	} else {
+	    print "***** PASS\n";
+	}
     }
 }
 exit($retval);
