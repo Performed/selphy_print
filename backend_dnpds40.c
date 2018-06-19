@@ -220,6 +220,7 @@ struct cw01_spool_hdr {
 
 static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
 			   struct cw01_spool_hdr *hdr, int read_data);
+static void dnpds40_cleanup_job(const void *vjob);
 
 #define JOB_EQUIV(__x)  if (job1->__x != job2->__x) goto done
 
@@ -330,6 +331,12 @@ static struct dnpds40_printjob *combine_jobs(const struct dnpds40_printjob *job1
 	newjob->databuf = malloc(((new_w*new_h+1024+54))*3+1024);
 	newjob->datalen = 0;
 	newjob->multicut = new_multicut;
+	if (!newjob->databuf) {
+		dnpds40_cleanup_job(newjob);
+		newjob = NULL;
+		ERROR("Memory allocation failure!\n");
+		goto done;
+	}
 
 	/* Copy data blocks from job1 */
 	uint8_t *ptr, *ptr2;

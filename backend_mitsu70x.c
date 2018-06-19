@@ -159,6 +159,7 @@ struct mitsu70x_ctx {
 	uint16_t jobid;
 
 	struct marker marker[2];
+	uint8_t medias[2];
 
 	uint16_t last_l;
 	uint16_t last_u;
@@ -807,12 +808,14 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	ctx->marker[0].name = mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type);
 	ctx->marker[0].levelmax = be16_to_cpu(resp.lower.capacity);
 	ctx->marker[0].levelnow = be16_to_cpu(resp.lower.remain);
+	ctx->medias[0] = resp.lower.media_type & 0xf;
 
 	if (ctx->num_decks == 2) {
 		ctx->marker[1].color = "#00FFFF#FF00FF#FFFF00";
 		ctx->marker[1].name = mitsu70x_media_types(resp.upper.media_brand, resp.upper.media_type);
 		ctx->marker[1].levelmax = be16_to_cpu(resp.upper.capacity);
 		ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
+		ctx->medias[1] = resp.upper.media_type & 0xf;
 	}
 
 	return CUPS_BACKEND_OK;
@@ -850,12 +853,148 @@ static void mitsu70x_teardown(void *vctx) {
 	free(ctx);
 }
 
+#define JOB_EQUIV(__x)  if (job1->__x != job2->__x) goto done
+
+static struct mitsu70x_printjob *combine_jobs(const struct mitsu70x_printjob *job1,
+					      const struct mitsu70x_printjob *job2)
+{
+	struct mitsu70x_printjob *newjob = NULL;
+	uint16_t newrows;
+	uint16_t newcols;
+	uint32_t newpad, finalpad;
+	uint16_t lamoffset;
+
+	const struct mitsu70x_hdr *hdr1, *hdr2;
+	struct mitsu70x_hdr *newhdr;
+
+        /* Sanity check */
+        if (!job1 || !job2)
+                goto done;
+
+	hdr1 = (struct mitsu70x_hdr *) job1->databuf;
+	hdr2 = (struct mitsu70x_hdr *) job2->databuf;
+
+	JOB_EQUIV(rows);
+	JOB_EQUIV(cols);
+	JOB_EQUIV(matte);
+	JOB_EQUIV(sharpen);
+
+	if (hdr1->multicut || hdr2->multicut)
+		goto done;
+	if (job1->raw_format || job1->raw_format)
+		goto done;
+	if (hdr1->speed != hdr2->speed)
+		goto done;
+
+	switch (job1->rows) {
+	case 1218:  /* K60, EK305 */
+		newrows = 2454;
+		newpad = 16;
+		finalpad = 0;
+		lamoffset = 0;
+		break;
+	case 1228:  /* D70, ASK300, D80 */
+		newrows = 2730;
+		newpad = 38;
+		finalpad = 236;
+		lamoffset = 12;
+		break;
+	case 1076: /* EK305, K60 3.5x5" prints */
+		newrows = 2190;
+		newpad = 49;
+		finalpad = 0;
+		lamoffset = 0;
+		break;
+	default:
+		goto done;
+	}
+	newcols = job1->cols;
+	newpad *= newcols;
+	finalpad *= newcols;
+
+	/* Okay, it's kosher to proceed */
+
+	DEBUG("Combining jobs to save media\n");
+
+        newjob = malloc(sizeof(*newjob));
+        if (!newjob) {
+                ERROR("Memory allocation failure!\n");
+                goto done;
+        }
+        memcpy(newjob, job1, sizeof(*newjob));
+
+	newjob->spoolbuf = NULL;
+	newjob->rows = newrows;
+	newjob->cols = newcols;
+	newjob->planelen = (((newrows * newcols * 2) + 511) /512) * 512;
+	if (newjob->matte) {
+		newjob->matte = ((((newrows + lamoffset) * newcols * 2) + 511) / 512) * 512;
+	}
+        newjob->databuf = malloc(sizeof(*newhdr) + newjob->planelen * 3 + newjob->matte);
+        newjob->datalen = 0;
+        if (!newjob->databuf) {
+		mitsu70x_cleanup_job(newjob);
+		newjob = NULL;
+                ERROR("Memory allocation failure!\n");
+                goto done;
+        }
+	newhdr = (struct mitsu70x_hdr *) newjob->databuf;
+
+	/* Copy over header */
+	memcpy(newhdr, hdr1, sizeof(*newhdr));
+	newjob->datalen += sizeof(*newhdr);
+
+	newhdr->rows = cpu_to_be16(newrows);
+	newhdr->cols = cpu_to_be16(newcols);
+
+	if (newjob->matte) {
+		newhdr->lamrows = cpu_to_be16(newrows + lamoffset);
+		newhdr->lamcols = cpu_to_be16(newcols);
+	}
+	newhdr->multicut = 1;
+	newhdr->deck = 0;  /* Let printer decide */
+
+	newjob->spoolbuf = malloc(newrows * newcols * 3);
+	newjob->spoolbuflen = 0;
+	if (!newjob->spoolbuf) {
+		mitsu70x_cleanup_job(newjob);
+		newjob = NULL;
+                ERROR("Memory allocation failure!\n");
+                goto done;
+	}
+
+	/* Fill in padding */
+	memset(newjob->spoolbuf + newjob->spoolbuflen, 0xff, finalpad * 3);
+	newjob->spoolbuflen += finalpad * 3;
+
+	/* Copy image payload */
+	memcpy(newjob->spoolbuf + newjob->spoolbuflen, job1->spoolbuf,
+	       job1->spoolbuflen);
+	newjob->spoolbuflen += job1->spoolbuflen;
+
+	/* Fill in padding */
+	memset(newjob->spoolbuf + newjob->spoolbuflen, 0xff, newpad * 3);
+	newjob->spoolbuflen += newpad * 3;
+
+	/* Copy image payload */
+	memcpy(newjob->spoolbuf + newjob->spoolbuflen, job2->spoolbuf,
+	       job2->spoolbuflen);
+	newjob->spoolbuflen += job2->spoolbuflen;
+
+	/* Okay, we're done. */
+
+done:
+	return newjob;
+}
+#undef JOB_EQUIV
+
 static int mitsu70x_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct mitsu70x_ctx *ctx = vctx;
 	int i, remain;
 	struct mitsu70x_hdr mhdr;
 
 	struct mitsu70x_printjob *job = NULL;
+	int can_combine;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1116,9 +1255,42 @@ repeat:
 		ctx->DoColorConv(ctx->lut, job->spoolbuf, job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
 	}
 
+	/* 6x4 can be combined, only on 6x8/6x9" media. */
+	can_combine = 0;
+	if (job->rows == 1218 ||
+	    job->rows == 1228) {
+		if (ctx->medias[0] == 0xf ||
+		    ctx->medias[0] == 0x5 ||
+		    ctx->medias[1] == 0xf ||
+		    ctx->medias[1] == 0x5)
+			can_combine = 1;
+	} else if (job->rows == 1076) {
+		if (ctx->type == P_KODAK_305 ||
+		    ctx->type == P_MITSU_K60) {
+			if (ctx->medias[0] == 0x4 ||
+			    ctx->medias[1] == 0x4)
+				can_combine = 1;
+		}
+	}
+
+	if (copies > 1 && can_combine) {
+		struct mitsu70x_printjob *combined;
+                combined = combine_jobs(job, job);
+                if (combined) {
+                        /* This will result in an extra print since we
+                           round up. */
+                        combined->copies = (job->copies + 1) / 2;
+                        mitsu70x_cleanup_job(job);
+                        job = combined;
+                }
+		// XXX down the line, submit the rounded-down combined print
+		// and a single copy of the original job.
+	}
+
 	/* All further work is in main loop */
 	if (test_mode >= TEST_MODE_NOPRINT)
 		mitsu70x_main_loop(ctx, job);
+
 done:
 	*vjob = job;
 
@@ -2087,7 +2259,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.81",
+	.version = "0.82",
 	.uri_prefixes = mitsu70x_prefixes,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
