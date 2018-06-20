@@ -881,7 +881,7 @@ static struct mitsu70x_printjob *combine_jobs(const struct mitsu70x_printjob *jo
 
 	if (hdr1->multicut || hdr2->multicut)
 		goto done;
-	if (job1->raw_format || job1->raw_format)
+	if (job1->raw_format || job2->raw_format)
 		goto done;
 	if (hdr1->speed != hdr2->speed)
 		goto done;
