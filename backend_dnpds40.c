@@ -1199,6 +1199,7 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 	char buf[9] = { 0 };
 
 	struct dnpds40_printjob *job = NULL;
+	struct dyesub_joblist *list;
 	int can_combine = 0;
 
 	if (!ctx)
@@ -1718,34 +1719,35 @@ skip_multicut:
 	}
 
 skip_checks:
-	/* Try to combine prints */
+	DEBUG("job->dpi %u matte %d mcut %u cutter %d, bufs %d spd %d\n",
+	      job->dpi, job->matte, job->multicut, job->cutter, job->buf_needed, job->printspeed);
+
+	list = dyesub_joblist_create(&dnpds40_backend, ctx);
 
 	can_combine = job->can_rewind; /* Any rewindable size can be stacked */
 
-	/* Don't combine if we're an odd number on a printer that
-	   supports rewinding.  This way we won't waste a panel */
-	if (ctx->supports_rewind & !(copies & 1))
-		can_combine = 0;
-
+	/* Try to combine prints */
 	if (copies > 1 && can_combine) {
 		struct dnpds40_printjob *combined;
 		combined = combine_jobs(job, job);
 		if (combined) {
-			/* This will result in an extra print since we
-			   round up. */
-			combined->copies = (job->copies + 1) / 2;
+			combined->copies = job->copies / 2;
 			combined->can_rewind = 0;
-			dnpds40_cleanup_job(job);
-			job = combined;
+			dyesub_joblist_addjob(list, combined);
+
+			if (job->copies & 1) {
+				job->copies = 1;
+			} else {
+				dnpds40_cleanup_job(job);
+				job = NULL;
+			}
 		}
-		// XXX down the line, submit the rounded-down combined print
-		// and a single copy of the original job.
+	}
+	if (job) {
+		dyesub_joblist_addjob(list, job);
 	}
 
-	DEBUG("job->dpi %u matte %d mcut %u cutter %d, bufs %d spd %d\n",
-	      job->dpi, job->matte, job->multicut, job->cutter, job->buf_needed, job->printspeed);
-
-	*vjob = job;
+	*vjob = list;
 
 	return CUPS_BACKEND_OK;
 }
@@ -3001,6 +3003,7 @@ struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
 	.version = "0.104",
 	.uri_prefixes = dnpds40_prefixes,
+	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
 	.init = dnpds40_init,

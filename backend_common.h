@@ -151,11 +151,14 @@ struct marker {
 	int levelnow; /* Remaining media, -3, -2, -1, 0..N.  See CUPS. */
 };
 
+#define BACKEND_FLAG_JOBLIST 0x00000001
+
 /* Backend Functions */
 struct dyesub_backend {
 	const char *name;
 	const char *version;
 	const char **uri_prefixes;
+	uint32_t flags;
 	void (*cmdline_usage)(void);  /* Optional */
 	void *(*init)(void);
 	int  (*attach)(void *ctx, struct libusb_device_handle *dev, int type,
@@ -168,6 +171,17 @@ struct dyesub_backend {
 	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len); /* Optional */
 	int  (*query_markers)(void *ctx, struct marker **markers, int *count);
 	const struct device_id devices[];
+};
+
+#define DYESUB_MAX_JOB_ENTRIES 2
+
+struct dyesub_joblist {
+	// TODO: mutex/lock
+	struct dyesub_backend *backend;
+	void *ctx;
+	int num_entries;
+	int copies;
+	const void *entries[DYESUB_MAX_JOB_ENTRIES];
 };
 
 /* Exported functions */
@@ -183,6 +197,12 @@ void print_help(char *argv0, struct dyesub_backend *backend);
 
 uint16_t uint16_to_packed_bcd(uint16_t val);
 uint32_t packed_bcd_to_uint32(char *in, int len);
+
+/* Job list manipulation */
+struct dyesub_joblist *dyesub_joblist_create(struct dyesub_backend *backend, void *ctx);
+int dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job);
+void dyesub_joblist_cleanup(const struct dyesub_joblist *list);
+int dyesub_joblist_print(const struct dyesub_joblist *list);
 
 /* Global data */
 extern int terminate;

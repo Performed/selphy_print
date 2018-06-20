@@ -994,6 +994,7 @@ static int mitsu70x_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	struct mitsu70x_hdr mhdr;
 
 	struct mitsu70x_printjob *job = NULL;
+	struct dyesub_joblist *list;
 	int can_combine;
 
 	if (!ctx)
@@ -1255,6 +1256,9 @@ repeat:
 		ctx->DoColorConv(ctx->lut, job->spoolbuf, job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
 	}
 
+done:
+	list = dyesub_joblist_create(&mitsu70x_backend, ctx);
+
 	/* 6x4 can be combined, only on 6x8/6x9" media. */
 	can_combine = 0;
 	if (job->rows == 1218 ||
@@ -1263,13 +1267,13 @@ repeat:
 		    ctx->medias[0] == 0x5 ||
 		    ctx->medias[1] == 0xf ||
 		    ctx->medias[1] == 0x5)
-			can_combine = 1;
+			can_combine = !job->raw_format;
 	} else if (job->rows == 1076) {
 		if (ctx->type == P_KODAK_305 ||
 		    ctx->type == P_MITSU_K60) {
 			if (ctx->medias[0] == 0x4 ||
 			    ctx->medias[1] == 0x4)
-				can_combine = 1;
+				can_combine = !job->raw_format;
 		}
 	}
 
@@ -1277,22 +1281,27 @@ repeat:
 		struct mitsu70x_printjob *combined;
                 combined = combine_jobs(job, job);
                 if (combined) {
-                        /* This will result in an extra print since we
-                           round up. */
-                        combined->copies = (job->copies + 1) / 2;
-                        mitsu70x_cleanup_job(job);
-                        job = combined;
-                }
-		// XXX down the line, submit the rounded-down combined print
-		// and a single copy of the original job.
+                        combined->copies = job->copies / 2;
+			dyesub_joblist_addjob(list, combined);
+
+			if (job->copies & 1) {
+				job->copies = 1;
+			} else {
+				mitsu70x_cleanup_job(job);
+				job = NULL;
+			}
+		}
+	}
+
+	if (job) {
+		dyesub_joblist_addjob(list, job);
 	}
 
 	/* All further work is in main loop */
 	if (test_mode >= TEST_MODE_NOPRINT)
-		mitsu70x_main_loop(ctx, job);
+		dyesub_joblist_print(list);
 
-done:
-	*vjob = job;
+	*vjob = list;
 
 	return CUPS_BACKEND_OK;
 }
@@ -1737,11 +1746,10 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 		memset(job->databuf + job->datalen, 0, job->matte - j);
 	}
 
+bypass:
 	/* Bypass */
 	if (test_mode >= TEST_MODE_NOPRINT)
 		return CUPS_BACKEND_OK;
-
-bypass:
 
 	INFO("Waiting for printer idle...\n");
 
@@ -2261,6 +2269,7 @@ struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
 	.version = "0.82",
 	.uri_prefixes = mitsu70x_prefixes,
+	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
 	.init = mitsu70x_init,

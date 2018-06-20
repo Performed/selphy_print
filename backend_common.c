@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.87"
+#define BACKEND_VERSION "0.88"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -1244,6 +1244,15 @@ newpage:
 			goto done_claimed;
 	}
 
+	/* Create our own joblist if necessary */
+	if (!(backend->flags & BACKEND_FLAG_JOBLIST)) {
+		struct dyesub_joblist *list = dyesub_joblist_create(backend, backend_ctx);
+		if (!list)
+			goto done_claimed;
+		dyesub_joblist_addjob(list, job);
+		job = list;
+	}
+
 	/* Dump the full marker dump */
 	ret = query_markers(backend, backend_ctx, !current_page);
 	if (ret)
@@ -1253,13 +1262,12 @@ newpage:
 
 	if (test_mode >= TEST_MODE_NOPRINT ) {
 		WARNING("**** TEST MODE, bypassing printing!\n");
-		ret = 0;
 	} else {
-		ret = backend->main_loop(backend_ctx, job);
+		ret = dyesub_joblist_print(job);
 	}
 
-	if (backend->cleanup_job)
-		backend->cleanup_job(job);
+	dyesub_joblist_cleanup(job);
+
 	if (ret)
 		goto done_claimed;
 
@@ -1428,4 +1436,67 @@ uint32_t packed_bcd_to_uint32(char *in, int len)
 		in++;
 	}
         return out;
+}
+
+/* Job list manipulation */
+struct dyesub_joblist *dyesub_joblist_create(struct dyesub_backend *backend, void *ctx)
+{
+	struct dyesub_joblist *list;
+
+	list = malloc(sizeof(struct dyesub_joblist));
+	if (!list) {
+		ERROR("Memory allocation failure\n");
+		return NULL;
+	}
+	list->backend = backend;
+	list->ctx = ctx;
+	list->num_entries = 0;
+	list->copies = 1;
+
+	return list;
+}
+
+void dyesub_joblist_cleanup(const struct dyesub_joblist *list)
+{
+	int i;
+	for (i = 0; i < list->num_entries ; i++) {
+		if (list->entries[i])
+			list->backend->cleanup_job(list->entries[i]);
+	}
+	free((void*)list);
+}
+
+int dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job)
+{
+	if (list->num_entries >= DYESUB_MAX_JOB_ENTRIES)
+		return 1;
+
+	list->entries[list->num_entries++] = job;
+
+	return 0;
+}
+
+int dyesub_joblist_print(const struct dyesub_joblist *list)
+{
+	int i, j;
+	int ret;
+	for (i = 0 ; i < list->copies ; i++) {
+		for (j = 0 ; j < list->num_entries ; j++) {
+			if (list->entries[j]) {
+				ret = list->backend->main_loop(list->ctx, list->entries[j]);
+				if (ret)
+					return ret;
+
+#if 0
+				/* Free up the job as we go along
+				   if we're on the final copy */
+				if (i + 1 == list->copies) {
+					list->backend->cleanup_job(list->entries[j]);
+					list->entries[j] = NULL;
+				}
+#endif
+			}
+		}
+	}
+	return CUPS_BACKEND_OK;
 }
