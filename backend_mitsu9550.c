@@ -1250,10 +1250,11 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 	memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen * 3, sizeof(struct mitsu9550_cmd));
 	newlen += sizeof(struct mitsu9550_cmd);
 
-	/* Clean up */
+	/* Clean up, and move pointer to new buffer; */
 	free(job->databuf);
 	job->databuf = newbuf;
 	job->datalen = newlen;
+	ptr = job->databuf;
 
 	/* Now handle the matte plane generation */
 	if (job->hdr1.matte) {
@@ -1352,13 +1353,15 @@ top:
 	}
 
 	/* Send over plane data */
-	while(1) {
+	while(ptr < (job->databuf + job->datalen)) {
 		struct mitsu9550_plane *plane = (struct mitsu9550_plane *)ptr;
-		uint32_t planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
+		uint32_t planelen;
 		if (plane->cmd[0] != 0x1b ||
 		    plane->cmd[1] != 0x5a ||
 		    plane->cmd[2] != 0x54)
 			break;
+
+		planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
 		if (plane->cmd[3] == 0x10)
 			planelen *= 2;
 
