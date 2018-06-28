@@ -135,15 +135,19 @@ struct mitsu98xx_data {
 		double  unkb[256];  // @2048
 		uint32_t unkc[10];  // @4096
 		double  unkd[256];  // @4136
-		double  unke[256];  // @6184
+		double  unke[256];  // @6184  // *= sharp->coef[X]
 		uint32_t unkf[10];  // @8232
-		double  unkg[256];  // @10320
-		                    // @12368
+		double  unkg[256];  // @8272
+		                    // @10320
 	} WMAM; // @3620
-	uint8_t  unc_d[4];    // @13940
-	uint8_t  sharp[104];  // @13944
-	uint8_t  unk_e[20];   // @14048
-	                      // @14068
+	uint8_t  unc_d[4];    // @13940  @10320 (from wmam start)
+	struct {
+		uint32_t unk_a;      // @13944/10324 (padding?)
+		double   coef[10];   // @13948/10328 (sharpness coefficients, level 0-9)
+		uint32_t unk_b[5];   // @14028/10408
+	} sharp; // total 104, @13944/10324
+	uint8_t  unk_e[20];   // @14048/10428
+	                      // @14068/10448
 } __attribute__((packed));
 
 struct mitsu98xx_tables {
