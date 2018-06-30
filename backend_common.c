@@ -1244,6 +1244,11 @@ newpage:
 			goto done_claimed;
 	}
 
+	/* The backend parser might not return a job due to job dependencies.
+	   Try and read another page. */
+	if (!job)
+		goto newpage;
+
 	/* Create our own joblist if necessary */
 	if (!(backend->flags & BACKEND_FLAG_JOBLIST)) {
 		struct dyesub_joblist *list = dyesub_joblist_create(backend, backend_ctx);
