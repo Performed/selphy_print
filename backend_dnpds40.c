@@ -1704,6 +1704,11 @@ skip_multicut:
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	if (job->fullcut && job->cutter) {
+		WARNING("Cannot simultaneously use FULL_CUTTER and CUTTER, using the former\n");
+		job->cutter = 0;
+	}
+
 	if (job->cutter == 120) {
 		if (job->multicut == MULTICUT_6x4 || job->multicut == MULTICUT_6x8) {
 			if (!ctx->supports_2x6) {
@@ -1719,8 +1724,8 @@ skip_multicut:
 	}
 
 skip_checks:
-	DEBUG("job->dpi %u matte %d mcut %u cutter %d, bufs %d spd %d\n",
-	      job->dpi, job->matte, job->multicut, job->cutter, job->buf_needed, job->printspeed);
+	DEBUG("job->dpi %u matte %d mcut %u cutter %d/%d, bufs %d spd %d\n",
+	      job->dpi, job->matte, job->multicut, job->cutter, job->fullcut, job->buf_needed, job->printspeed);
 
 	list = dyesub_joblist_create(&dnpds40_backend, ctx);
 
@@ -3001,7 +3006,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.104",
+	.version = "0.105",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
