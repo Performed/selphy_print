@@ -328,7 +328,7 @@ static struct dnpds40_printjob *combine_jobs(const struct dnpds40_printjob *job1
 	}
 	memcpy(newjob, job1, sizeof(*newjob));
 
-	newjob->databuf = malloc(((new_w*new_h+1024+54))*3+1024);
+	newjob->databuf = malloc(((new_w*new_h+1024+54+10))*3+1024);
 	newjob->datalen = 0;
 	newjob->multicut = new_multicut;
 	if (!newjob->databuf) {
@@ -1191,7 +1191,7 @@ static void dnpds40_teardown(void *vctx) {
 	free(ctx);
 }
 
-#define MAX_PRINTJOB_LEN (((ctx->native_width*ctx->max_height+1024+54))*3+1024) /* Worst-case, YMC */
+#define MAX_PRINTJOB_LEN (((ctx->native_width*ctx->max_height+1024+54+10))*3+1024) /* Worst-case, YMC */
 
 static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct dnpds40_ctx *ctx = vctx;
