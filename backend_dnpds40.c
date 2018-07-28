@@ -1245,8 +1245,8 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			return CUPS_BACKEND_CANCEL;
 		}
 
-		if (job->databuf[job->datalen + 0] != 0x1b ||
-		    job->databuf[job->datalen + 1] != 0x50) {
+		if (job->datalen == 0 && (job->databuf[job->datalen + 0] != 0x1b ||
+					  job->databuf[job->datalen + 1] != 0x50)) {
 			struct cw01_spool_hdr hdr;
 			/* See if it's the "classic" CW01 header */
 			memcpy(&hdr, job->databuf + job->datalen, sizeof(hdr));
