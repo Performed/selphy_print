@@ -59,6 +59,8 @@ sonyupdr150,0x054c,0x01e8,sony_updr150_4x6.raw
 sonyupdr150,0x054c,0x01e8,sony_updr150_8x6.raw
 sonyupdr200,0x054c,0x01e8,sony_updr200_2x6.raw
 sonyupdr200,0x054c,0x01e8,sony_updr200_4x6.raw
+#sonyupd895,VID,PID,file,FIXME
+#sonyupd897,VID,PID,file,FIXME
 mitsu9xxx,0x06d3,0x03a1,mitsu_9550_4x6.raw,FAMILY
 #mitsu9000,0x06d3,0x0394,mitsu_9550_4x6.raw,FIXME
 #mitsu9000,0x06d3,0x0395,mitsu_9550_4x6.raw,FIXME

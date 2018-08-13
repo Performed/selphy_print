@@ -133,6 +133,7 @@ enum {
 	P_DNP_DSRX1 = 41,
 	P_FUJI_ASK300 = 42,
 	P_MAGICARD = 43,
+	P_SONY_UPD89x = 44,
 	P_END,
 };
 

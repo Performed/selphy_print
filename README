@@ -71,6 +71,7 @@
    Olmec OP900
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-CR10L (aka DNP DS-SL10)
+   Sony UP-D895MD, UP-D897MD, UP-D898MD
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
    Magicard Rio 2E (and other Magicard models)
 
@@ -597,6 +598,10 @@
 
    Sony UP-CR10L
    DNP DS-SL10
+
+  Work-in-progress printers:
+
+   Sony UP-D895MD, UP-D897MD, UP-D898MD
 
   This backend does not support additional commands.
 
