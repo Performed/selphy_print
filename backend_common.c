@@ -51,6 +51,7 @@ int extra_pid = -1;
 int extra_type = -1;
 int copies = 1;
 int test_mode = 0;
+int old_uri = 0;
 
 static int max_xfer_size = URB_XFER_SIZE;
 static int xfer_timeout = XFER_TIMEOUT;
@@ -588,20 +589,27 @@ candidate:
 	}
 
 	if (scan_only) {
-		int k = 0;
+		if (!old_uri) {
+			fprintf(stdout, "direct %s://%s/%s \"%s\" \"%s\" \"%s\" \"\"\n",
+				prefix, uri_prefix, serial,
+				descr, descr,
+				ieee_id ? ieee_id : "");
+		} else {
+			int k = 0;
 
-		/* URLify the manuf and model strings */
-		strncpy(buf, manuf, sizeof(buf) - 2);
-		k = strlen(buf);
-		buf[k++] = '/';
-		buf[k] = 0;
+			/* URLify the manuf and model strings */
+			strncpy(buf, manuf, sizeof(buf) - 2);
+			k = strlen(buf);
+			buf[k++] = '/';
+			buf[k] = 0;
 
-		strncpy(buf + k, product, sizeof(buf)-k);
+			strncpy(buf + k, product, sizeof(buf)-k);
 
-		fprintf(stdout, "direct %s://%s?serial=%s&backend=%s \"%s\" \"%s\" \"%s\" \"\"\n",
-			prefix, buf, serial, uri_prefix,
-			descr, descr,
-			ieee_id? ieee_id : "");
+			fprintf(stdout, "direct %s://%s?serial=%s&backend=%s \"%s\" \"%s\" \"%s\" \"\"\n",
+				prefix, buf, serial, uri_prefix,
+				descr, descr,
+				ieee_id? ieee_id : "");
+		}
 	}
 
 	/* If a serial number was passed down, use it. */
@@ -842,7 +850,7 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 	if (!backend) {
 		int i;
 		DEBUG("Environment variables:\n");
-		DEBUG(" DYESUB_DEBUG EXTRA_PID EXTRA_VID EXTRA_TYPE BACKEND SERIAL\n");
+		DEBUG(" DYESUB_DEBUG EXTRA_PID EXTRA_VID EXTRA_TYPE BACKEND SERIAL OLD_URI_SCHEME\n");
 		DEBUG("CUPS Usage:\n");
 		DEBUG("\tDEVICE_URI=someuri %s job user title num-copies options [ filename ]\n", URI_PREFIX);
 		DEBUG("\n");
@@ -984,6 +992,8 @@ int main (int argc, char **argv)
 		xfer_timeout = atoi(getenv("XFER_TIMEOUT"));
 	if (getenv("TEST_MODE"))
 		test_mode = atoi(getenv("TEST_MODE"));
+	if (getenv("OLD_URI_SCHEME"))
+		old_uri = atoi(getenv("OLD_URI_SCHEME"));
 
 	if (test_mode >= TEST_MODE_NOATTACH && (extra_vid == -1 || extra_pid == -1)) {
 		ERROR("Must specify EXTRA_VID, EXTRA_PID in test mode > 1!\n");
@@ -1012,35 +1022,52 @@ int main (int argc, char **argv)
 
 		/* Figure out backend based on URI */
 		{
-			char *ptr = strstr (uri, "backend="), *ptr2;
-			if (!ptr) {
-				ERROR("Invalid URI prefix (%s)\n", uri);
-				exit(1);
-			}
-			ptr += 8;
-			ptr2 = strchr(ptr, '&');
-			if (ptr2)
-				*ptr2 = 0;
+			char *ptr = strstr(uri, "backend="), *ptr2;
+			if (ptr) { /* Original format */
+				ptr += 8;
+				ptr2 = strchr(ptr, '&');
+				if (ptr2)
+					*ptr2 = 0;
 
-			backend = find_backend(ptr);
-			if (!backend) {
-				ERROR("Invalid backend (%s)\n", ptr);
-				exit(1);
-			}
-			if (ptr2)
-				*ptr2 = '&';
-		}
+				backend = find_backend(ptr);
+				if (!backend) {
+					ERROR("Invalid backend (%s)\n", ptr);
+					exit(1);
+				}
+				if (ptr2)
+					*ptr2 = '&';
 
-		use_serno = strchr(uri, '=');
-		if (!use_serno || !*(use_serno+1)) {
-			ERROR("Invalid URI (%s)\n", uri);
-			exit(1);
-		}
-		use_serno++;
-		{
-			char *ptr = strchr(use_serno, '&');
-			if (ptr)
-				*ptr = 0;
+				use_serno = strchr(uri, '=');
+				if (!use_serno || !*(use_serno+1)) {
+					ERROR("Invalid URI (%s)\n", uri);
+					exit(1);
+				}
+				use_serno++;
+				ptr = strchr(use_serno, '&');
+				if (ptr)
+					*ptr = 0;
+			} else { /* New format */
+				// prefix://backend/serno
+				ptr = strchr(uri, '/');
+				ptr += 2;
+				use_serno = strchr(ptr, '/');
+				if (!use_serno || !*(use_serno+1)) {
+					ERROR("Invalid URI (%s)\n", uri);
+					exit(1);
+				}
+				*use_serno = 0;
+				use_serno++;
+
+				backend = find_backend(ptr);
+				if (!backend) {
+					ERROR("Invalid backend (%s)\n", ptr);
+					exit(1);
+				}
+
+				ptr = strchr(ptr, '?');
+				if (ptr)
+					*ptr = 0;
+			}
 		}
 
 		/* Always enable fast return in CUPS mode */
