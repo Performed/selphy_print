@@ -21,6 +21,11 @@ GUTENPRINT_MINOR := $(shell grep 'define STP_MINOR' $(GUTENPRINT_INCLUDE)/gutenp
 BACKEND_NAME ?= gutenprint$(GUTENPRINT_MAJOR)$(GUTENPRINT_MINOR)+usb
 endif
 
+# For Gutenprint 5.2, use old URI scheme
+ifneq ($(GUTENPRINT_MINOR),3)
+OLD_URI := -DOLD_URI=1
+endif
+
 # Fallthrough
 BACKEND_NAME ?= gutenprint5X+usb
 
@@ -38,7 +43,7 @@ CFLAGS += -Wall -Wextra -g -Og -D_GNU_SOURCE -std=c99 # -Wconversion
 LDFLAGS += `pkg-config --libs libusb-1.0`
 CPPFLAGS += `pkg-config --cflags libusb-1.0`
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
-CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\"
+CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\" $(OLD_URI)
 
 # If you want to use LTO..
 #CFLAGS += -flto
