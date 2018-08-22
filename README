@@ -148,7 +148,7 @@
 
     Please note that this backend merely handles the low-level
     communication with the printer!  Actually generating print jobs requires
-    use of Gutenprint compile with support for CUPS.
+    use of Gutenprint compiled with support for CUPS.
 
    DEVICE_URI=someuri FINAL_CONTENT_TYPE=application/vnd.cups-command \
        gutenprint52+usb job-id user title num-copies options [ filename ]
@@ -162,18 +162,56 @@
      Other commands may be implemented in the future.  Individual printers
      may not implement these commands.
 
+  Other Notes:
+
+    'someuri' is the URI returned by the backend when it probes for supported
+    devices.  is invoked by calling the backend with no arguments.
+
+    The backend supports multiple URI schemes.  First, the "modern" one:
+
+     gutenprint53+usb://backendname/serialnum
+
+    And the old/legacy/classic one:
+
+     gutenprint52+usb://manufacturer/model/?backend=backendname&serial=serialnum
+
+    The URI scheme generated at device probing depends on the version of
+    gutenprint installed.  By default, the modern scheme is used when compiled
+    against Gutenprint 5.3 or newer, and the legacy scheme is used with
+    Gutenprint 5.2.
+
+    Regardless of the scheme generated at probe time, the backend will continue
+    to detect and parse both schemes indefinitely as to not break backwards
+    compatibility with existing deployments.  To manually switch the URI
+    scheme type generated at runtime, set the OLD_URI_SCHEME environment
+    variable to either 0 or 1, as appropriate.
+
 ***************************************************************************
   Standalone usage:
 
     This backend is set up as a multi-call executable; that is to say
     behaivor changes based on the name used to invoke the executable.
-    When compiled, a set of symlinks are created, corresponding to each
-    of the internal backends.  Alternatively you may set the BACKEND
-    environment variable to force a specific backend to be used.  These
-    commands are equivalent:
+    When compiled, a set of symlinks are created, corresponding to the generic
+    name of each of the internal backends.  Alternatively you may set
+    the BACKEND environment variable to force a specific backend to be used.
+    These commands are equivalent:
 
-         BACKEND=backend gutenprint52+usb [ arguments ]
-	 backend [ arguments ]
+         BACKEND=backend ./gutenprint52+usb [ arguments ]
+	 ./backend [ arguments ]
+
+    The 'backend' name is any one of the names listed when invoking the
+    executable with no arguments.  For example:
+
+       ./dnpds40
+       DEBUG: Multi-Call Dye-sublimation CUPS Backend version 0.88
+       [ ... ]
+       DEBUG: Standalone DNP DS-series / Citizen C-series backend version 0.106
+       DEBUG:   supporting: dnp_citizen dnpds40 dnpds80 dnpds80dx dnpds620 dnpds820 dnprx1 citizencw01 citizencw02 citizencx02
+       [ ... ]
+
+     The first entry after 'supporting' is the generic backend name, while
+     the others correspond to specific models the backend supports.  Any one
+     can be used as the 'backend' name.
 
      All backends support the following invocations:
 

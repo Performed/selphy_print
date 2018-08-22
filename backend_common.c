@@ -880,7 +880,7 @@ void print_help(char *argv0, struct dyesub_backend *backend)
 		const char **alias;
 		DEBUG("Standalone %s backend version %s\n",
 		      backend->name, backend->version);
-		DEBUG("\t");
+		DEBUG("\t supporting: ");
 		for (alias = backend->uri_prefixes ; alias && *alias ; alias++)
 			DEBUG2("%s ", *alias);
 		DEBUG2("\n");
