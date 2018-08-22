@@ -292,10 +292,8 @@ static int magicard_selftest_card(struct magicard_ctx *ctx)
 {
 	int ret = 0;
 	uint8_t buf[256];
-	char buf2[24];
 
-	snprintf(buf2, sizeof(buf2), "TST,");
-	ret = magicard_build_cmd_simple(buf, buf2);
+	ret = magicard_build_cmd_simple(buf, "TST,");
 
 	ret = send_data(ctx->dev, ctx->endp_down,
 			buf, ret);
@@ -306,10 +304,8 @@ static int magicard_reset(struct magicard_ctx *ctx)
 {
 	int ret = 0;
 	uint8_t buf[256];
-	char buf2[24];
 
-	snprintf(buf2, sizeof(buf2), "RST,");
-	ret = magicard_build_cmd_simple(buf, buf2);
+	ret = magicard_build_cmd_simple(buf, "RST,");
 
 	ret = send_data(ctx->dev, ctx->endp_down,
 			buf, ret);
@@ -320,10 +316,8 @@ static int magicard_eject(struct magicard_ctx *ctx)
 {
 	int ret = 0;
 	uint8_t buf[256];
-	char buf2[24];
 
-	snprintf(buf2, sizeof(buf2), "EJT,");
-	ret = magicard_build_cmd_simple(buf, buf2);
+	ret = magicard_build_cmd_simple(buf, "EJT,");
 
 	ret = send_data(ctx->dev, ctx->endp_down,
 			buf, ret);
