@@ -200,7 +200,9 @@ struct mitsu70x_jobstatus {
 	uint8_t  mecha_status[2];
 	uint8_t  temperature;
 	uint8_t  error_status[3];
-	uint8_t  reserved[6];
+	uint8_t  mecha_status_up[2];
+	uint8_t  temperature_up;
+	uint8_t  error_status_up[3];
 } __attribute__((packed));
 
 struct mitsu70x_job {
@@ -796,9 +798,9 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 		resp.lower.media_type = 0x0f;
 	}
 
+	/* Figure out if we're a D707 with two decks */
 	if (ctx->type == P_MITSU_D70X &&
-	    resp.upper.mecha_status[0] != MECHA_STATUS_INIT &&
-		resp.upper.capacity != 0xffff)
+	    resp.upper.mecha_status[0] != MECHA_STATUS_INIT)
 		ctx->num_decks = 2;
 	else
 		ctx->num_decks = 1;
@@ -1260,19 +1262,20 @@ done:
 	list = dyesub_joblist_create(&mitsu70x_backend, ctx);
 
 	/* 6x4 can be combined, only on 6x8/6x9" media. */
+	// XXX TODO: Don't combine if one deck is an exact match!
+	// XXX what about splitting copies between decks?
 	can_combine = 0;
 	if (job->rows == 1218 ||
 	    job->rows == 1228) {
 		if (ctx->medias[0] == 0xf ||
 		    ctx->medias[0] == 0x5 ||
-		    ctx->medias[1] == 0xf ||
+		    ctx->medias[1] == 0xf || /* Two decks possible */
 		    ctx->medias[1] == 0x5)
 			can_combine = !job->raw_format;
 	} else if (job->rows == 1076) {
 		if (ctx->type == P_KODAK_305 ||
 		    ctx->type == P_MITSU_K60) {
-			if (ctx->medias[0] == 0x4 ||
-			    ctx->medias[1] == 0x4)
+			if (ctx->medias[0] == 0x4)  /* Only one deck */
 				can_combine = !job->raw_format;
 		}
 	}
@@ -1765,9 +1768,22 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
+	// XXX TODO: Goal here is to find a deck we can use!
+	// so... get disposition of both decks.
+	// figure out which decks are legal to use
+
 	/* Make sure temperature is sane */
 	if (jobstatus.temperature == TEMPERATURE_COOLING) {
-		INFO("Printer cooling down...\n");
+		if (ctx->num_decks == 2)
+			INFO("Lower deck cooling down...\n");
+		else
+			INFO("Printer cooling down...\n");
+		sleep(1);
+		goto top;
+	}
+	if (ctx->num_decks == 2 &&
+	    jobstatus.temperature_up == TEMPERATURE_COOLING) {
+		INFO("Upper deck cooling down...\n");
 		sleep(1);
 		goto top;
 	}
@@ -1875,7 +1891,7 @@ skip_status:
 	hdr->jobid = cpu_to_be16(ctx->jobid);
 
 	/* Set deck */
-	if (ctx->type == P_MITSU_D70X) {
+q	if (ctx->type == P_MITSU_D70X) {
 		hdr->deck = 0;  /* D70 use automatic deck selection */
 		/* XXX alternatively route it based on state and media? */
 	} else {
@@ -1949,6 +1965,8 @@ skip_status:
 		if (ret)
 			return CUPS_BACKEND_FAILED;
 
+		// XXX need to examine status of the correct deck for the job!
+
 		/* See if we hit a printer error. */
 		if (jobstatus.error_status[0]) {
 			ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
@@ -1973,6 +1991,7 @@ skip_status:
 			     jobstatus.job_status[2],
 			     jobstatus.job_status[3]);
 
+		/* Check for job completion */
 		if (jobstatus.job_status[0] == JOB_STATUS0_END) {
 			if (jobstatus.job_status[1] ||
 			    jobstatus.job_status[2] ||
@@ -2106,15 +2125,38 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 	INFO("JOB00 ID     : %06u\n", jobstatus.jobid);
 	INFO("JOB00 status : %s\n", mitsu70x_jobstatuses(jobstatus.job_status));
 	INFO("Power Status: %s\n", jobstatus.power ? "Sleeping" : "Awake");
-	INFO("Mechanical Status: %s\n",
-	     mitsu70x_mechastatus(jobstatus.mecha_status));
-	if (jobstatus.error_status[0]) {
-		INFO("%s/%s -> %s\n",
-		     mitsu70x_errorclass(jobstatus.error_status),
-		     mitsu70x_errors(jobstatus.error_status),
-		     mitsu70x_errorrecovery(jobstatus.error_status));
+
+	if (ctx->num_decks == 2) {
+		INFO("Lower Deck Mechanical Status: %s\n",
+		     mitsu70x_mechastatus(jobstatus.mecha_status));
+		if (jobstatus.error_status[0]) {
+			INFO("%s/%s -> %s\n",
+			     mitsu70x_errorclass(jobstatus.error_status),
+			     mitsu70x_errors(jobstatus.error_status),
+			     mitsu70x_errorrecovery(jobstatus.error_status));
+		}
+		INFO("Lower Deck Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature));
+
+		INFO("Upper Deck Mechanical Status: %s\n",
+		     mitsu70x_mechastatus(jobstatus.mecha_status_up));
+		if (jobstatus.error_status[0]) {
+			INFO("%s/%s -> %s\n",
+			     mitsu70x_errorclass(jobstatus.error_status_up),
+			     mitsu70x_errors(jobstatus.error_status_up),
+			     mitsu70x_errorrecovery(jobstatus.error_status_up));
+		}
+		INFO("Lower Deck Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature_up));
+	} else {
+		INFO("Mechanical Status: %s\n",
+		     mitsu70x_mechastatus(jobstatus.mecha_status));
+		if (jobstatus.error_status[0]) {
+			INFO("%s/%s -> %s\n",
+			     mitsu70x_errorclass(jobstatus.error_status),
+			     mitsu70x_errors(jobstatus.error_status),
+			     mitsu70x_errorrecovery(jobstatus.error_status));
+		}
+		INFO("Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature));
 	}
-	INFO("Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature));
 	// memory status?
 
 #if 0
@@ -2267,7 +2309,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.82",
+	.version = "0.83",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,

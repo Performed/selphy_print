@@ -48,7 +48,7 @@
    Mitsubishi CP-3800DW
    Mitsubishi CP-9550D/DW/DW-S/DZ/DZ-S
    Mitsubishi CP-9600D/DW
-   Mitsubishi CP-D70DW
+   Mitsubishi CP-D70DW and CP-D707DW
    Mitsubishi CP-D80DW
    Mitsubishi CP-K60DW-S
    Mitsubishi CP-D90DW
@@ -67,7 +67,6 @@
    Mitsubishi CP-3020D/DE and CP-3020DA/DAE
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
-   Mitsubishi CP-D707DW
    Olmec OP900
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-CR10L (aka DNP DS-SL10)
@@ -655,9 +654,6 @@
     Mitsubishi CP-D80DW
     Mitsubishi CP-K60DW-S
     Fujifilm ASK-300
-
-   Untested but believed to work:
-
     Mitsubishi CP-D707DW
 
    Unsupported printers (Unknown VID/PID):
