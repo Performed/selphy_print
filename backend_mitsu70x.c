@@ -1891,7 +1891,7 @@ skip_status:
 	hdr->jobid = cpu_to_be16(ctx->jobid);
 
 	/* Set deck */
-q	if (ctx->type == P_MITSU_D70X) {
+	if (ctx->type == P_MITSU_D70X) {
 		hdr->deck = 0;  /* D70 use automatic deck selection */
 		/* XXX alternatively route it based on state and media? */
 	} else {
