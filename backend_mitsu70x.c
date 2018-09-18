@@ -820,6 +820,38 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 		ctx->medias[1] = resp.upper.media_type & 0xf;
 	}
 
+	/* FW sanity checking */
+	if (ctx->type == P_KODAK_305) {
+		/* Known versions:
+		   v1.02: M 316E81 1433   (Add Ultrafine and matte support)
+		   v1.04: M 316F83 2878   (Add 2x6 strip and support "Triton" media)
+		*/
+		if (strncmp(resp.vers[0].ver, "316F83", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading EK305 to v1.04 or newer!\n");
+	} else if (ctx->type == P_MITSU_K60) {
+		/* Known versions:
+		   v1.05: M 316M31 148C   (Add HG media support)
+		*/
+		if (strncmp(resp.vers[0].ver, "316M31", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading K60 to v1.05 or newer!\n");
+	} else if (ctx->type == P_MITSU_D70X) {
+		/* Known versions:
+		   v1.10: M 316V11 064D   (Add ultrafine mode, 6x6 support, 2x6 strip, and more?)
+		   v1.12: M 316W11 9FC3   (??)
+		   v1.13:                 (??)
+		*/
+		if (strncmp(resp.vers[0].ver, "316W11", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading D70/D707 to v1.12 or newer!\n");
+	} else if (ctx->type == P_FUJI_ASK300) {
+		/* Known versions:
+		   v?.??: M 316A21 7998   (ancient. no matte or ultrafine)
+		   v?.??: M 316H21 F8EB
+		   v4.20a: M 316J21 4431  (Add 2x6 strip support)
+		*/
+		if (strncmp(resp.vers[0].ver, "316J21", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading ASK300 to v4.20a or newer!\n");
+	}
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1808,38 +1840,6 @@ top:
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
-
-	/* FW sanity checking */
-	if (ctx->type == P_KODAK_305) {
-		/* Known versions:
-		   v1.02: M 316E81 1433   (Add Ultrafine and matte support)
-		   v1.04: M 316F83 2878   (Add 2x6 strip and support "Triton" media)
-		*/
-		if (strncmp(resp.vers[0].ver, "316F83", 6) < 0)
-			WARNING("Printer FW out of date. Highly recommend upgrading EK305 to v1.04 or newer!\n");
-	} else if (ctx->type == P_MITSU_K60) {
-		/* Known versions:
-		   v1.05: M 316M31 148C   (Add HG media support)
-		*/
-		if (strncmp(resp.vers[0].ver, "316M31", 6) < 0)
-			WARNING("Printer FW out of date. Highly recommend upgrading K60 to v1.05 or newer!\n");
-	} else if (ctx->type == P_MITSU_D70X) {
-		/* Known versions:
-		   v1.10: M 316V11 064D   (Add ultrafine mode, 6x6 support, 2x6 strip, and more?)
-		   v1.12: M 316W11 9FC3   (??)
-		   v1.13:                 (??)
-		*/
-		if (strncmp(resp.vers[0].ver, "316W11", 6) < 0)
-			WARNING("Printer FW out of date. Highly recommend upgrading D70/D707 to v1.12 or newer!\n");
-	} else if (ctx->type == P_FUJI_ASK300) {
-		/* Known versions:
-		   v?.??: M 316A21 7998   (ancient. no matte or ultrafine)
-		   v?.??: M 316H21 F8EB
-		   v4.20a: M 316J21 4431  (Add 2x6 strip support)
-		*/
-		if (strncmp(resp.vers[0].ver, "316J21", 6) < 0)
-			WARNING("Printer FW out of date. Highly recommend upgrading ASK300 to v4.20a or newer!\n");
-	}
 
 skip_status:
 	/* Perform memory status query */
