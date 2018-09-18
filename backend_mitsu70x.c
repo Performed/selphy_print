@@ -321,7 +321,7 @@ struct mitsu70x_status_deck {
 	uint8_t  mecha_status[2];
 	uint8_t  temperature;   /* D70/D80 family only, K60 no? */
 	uint8_t  error_status[3];
-	uint8_t  rsvd_a[10];    /* K60 family [1] == temperature? All: [3:6] == lifetime (cuts?) in BCD? */
+	uint8_t  rsvd_a[10];    /* K60 [1] == temperature? All: [3:6] == some counter in BCD. K60 [9] == ?? */
 
 	uint8_t  media_brand;
 	uint8_t  media_type;
@@ -330,7 +330,8 @@ struct mitsu70x_status_deck {
 	uint16_t remain;   /* media remaining */
 	uint8_t  rsvd_c[2];
 	uint8_t  lifetime_prints[4]; /* lifetime prints on deck + 10, in BCD! */
-	uint16_t rsvd_e[17];
+	uint8_t  rsvd_d[2];
+	uint16_t rsvd_e[16]; /* all 80 00 */
 } __attribute__((packed));
 
 struct mitsu70x_status_ver {
@@ -339,7 +340,7 @@ struct mitsu70x_status_ver {
 } __attribute__((packed));
 
 struct mitsu70x_printerstatus_resp {
-	uint8_t  hdr[4];  /* E4 56 32 31 */
+	uint8_t  hdr[4];  /* E4 56 32 30 */
 	uint8_t  memory;
 	uint8_t  power;
 	uint8_t  unk[20];
@@ -803,8 +804,8 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	/* Figure out if we're a D707 with two decks */
 	if (ctx->type == P_MITSU_D70X &&
-	    resp.upper.mecha_status[0] != MECHA_STATUS_INIT)
-		// XXX test not working right still
+	    resp.upper.mecha_status[0] != MECHA_STATUS_INIT &&
+	    resp.upper.rsvd_a[6] != 0) // XXX Guessing.
 		ctx->num_decks = 2;
 	else
 		ctx->num_decks = 1;
@@ -1865,7 +1866,7 @@ top:
 		deck = 1; /* All others have one deck only */
 	}
 
-	/* If user requested a specific deck, go with it only */
+	/* If user requested a specific deck, go with it, if it's legal */
 	if (deck == 1 && job->decks_ok[0]) {
 		deck = 1;
 	} else if (deck == 2 && job->decks_ok[1]) {
