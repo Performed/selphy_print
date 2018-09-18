@@ -2269,13 +2269,13 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 
 		INFO("Upper Deck Mechanical Status: %s\n",
 		     mitsu70x_mechastatus(jobstatus.mecha_status_up));
-		if (jobstatus.error_status[0]) {
+		if (jobstatus.error_status_up[0]) {
 			INFO("%s/%s -> %s\n",
 			     mitsu70x_errorclass(jobstatus.error_status_up),
 			     mitsu70x_errors(jobstatus.error_status_up),
 			     mitsu70x_errorrecovery(jobstatus.error_status_up));
 		}
-		INFO("Lower Deck Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature_up));
+		INFO("Upper Deck Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature_up));
 	} else {
 		INFO("Mechanical Status: %s\n",
 		     mitsu70x_mechastatus(jobstatus.mecha_status));
@@ -2439,7 +2439,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.84",
+	.version = "0.85",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
