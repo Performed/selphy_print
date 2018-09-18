@@ -140,6 +140,9 @@ struct mitsu70x_printjob {
 	int raw_format;
 	int copies;
 
+	int decks_exact[2];	 /* Media is exact match */
+	int decks_ok[2];         /* Media can be used */
+
 	/* These are used only for the image processing */
 	int sharpen; /* ie mhdr.sharpen - 1 */
 	int reverse;
@@ -318,7 +321,7 @@ struct mitsu70x_status_deck {
 	uint8_t  mecha_status[2];
 	uint8_t  temperature;   /* D70/D80 family only, K60 no? */
 	uint8_t  error_status[3];
-	uint8_t  rsvd_a[10];    /* K60 family [1] == temperature? [3:6] == lifetime prints in BCD */
+	uint8_t  rsvd_a[10];    /* K60 family [1] == temperature? All: [3:6] == lifetime (cuts?) in BCD? */
 
 	uint8_t  media_brand;
 	uint8_t  media_type;
@@ -801,6 +804,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	/* Figure out if we're a D707 with two decks */
 	if (ctx->type == P_MITSU_D70X &&
 	    resp.upper.mecha_status[0] != MECHA_STATUS_INIT)
+		// XXX test not working right still
 		ctx->num_decks = 2;
 	else
 		ctx->num_decks = 1;
@@ -1293,12 +1297,64 @@ repeat:
 done:
 	list = dyesub_joblist_create(&mitsu70x_backend, ctx);
 
+	for (i = 0 ; i < ctx->num_decks ; i++) {
+		switch (ctx->medias[i]) {
+		case 0x1: // 5x3.5
+			if (job->rows == 1076)
+				job->decks_ok[i] = 1;
+			if (job->rows == 1076)
+				job->decks_exact[i] = 1;
+			break;
+		case 0x2: // 4x6
+			if (job->rows == 1218 ||
+			    job->rows == 1228)
+				job->decks_ok[i] = 1;
+			if (job->rows == 1218 ||
+			    job->rows == 1228)
+				job->decks_exact[i] = 1;
+			break;
+		case 0x4: // 5x7
+			if (job->rows == 1076 ||
+			    job->rows == 1524 ||
+			    job->rows == 2128)
+				job->decks_ok[i] = 1;
+			if (job->rows == 1524 ||
+			    job->rows == 2128)
+				job->decks_exact[i] = 1;
+			break;
+		case 0x5: // 6x9
+		case 0xf: // 6x8
+			/* This is made more complicated:
+			   some 6x8" jobs are 6x9" sized.  Let printer
+			   sort these out.  It's unlikely we'll have
+			   6x8" in one deck and 6x9" in the other!
+			*/
+			if (job->rows == 1218 ||
+			    job->rows == 1228 ||
+			    job->rows == 1820 ||
+			    job->rows == 2422 ||
+			    job->rows == 2564 ||
+			    job->rows == 2730)
+				job->decks_ok[i] = 1;
+			if (job->rows == 2422 ||
+			    job->rows == 2564 ||
+			    job->rows == 2730)
+				job->decks_exact[i] = 1;
+			break;
+		default:
+			job->decks_ok[i] = 0;
+			job->decks_exact[i] = 0;
+			break;
+		}
+	}
+
 	/* 6x4 can be combined, only on 6x8/6x9" media. */
-	// XXX TODO: Don't combine if one deck is an exact match!
-	// XXX what about splitting copies between decks?
 	can_combine = 0;
-	if (job->rows == 1218 ||
-	    job->rows == 1228) {
+	if (job->decks_exact[0] ||
+	    job->decks_exact[1]) {
+		/* Exact media match, don't combine. */
+	} else if (job->rows == 1218 ||
+		   job->rows == 1228) {
 		if (ctx->medias[0] == 0xf ||
 		    ctx->medias[0] == 0x5 ||
 		    ctx->medias[1] == 0xf || /* Two decks possible */
@@ -1657,10 +1713,10 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 	struct mitsu70x_printerstatus_resp resp;
 	struct mitsu70x_hdr *hdr;
 	uint8_t last_status[4] = {0xff, 0xff, 0xff, 0xff};
-	int statusdump = 0;
 
 	int ret;
 	int copies;
+	int deck;
 
 	struct mitsu70x_printjob *job = (struct mitsu70x_printjob *) vjob; // XXX not clean.
 //	const struct mitsu70x_printjob *job = vjob;
@@ -1794,54 +1850,108 @@ bypass:
 		return CUPS_BACKEND_FAILED;
 
 top:
-
 	/* Query job status for jobid 0 (global) */
 	ret = mitsu70x_get_jobstatus(ctx, &jobstatus, 0x0000);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	// XXX TODO: Goal here is to find a deck we can use!
-	// so... get disposition of both decks.
-	// figure out which decks are legal to use
+	/* Figure out which deck(s) can be used.
+	   This should be in the main loop due to copy retries */
 
-	/* Make sure temperature is sane */
-	if (jobstatus.temperature == TEMPERATURE_COOLING) {
-		if (ctx->num_decks == 2)
-			INFO("Lower deck cooling down...\n");
-		else
-			INFO("Printer cooling down...\n");
+	/* First, try to respect requested deck */
+	if (ctx->type == P_MITSU_D70X) {
+		deck = hdr->deck; /* Respect D70 deck choice, 0 is automatic. */
+	} else {
+		deck = 1; /* All others have one deck only */
+	}
+
+	/* If user requested a specific deck, go with it only */
+	if (deck == 1 && job->decks_ok[0]) {
+		deck = 1;
+	} else if (deck == 2 && job->decks_ok[1]) {
+		deck = 2;
+	/* If we have an exact match for media, use it exclusively */
+	} else if (job->decks_exact[0] && job->decks_exact[1]) {
+		deck = 1 | 2;
+	} else if (job->decks_exact[0]) {
+		deck = 1;
+	} else if (job->decks_exact[1]) {
+		deck = 2;
+	/* Use a non-exact match only if we don't have an exact match */
+	} else if (job->decks_ok[0] && job->decks_ok[1]) {
+		deck = 1 | 2;
+	} else if (job->decks_ok[0]) {
+		deck = 1;
+	} else if (job->decks_ok[1]) {
+		deck = 2;
+	} else {
+		ERROR("Loaded media does not match job!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	if (ctx->num_decks > 1)
+		DEBUG("Deck selection mask: %d (%d %d %d/%d %d/%d) \n",
+		      deck, hdr->deck, job->rows,
+		      job->decks_exact[0], job->decks_exact[1],
+		      job->decks_ok[0], job->decks_ok[1]);
+
+	/* Okay, we know which decks are _legal_, pick one to use */
+	if (deck & 1) {
+		if (jobstatus.temperature == TEMPERATURE_COOLING) {
+			if (ctx->num_decks == 2)
+				INFO("Lower deck cooling down...\n");
+			else
+				INFO("Printer cooling down...\n");
+			deck &= ~1;
+		} else if (jobstatus.error_status[0]) {
+			ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
+			      mitsu70x_errorclass(jobstatus.error_status),
+			      mitsu70x_errors(jobstatus.error_status),
+			      mitsu70x_errorrecovery(jobstatus.error_status),
+			      jobstatus.error_status[0],
+			      jobstatus.error_status[1],
+			      jobstatus.error_status[2]);
+			deck &= ~1;
+		} else if (jobstatus.mecha_status[0] == MECHA_STATUS_IDLE) {
+			deck = 1; /* Use deck 1 */
+		}
+	}
+	if (deck & 2) {
+		if (jobstatus.temperature_up == TEMPERATURE_COOLING) {
+			INFO("Upper deck cooling down...\n");
+			deck &= ~2;
+		} else if (jobstatus.error_status_up[0]) {
+			ERROR("UPPER: %s/%s -> %s:  %02x/%02x/%02x\n",
+			      mitsu70x_errorclass(jobstatus.error_status_up),
+			      mitsu70x_errors(jobstatus.error_status_up),
+			      mitsu70x_errorrecovery(jobstatus.error_status_up),
+			      jobstatus.error_status_up[0],
+			      jobstatus.error_status_up[1],
+			      jobstatus.error_status_up[2]);
+			deck &= ~2;
+		} else if (jobstatus.mecha_status_up[0] == MECHA_STATUS_IDLE) {
+			deck = 2; /* Use deck 2 */
+		}
+	}
+	if (ctx->num_decks > 1)
+		DEBUG("Deck selected: %d\n", deck);
+
+	if (deck == 0) {
+		/* Halt queue if printer is entirely offline */
+		if (ctx->num_decks == 2) {
+			if (jobstatus.error_status[0] && jobstatus.error_status_up[0])
+				return CUPS_BACKEND_STOP;
+		// XXX what if we only have one legal deck, and it's unavailable?  We don't want to retry indefinitely here..
+		} else {
+			if (jobstatus.error_status[0])
+				return CUPS_BACKEND_STOP;
+		}
+
+		/* No decks available yet, retry */
 		sleep(1);
 		goto top;
 	}
-	if (ctx->num_decks == 2 &&
-	    jobstatus.temperature_up == TEMPERATURE_COOLING) {
-		INFO("Upper deck cooling down...\n");
-		sleep(1);
-		goto top;
-	}
 
-	/* See if we hit a printer error. */
-	if (jobstatus.error_status[0]) {
-		ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
-		      mitsu70x_errorclass(jobstatus.error_status),
-		      mitsu70x_errors(jobstatus.error_status),
-		      mitsu70x_errorrecovery(jobstatus.error_status),
-		      jobstatus.error_status[0],
-		      jobstatus.error_status[1],
-		      jobstatus.error_status[2]);
-		return CUPS_BACKEND_STOP;
-	}
-
-	if (statusdump)
-		goto skip_status;
-	statusdump = 1;
-
-	/* Tell CUPS about the consumables we report */
-	ret = mitsu70x_get_printerstatus(ctx, &resp);
-	if (ret)
-		return CUPS_BACKEND_FAILED;
-
-skip_status:
 	/* Perform memory status query */
 	{
 		struct mitsu70x_memorystatus_resp memory;
@@ -1891,12 +2001,7 @@ skip_status:
 	hdr->jobid = cpu_to_be16(ctx->jobid);
 
 	/* Set deck */
-	if (ctx->type == P_MITSU_D70X) {
-		hdr->deck = 0;  /* D70 use automatic deck selection */
-		/* XXX alternatively route it based on state and media? */
-	} else {
-		hdr->deck = 1;  /* All others only have a "lower" deck. */
-	}
+	hdr->deck = deck;
 
 	/* K60 and EK305 need the mcut type 1 specified for 4x6 prints! */
 	if ((ctx->type == P_MITSU_K60 || ctx->type == P_KODAK_305) &&
@@ -1965,21 +2070,32 @@ skip_status:
 		if (ret)
 			return CUPS_BACKEND_FAILED;
 
-		// XXX need to examine status of the correct deck for the job!
-
 		/* See if we hit a printer error. */
-		if (jobstatus.error_status[0]) {
-			ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
-			      mitsu70x_errorclass(jobstatus.error_status),
-			      mitsu70x_errors(jobstatus.error_status),
-			      mitsu70x_errorrecovery(jobstatus.error_status),
-			      jobstatus.error_status[0],
-			      jobstatus.error_status[1],
-			      jobstatus.error_status[2]);
-			return CUPS_BACKEND_STOP;
+		if (deck == 0) {
+			if (jobstatus.error_status[0]) {
+				ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
+				      mitsu70x_errorclass(jobstatus.error_status),
+				      mitsu70x_errors(jobstatus.error_status),
+				      mitsu70x_errorrecovery(jobstatus.error_status),
+				      jobstatus.error_status[0],
+				      jobstatus.error_status[1],
+				      jobstatus.error_status[2]);
+				return CUPS_BACKEND_STOP;
+			}
+		} else if (deck == 1) {
+			if (jobstatus.error_status_up[0]) {
+				ERROR("UPPER: %s/%s -> %s:  %02x/%02x/%02x\n",
+				      mitsu70x_errorclass(jobstatus.error_status_up),
+				      mitsu70x_errors(jobstatus.error_status_up),
+				      mitsu70x_errorrecovery(jobstatus.error_status_up),
+				      jobstatus.error_status_up[0],
+				      jobstatus.error_status_up[1],
+				      jobstatus.error_status_up[2]);
+				return CUPS_BACKEND_STOP;
+			}
 		}
 
-		/* Only print if it's changed */
+		/* Only print if job status is changed */
 		if (jobstatus.job_status[0] != last_status[0] ||
 		    jobstatus.job_status[1] != last_status[1] ||
 		    jobstatus.job_status[2] != last_status[2] ||
@@ -2005,6 +2121,11 @@ skip_status:
 			/* Job complete */
 			break;
 		}
+
+		/* On a two deck system, try to use the second deck
+		   for additional copies. If we can't use it, we'll block. */
+		if (ctx->num_decks > 1 && copies > 1)
+			break;
 
 		if (fast_return && copies <= 1) { /* Copies generated by backend! */
 			INFO("Fast return mode enabled.\n");
@@ -2309,7 +2430,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.83",
+	.version = "0.84",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
