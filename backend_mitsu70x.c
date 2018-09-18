@@ -1912,8 +1912,8 @@ top:
 			      jobstatus.error_status[1],
 			      jobstatus.error_status[2]);
 			deck &= ~1;
-		} else if (jobstatus.mecha_status[0] == MECHA_STATUS_IDLE) {
-			deck = 1; /* Use deck 1 */
+		} else if (jobstatus.mecha_status[0] != MECHA_STATUS_IDLE) {
+			deck = ~1;
 		}
 	}
 	if (deck & 2) {
@@ -1929,10 +1929,19 @@ top:
 			      jobstatus.error_status_up[1],
 			      jobstatus.error_status_up[2]);
 			deck &= ~2;
-		} else if (jobstatus.mecha_status_up[0] == MECHA_STATUS_IDLE) {
-			deck = 2; /* Use deck 2 */
+		} else if (jobstatus.mecha_status_up[0] != MECHA_STATUS_IDLE) {
+			deck = ~2;
 		}
 	}
+
+	if (deck == 3) {
+		/* Both decks OK to use, pick one at random */
+		if (rand() & 1)
+			deck = 1;
+		else
+			deck = 2;
+	}
+
 	if (ctx->num_decks > 1)
 		DEBUG("Deck selected: %d\n", deck);
 
