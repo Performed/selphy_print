@@ -329,7 +329,7 @@ struct mitsu70x_status_deck {
 	uint16_t remain;   /* media remaining */
 	uint8_t  rsvd_c[2];
 	uint8_t  lifetime_prints[4]; /* lifetime prints on deck + 10, in BCD! */
-	uint8_t  rsvd_d[2];
+	uint8_t  rsvd_d[2]; // Unknown
 	uint16_t rsvd_e[16]; /* all 80 00 */
 } __attribute__((packed));
 
@@ -345,7 +345,9 @@ struct mitsu70x_printerstatus_resp {
 	uint8_t  unk[20];
 	uint8_t  sleeptime; /* In minutes, 0-60 */
 	uint8_t  iserial; /* 0x00 for Enabled, 0x80 for Disabled */
-	uint8_t  unk_b[12];
+	uint8_t  unk_b[5]; // [4] == 0x44 on D70x, 0x02 on D80
+	uint8_t  dual_deck;  /* 0x80 for dual-deck D707 */
+	uint8_t  unk_c[6]; // [3] == 0x5f on D70x, 0x01 on D80.  [5] == 0xbd on D70x, 0x87 on D80
 	int16_t  model[6]; /* LE, UTF-16 */
 	int16_t  serno[6]; /* LE, UTF-16 */
 	struct mitsu70x_status_ver vers[7]; // components are 'MLRTF'
@@ -803,7 +805,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	/* Figure out if we're a D707 with two decks */
 	if (ctx->type == P_MITSU_D70X &&
-	    packed_bcd_to_uint32((char*) &resp.upper.rsvd_a[3], 4) != 0) // GUESS.
+	    resp.dual_deck == 0x80)
 		ctx->num_decks = 2;
 	else
 		ctx->num_decks = 1;
@@ -2438,7 +2440,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.85",
+	.version = "0.86",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
