@@ -322,7 +322,6 @@ struct mitsu70x_status_deck {
 	uint8_t  temperature;   /* D70/D80 family only, K60 no? */
 	uint8_t  error_status[3];
 	uint8_t  rsvd_a[10];    /* K60 [1] == temperature? All: [3:6] == some counter in BCD. K60 [9] == ?? */
-
 	uint8_t  media_brand;
 	uint8_t  media_type;
 	uint8_t  rsvd_b[2];
@@ -804,8 +803,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	/* Figure out if we're a D707 with two decks */
 	if (ctx->type == P_MITSU_D70X &&
-	    resp.upper.mecha_status[0] != MECHA_STATUS_INIT &&
-	    resp.upper.rsvd_a[6] != 0) // XXX Guessing.
+	    packed_bcd_to_uint32((char*) &resp.upper.rsvd_a[3], 4) != 0) // GUESS.
 		ctx->num_decks = 2;
 	else
 		ctx->num_decks = 1;
