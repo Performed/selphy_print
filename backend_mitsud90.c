@@ -806,7 +806,7 @@ top:
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     job->databuf + sent, job->datalen - sent)))
 		return CUPS_BACKEND_FAILED;
-	sent += (job->datalen - sent);
+//	sent += (job->datalen - sent);
 
 	/* Wait for completion */
 	do {

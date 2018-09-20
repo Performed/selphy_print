@@ -801,6 +801,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 		resp.lower.media_brand = 0xff;
 		resp.upper.media_type = 0x0f;
 		resp.lower.media_type = 0x0f;
+		resp.dual_deck = 0x80;  /* Make it a dual deck */
 	}
 
 	/* Figure out if we're a D707 with two decks */

@@ -1473,7 +1473,7 @@ top:
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ptr, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
-		ptr += sizeof(cmd);
+//		ptr += sizeof(cmd);
 	}
 
 	/* Status loop, run until printer reports completion */
