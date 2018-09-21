@@ -227,6 +227,8 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	} else {
 		rdback.data[2] = 0;
 		rdback.data[6] = 0x01;
+		if (getenv("MEDIA_CODE"))
+			rdback.data[6] = atoi(getenv("MEDIA_CODE"));
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
@@ -305,6 +307,8 @@ static int selphyneo_read_parse(void *vctx, const void **vjob, int data_fd, int 
 		selphyneo_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
+
+	// XXX Sanity check job against loaded media?
 
 	/* Allocate a buffer */
 	job->datalen = 0;
@@ -535,7 +539,7 @@ static const char *canonselphyneo_prefixes[] = {
 
 struct dyesub_backend canonselphyneo_backend = {
 	.name = "Canon SELPHY CP (new)",
-	.version = "0.18",
+	.version = "0.19",
 	.uri_prefixes = canonselphyneo_prefixes,
 	.cmdline_usage = selphyneo_cmdline,
 	.cmdline_arg = selphyneo_cmdline_arg,

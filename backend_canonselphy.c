@@ -667,6 +667,8 @@ static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev, int 
 			ctx->marker.levelnow = -3; /* Unknown but OK */
 		ctx->marker.name = ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf, ctx->printer) : "Unknown";
 	} else {
+		// XXX handle MEDIA_CODE at some point.
+		// we don't do any error checking here.
 		ctx->marker.name = "Unknown";
 	}
 

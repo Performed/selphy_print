@@ -14,7 +14,12 @@ while (<STDIN>) {
     $ENV{"BACKEND"} = $row[0];
     $ENV{"EXTRA_VID"} = $row[1];
     $ENV{"EXTRA_PID"} = $row[2];
-    $ENV{"MEDIA_CODE"} = $row[4];
+
+    if (length($row[4])) {
+	$ENV{"MEDIA_CODE"} = $row[4];
+    } else {
+	unset($ENV{"MEDIA_CODE"});
+    }
 
     print "***** $row[0] $row[1] $row[2] $row[3] $row[4]\n";
 
