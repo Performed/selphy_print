@@ -874,12 +874,18 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 			/* Intentional fallthrough */
 		case P_DNP_DS80:
 		case P_DNP_DS820:
-			ctx->media = 510;
+			ctx->media = 510; /* 8x12 */
+			break;
+		case P_DNP_DSRX1:
+			ctx->media = 310; /* 6x8 */
 			break;
 		default:
-			ctx->media = 310;
+			ctx->media = 400; /* 6x9 */
 			break;
 		}
+
+		if (getenv("MEDIA_CODE"))
+			ctx->media = atoi(getenv("MEDIA_CODE"));
 	}
 
 	/* Per-printer options */

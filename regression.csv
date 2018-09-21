@@ -5,7 +5,7 @@
 canonselphy,0x04a9,0x3063,canon_cpxxx_p.raw,
 canonselphyneo,0x04a9,0x327a,canon_cp1200-p-cmy.raw,
 kodak68x0,0x040a,0x402b,kodak_68x0_4x6.raw,
-dnp_citizen,0x1343,0x0003,dnp_ds40_4x6.raw,
+dnp_citizen,0x1343,0x0003,dnp_ds40_4x6.raw,300
 mitsu9xxx,0x06d3,0x03a1,mitsu_9550_4x6.raw,
 magicard,0x0c1f,0x1800,magicard-native.raw,
 magicard,0x0c1f,0x1800,magicard-8bpp.raw,
@@ -133,19 +133,23 @@ mitsup95d,0x06d3,0x3b10,mitsu_p95d-1280x1920.raw,
 #
 # 'dnpds40'
 #
-citizencw01,0x1343,0x0002,citizen_cw01_4x6.raw,
-citizencw01,0x1343,0x0002,citizen_cw01_6x9.raw,
-dnpds40,0x1343,0x0003,dnp_ds40_4x6.raw,
-dnpds40,0x1343,0x0003,dnp_ds40_6x8-600.raw,
-dnpds620,0x1452,0x8b01,dnp_ds40_4x6.raw,
-dnpds620,0x1452,0x8b01,dnp_ds40_6x8-600.raw,
-dnpds80,0x1343,0x0004,dnp_ds80_8x12.raw,
-dnpds80dx,0x1343,0x0008,dnp_ds80_8x12.raw,
-dnpds820,0x1452,0x9001,dnp_ds80_8x12.raw,
-dnprx1,0x1343,0x0005,dnp_ds40_4x6.raw,
-dnprx1,0x1343,0x0005,dnp_ds40_6x8-600.raw,
-citizencw02,0x1343,0x0006,dnp_ds40_4x6.raw,
-citizencw02,0x1343,0x0006,dnp_ds40_6x8-600.raw,
+citizencw01,0x1343,0x0002,citizen_cw01_4x6.raw,300
+citizencw01,0x1343,0x0002,citizen_cw01_6x9.raw,400
+dnpds40,0x1343,0x0003,dnp_ds40_4x6.raw,300
+dnpds40,0x1343,0x0003,dnp_ds40_4x6.raw,310
+dnpds40,0x1343,0x0003,dnp_ds40_6x8-600.raw,400
+dnpds620,0x1452,0x8b01,dnp_ds40_4x6.raw,300
+dnpds620,0x1452,0x8b01,dnp_ds40_4x6.raw,310
+dnpds620,0x1452,0x8b01,dnp_ds40_6x8-600.raw,400
+dnpds80,0x1343,0x0004,dnp_ds80_8x12.raw,510
+dnpds80dx,0x1343,0x0008,dnp_ds80_8x12.raw,510
+dnpds820,0x1452,0x9001,dnp_ds80_8x12.raw,510
+dnprx1,0x1343,0x0005,dnp_ds40_4x6.raw,300
+dnprx1,0x1343,0x0005,dnp_ds40_4x6.raw,310
+dnprx1,0x1343,0x0005,dnp_ds40_6x8-600.raw,400
+citizencw02,0x1343,0x0006,dnp_ds40_4x6.raw,300
+citizencw02,0x1343,0x0006,dnp_ds40_4x6.raw,310
+citizencw02,0x1343,0x0006,dnp_ds40_6x8-600.raw,400
 #
 # 'magicard
 #
