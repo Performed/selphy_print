@@ -1431,8 +1431,12 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int 
 			}
 		}
 	} else {
+		int media_code = PRINT_MEDIA_6x9;
+		if (getenv("MEDIA_CODE"))
+			media_code = atoi(getenv("MEDIA_CODE"));
+
 		media_prints = 680;
-		ctx->media_code = PRINT_MEDIA_6x9;
+		ctx->media_code = media_code;
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
@@ -1797,7 +1801,7 @@ static const char *shinkos2145_prefixes[] = {
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S2",
-	.version = "0.53",
+	.version = "0.54",
 	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

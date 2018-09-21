@@ -72,21 +72,24 @@ kodak605,0x040a,0x402e,kodak_605_8x6.raw,0xb
 #
 # 'shinkos1245'
 #
-shinkos1245,0x10ce,0x0007,shinko_s1245_8x10.raw,
+shinkos1245,0x10ce,0x0007,shinko_s1245_8x10.raw,0x0
 #
 # 'shinkos2145'
 #
-shinkos2145,0x10ce,0x000e,shinko_s2145_4x6.raw,
+shinkos2145,0x10ce,0x000e,shinko_s2145_4x6.raw,0x1
+shinkos2145,0x10ce,0x000e,shinko_s2145_4x6.raw,0x5
 #
 # 'shinkos6145'
 #
-shinkos6145,0x10ce,0x0019,shinko_s6145_4x6.raw,
-brava21,0x10ce,0x001e,shinko_s6145_4x6.raw,
+shinkos6145,0x10ce,0x0019,shinko_s6145_4x6.raw,1
+shinkos6145,0x10ce,0x0019,shinko_s6145_4x6.raw,4
+brava21,0x10ce,0x001e,shinko_s6145_4x6.raw,1
 #
 # 'shinkos6245'
 #
-shinkos6245,0x10ce,0x001d,shinko_s6245_8x10.raw,
-hitip910,0x0d16,0x000e,shinko_s6245_8x10.raw,
+shinkos6245,0x10ce,0x001d,shinko_s6245_8x10.raw,0x11
+shinkos6245,0x10ce,0x001d,shinko_s6245_8x10.raw,0x12
+hitip910,0x0d16,0x000e,shinko_s6245_8x10.raw,0x11
 #
 # 'sonyupdr150'
 #
