@@ -791,6 +791,10 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 			return CUPS_BACKEND_FAILED;
 		}
 	} else {
+		int media_code = 0xf;
+		if (getenv("MEDIA_CODE"))
+			media_code = atoi(getenv("MEDIA_CODE")) & 0xf;
+
 		resp.upper.mecha_status[0] = MECHA_STATUS_INIT;
 		resp.lower.mecha_status[0] = MECHA_STATUS_INIT;
 		resp.upper.capacity = cpu_to_be16(230);
@@ -799,8 +803,8 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 		resp.lower.remain = cpu_to_be16(200);
 		resp.upper.media_brand = 0xff;
 		resp.lower.media_brand = 0xff;
-		resp.upper.media_type = 0x0f;
-		resp.lower.media_type = 0x0f;
+		resp.upper.media_type = media_code;
+		resp.lower.media_type = media_code;
 		resp.dual_deck = 0x80;  /* Make it a dual deck */
 	}
 
@@ -2441,7 +2445,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.86",
+	.version = "0.87",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
