@@ -1033,7 +1033,11 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int ty
 			return CUPS_BACKEND_FAILED;
 		}
 	} else {
-		ctx->media->type = KODAK68x0_MEDIA_6R;
+		int media_code = KODAK68x0_MEDIA_6TR2;
+		if (getenv("MEDIA_CODE"))
+			media_code = atoi(getenv("MEDIA_CODE"));
+
+		ctx->media->type = media_code;
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
@@ -1299,7 +1303,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.63",
+	.version = "0.64",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

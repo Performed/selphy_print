@@ -4,7 +4,7 @@
 #
 canonselphy,0x04a9,0x3063,canon_cpxxx_p.raw,
 canonselphyneo,0x04a9,0x327a,canon_cp1200-p-cmy.raw,
-kodak68x0,0x040a,0x402b,kodak_68x0_4x6.raw,
+kodak68x0,0x040a,0x402b,kodak_68x0_4x6.raw,0xb
 dnp_citizen,0x1343,0x0003,dnp_ds40_4x6.raw,300
 mitsu9xxx,0x06d3,0x03a1,mitsu_9550_4x6.raw,0x2
 magicard,0x0c1f,0x1800,magicard-native.raw,
@@ -61,10 +61,13 @@ kodak805,0x040a,0x4034,kodak_805_letter_glossy.raw,
 #
 # 'kodak68x0'
 #
-kodak6800,0x040a,0x402b,kodak_68x0_4x6.raw,
-kodak6850,0x040a,0x402b,kodak_68x0_4x6.raw,
-kodak605,0x040a,0x402e,kodak_605_4x6.raw,
-kodak605,0x040a,0x402e,kodak_605_8x6.raw,
+kodak6800,0x040a,0x402b,kodak_68x0_4x6.raw,0xb
+kodak6850,0x040a,0x402b,kodak_68x0_4x6.raw,0xb
+#
+# 'kodak605'
+#
+kodak605,0x040a,0x402e,kodak_605_4x6.raw,0xb
+kodak605,0x040a,0x402e,kodak_605_8x6.raw,0xb
 #
 # 'shinkos1245'
 #
