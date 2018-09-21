@@ -564,9 +564,13 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 		if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
 			return CUPS_BACKEND_FAILED;
 	} else {
+		int media_code = 0x2;
+		if (getenv("MEDIA_CODE"))
+			media_code = atoi(getenv("MEDIA_CODE")) & 0xf;
+
 		media.max = cpu_to_be16(400);
 		media.remain = cpu_to_be16(330);
-		media.type = 0x02;
+		media.type = media_code;
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";

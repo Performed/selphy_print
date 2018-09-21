@@ -6,7 +6,7 @@ canonselphy,0x04a9,0x3063,canon_cpxxx_p.raw,
 canonselphyneo,0x04a9,0x327a,canon_cp1200-p-cmy.raw,
 kodak68x0,0x040a,0x402b,kodak_68x0_4x6.raw,
 dnp_citizen,0x1343,0x0003,dnp_ds40_4x6.raw,300
-mitsu9xxx,0x06d3,0x03a1,mitsu_9550_4x6.raw,
+mitsu9xxx,0x06d3,0x03a1,mitsu_9550_4x6.raw,0x2
 magicard,0x0c1f,0x1800,magicard-native.raw,
 magicard,0x0c1f,0x1800,magicard-8bpp.raw,
 #
@@ -99,16 +99,16 @@ sonyupdr200,0x054c,0x01e8,sony_updr200_4x6.raw,
 #mitsu9000,0x06d3,0x0394,file_fixme,
 #mitsu9000,0x06d3,0x0395,file_fixme,
 #mitsu9500,0x06d3,0x039e,file_fixme,
-mitsu9550,0x06d3,0x03a1,mitsu_9550_4x6.raw,
-mitsu9550,0x06d3,0x03a5,mitsu_9550_4x6.raw,
-mitsu9600,0x06d3,0x03a9,mitsu_9600_4x6.raw,
+mitsu9550,0x06d3,0x03a1,mitsu_9550_4x6.raw,0x2
+mitsu9550,0x06d3,0x03a5,mitsu_9550_4x6.raw,0x2
+mitsu9600,0x06d3,0x03a9,mitsu_9600_4x6.raw,0x2
 #mitsu9600s,0x06d3,PID,mitsu_9600_4x6.raw,      ### NO USB PID
-mitsu9600,0x06d3,0x03a9,mitsu_9600_4x6-gp.raw,
-mitsu9800,0x06d3,0x03ad,mitsu_9800_4x6-8bpp.raw,
-mitsu9800,0x06d3,0x03ad,mitsu_9800_4x6-12bpp.raw,
-mitsu9800,0x06d3,0x03ae,mitsu_9800_4x6-8bpp.raw,
-mitsu9810,0x06d3,0x3b21,mitsu_9800_4x6-8bpp.raw,
-mitsu9810,0x06d3,0x3b21,mitsu_9800_4x6-12bpp.raw,
+mitsu9600,0x06d3,0x03a9,mitsu_9600_4x6-gp.raw,0x2
+mitsu9800,0x06d3,0x03ad,mitsu_9800_4x6-8bpp.raw,0x2
+mitsu9800,0x06d3,0x03ad,mitsu_9800_4x6-12bpp.raw,0x2
+mitsu9800,0x06d3,0x03ae,mitsu_9800_4x6-8bpp.raw,0x2
+mitsu9810,0x06d3,0x3b21,mitsu_9800_4x6-8bpp.raw,0x2
+mitsu9810,0x06d3,0x3b21,mitsu_9800_4x6-12bpp.raw,0x2
 #mitsu9820s,0x06d3,PID,mitsu_9800_4x6-8bpp.raw, ### NEED USB PID
 #
 # 'mitsu70x'
