@@ -13,6 +13,7 @@ while (<STDIN>) {
     $ENV{"BACKEND"} = $row[0];
     $ENV{"EXTRA_VID"} = $row[1];
     $ENV{"EXTRA_PID"} = $row[2];
+    $ENV{"MEDIA_CODE"} = $row[4];
 
     print "***** $row[0] $row[1] $row[2] $row[3]\n";
 
