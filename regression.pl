@@ -7,6 +7,7 @@ my $retval = 0;
 while (<STDIN>) {
     chomp;
     next if /^#/;
+    s/(.+)#.*/$1/;
     my @row = split(/,/);
 
     $ENV{"TEST_MODE"} = "2";
@@ -15,7 +16,7 @@ while (<STDIN>) {
     $ENV{"EXTRA_PID"} = $row[2];
     $ENV{"MEDIA_CODE"} = $row[4];
 
-    print "***** $row[0] $row[1] $row[2] $row[3]\n";
+    print "***** $row[0] $row[1] $row[2] $row[3] $row[4]\n";
 
     foreach (my $i = 1; $i <= $copies ; $i++) {
 	my @args = ("valgrind", "./dyesub_backend", "-d", $i, "testjobs/${row[3]}");
@@ -26,7 +27,7 @@ while (<STDIN>) {
 	    print "***** FAIL: failure to launch ($rval)\n";
 	    $retval++;
 	} elsif ($rval > 0) {
-	    print "***** FAIL: failure to parse/execute ($rval) $row[0] $row[1] $row[2] $row[3] \n";
+	    print "***** FAIL: failure to parse/execute ($rval) $row[0] $row[1] $row[2] $row[3] $row[4]\n";
 	    $retval++;
 	} else {
 	    print "***** PASS\n";

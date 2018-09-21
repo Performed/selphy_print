@@ -88,6 +88,10 @@ test: dyesub_backend
 	./regression.pl < regression.csv 2>&1 |grep FAIL ; \
 	if [ $$? -eq 0 ] ; then exit 1 ; fi
 
+test_%: dyesub_backend
+	cat regression.csv | grep $(subst test_,,$@) | ./regression.pl 2>&1 |grep FAIL ; \
+	if [ $$? -eq 0 ] ; then exit 1 ; fi
+
 cppcheck:
 	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" --include=lib70x/libMitsuD70ImageReProcess.h $(CPPFLAGS) $(SOURCES)
 
