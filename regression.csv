@@ -94,7 +94,7 @@ dnpds40,0x1343,0x0003,dnp_ds40_6x8-600.raw
 dnpds620,0x1452,0x8b01,dnp_ds40_4x6.raw
 dnpds620,0x1452,0x8b01,dnp_ds40_6x8-600.raw
 dnpds80,0x1343,0x0004,dnp_ds80_8x12.raw,ADDMORE
-dnpds80dx,0x1343,0x0007,dnp_ds80_8x12.raw,FIXME?
+dnpds80dx,0x1343,0x0008,dnp_ds80_8x12.raw,FIXME?
 dnpds820,0x1452,0x9001,dnp_ds80_8x12.raw,ADDMORE
 dnprx1,0x1343,0x0005,dnp_ds40_4x6.raw
 dnprx1,0x1343,0x0005,dnp_ds40_6x8-600.raw
