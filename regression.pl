@@ -18,7 +18,7 @@ while (<STDIN>) {
     if (length($row[4])) {
 	$ENV{"MEDIA_CODE"} = $row[4];
     } else {
-	unset($ENV{"MEDIA_CODE"});
+	undef($ENV{"MEDIA_CODE"});
     }
 
     print "***** $row[0] $row[1] $row[2] $row[3] $row[4]\n";
