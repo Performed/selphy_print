@@ -710,14 +710,15 @@ static int kodak605_query_markers(void *vctx, struct marker **markers, int *coun
 }
 
 static const char *kodak605_prefixes[] = {
-	"kodak605",
+	"kodak605",  // Family driver, do NOT nuke.
+	"kodak-605",
 	NULL,
 };
 
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.32",
+	.version = "0.33",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -729,7 +730,7 @@ struct dyesub_backend kodak605_backend = {
 	.main_loop = kodak605_main_loop,
 	.query_markers = kodak605_query_markers,
 	.devices = {
-		{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak", "kodaka605"},
+		{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak", "kodak-605"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };

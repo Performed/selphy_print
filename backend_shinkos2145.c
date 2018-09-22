@@ -1795,13 +1795,17 @@ static int shinkos2145_query_markers(void *vctx, struct marker **markers, int *c
 #define USB_PID_SHINKO_S2145 0x000E
 
 static const char *shinkos2145_prefixes[] = {
+	"shinko-chcs2145",
+	// extras
+	"sinfonia-chcs2145",
+	// Backwards compatibility
 	"shinkos2145",
 	NULL
 };
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S2",
-	.version = "0.54",
+	.version = "0.55",
 	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
@@ -1814,7 +1818,7 @@ struct dyesub_backend shinkos2145_backend = {
 	.query_serno = shinkos2145_query_serno,
 	.query_markers = shinkos2145_query_markers,
 	.devices = {
-		{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, NULL, "shinkos2145"},
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, NULL, "shinko-chc2145"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
