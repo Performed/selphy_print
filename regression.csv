@@ -62,7 +62,7 @@ kodak805,0x040a,0x4034,kodak_805_letter_glossy.raw,
 #
 # 'kodak68x0'
 #
-kodak6800,0x040a,0x402b,kodak_68x0_4x6.raw,0xb
+kodak6800,0x040a,0x4021,kodak_68x0_4x6.raw,0xb
 kodak6850,0x040a,0x402b,kodak_68x0_4x6.raw,0xb
 #
 # 'kodak605'
@@ -76,8 +76,8 @@ shinkos1245,0x10ce,0x0007,shinko_s1245_8x10.raw,0x0
 #
 # 'shinkos2145'
 #
-shinkos2145,0x10ce,0x000e,shinko_s2145_4x6.raw,0x1
-shinkos2145,0x10ce,0x000e,shinko_s2145_4x6.raw,0x5
+shinkos2145,0x10ce,0x000e,shinko_s2145_4x6.raw,0x0
+shinkos2145,0x10ce,0x000e,shinko_s2145_4x6.raw,0x6
 #
 # 'shinkos6145'
 #
@@ -96,8 +96,8 @@ hitip910,0x0d16,0x000e,shinko_s6245_8x10.raw,0x11
 #sonyupcr10,0x054c,PID,file_fixme,   ### NO USB PID
 sonyupdr150,0x054c,0x01e8,sony_updr150_4x6.raw,
 sonyupdr150,0x054c,0x01e8,sony_updr150_8x6.raw,
-sonyupdr200,0x054c,0x01e8,sony_updr200_2x6.raw,
-sonyupdr200,0x054c,0x01e8,sony_updr200_4x6.raw,
+sonyupdr200,0x054c,0x035f,sony_updr200_2x6.raw,
+sonyupdr200,0x054c,0x035f,sony_updr200_4x6.raw,
 #sonyupd895,0x054c,PID,file_fixme,   ### NO USB PID
 #sonyupd897,0x054c,PID,file_fixme,   ### NO USB PID
 #
