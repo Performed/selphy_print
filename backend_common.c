@@ -29,7 +29,7 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.88"
+#define BACKEND_VERSION "0.89"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -545,9 +545,9 @@ candidate:
 	if (!descr || !strlen(descr)) { /* Last-ditch, generate */
 		char *product2 = url_decode(product);
 		char *manuf3 = url_decode(manuf);
-		descr = malloc(256);
+		descr = malloc(514); /* 256 + 256 + 1 + 1 */
 		if (!descr) {
-			ERROR("Memory allocation failure (%d bytes)\n", 256);
+			ERROR("Memory allocation failure (%d bytes)\n", 514);
 			if (manuf3)
 				free(manuf3);
 			if (product2)
@@ -555,7 +555,7 @@ candidate:
 			return -1;
 		}
 
-		sprintf(descr, "%s %s", manuf3, product2);
+		snprintf(descr, 514, "%s %s", manuf3, product2);
 		free(product2);
 		free(manuf3);
 	}
