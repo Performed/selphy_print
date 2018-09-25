@@ -3089,15 +3089,7 @@ static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
 	plane_hdr[11] = 0x04;
 
 	/* Okay, generate a new stream into job->databuf! */
-#if 0
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PCNTRL QTY             00000008%07d\r", hdr->copies);
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PCNTRL CUTTER          0000000800000000");
-#else
-	/* QTY is stripped from the stream, and CUTTER is stashed away */
 	job->cutter = 0;
-#endif
 
 	j = 0;
 
