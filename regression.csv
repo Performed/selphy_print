@@ -93,7 +93,7 @@ hitip910,0x0d16,0x000e,shinko_s6245_8x10.raw,0x11
 #
 # 'sonyupdr150'
 #
-#sonyupcr10,0x054c,PID,file_fixme,   ### NO USB PID
+#sonyupcr10,0x054c,0x0226,file_fixme,
 sonyupdr150,0x054c,0x01e8,sony_updr150_4x6.raw,
 sonyupdr150,0x054c,0x01e8,sony_updr150_8x6.raw,
 sonyupdr200,0x054c,0x035f,sony_updr200_2x6.raw,

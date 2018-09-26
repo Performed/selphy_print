@@ -7,7 +7,7 @@ my $retval = 0;
 my $id = 123;
 my $user = "tester";
 my $title = "image_test";
-my $copies = 1;
+my $max_copies = 3;
 my $input_image = "testjobs/s3s-59.png";
 
 $ENV{"STP_SUPPRESS_VERBOSE_MESSAGES"} = 1;
@@ -57,10 +57,12 @@ while (<STDIN>) {
 	run ["/usr/sbin/cups-genppd.5.3", "-p", "/tmp", "-Z", $gp_name] or die("FAIL genppd $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
 
 	# Generate raster from $image
-	@args = ("/usr/lib/cups/filter/imagetoraster", $id, $user, $title, $copies, $options, $input_image);
+	@args = ("/usr/lib/cups/filter/imagetoraster", $id, $user, $title, 1, $options, $input_image);
 	print join(":", @args) . "\n";
-	run \@args, ">", "/tmp/${gp_name}.raster" or die ("FAIL: imagetoraster $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
+	run \@args, ">", "/tmp/${gp_name}.raster" or die ("FAIL: imagetoraster $
+?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
 
+    for (my $copies = 0 ; $copies < $max_copies ; $copies++) {
 	# Call raster2gutenprint
 	@args = ("valgrind", "/usr/lib/cups/filter/rastertogutenprint.5.3", $id, $user, $title, $copies, $options);
 	print join(":", @args) . "\n";
@@ -70,6 +72,7 @@ while (<STDIN>) {
 	@args = ("./dyesub_backend", $id, $user, $title, $copies, $options);
 	print join(":", @args) . "\n";
 	run \@args, "<", "/tmp/${gp_name}.raw" or die("FAIL: backend $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
+    }
 
 	print "***** PASS\n";
 }

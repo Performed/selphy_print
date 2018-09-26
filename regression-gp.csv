@@ -139,10 +139,34 @@ sony-updr200,sonyupdr200,0x054c,0x035f,,PageSize=w360h504-div2
 sony-updr200,sonyupdr200,0x054c,0x035f,,PageSize=B7,StpLaminate=Glossy
 sony-updr200,sonyupdr200,0x054c,0x035f,,PageSize=B7,StpLaminate=Matte
 #
-# mitsup95, miusu70x, dnpds40, miusu9xxx, magicard
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w213h284
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w227h284
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h284
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h426
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h1277
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h284;MediaType=Standard
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h284;MediaType=HighDensity
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h284;MediaType=HighGlossy
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h284;StpUserComment=0123456789abcdef
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h284;StpComment=DateTime
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h284;StpComment=Date
+mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w284h284;StpComment=Settings
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w213h284
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w227h284
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h426
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h1277
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284;MediaType=Standard
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284;MediaType=HighDensity
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284;MediaType=HighGlossy
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284;MediaType=HighGlossyK95HG
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284;StpUserComment=0123456789abcdef
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284;StpComment=DateTime
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284;StpComment=Date
+mitsubishi-p95d,mitsup95d,0x06d3,0x3b10,,PageSize=w284h284;StpComment=Settings
 #
-mitsubishi-p93d,miusup93d,0x06d3,0x0398,,PageSize=w213h284
-mitsubishi-p93d,miusup93d,0x06d3,0x0398,,PageSize=w227h284
-mitsubishi-p93d,miusup93d,0x06d3,0x0398,,PageSize=w284h284
-mitsubishi-p93d,miusup93d,0x06d3,0x0398,,PageSize=w284h426
-mitsubishi-p93d,miusup93d,0x06d3,0x0398,,PageSize=w284h1277
+# mitsu9550, mitsu9550s, mitsu9600, mitsu9800, mitsu9810
+#
+# mitsu70x, dnpds40, magicard
+#
+#magicard-tango-2e,tango2e,0x0c1f,0x1800,,
