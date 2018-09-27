@@ -26,7 +26,7 @@ while (<STDIN>) {
     my @row = split(/,/);
 
     my $gp_name = $row[0];
-    $ENV{"BACKEND"} = $row[1];
+    $ENV{"BACKEND"} = $row[0];
     $ENV{"EXTRA_VID"} = $row[2];
     $ENV{"EXTRA_PID"} = $row[3];
 
@@ -52,7 +52,7 @@ while (<STDIN>) {
 	my $ppd_fname = "/tmp/stp-$gp_name.5.3.ppd";
 
 	$ENV{"PPD"} = $ppd_fname;
-	$ENV{"DEVICE_URI"} = "gutenprint53+usb://$row[1]/12345678";
+	$ENV{"DEVICE_URI"} = "gutenprint53+usb://$row[0]/12345678";
 
 	run ["/usr/sbin/cups-genppd.5.3", "-p", "/tmp", "-Z", $gp_name] or die("FAIL genppd $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
 
@@ -62,14 +62,14 @@ while (<STDIN>) {
 	run \@args, ">", "/tmp/${gp_name}.raster" or die ("FAIL: imagetoraster $
 ?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
 
-    for (my $copies = 0 ; $copies < $max_copies ; $copies++) {
+    for (my $copies = 1 ; $copies <= $max_copies ; $copies++) {
 	# Call raster2gutenprint
 	@args = ("valgrind", "/usr/lib/cups/filter/rastertogutenprint.5.3", $id, $user, $title, $copies, $options);
 	print join(":", @args) . "\n";
 	run \@args, "<", "/tmp/${gp_name}.raster", ">", "/tmp/${gp_name}.raw" or die("FAIL: rastertogutenorint $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
 
 	# Call backend using CUPS methodologies, using STDIN.
-	@args = ("./dyesub_backend", $id, $user, $title, $copies, $options);
+	@args = ("valgrind", "./dyesub_backend", $id, $user, $title, $copies, $options);
 	print join(":", @args) . "\n";
 	run \@args, "<", "/tmp/${gp_name}.raw" or die("FAIL: backend $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
     }
