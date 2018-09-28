@@ -39,7 +39,7 @@ LN ?= ln
 RM ?= rm
 
 # Flags
-CFLAGS += -Wall -Wextra -g -Og -D_GNU_SOURCE -std=c99 # -Wconversion
+CFLAGS += -Wall -Wextra -Wformat-security -g -Og -D_GNU_SOURCE -std=c99 # -Wconversion
 LDFLAGS += `pkg-config --libs libusb-1.0`
 CPPFLAGS += `pkg-config --cflags libusb-1.0`
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
