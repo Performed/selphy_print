@@ -285,8 +285,32 @@ mitsubishi-d80dw,mitsud80,0x06d3,0x3b36,0xf,PageSize=w432h576;StpSharpen=0
 mitsubishi-d80dw,mitsud80,0x06d3,0x3b36,0xf,PageSize=w432h576;StpSharpen=9
 mitsubishi-d80dw,mitsud80,0x06d3,0x3b36,0x4,PageSize=w360h360
 mitsubishi-d80dw,mitsud80,0x06d3,0x3b36,0x4,PageSize=w360h504
-#
-# mitsud70/707, ask300
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w288h432
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w288h432-div2
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h432
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h576
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h576-div2
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h432;StpPrintSpeed=Fine
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h432;StpPrintSpeed=UltraFine
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h576;StpLaminate=Matte
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h576;StpUseLUT=True
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h576;StpSharpen=0
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0xf,PageSize=w432h576;StpSharpen=9
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0x4,PageSize=w360h360
+mitsubishi-d70dw,mitsu70x,0x06d3,0x3b30,0x4,PageSize=w360h504
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w288h432
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w288h432-div2
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h432
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h576
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h576-div2
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h432;StpPrintSpeed=Fine
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h432;StpPrintSpeed=UltraFine
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h576;StpLaminate=Matte
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h576;StpUseLUT=True
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h576;StpSharpen=0
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0xf,PageSize=w432h576;StpSharpen=9
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0x4,PageSize=w360h360
+fujifilm-ask-300,fujiask300,0x04cb,0x5006,0x4,PageSize=w360h504
 #
 # dnp ds40, ds80, ds80dx, rx1, 620, 820, cw01, cw02, etc...
 #
