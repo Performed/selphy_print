@@ -9,6 +9,7 @@ my $user = "tester";
 my $title = "image_test";
 my $max_copies = 3;
 my $input_image = "testjobs/s3s-59.png";
+my $max_pages = 2;
 
 $ENV{"STP_SUPPRESS_VERBOSE_MESSAGES"} = 1;
 $ENV{"OMP_NUM_THREADS"} = 1;
@@ -46,34 +47,51 @@ while (<STDIN>) {
 
     print "***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]'\n";
 
-	my @args;
+    my @args;
 
-	# Generate PPD
-	my $ppd_fname = "/tmp/stp-$gp_name.5.3.ppd";
+    # Generate PPD
+    my $ppd_fname = "/tmp/stp-$gp_name.5.3.ppd";
 
-	$ENV{"PPD"} = $ppd_fname;
-	$ENV{"DEVICE_URI"} = "gutenprint53+usb://$row[0]/12345678";
+    $ENV{"PPD"} = $ppd_fname;
+    $ENV{"DEVICE_URI"} = "gutenprint53+usb://$row[0]/12345678";
 
-	run ["/usr/sbin/cups-genppd.5.3", "-p", "/tmp", "-Z", $gp_name] or die("FAIL genppd $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
+    run ["/usr/sbin/cups-genppd.5.3", "-p", "/tmp", "-Z", $gp_name] or die("FAIL genppd $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
 
-	# Generate raster from $image
-	@args = ("/usr/lib/cups/filter/imagetoraster", $id, $user, $title, 1, $options, $input_image);
+    for (my $pages = 1 ; $pages <= $max_pages ; $pages++) {
+	# generate PDF.
+	@args = ("/usr/bin/convert");
+	for (my $i = 0 ; $i < $pages ; $i++) {
+	    push(@args, $input_image);
+	}
+	push(@args, "-density");
+	push(@args, "300x300");
+	push(@args, "/tmp/${gp_name}.pdf");
 	print join(":", @args) . "\n";
-	run \@args, ">", "/tmp/${gp_name}.raster" or die ("FAIL: imagetoraster $
-?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
+	run \@args or die ("FAIL: convert: $?");
 
-    for (my $copies = 1 ; $copies <= $max_copies ; $copies++) {
-	# Call raster2gutenprint
-	@args = ("valgrind", "/usr/lib/cups/filter/rastertogutenprint.5.3", $id, $user, $title, $copies, $options);
+	# Generate raster from PDF
+	@args = ("/usr/lib/cups/filter/pdftoraster", $id, $user, $title, 1, $options, "/tmp/${gp_name}.pdf");
 	print join(":", @args) . "\n";
-	run \@args, "<", "/tmp/${gp_name}.raster", ">", "/tmp/${gp_name}.raw" or die("FAIL: rastertogutenorint $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
+	run \@args, ">", "/tmp/${gp_name}.raster" or die ("FAIL: imagetoraster $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5] $pages\n");
 
-	# Call backend using CUPS methodologies, using STDIN.
-	@args = ("valgrind", "./dyesub_backend", $id, $user, $title, $copies, $options);
-	print join(":", @args) . "\n";
-	run \@args, "<", "/tmp/${gp_name}.raw" or die("FAIL: backend $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5]\n");
+	for (my $copies = 1 ; $copies <= $max_copies ; $copies++) {
+	    # Call raster2gutenprint
+	    @args = ("valgrind", "/usr/lib/cups/filter/rastertogutenprint.5.3", $id, $user, $title, $copies, $options);
+	    print join(":", @args) . "\n";
+	    run \@args, "<", "/tmp/${gp_name}.raster", ">", "/tmp/${gp_name}.raw" or die("FAIL: rastertogutenorint $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5] $pages $copies\n");
+
+	    # Call backend using CUPS methodologies, using STDIN.
+	    @args = ("valgrind", "./dyesub_backend", $id, $user, $title, $copies, $options);
+	    print join(":", @args) . "\n";
+	    run \@args, "<", "/tmp/${gp_name}.raw" or die("FAIL: backend $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5] $pages $copies\n");
+	}
     }
 
-	print "***** PASS\n";
+    unlink ("/tmp/${gp_name}.pdf");
+    unlink ("/tmp/${gp_name}.raster");
+    unlink ("/tmp/${gp_name}.raw");
+    unlink ($ppd_fname);
+
+    print "***** PASS\n";
 }
 exit($retval);
