@@ -1373,6 +1373,9 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			case 11808:
 				job->dpi = 300;
 				break;
+			case 13146:
+				job->dpi = 334;
+				break;
 			case 23615:
 				job->dpi = 600;
 				break;
@@ -3020,7 +3023,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.109",
+	.version = "0.110",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
