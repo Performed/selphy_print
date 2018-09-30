@@ -10,6 +10,7 @@ my $title = "image_test";
 my $max_copies = 3;
 my $input_image = "testjobs/s3s-59.png";
 my $max_pages = 2;
+my $valgrind = 0;
 
 $ENV{"STP_SUPPRESS_VERBOSE_MESSAGES"} = 1;
 $ENV{"OMP_NUM_THREADS"} = 1;
@@ -76,12 +77,18 @@ while (<STDIN>) {
 
 	for (my $copies = 1 ; $copies <= $max_copies ; $copies++) {
 	    # Call raster2gutenprint
-	    @args = ("valgrind", "/usr/lib/cups/filter/rastertogutenprint.5.3", $id, $user, $title, $copies, $options);
+	    @args = ("/usr/lib/cups/filter/rastertogutenprint.5.3", $id, $user, $title, $copies, $options);
+	    if ($valgrind) {
+		unshift(@args,"valgrind");
+	    }
 	    print join(":", @args) . "\n";
 	    run \@args, "<", "/tmp/${gp_name}.raster", ">", "/tmp/${gp_name}.raw" or die("FAIL: rastertogutenorint $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5] $pages $copies\n");
 
 	    # Call backend using CUPS methodologies, using STDIN.
-	    @args = ("valgrind", "./dyesub_backend", $id, $user, $title, $copies, $options);
+	    @args = ("./dyesub_backend", $id, $user, $title, $copies, $options);
+	    if ($valgrind) {
+		unshift(@args,"valgrind");
+	    }
 	    print join(":", @args) . "\n";
 	    run \@args, "<", "/tmp/${gp_name}.raw" or die("FAIL: backend $?: $row[0] $row[1] $row[2] $row[3] $row[4] $row[5] $pages $copies\n");
 	}
