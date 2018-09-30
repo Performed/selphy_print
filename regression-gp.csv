@@ -344,7 +344,6 @@ dnp-dsrx1,dnprx1,0x1343,0x0005,310,PageSize=w432h432;Resolution=300x300dpi
 dnp-dsrx1,dnprx1,0x1343,0x0005,310,PageSize=w432h576;Resolution=300x300dpi
 dnp-dsrx1,dnprx1,0x1343,0x0005,310,PageSize=w432h576-div2;Resolution=300x300dpi
 dnp-dsrx1,dnprx1,0x1343,0x0005,310,PageSize=w432h576-div4;Resolution=300x300dpi
-dnp-dsrx1,dnprx1,0x1343,0x0005,310,PageSize=w432h576-w432h432_w432h144;Resolution=300x300dpi
 dnp-dsrx1,dnprx1,0x1343,0x0005,210,PageSize=B7;Resolution=300x300dpi
 dnp-dsrx1,dnprx1,0x1343,0x0005,210,PageSize=w360h360;Resolution=300x300dpi
 dnp-dsrx1,dnprx1,0x1343,0x0005,210,PageSize=w360h504;Resolution=300x300dpi
