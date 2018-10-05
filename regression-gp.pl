@@ -9,7 +9,7 @@ my $user = "tester";
 my $title = "image_test";
 my $max_copies = 3;
 my $input_image = "testjobs/s3s-59.png";
-my $max_pages = 2;
+my $max_pages = 3;
 my $valgrind = 0;
 
 $ENV{"STP_SUPPRESS_VERBOSE_MESSAGES"} = 1;
