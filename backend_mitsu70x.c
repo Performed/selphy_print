@@ -325,8 +325,8 @@ struct mitsu70x_status_deck {
 	uint8_t  media_brand;
 	uint8_t  media_type;
 	uint8_t  rsvd_b[2];
-	uint16_t capacity; /* media capacity */
-	uint16_t remain;   /* media remaining */
+	int16_t  capacity; /* media capacity */
+	int16_t  remain;   /* media remaining */
 	uint8_t  rsvd_c[2];
 	uint8_t  lifetime_prints[4]; /* lifetime prints on deck + 10, in BCD! */
 	uint8_t  rsvd_d[2]; // Unknown
@@ -2087,7 +2087,7 @@ top:
 			return CUPS_BACKEND_FAILED;
 
 		/* See if we hit a printer error. */
-		if (deck == 0) {
+		if (deck == 1) {
 			if (jobstatus.error_status[0]) {
 				ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
 				      mitsu70x_errorclass(jobstatus.error_status),
@@ -2098,7 +2098,7 @@ top:
 				      jobstatus.error_status[2]);
 				return CUPS_BACKEND_STOP;
 			}
-		} else if (deck == 1) {
+		} else if (deck == 2) {
 			if (jobstatus.error_status_up[0]) {
 				ERROR("UPPER: %s/%s -> %s:  %02x/%02x/%02x\n",
 				      mitsu70x_errorclass(jobstatus.error_status_up),
@@ -2450,7 +2450,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.89",
+	.version = "0.90",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
