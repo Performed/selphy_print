@@ -1723,7 +1723,7 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 
 	int ret;
 	int copies;
-	int deck;
+	int deck, legal;
 
 	struct mitsu70x_printjob *job = (struct mitsu70x_printjob *) vjob; // XXX not clean.
 //	const struct mitsu70x_printjob *job = vjob;
@@ -1903,6 +1903,7 @@ top:
 		      job->decks_ok[0], job->decks_ok[1]);
 
 	/* Okay, we know which decks are _legal_, pick one to use */
+	legal = deck;
 	if (deck & 1) {
 		if (jobstatus.temperature == TEMPERATURE_COOLING) {
 			if (ctx->num_decks == 2)
@@ -1911,7 +1912,8 @@ top:
 				INFO("Printer cooling down...\n");
 			deck &= ~1;
 		} else if (jobstatus.error_status[0]) {
-			ERROR("%s/%s -> %s:  %02x/%02x/%02x\n",
+			ERROR("%s %s/%s -> %s:  %02x/%02x/%02x\n",
+			      ctx->num_decks == 2 ? "LOWER:": "",
 			      mitsu70x_errorclass(jobstatus.error_status),
 			      mitsu70x_errors(jobstatus.error_status),
 			      mitsu70x_errorrecovery(jobstatus.error_status),
@@ -1919,8 +1921,9 @@ top:
 			      jobstatus.error_status[1],
 			      jobstatus.error_status[2]);
 			deck &= ~1;
+			legal &= ~1;  /* Deck is offline! */
 		} else if (jobstatus.mecha_status[0] != MECHA_STATUS_IDLE) {
-			deck = ~1;
+			deck &= ~1;
 		}
 	}
 	if (deck & 2) {
@@ -1936,8 +1939,9 @@ top:
 			      jobstatus.error_status_up[1],
 			      jobstatus.error_status_up[2]);
 			deck &= ~2;
+			legal &= ~2;  /* Deck is offline! */
 		} else if (jobstatus.mecha_status_up[0] != MECHA_STATUS_IDLE) {
-			deck = ~2;
+			deck &= ~2;
 		}
 	}
 
@@ -1952,18 +1956,23 @@ top:
 	if (ctx->num_decks > 1)
 		DEBUG("Deck selected: %d\n", deck);
 
+	/* Great, we have no decks we can currently print this job on.. */
 	if (deck == 0) {
 		/* Halt queue if printer is entirely offline */
 		if (ctx->num_decks == 2) {
 			if (jobstatus.error_status[0] && jobstatus.error_status_up[0])
+
 				return CUPS_BACKEND_STOP;
-		// XXX what if we only have one legal deck, and it's unavailable?  We don't want to retry indefinitely here..
 		} else {
 			if (jobstatus.error_status[0])
 				return CUPS_BACKEND_STOP;
 		}
 
-		/* No decks available yet, retry */
+		/* Hold job if we have no legal decks for it, but printer is online. */
+		if (!legal)
+			return CUPS_BACKEND_HOLD;
+
+		/* Legal decks are busy, retry */
 		sleep(1);
 		goto top;
 	}
@@ -2450,7 +2459,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.90",
+	.version = "0.91",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
