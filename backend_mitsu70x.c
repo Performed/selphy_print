@@ -2365,7 +2365,6 @@ static void mitsu70x_cmdline(void)
 	DEBUG("\t\t[ -j ]           # Query job status\n");
 	DEBUG("\t\t[ -w ]           # Wake up printer\n");
 	DEBUG("\t\t[ -W ]           # Wake up printer and wait\n");
-	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -k num ]       # Set standby time (1-60 minutes, 0 disables)\n");
 	DEBUG("\t\t[ -x num ]       # Set USB iSerialNumber Reporting (1 on, 0 off)\n");
 	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");}

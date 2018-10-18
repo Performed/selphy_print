@@ -1289,7 +1289,6 @@ static void shinkos2145_cmdline(void)
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
 	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
 	DEBUG("\t\t[ -e ]           # Query error log\n");
-	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -F ]           # Flash Printer LED\n");
 	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
