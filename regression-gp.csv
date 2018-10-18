@@ -387,7 +387,7 @@ dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=B7;Resolution=300x300dpi
 dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h360;Resolution=300x300dpi
 dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h504;Resolution=300x300dpi
 dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h504-div2;Resolution=300x300dpi
-dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h504_w360h360_w360h144;Resolution=300x300dpi
+dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h504-w360h360_w360h144;Resolution=300x300dpi
 dnp-ds620,dnpds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x300dpi;StpLaminate=Matte
 dnp-ds620,dnpds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x300dpi;StpLaminate=MatteFine
 dnp-ds620,dnpds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x300dpi;StpLaminate=MatteLuster
@@ -405,7 +405,7 @@ dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=B7;Resolution=300x600dpi
 dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h360;Resolution=300x600dpi
 dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h504;Resolution=300x600dpi
 dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h504-div2;Resolution=300x600dpi
-dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h504_w360h360_w360h144;Resolution=300x600dpi
+dnp-ds620,dnpds620,0x1452,0x8b01,210,PageSize=w360h504-w360h360_w360h144;Resolution=300x600dpi
 dnp-ds620,dnpds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x600dpi;StpLaminate=Matte
 dnp-ds620,dnpds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x600dpi;StpLaminate=MatteFine
 dnp-ds620,dnpds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x600dpi;StpLaminate=MatteLuster
