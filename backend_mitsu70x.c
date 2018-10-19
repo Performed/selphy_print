@@ -2113,6 +2113,11 @@ top:
 				      jobstatus.error_status[0],
 				      jobstatus.error_status[1],
 				      jobstatus.error_status[2]);
+
+				/* Retry job on the other deck.. */
+				if (ctx->num_decks == 2)
+					goto top;
+
 				return CUPS_BACKEND_STOP;
 			}
 		} else if (deck == 2) {
@@ -2124,6 +2129,11 @@ top:
 				      jobstatus.error_status_up[0],
 				      jobstatus.error_status_up[1],
 				      jobstatus.error_status_up[2]);
+
+				/* Retry job on the other deck.. */
+				if (ctx->num_decks == 2)
+					goto top;
+
 				return CUPS_BACKEND_STOP;
 			}
 		}
