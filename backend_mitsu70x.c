@@ -1723,7 +1723,7 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 
 	int ret;
 	int copies;
-	int deck, legal;
+	int deck, legal, reqdeck;
 
 	struct mitsu70x_printjob *job = (struct mitsu70x_printjob *) vjob; // XXX not clean.
 //	const struct mitsu70x_printjob *job = vjob;
@@ -1735,6 +1735,9 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 
 	copies = job->copies;
 	hdr = (struct mitsu70x_hdr*) job->databuf;
+
+	/* Keep track of deck requested */
+	reqdeck = hdr->deck;
 
 	if (job->raw_format)
 		goto bypass;
@@ -1867,7 +1870,7 @@ top:
 
 	/* First, try to respect requested deck */
 	if (ctx->type == P_MITSU_D70X) {
-		deck = hdr->deck; /* Respect D70 deck choice, 0 is automatic. */
+		deck = reqdeck; /* Respect D70 deck choice, 0 is automatic. */
 	} else {
 		deck = 1; /* All others have one deck only */
 	}
@@ -2467,7 +2470,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.92",
+	.version = "0.93",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
