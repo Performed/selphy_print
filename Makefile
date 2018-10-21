@@ -5,6 +5,7 @@
 
 # Basic stuff
 EXEC_NAME ?= dyesub_backend
+CPUS ?= $(shell nproc)
 #NO_GUTENPRINT = 1
 
 # Destination directories (rely on CUPS to tell us where)
@@ -85,20 +86,16 @@ sloccount:
 	sloccount *.[ch] lib*/*.[ch] *.pl
 
 test: dyesub_backend
-	./regression.pl < regression.csv 2>&1 |grep FAIL ; \
-	if [ $$? -eq 0 ] ; then exit 1 ; fi
+	STP_PARALLEL=$(CPUS) ./regression.pl regression.csv
 
 test_%: dyesub_backend
-	cat regression.csv | grep $(subst test_,,$@) | ./regression.pl 2>&1 |grep FAIL ; \
-	if [ $$? -eq 0 ] ; then exit 1 ; fi
+	STP_PARALLEL=$(CPUS) ./regression.pl regression.csv $(subst test_,,$@)
 
 testgp: dyesub_backend
-	./regression-gp.pl < regression-gp.csv 2>&1 |grep FAIL ; \
-	if [ $$? -eq 0 ] ; then exit 1 ; fi
+	STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv
 
 testgp_%: dyesub_backend
-	./regression-gp.pl < regression-gp.csv $(subst testgp_,,$@) 2>&1 |grep FAIL ; \
-	if [ $$? -eq 0 ] ; then exit 1 ; fi
+	STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv $(subst testgp_,,$@)
 
 cppcheck:
 	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" --include=lib70x/libMitsuD70ImageReProcess.h $(CPPFLAGS) $(SOURCES)
