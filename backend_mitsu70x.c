@@ -835,10 +835,11 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	if (ctx->type == P_KODAK_305) {
 		/* Known versions:
 		   v1.02: M 316E81 1433   (Add Ultrafine and matte support)
-		   v1.04: M 316F83 2878   (Add 2x6 strip and support "Triton" media)
+		   v1.04: M 316F83 2878   (Add 2x6 strip and support new "Triton" media)
+		   v3.00: M 316H83 B75A   (add 6x6, 5x5, 3.5x5, 5x7 support)
 		*/
-		if (strncmp(resp.vers[0].ver, "316F83", 6) < 0)
-			WARNING("Printer FW out of date. Highly recommend upgrading EK305 to v1.04 or newer!\n");
+		if (strncmp(resp.vers[0].ver, "316H83", 6) < 0)
+			WARNING("Printer FW out of date. Highly recommend upgrading EK305 to v3.00 or newer!\n");
 	} else if (ctx->type == P_MITSU_K60) {
 		/* Known versions:
 		   v1.05: M 316M31 148C   (Add HG media support)
@@ -2480,7 +2481,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.93",
+	.version = "0.94",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
