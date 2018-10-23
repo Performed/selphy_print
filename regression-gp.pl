@@ -60,7 +60,7 @@ if (!defined($ARGV[0])) {
     die ("need a csv file\n");
 };
 if (defined($ENV{"STP_VERBOSE"})) {
-    $quiet = $ENV{"STP_VERBOSE"};
+    $quiet = !$ENV{"STP_VERBOSE"};
 };
 if (defined($ENV{"STP_PARALLEL"})) {
     $proc_count = $ENV{"STP_PARALLEL"};
@@ -238,9 +238,8 @@ if ($proc_count > 1 && $kid > 0) {
 		    next;
 		}
 	    }
-
-	    print "***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]' PASS\n";
 	}
+	print "***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]' PASS\n";
 
 	unlink ("${work_dir}$currow-${gp_name}.pdf");
 	unlink ("${work_dir}$currow-${gp_name}.raster");
