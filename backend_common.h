@@ -44,13 +44,13 @@
 #define __BACKEND_COMMON_H
 
 #define STR_LEN_MAX 64
-#define STATE( ... ) fprintf(stderr, "STATE: " __VA_ARGS__ )
-#define ATTR( ... ) fprintf(stderr, "ATTR: " __VA_ARGS__ )
-#define PAGE( ... ) fprintf(stderr, "PAGE: " __VA_ARGS__ )
-#define DEBUG( ... ) fprintf(stderr, "DEBUG: " __VA_ARGS__ )
-#define DEBUG2( ... ) fprintf(stderr, __VA_ARGS__ )
-#define INFO( ... )  fprintf(stderr, "INFO: " __VA_ARGS__ )
-#define WARNING( ... )  fprintf(stderr, "WARNING: " __VA_ARGS__ )
+#define STATE( ... ) do { if (!quiet) fprintf(stderr, "STATE: " __VA_ARGS__ ); } while(0)
+#define ATTR( ... ) do { if (!quiet) fprintf(stderr, "ATTR: " __VA_ARGS__ ); } while(0)
+#define PAGE( ... ) do { if (!quiet) fprintf(stderr, "PAGE: " __VA_ARGS__ ); } while(0)
+#define DEBUG( ... ) do { if (!quiet) fprintf(stderr, "DEBUG: " __VA_ARGS__ ); } while(0)
+#define DEBUG2( ... ) do { if (!quiet) fprintf(stderr, __VA_ARGS__ ); } while(0)
+#define INFO( ... )  do { if (!quiet) fprintf(stderr, "INFO: " __VA_ARGS__ ); } while(0)
+#define WARNING( ... )  do { fprintf(stderr, "WARNING: " __VA_ARGS__ ); } while(0)
 #define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
@@ -214,6 +214,7 @@ extern int extra_pid;
 extern int extra_type;
 extern int copies;
 extern int test_mode;
+extern int quiet;
 
 enum {
 	TEST_MODE_NONE = 0,
@@ -237,7 +238,7 @@ extern struct dyesub_backend BACKEND;
 #define CUPS_BACKEND_RETRY_CURRENT 7 /* Retry immediately */
 
 /* Argument processing */
-#define GETOPT_LIST_GLOBAL "d:DfGh"
+#define GETOPT_LIST_GLOBAL "d:DfGhv"
 #define GETOPT_PROCESS_GLOBAL \
 			case 'd': \
 				copies = atoi(optarg); \
@@ -253,6 +254,9 @@ extern struct dyesub_backend BACKEND;
 				exit(0); \
 			case 'h': \
 				print_help(argv[0], &BACKEND); \
-				exit(0);
+				exit(0); \
+			case 'v': \
+				quiet++; \
+				break;
 
 #endif /* __BACKEND_COMMON_H */

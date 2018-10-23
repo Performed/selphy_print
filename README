@@ -229,6 +229,7 @@
 	   -G                 Display GPL text
 	   -f                 Enable fast return mode if possible        [2]
 	   -d numcopies       Print 'numcopies' of the supplied job
+	   -v                 Silence all output except for warnings/errors
 
        [1]  This argument can be repeated to increase the debug level.
             Alternatively, the 'DYESUB_DEBUG' environment variable can be
@@ -283,6 +284,9 @@
          for example:
 
            MAX_XFER_SIZE=32768 XFER_TIMEOUT=30000 backend filename
+
+       Finally, BACKEND_QUIET can be set to a non-zero value to silence all
+       output other than warnings and errors.
 
  ***************************************************************************
   BACKEND=canonselphy
