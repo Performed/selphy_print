@@ -41,6 +41,7 @@
 
 #define USB_SUBCLASS_PRINTER 0x1
 #define USB_INTERFACE_PROTOCOL_BIDIR 0x2
+#define USB_INTERFACE_PROTOCOL_IPP   0x4
 
 /* Global Variables */
 int dyesub_debug = 0;
@@ -437,8 +438,17 @@ static int probe_device(struct libusb_device *device,
 				continue;
 			}
 
-#if 0
-			// Make sure it's a printer class device that supports bidir comms  (XXX Is this always true?)
+#if 1
+			/* Explicitly exclude IPP-over-USB interfaces */
+			if (desc->bDeviceClass == LIBUSB_CLASS_PRINTER ||
+			    (desc->bDeviceClass == LIBUSB_CLASS_PER_INTERFACE &&
+			     config->interface[iface].altsetting[altset].bInterfaceClass == LIBUSB_CLASS_PRINTER &&
+			     config->interface[iface].altsetting[altset].bInterfaceSubClass == USB_SUBCLASS_PRINTER &&
+			     config->interface[iface].altsetting[altset].bInterfaceProtocol == USB_INTERFACE_PROTOCOL_IPP)) {
+				continue;
+			}
+#else
+			// Make sure it's a printer class device that supports bidir comms  (XXX Is this necessarily true?)
 			if (desc->bDeviceClass == LIBUSB_CLASS_PRINTER ||
 			    (desc->bDeviceClass == LIBUSB_CLASS_PER_INTERFACE &&
 			     config->interface[iface].altsetting[altset].bInterfaceClass == LIBUSB_CLASS_PRINTER &&
