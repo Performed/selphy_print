@@ -440,11 +440,10 @@ static int probe_device(struct libusb_device *device,
 
 #if 1
 			/* Explicitly exclude IPP-over-USB interfaces */
-			if (desc->bDeviceClass == LIBUSB_CLASS_PRINTER ||
-			    (desc->bDeviceClass == LIBUSB_CLASS_PER_INTERFACE &&
-			     config->interface[iface].altsetting[altset].bInterfaceClass == LIBUSB_CLASS_PRINTER &&
-			     config->interface[iface].altsetting[altset].bInterfaceSubClass == USB_SUBCLASS_PRINTER &&
-			     config->interface[iface].altsetting[altset].bInterfaceProtocol == USB_INTERFACE_PROTOCOL_IPP)) {
+			if (desc->bDeviceClass == LIBUSB_CLASS_PER_INTERFACE &&
+			    config->interface[iface].altsetting[altset].bInterfaceClass == LIBUSB_CLASS_PRINTER &&
+			    config->interface[iface].altsetting[altset].bInterfaceSubClass == USB_SUBCLASS_PRINTER &&
+			    config->interface[iface].altsetting[altset].bInterfaceProtocol == USB_INTERFACE_PROTOCOL_IPP) {
 				continue;
 			}
 #else
