@@ -199,6 +199,11 @@ void print_help(char *argv0, struct dyesub_backend *backend);
 uint16_t uint16_to_packed_bcd(uint16_t val);
 uint32_t packed_bcd_to_uint32(char *in, int len);
 
+/* USB enumeration and attachment */
+#define NUM_CLAIM_ATTEMPTS 10
+int backend_claim_interface(struct libusb_device_handle *dev, int iface,
+			    int num_claim_attempts);
+
 /* Job list manipulation */
 struct dyesub_joblist *dyesub_joblist_create(struct dyesub_backend *backend, void *ctx);
 int dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job);

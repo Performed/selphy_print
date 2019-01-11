@@ -29,12 +29,10 @@
 
 #include "backend_common.h"
 
-#define BACKEND_VERSION "0.90"
+#define BACKEND_VERSION "0.91"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
-
-#define NUM_CLAIM_ATTEMPTS 10
 
 #define URB_XFER_SIZE  (64*1024)
 #define XFER_TIMEOUT    15000
@@ -59,8 +57,8 @@ static int max_xfer_size = URB_XFER_SIZE;
 static int xfer_timeout = XFER_TIMEOUT;
 
 /* Support Functions */
-static int backend_claim_interface(struct libusb_device_handle *dev, int iface,
-				   int num_claim_attempts)
+int backend_claim_interface(struct libusb_device_handle *dev, int iface,
+			    int num_claim_attempts)
 {
 	int ret;
 	do {
