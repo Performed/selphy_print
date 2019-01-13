@@ -28,6 +28,7 @@
  */
 
 #include "backend_common.h"
+#include <errno.h>
 
 #define BACKEND_VERSION "0.91"
 #ifndef URI_PREFIX
@@ -1443,6 +1444,35 @@ minimal:
 		}
 		DEBUG2("\n");
 	}
+}
+
+int dyesub_read_data(char *filename, void *databuf, int datalen,
+		     int *actual_len)
+{
+	int len;
+	int fd = open(filename, O_RDONLY);
+
+	if (fd < 0) {
+		ERROR("Unable to open '%s'\n", filename);
+		return CUPS_BACKEND_FAILED;
+	}
+	len = read(fd, databuf, datalen);
+	if (len < 0) {
+		ERROR("Bad Read! (%d/%d)\n", len, errno);
+		close(fd);
+		return CUPS_BACKEND_FAILED;
+	}
+	if (!actual_len && (datalen != len)) {
+		ERROR("Read mismatch (%d vs %d)\n", len, datalen);
+		close(fd);
+		return CUPS_BACKEND_FAILED;
+	}
+	close(fd);
+
+	if (actual_len)
+		*actual_len = len;
+
+	return CUPS_BACKEND_OK;
 }
 
 uint16_t uint16_to_packed_bcd(uint16_t val)
