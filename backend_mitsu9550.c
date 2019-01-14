@@ -710,7 +710,7 @@ hdr_done:
 		}
 
 		DEBUG("Reading in 98xx data from disk\n");
-		if ((ret = dyesub_read_data(MITSU_M98xx_DATATABLE_FILE, ctx->m98xxdata, DATATABLE_SIZE, NULL))) {
+		if ((ret = dyesub_read_file(MITSU_M98xx_DATATABLE_FILE, ctx->m98xxdata, DATATABLE_SIZE, NULL))) {
 			ERROR("Unable to read 98xx data table file '%s'\n", MITSU_M98xx_DATATABLE_FILE);
 			free(ctx->m98xxdata);
 			return ret;

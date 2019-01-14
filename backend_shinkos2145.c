@@ -1235,7 +1235,7 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 	}
 
 	/* Read in file */
-	if ((ret = dyesub_read_data(fname, data, UPDATE_SIZE, NULL))) {
+	if ((ret = dyesub_read_file(fname, data, UPDATE_SIZE, NULL))) {
 		ERROR("Failed to read Tone Curve file\n");
 		goto done;
 	}

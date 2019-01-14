@@ -196,7 +196,7 @@ void dump_markers(struct marker *markers, int marker_count, int full);
 void print_license_blurb(void);
 void print_help(char *argv0, struct dyesub_backend *backend);
 
-int dyesub_read_data(char *filename, void *databuf, int datalen,
+int dyesub_read_file(char *filename, void *databuf, int datalen,
 		     int *actual_len);
 
 uint16_t uint16_to_packed_bcd(uint16_t val);

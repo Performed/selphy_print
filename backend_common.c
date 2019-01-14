@@ -30,7 +30,7 @@
 #include "backend_common.h"
 #include <errno.h>
 
-#define BACKEND_VERSION "0.91"
+#define BACKEND_VERSION "0.92"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -1446,7 +1446,7 @@ minimal:
 	}
 }
 
-int dyesub_read_data(char *filename, void *databuf, int datalen,
+int dyesub_read_file(char *filename, void *databuf, int datalen,
 		     int *actual_len)
 {
 	int len;

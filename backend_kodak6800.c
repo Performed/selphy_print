@@ -776,7 +776,7 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	INFO("Set Tone Curve from '%s'\n", fname);
 
 	/* Read in file */
-	if ((ret = dyesub_read_data(fname, data, UPDATE_SIZE, NULL))) {
+	if ((ret = dyesub_read_file(fname, data, UPDATE_SIZE, NULL))) {
 		ERROR("Failed to read Tone Curve file\n");
 		goto done;
 	}

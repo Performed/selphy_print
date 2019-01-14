@@ -176,7 +176,7 @@ static int kodak1400_set_tonecurve(struct kodak1400_ctx *ctx, char *fname)
 	}
 
 	/* Read in file */
-	if ((ret = dyesub_read_data(fname, data, UPDATE_SIZE, NULL))) {
+	if ((ret = dyesub_read_file(fname, data, UPDATE_SIZE, NULL))) {
 		ERROR("Failed to read Tone Curve file\n");
 		goto done;
 	}
