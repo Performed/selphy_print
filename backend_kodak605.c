@@ -64,14 +64,47 @@ struct kodak605_cmd {
 
 struct kodak605_sts_hdr {
 	uint8_t  result;    /* RESULT_* */
-        uint8_t  unk_1[5];  /* 00 00 00 00 00 */
-        uint8_t  sts_1;     /* 01/02 */
-        uint8_t  sts_2;     /* 00/61->6b ?? temperature? */
+	uint8_t  error;     /* ERROR_* */
+	uint8_t  printer_major;
+	uint8_t  printer_minor;
+        uint8_t  reserved[3];  /* 00 00 [00|01|02] */
+        uint8_t  status;    /* STATUS_* */
         uint16_t length;    /* LE, not counting this header */
 } __attribute__((packed));
 
 #define RESULT_SUCCESS 0x01
 #define RESULT_FAIL    0x02
+
+/* ERROR_* and STATUS_* are all guesses */
+#define ERROR_NONE              0x00
+#define ERROR_INVALID_PARAM     0x01
+#define ERROR_MAIN_APP_INACTIVE 0x02
+#define ERROR_COMMS_TIMEOUT     0x03
+#define ERROR_MAINT_NEEDED      0x04
+#define ERROR_BAD_COMMAND       0x05
+#define ERROR_PRINTER           0x11
+#define ERROR_BUFFER_FULL       0x21
+
+#define STATUS_INIT_CPU         0x31
+#define STATUS_INIT_RIBBON      0x32
+#define STATUS_INIT_PAPER       0x33
+#define STATUS_THERMAL_PROTECT  0x34
+#define STATUS_USING_PANEL      0x35
+#define STATUS_SELF_DIAG        0x36
+#define STATUS_DOWNLOADING      0x37
+#define STATUS_READY            0x00
+#define STATUS_FEEDING_PAPER    0x61
+#define STATUS_PRE_HEAT         0x62
+#define STATUS_PRINT_Y          0x63
+#define STATUS_BACK_FEED_Y      0x64
+#define STATUS_PRINT_M          0x65
+#define STATUS_BACK_FEED_M      0x66
+#define STATUS_PRINT_C          0x67
+#define STATUS_BACK_FEED_C      0x68
+#define STATUS_PRINT_OP         0x69
+#define STATUS_PAPER_CUT        0x6A
+#define STATUS_PAPER_EJECT      0x6B
+#define STATUS_BACK_FEED_E      0x6C
 
 /* Media structure */
 struct kodak605_medium {
@@ -442,7 +475,13 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 			dump_markers(&ctx->marker, 1, 0);
 		}
 
-		// XXX check for errors
+		if (sts.hdr.result != RESULT_SUCCESS) {
+			ERROR("Printer Status:  %02x\n", sts.hdr.status);
+			ERROR("Result: %02x Error: %02x (%02x %02x)\n",
+			      sts.hdr.result, sts.hdr.error,
+			      sts.hdr.printer_major, sts.hdr.printer_minor);
+			return CUPS_BACKEND_FAILED;
+		}
 
 		/* Make sure we're not colliding with an existing
 		   jobid */
@@ -466,7 +505,7 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 	/* Use specified jobid */
 	hdr.jobid = ctx->jobid;
 
-	{
+	do {
 		INFO("Sending image header (internal id %u)\n", ctx->jobid);
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*)&hdr, sizeof(hdr))))
@@ -478,11 +517,25 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 			return CUPS_BACKEND_FAILED;
 
 		if (resp.result != RESULT_SUCCESS) {
-			ERROR("Unexpected response from print command (%x)!\n", resp.result);
-			return CUPS_BACKEND_FAILED;
+			if (resp.error == ERROR_BUFFER_FULL) {
+				INFO("Printer Buffers full, retrying\n");
+				sleep(1);
+				continue;
+			} else if ((resp.status & 0xf0) == 0x30 || resp.status == 0x21) {
+				INFO("Printer busy (%02x), retrying\n", resp.status);
+
+			} else {
+				ERROR("Unexpected response from print command!\n");
+				ERROR("Printer Status:  %02x\n", resp.status);
+				ERROR("Result: %02x Error: %02x (%02x %02x)\n",
+				      resp.result, resp.error,
+				      resp.printer_major, resp.printer_minor);
+
+				return CUPS_BACKEND_FAILED;
+			}
 		}
-		// XXX what about resp.sts1 or resp.sts2?
-	}
+		break;
+	} while(1);
 	sleep(1);
 
 	INFO("Sending image data\n");
@@ -502,14 +555,26 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 			ctx->marker.levelnow = sts.donor;
 			dump_markers(&ctx->marker, 1, 0);
 		}
-		// XXX check for errors
+
+		if (sts.hdr.result != RESULT_SUCCESS ||
+		    sts.hdr.error == ERROR_PRINTER) {
+			INFO("Printer Status:  %02x\n", sts.hdr.status);
+			INFO("Result: %02x Error: %02x (%02x %02x)\n",
+			     sts.hdr.result, sts.hdr.error,
+			     sts.hdr.printer_major, sts.hdr.printer_minor);
+			return CUPS_BACKEND_STOP;
+		}
 
 		/* Wait for completion */
+		if (sts.hdr.status == STATUS_READY)
+			break;
+
+#if 0
 		if (sts.b1_id == ctx->jobid && sts.b1_complete == sts.b1_total)
 			break;
 		if (sts.b2_id == ctx->jobid && sts.b2_complete == sts.b2_total)
 			break;
-
+#endif
 		if (fast_return) {
 			INFO("Fast return mode enabled.\n");
 			break;
@@ -517,12 +582,15 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 	} while(1);
 
 	INFO("Print complete\n");
-
 	return CUPS_BACKEND_OK;
 }
 
 static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_status *sts)
 {
+	INFO("Status: %02x Error: %02x %02x/%02x\n",
+	     sts->hdr.status, sts->hdr.error,
+	     sts->hdr.printer_major, sts->hdr.printer_minor);
+
 	INFO("Bank 1: %s Job %03u @ %03u/%03u\n",
 	     bank_statuses(sts->b1_sts), sts->b1_id,
 	     le16_to_cpu(sts->b1_complete), le16_to_cpu(sts->b1_total));
@@ -764,7 +832,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.35",
+	.version = "0.36",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
