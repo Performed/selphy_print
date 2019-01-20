@@ -766,6 +766,7 @@ static void kodak605_cmdline(void)
 	DEBUG("\t\t[ -C filename ]  # Set tone curve\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -X jobid ]     # Cancel job\n");
 }
 
 static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
