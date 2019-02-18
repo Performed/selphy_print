@@ -291,6 +291,19 @@
  ***************************************************************************
   BACKEND=canonselphy
 
+   Additional model IDs recognized:
+
+     canon-cp10 canon-cp100 canon-cp200 canon-cp220 canon-cp300 canon-cp330
+     canon-cp400 canon-cp500 canon-cp510 canon-cp520 canon-cp530 canon-cp600
+     canon-cp710 canon-cp720 canon-cp730 canon-cp740 canon-cp750 canon-cp760
+     canon-cp770 canon-cp780 canon-cp790 canon-cp800 canon-cp810 canon-cp900
+     canon-es1 canon-es2 canon-es20 canon-es3 canon-es30 canon-es40 selphycp10
+     selphycp100 selphycp200 selphycp220 selphycp300 selphycp330 selphycp400
+     selphycp500 selphycp510 selphycp520 selphycp530 selphycp600 selphycp710
+     selphycp720 selphycp730 selphycp740 selphycp750 selphycp760 selphycp770
+     selphycp780 selphycp790 selphycp800 selphycp810 selphycp900 selphyes1
+     selphyes2 selphyes20 selphyes3 selphyes30 selphyes40
+
    Verified supported printers:
 
      ES1, ES2, ES3, ES30, ES40, CP-10, CP-100, CP-200, CP-300, CP-330,
@@ -309,6 +322,11 @@
  ***************************************************************************
   BACKEND=canonselphyneo
 
+   Additional model IDs recognized:
+
+     canon-cp820 canon-cp910 canon-cp1000 canon-cp1200 canon-cp1300
+     selphycp820 selphycp910 selphycp1000 selphycp1200 selphycp1300
+
    Verified supported printers:
 
      CP1000, CP1200
@@ -324,6 +342,12 @@
 
  ***************************************************************************
   BACKEND=kodak1400
+
+   Additional model IDs recognized:
+
+     kodak1400 kodak-1400 kodak-805 mitsubishi-3020d mitsubishi-3020da
+     kodak805 mitsu3020d mitsu3020da mitsubishi-3020dae mitsubishi-3020de
+     mitsubishi-3020du
 
    Verified supported printers:
 
@@ -350,7 +374,11 @@
 	 (unsure as to the bit usage)
 
  ***************************************************************************
-  BACKEND=kodak6800
+  BACKEND=kodak68x0
+
+   Additional model IDs recognized:
+
+     kodak-6800 kodak-6850 kodak6800 kodak6850
 
    Verified supported printers:
 
@@ -386,6 +414,10 @@
  ***************************************************************************
   BACKEND=kodak605
 
+   Additional model IDs recognized:
+
+     kodak-605
+
    Verified supported printers:
 
      Kodak 605
@@ -416,6 +448,10 @@
 
  ***************************************************************************
   BACKEND=shinkos2145
+
+   Additional model IDs recognized:
+
+     shinko-chcs2145 sinfonia-chcs2145
 
    Verified supported printers:
 
@@ -467,6 +503,10 @@
 
    Low-level documentation was provided by Sinfonia, Inc.  Thank you!
 
+   Additional model IDs recognized:
+
+     shinko-chcs1245 sinfonia-chcs1245
+
    Verified supported printers:
 
      Shinko CHC-S1245 (aka "Sinfonia E1")
@@ -501,6 +541,10 @@
 
    Low-level documentation was provided by Sinfonia and CIAAT.
    Thank you!
+
+   Additional model IDs recognized:
+
+     sinfonia-chcs6145 ciaat-brava-21 shinko-chcs6145 brava21
 
    Verified supported printers:
 
@@ -593,6 +637,10 @@
 
    Low-level documentation was provided by Sinfonia, Inc.  Thank you!
 
+   Additional model IDs recognized:
+
+     sinfonia-chcs6245 hiti-p910l shinko-chcs6245 hitip910
+
    Work-in-process printers:
 
      HiTi P910L
@@ -636,6 +684,10 @@
  ***************************************************************************
   BACKEND=sonyupdr150
 
+   Additional model IDs recognized:
+
+     sony-updr150 sony-updr200 sony-upcr10l sonyupdr200 sonyupcr10
+
    Verified supported printers:
 
     Sony UP-DR150
@@ -656,6 +708,12 @@
 
  ***************************************************************************
   BACKEND=mitsu70x
+
+   Additional model IDs recognized:
+
+     mitsubishi-d70dw mitsubishi-d80dw mitsubishi-k60dw kodak-305
+     fujifilm-ask-300 mitsubishi-d707dw mitsubishi-k60dws mitsud80
+     mitsuk60 kodak305 fujiask300
 
    Supported and tested printers:
 
@@ -722,6 +780,10 @@
  ***************************************************************************
   BACKEND=mitsud90
 
+   Additional model IDs recognized:
+
+     mitsubishi-d90dw
+
    Supported and tested printers:
 
     Mitsubishi CP-D90DW
@@ -745,7 +807,15 @@
     [2]  Printer will need to be power-cycled for this to take effect.
 
  ***************************************************************************
-  BACKEND=mitsu9550
+  BACKEND=mitsu9xxx
+
+   Additional model IDs recognized:
+
+     mitsubishi-9000dw mitsubishi-9500dw mitsubishi-9550dw mitsubishi-9550dw-s
+     mitsubishi-9600dw mitsubishi-9800dw mitsubishi-9800dw-s mitsubishi-9810dw
+     mitsubishi-9550d mitsubishi-9550dz mitsubishi-9800d mitsubishi-9800dz
+     mitsubishi-9810d mitsu9000 mitsu9500 mitsu9550 mitsu9600 mitsu9800
+     mitsu9810
 
    Supported and tested printers:
 
@@ -789,7 +859,11 @@
     usable prints, although the quality is not considered up to par.
 
  ***************************************************************************
-  BACKEND=mitsup95d
+  BACKEND=mitsup9x
+
+   Additional model IDs recognized:
+
+     mitsubishi-p95d mitsubishi-p93d mitsup95d mitsup93d
 
    Development was sponsored by:
 
@@ -807,7 +881,15 @@
   This backend does not support reporting marker levels.
 
  ***************************************************************************
-  BACKEND=dnpds40
+  BACKEND=dnp_citizen
+
+   Additional model IDs recognized:
+
+      dnpds40 dnp-ds40 dnp-ds80 dnp-ds80dx dnp-ds620 dnp-ds820 dnp-dsrx1
+      dnp-ds620s citizen-cw-01 citizen-cw-02 citizen-cx-02 dnpds80 dnpds80dx
+      dnpds620 dnpds820 dnprx1 dnpds620s citizencw01 citizencw02 citizencx02
+      citizen-cx citizen-cx-w citizen-cy citizen-cy-02 citizen-op900
+      citizen-op900ii
 
    Verified supported printers:
 
@@ -862,6 +944,11 @@ Notes:
 
  ***************************************************************************
   BACKEND=magicard
+
+   Additional model IDs recognized:
+
+      magicard-tango-2e magicard-enduro magicard-enduroplus magicard-rio-2e
+      tango2e enduro enduroplus
 
    Verified supported printers:
 
