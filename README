@@ -431,6 +431,7 @@
      -C filename        Set tone curve   [1]
      -m                 Query supported media
      -s                 Query printer status
+     -e                 Query error log
      -X id              Cancel print job 'id' [2]
 
   Notes:

@@ -162,6 +162,19 @@ struct kodak605_status {
 /*@70*/	uint8_t  unk_12[6]; /* 01 00 00 00 00 00 */
 } __attribute__((packed));
 
+/* Error logs are guesses */
+struct kodak605_error_item {
+	uint8_t  major;
+	uint8_t  minor;
+	uint32_t print_counter;
+} __attribute__((packed));
+
+struct kodak605_errorlog_resp {
+	struct kodak605_sts_hdr hdr;
+	uint8_t  count;
+	struct kodak605_error_item items[10];  /* Not all necessarily used */
+} __attribute__((packed));
+
 /* File header */
 struct kodak605_hdr {
 	uint8_t  hdr[4];   /* 01 40 0a 00 */
@@ -625,6 +638,48 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 	INFO("Donor             : %u%%\n", sts->donor);
 }
 
+
+static int kodak605_get_errorlog(struct kodak605_ctx *ctx)
+{
+	uint8_t cmdbuf[16];
+	struct kodak605_errorlog_resp resp;
+
+	int ret, num = 0;
+	int i;
+
+	/* Initial Request */
+	cmdbuf[0] = 0x04;
+	cmdbuf[1] = 0x00;
+	cmdbuf[2] = 0x00;
+	cmdbuf[3] = 0x00;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 4)))
+		goto done;
+
+	/* Get response back */
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) &resp, sizeof(resp), &num);
+	if (ret < 0)
+		goto done;
+
+	if (num != sizeof(resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, 10);
+		ret = 4;
+		goto done;
+	}
+
+	INFO("Stored Error Events: %u entries:\n", resp.count);
+	for (i = 0 ; i < resp.count ; i++) {
+		INFO(" %02d: @ %08u prints : 0x%02x/0x%02x\n", i,
+		     le32_to_cpu(resp.items[i].print_counter),
+		     resp.items[i].major, resp.items[i].minor);
+	}
+
+done:
+	return ret;
+}
+
 static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
 {
 	int i;
@@ -764,6 +819,7 @@ static int kodak605_cancel_job(struct kodak605_ctx *ctx, char *str)
 static void kodak605_cmdline(void)
 {
 	DEBUG("\t\t[ -C filename ]  # Set tone curve\n");
+	DEBUG("\t\t[ -e ]           # Query error log\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -X jobid ]     # Cancel job\n");
@@ -777,11 +833,14 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "C:msX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "C:emsX:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'C':
 			j = kodak605_set_tonecurve(ctx, optarg);
+			break;
+		case 'e':
+			j = kodak605_get_errorlog(ctx);
 			break;
 		case 'm':
 			kodak605_dump_mediainfo(ctx->media);
@@ -833,7 +892,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.36",
+	.version = "0.37",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
