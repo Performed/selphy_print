@@ -302,7 +302,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 		}
 
 		if (ret < 0) {
-			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, len, endp);
+			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, len2, endp);
 			return ret;
 		}
 		len -= num;
