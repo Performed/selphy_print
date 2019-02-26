@@ -26,6 +26,17 @@
      * Kodak 305
      * Fuji ASK-300
 
+   Additionally, data files for the following printers are bundled with
+   this library:
+
+    * Mitsubishi CP9800DW
+    * Mitsubishi CP9800DW-S
+    * Mitsubishi CP9810DW
+    * Mitsubishi CP9820DW-S
+
+      (Please note that the library does not as of yet support these
+       models, but it is expected to eventually do so..)
+
    ** ** ** **
 
    This library is released under the GNU GPL version 3.  Unfortunately
