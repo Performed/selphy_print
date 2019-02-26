@@ -44,21 +44,59 @@
 
 #define BACKEND mitsu9550_backend
 
+
+#if defined(USE_DLOPEN)
+#define WITH_DYNAMIC
+#include <dlfcn.h>
+#define DL_INIT() do {} while(0)
+#define DL_OPEN(__x) dlopen(__x, RTLD_NOW)
+#define DL_SYM(__x, __y) dlsym(__x, __y)
+#define DL_CLOSE(__x) dlclose(__x)
+#define DL_EXIT() do {} while(0)
+#elif defined(USE_LTDL)
+#define WITH_DYNAMIC
+#include <ltdl.h>
+#define DL_INIT() lt_dlinit()
+#define DL_OPEN(__x) lt_dlopen(__x)
+#define DL_SYM(__x, __y) lt_dlsym(__x, __y)
+#define DL_CLOSE(__x) do {} while(0)
+#define DL_EXIT() lt_dlexit()
+#else
+#define DL_INIT()     do {} while(0)
+#define DL_CLOSE(__x) do {} while(0)
+#define DL_EXIT()     do {} while(0)
+#warning "No dynamic loading support!"
+#endif
+
 #include "backend_common.h"
 
-#define USB_VID_MITSU        0x06D3
-#define USB_PID_MITSU_9500D  0x0393
-#define USB_PID_MITSU_9000D  0x0394
-#define USB_PID_MITSU_9000AM 0x0395
-#define USB_PID_MITSU_9550D  0x03A1
-#define USB_PID_MITSU_9550DS 0x03A5  // or DZ/DZS/DZU
-#define USB_PID_MITSU_9600D  0x03A9
-//#define USB_PID_MITSU_9600DS  XXXXXX
-#define USB_PID_MITSU_9800D  0x03AD
-#define USB_PID_MITSU_9800DS 0x03AE
-#define USB_PID_MITSU_98__D  0x3B21
-//#define USB_PID_MITSU_9810D   XXXXXX
-//#define USB_PID_MITSU_9820DS  XXXXXX
+// #include "lib70x/libMitsuD70ImageReProcess.h"
+
+#ifndef LUT_LEN
+#define COLORCONV_RGB 0
+#define COLORCONV_BGR 1
+
+#define LUT_LEN 14739
+struct BandImage {
+	   void  *imgbuf;
+	 int32_t bytes_per_row;
+	uint16_t origin_cols;
+	uint16_t origin_rows;
+	uint16_t cols;
+	uint16_t rows;
+};
+#endif
+
+#define REQUIRED_LIB_APIVERSION 4
+
+/* Image processing library function prototypes */
+#define LIB_NAME_RE "libMitsuD70ImageReProcess.so" // Reimplemented library
+
+typedef int (*lib70x_getapiversionFN)(void);
+typedef int (*Get3DColorTableFN)(uint8_t *buf, const char *filename);
+typedef struct CColorConv3D *(*Load3DColorTableFN)(const uint8_t *ptr);
+typedef void (*Destroy3DColorTableFN)(struct CColorConv3D *this);
+typedef void (*DoColorConvFN)(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t bytes_per_row, int rgb_bgr);
 
 #ifndef CORRTABLE_PATH
 #ifdef PACKAGE_DATA_DIR
@@ -73,6 +111,22 @@
 #define MITSU_M98xx_LUT_FILE       CORRTABLE_PATH "/M98XXL01.lut"
 #define LAMINATE_STRIDE 1868
 #define DATATABLE_SIZE  42204
+
+/* USB VIDs and PIDs */
+
+#define USB_VID_MITSU        0x06D3
+#define USB_PID_MITSU_9500D  0x0393
+#define USB_PID_MITSU_9000D  0x0394
+#define USB_PID_MITSU_9000AM 0x0395
+#define USB_PID_MITSU_9550D  0x03A1
+#define USB_PID_MITSU_9550DS 0x03A5  // or DZ/DZS/DZU
+#define USB_PID_MITSU_9600D  0x03A9
+//#define USB_PID_MITSU_9600DS  XXXXXX
+#define USB_PID_MITSU_9800D  0x03AD
+#define USB_PID_MITSU_9800DS 0x03AE
+#define USB_PID_MITSU_98__D  0x3B21
+//#define USB_PID_MITSU_9810D   XXXXXX
+//#define USB_PID_MITSU_9820DS  XXXXXX
 
 /* Spool file structures */
 
@@ -195,8 +249,15 @@ struct mitsu9550_ctx {
 	struct marker marker;
 
 	/* CP98xx stuff */
-	struct mitsu98xx_tables *m98xxdata;
+	void *dl_handle;
+	lib70x_getapiversionFN GetAPIVersion;
+	Get3DColorTableFN Get3DColorTable;
+	Load3DColorTableFN Load3DColorTable;
+	Destroy3DColorTableFN Destroy3DColorTable;
+	DoColorConvFN DoColorConv;
+
 	struct CColorConv3D *lut;
+	struct mitsu98xx_tables *m98xxdata;
 };
 
 /* Printer data structures */
@@ -356,173 +417,12 @@ done:
 	return CUPS_BACKEND_OK;
 }
 
-/*** 3D color Lookup table stuff.  Taken out of lib70x ****/
+#ifndef LUT_LEN
 #define LUT_LEN 14739
 #define COLORCONV_RGB 0
 #define COLORCONV_BGR 1
-
-struct CColorConv3D {
-	uint8_t lut[17][17][17][3];
-};
-
-/* Load the Lookup table off of disk into *PRE-ALLOCATED* buffer */
-int CColorConv3D_Get3DColorTable(uint8_t *buf, const char *filename)
-{
-	FILE *stream;
-
-	if (!filename)
-		return 1;
-	if (!*filename)
-		return 2;
-	if (!buf)
-		return 3;
-
-	stream = fopen(filename, "rb");
-	if (!stream)
-		return 4;
-
-	fseek(stream, 0, SEEK_END);
-	if (ftell(stream) < LUT_LEN) {
-		fclose(stream);
-		return 5;
-	}
-	fseek(stream, 0, SEEK_SET);
-	fread(buf, 1, LUT_LEN, stream);
-	fclose(stream);
-
-	return 0;
-}
-
-/* Parse the on-disk LUT data into the structure.... */
-struct CColorConv3D *CColorConv3D_Load3DColorTable(const uint8_t *ptr)
-{
-	struct CColorConv3D *this;
-	this = malloc(sizeof(*this));
-	if (!this)
-		return NULL;
-
-	int i, j, k;
-
-	for (i = 0 ; i <= 16 ; i++) {
-		for (j = 0 ; j <= 16 ; j++) {
-			for (k = 0; k <= 16; k++) {
-				this->lut[k][j][i][2] = *ptr++;
-				this->lut[k][j][i][1] = *ptr++;
-				this->lut[k][j][i][0] = *ptr++;
-			}
-		}
-	}
-	return this;
-}
-void CColorConv3D_Destroy3DColorTable(struct CColorConv3D *this)
-{
-	free(this);
-}
-
-/* Transform a single pixel. */
-static void CColorConv3D_DoColorConvPixel(struct CColorConv3D *this, uint8_t *redp, uint8_t *grnp, uint8_t *blup)
-{
-	int red_h;
-	int grn_h;
-	int blu_h;
-	int grn_li;
-	int red_li;
-	int blu_li;
-	int red_l;
-	int grn_l;
-	int blu_l;
-
-	uint8_t *tab0;       // @ 14743
-	uint8_t *tab1;       // @ 14746
-	uint8_t *tab2;       // @ 14749
-	uint8_t *tab3;       // @ 14752
-	uint8_t *tab4;       // @ 14755
-	uint8_t *tab5;       // @ 14758
-	uint8_t *tab6;       // @ 14761
-	uint8_t *tab7;       // @ 14764
-
-	red_h = *redp >> 4;
-	red_l = *redp & 0xF;
-	red_li = 16 - red_l;
-
-	grn_h = *grnp >> 4;
-	grn_l = *grnp & 0xF;
-	grn_li = 16 - grn_l;
-
-	blu_h = *blup >> 4;
-	blu_l = *blup & 0xF;
-	blu_li = 16 - blu_l;
-
-//	printf("%d %d %d =>", *redp, *grnp, *blup);
-
-	tab0 = this->lut[red_h+0][grn_h+0][blu_h+0];
-	tab1 = this->lut[red_h+1][grn_h+0][blu_h+0];
-	tab2 = this->lut[red_h+0][grn_h+1][blu_h+0];
-	tab3 = this->lut[red_h+1][grn_h+1][blu_h+0];
-	tab4 = this->lut[red_h+0][grn_h+0][blu_h+1];
-	tab5 = this->lut[red_h+1][grn_h+0][blu_h+1];
-	tab6 = this->lut[red_h+0][grn_h+1][blu_h+1];
-	tab7 = this->lut[red_h+1][grn_h+1][blu_h+1];
-
-#if 0
-	printf(" %d %d %d ", tab0[0], tab0[1], tab0[2]);
-	printf(" %d %d %d ", tab1[0], tab1[1], tab1[2]);
-	printf(" %d %d %d ", tab2[0], tab2[1], tab2[2]);
-	printf(" %d %d %d ", tab3[0], tab3[1], tab3[2]);
-	printf(" %d %d %d ", tab4[0], tab4[1], tab4[2]);
-	printf(" %d %d %d ", tab5[0], tab5[1], tab5[2]);
-	printf(" %d %d %d ", tab6[0], tab6[1], tab6[2]);
-	printf(" %d %d %d ", tab7[0], tab7[1], tab7[2]);
 #endif
-	*redp = (blu_li
-		 * (grn_li * (red_li * tab0[0] + red_l * tab1[0])
-		    + grn_l * (red_li * tab2[0] + red_l * tab3[0]))
-		 + blu_l
-		 * (grn_li * (red_li * tab4[0] + red_l * tab5[0])
-		    + grn_l * (red_li * tab6[0] + red_l * tab7[0]))
-		 + 2048) >> 12;
-	*grnp = (blu_li
-		 * (grn_li * (red_li * tab0[1] + red_l * tab1[1])
-		    + grn_l * (red_li * tab2[1] + red_l * tab3[1]))
-		 + blu_l
-		 * (grn_li * (red_li * tab4[1] + red_l * tab5[1])
-		    + grn_l * (red_li * tab6[1] + red_l * tab7[1]))
-		 + 2048) >> 12;
-	*blup = (blu_li
-		 * (grn_li * (red_li * tab0[2] + red_l * tab1[2])
-		    + grn_l * (red_li * tab2[2] + red_l * tab3[2]))
-		 + blu_l
-		 * (grn_li * (red_li * tab4[2] + red_l * tab5[2])
-		    + grn_l * (red_li * tab6[2] + red_l * tab7[2]))
-		 + 2048) >> 12;
 
-//	printf("=> %d %d %d\n", *redp, *grnp, *blup);
-}
-
-/* Perform a total conversion on an entire image */
-void CColorConv3D_DoColorConv(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t stride, int rgb_bgr)
-{
-	uint16_t i, j;
-
-	uint8_t *ptr;
-
-	for ( i = 0; i < rows ; i++ )
-	{
-		ptr = data;
-		for ( j = 0; cols > j; j++ )
-		{
-			if (rgb_bgr) {
-				CColorConv3D_DoColorConvPixel(this, ptr + 2, ptr + 1, ptr);
-			} else {
-				CColorConv3D_DoColorConvPixel(this, ptr, ptr + 1, ptr + 2);
-			}
-			ptr += 3;
-		}
-		data += stride;
-	}
-}
-
-/* ---- end 3D LUT ---- */
 static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int status, int status2, int media);
 static char *mitsu9550_media_types(uint8_t type, uint8_t is_s);
 
@@ -534,6 +434,8 @@ static void *mitsu9550_init(void)
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct mitsu9550_ctx));
+
+	DL_INIT();
 
 	return ctx;
 }
@@ -559,6 +461,46 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	    ctx->type == P_MITSU_9800S ||
 	    ctx->type == P_MITSU_9810)
 		ctx->is_98xx = 1;
+
+	/* Attempt to open the library */
+#if defined(WITH_DYNAMIC)
+	if (!ctx->is_98xx) goto skip;
+
+	DEBUG("Attempting to load image processing library\n");
+	ctx->dl_handle = DL_OPEN(LIB_NAME_RE);
+	if (!ctx->dl_handle)
+		WARNING("Image processing library not found, using internal fallback code\n");
+	if (ctx->dl_handle) {
+		ctx->GetAPIVersion = DL_SYM(ctx->dl_handle, "lib70x_getapiversion");
+		if (!ctx->GetAPIVersion) {
+			ERROR("Problem resolving API Version symbol in imaging processing library, too old or not installed?\n");
+			DL_CLOSE(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+			return CUPS_BACKEND_FAILED;
+		}
+		if (ctx->GetAPIVersion() != REQUIRED_LIB_APIVERSION) {
+			ERROR("Image processing library API version mismatch!\n");
+			DL_CLOSE(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+			return CUPS_BACKEND_FAILED;
+		}
+
+		ctx->Get3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Get3DColorTable");
+		ctx->Load3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Load3DColorTable");
+		ctx->Destroy3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Destroy3DColorTable");
+		ctx->DoColorConv = DL_SYM(ctx->dl_handle, "CColorConv3D_DoColorConv");
+		if (!ctx->Get3DColorTable || !ctx->Load3DColorTable ||
+		    !ctx->Destroy3DColorTable || !ctx->DoColorConv ) {
+			ERROR("Problem resolving symbols in imaging processing library\n");
+			DL_CLOSE(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+			return CUPS_BACKEND_FAILED;
+		} else {
+			DEBUG("Image processing library successfully loaded\n");
+		}
+	}
+skip:
+#endif
 
 	if (test_mode < TEST_MODE_NOATTACH) {
 		if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
@@ -597,10 +539,14 @@ static void mitsu9550_teardown(void *vctx) {
 	if (!ctx)
 		return;
 
-	if (ctx->lut)
-		CColorConv3D_Destroy3DColorTable(ctx->lut);
-	if (ctx->m98xxdata)
-		free(ctx->m98xxdata);
+	if (ctx->dl_handle) {
+		if (ctx->lut)
+			ctx->Destroy3DColorTable(ctx->lut);
+		if (ctx->m98xxdata)
+			free(ctx->m98xxdata);
+		DL_CLOSE(ctx->dl_handle);
+	}
+
 	free(ctx);
 }
 
@@ -848,9 +794,16 @@ hdr_done:
 		}
 	}
 
-	/* Apply LUT */
+	/* Apply LUT, if job calls for it.. */
 	if (ctx->is_98xx && !job->is_raw && job->hdr2.unkc[9]) {
-		DEBUG("Applying 3D LUT\n");
+
+		if (!ctx->dl_handle) {
+			// XXXFALLBACK write fallback code?
+			ERROR("!!! Image Processing Library not found, aborting!\n");
+			mitsu9550_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+
 		if (!ctx->lut) {
 			uint8_t *buf = malloc(LUT_LEN);
 			if (!buf) {
@@ -858,12 +811,12 @@ hdr_done:
 				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_RETRY_CURRENT;
 			}
-			if (CColorConv3D_Get3DColorTable(buf, MITSU_M98xx_LUT_FILE)) {
+			if (ctx->Get3DColorTable(buf, MITSU_M98xx_LUT_FILE)) {
 				ERROR("Unable to open LUT file '%s'\n", MITSU_M98xx_LUT_FILE);
 				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
-			ctx->lut = CColorConv3D_Load3DColorTable(buf);
+			ctx->lut = ctx->Load3DColorTable(buf);
 			free(buf);
 			if (!ctx->lut) {
 				ERROR("Unable to parse LUT\n");
@@ -871,8 +824,10 @@ hdr_done:
 				return CUPS_BACKEND_CANCEL;
 			}
 		}
-		CColorConv3D_DoColorConv(ctx->lut, job->databuf + sizeof(struct mitsu9550_plane),
-					 job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
+
+		DEBUG("Running print data through 3D LUT\n");
+		ctx->DoColorConv(ctx->lut, job->databuf + sizeof(struct mitsu9550_plane),
+				 job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
 		job->hdr2.unkc[9] = 0;
 	}
 
@@ -1727,7 +1682,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.45",
+	.version = "0.46",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

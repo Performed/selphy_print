@@ -1298,7 +1298,7 @@ repeat:
 	}
 
 	if (job->lutfname && ctx->lut) {
-		DEBUG("Running print data through LUT\n");
+		DEBUG("Running print data through 3D LUT\n");
 		ctx->DoColorConv(ctx->lut, job->spoolbuf, job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
 	}
 
