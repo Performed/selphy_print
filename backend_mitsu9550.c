@@ -175,33 +175,27 @@ struct mitsu9550_plane {
 	uint16_t rows;       /* BE */
 } __attribute__((packed));
 
-/* CP98xx Tabular Data */
+/* CP98xx Tabular Data, as stored in data file! */
 struct mitsu98xx_data {
-	uint16_t GNMby[256];   // @0
-	uint16_t GNMgm[256];   // @512
-	uint16_t GNMrc[256];   // @1024
-	double   GammaParams[3]; // @1536
-	uint8_t  KH[2048];     // @1560
-	uint32_t unk_b[3];     // @3608
-
-	struct {
-		double  unka[256];  // @0
-		double  unkb[256];  // @2048
-		uint32_t unkc[10];  // @4096
-		double  unkd[256];  // @4136
-		double  unke[256];  // @6184  // *= sharp->coef[X]
-		uint32_t unkf[10];  // @8232
-		double  unkg[256];  // @8272
-		                    // @10320
-	} WMAM; // @3620
-	uint8_t  unc_d[4];    // @13940  @10320 (from wmam start)
-	struct {
-		uint32_t unk_a;      // @13944/10324 (padding?)
-		double   coef[10];   // @13948/10328 (sharpness coefficients, level 0-9)
-		uint32_t unk_b[5];   // @14028/10408
-	} sharp; // total 104, @13944/10324
-	uint8_t  unk_e[20];   // @14048/10428
-	                      // @14068/10448
+	/* @    0 */	uint16_t GNMby[256];  /* BGR Order uncertain */
+	/* @  512 */	uint16_t GNMgm[256];
+	/* @ 1024 */    uint16_t GNMrc[256];
+	/* @ 1536 */    uint16_t unk_sharp[20];  /* Actual format is: u16, u16[9], u16, u16[9] */
+	/* @ 1576 */    double   GammaAdj[3]; /* Assumed to be same order as tables (BGR?) */
+	/* @ 1600 */	struct {
+		/* @    0 */	double   unka[256];
+		/* @ 2048 */	double   unkb[256];
+		/* @ 4096 */	uint32_t unkc[10];
+		/* @ 4136 */	double   unkd[256];
+		/* @ 6184 */	double   unke[256]; // *= sharp->coef[X]
+		/* @ 8232 */	uint32_t unkf[10];
+		/* @ 8272 */	double   unkg[256];
+		/* @10320 */
+			} WMAM;
+	/* @11920 */	double   sharp_coef[11]; /* 0 is off, 1-10 are the levels.  Default is 5. [4 in settings] */
+	/* @12008 */	uint32_t unk_kh[3];
+	/* @12020 */	uint8_t  KH[2048];
+	/* @14068 */
 } __attribute__((packed));
 
 struct mitsu98xx_tables {
