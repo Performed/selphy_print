@@ -132,43 +132,43 @@ typedef void (*DoColorConvFN)(struct CColorConv3D *this, uint8_t *data, uint16_t
 
 /* Print parameters1 */
 struct mitsu9550_hdr1 {
-	uint8_t  cmd[4]; /* 1b 57 20 2e */
+	uint8_t  cmd[4];  /* 1b 57 20 2e */
 	uint8_t  unk[10]; /* 00 0a 10 00 [...] */
-	uint16_t cols; /* BE */
-	uint16_t rows; /* BE */
-	uint8_t  matte;  /* CP9810/9820 only. 01 for matte, 00 glossy */
+	uint16_t cols;    /* BE */
+	uint16_t rows;    /* BE */
+	uint8_t  matte;   /* CP9810/9820 only. 01 for matte, 00 glossy */
 	uint8_t  null[31];
 } __attribute__((packed));
 
 /* Print parameters2 */
 struct mitsu9550_hdr2 {
-	uint8_t  cmd[4]; /* 1b 57 21 2e */
-	uint8_t  unk[24]; /* 00 80 00 22 08 03 [...] */
-	uint16_t copies; /* BE, 1-680 */
+	uint8_t  cmd[4];   /* 1b 57 21 2e */
+	uint8_t  unk[24];  /* 00 80 00 22 08 03 [...] */
+	uint16_t copies;   /* BE, 1-680 */
 	uint8_t  null[2];
-	uint8_t  cut; /* 00 == normal, 83 == 2x6*2 */
+	uint8_t  cut;      /* 00 == normal, 83 == 2x6*2 */
 	uint8_t  unkb[5];
-	uint8_t  mode; /* 00 == fine, 80 == superfine */
+	uint8_t  mode;     /* 00 == fine, 80 == superfine */
 	uint8_t  unkc[11]; /* 00 [...] 00 01 */
 } __attribute__((packed));
 
 /* Fine Deep selection (9550 only) */
 struct mitsu9550_hdr3 {
-	uint8_t  cmd[4]; /* 1b 57 22 2e */
-	uint8_t  unk[7]; /* 00 40 00 [...] */
-	uint8_t  mode2;  /* 00 == normal, 01 == finedeep */
+	uint8_t  cmd[4];   /* 1b 57 22 2e */
+	uint8_t  unk[7];   /* 00 40 00 [...] */
+	uint8_t  mode2;    /* 00 == normal, 01 == finedeep */
 	uint8_t  null[38];
 } __attribute__((packed));
 
 /* Error policy? */
 struct mitsu9550_hdr4 {
-	uint8_t  cmd[4]; /* 1b 57 26 2e */
-	uint8_t  unk[46]; /* 00 70 00 00 00 00 00 00 01 01 00 [...] */
+	uint8_t  cmd[4];   /* 1b 57 26 2e */
+	uint8_t  unk[46];  /* 00 70 00 00 00 00 00 00 01 01 00 [...] */
 } __attribute__((packed));
 
 /* Data plane header */
 struct mitsu9550_plane {
-	uint8_t  cmd[4]; /* 1b 5a 54 XX */  /* XX == 0x10 if 16bpp, 0x00 for 8bpp */
+	uint8_t  cmd[4];     /* 1b 5a 54 XX */  /* XX == 0x10 if 16bpp, 0x00 for 8bpp */
 	uint16_t col_offset; /* BE, normally 0, where we start dumping data */
 	uint16_t row_offset; /* BE, normally 0, where we start dumping data */
 	uint16_t cols;       /* BE */
@@ -177,11 +177,11 @@ struct mitsu9550_plane {
 
 /* CP98xx Tabular Data, as stored in data file! */
 struct mitsu98xx_data {
-	/* @    0 */	uint16_t GNMby[256];  /* BGR Order uncertain */
+	/* @    0 */	uint16_t GNMby[256];     /* BGR Order uncertain */
 	/* @  512 */	uint16_t GNMgm[256];
 	/* @ 1024 */    uint16_t GNMrc[256];
 	/* @ 1536 */    uint16_t unk_sharp[20];  /* Actual format is: u16, u16[9], u16, u16[9] */
-	/* @ 1576 */    double   GammaAdj[3]; /* Assumed to be same order as tables (BGR?) */
+	/* @ 1576 */    double   GammaAdj[3];    /* Assumed to be same order as tables (BGR?) */
 	/* @ 1600 */	struct {
 		/* @    0 */	double   unka[256];
 		/* @ 2048 */	double   unkb[256];
@@ -346,11 +346,9 @@ static void mitsu98xx_dogamma(uint8_t *src, uint16_t *dest, uint8_t plane,
 {
 	src += plane;
 	while(len--) {
-		*dest++ = table[*src];
+		*dest++ = cpu_to_be16(table[*src]);
 		src += 3;
 	}
-	/* TODO:  Eventually, when we do real processing of this data, we will need to
-	   have the gamma table in native endian format and generate BE data at the end. */
 }
 
 static int mitsu98xx_fillmatte(struct mitsu9550_printjob *job)
@@ -655,6 +653,42 @@ hdr_done:
 			free(ctx->m98xxdata);
 			return ret;
 		}
+
+		/* Byteswap data table to native endianness, if necessary */
+#if (__BYTE_ORDER == __LITTLE_ENDIAN)
+		int i, j;
+		struct mitsu98xx_data *ptr = &ctx->m98xxdata->superfine;
+		for (j = 0 ; j < 3 ; j++) {
+			for (i = 3 ; i < 3 ; i++) {
+				ptr->GammaAdj[i] = be64_to_cpu(ptr->GammaAdj[i]);
+				ptr->unk_kh[i] = be32_to_cpu(ptr->unk_kh[i]);
+			}
+			for (i = 0 ; i < 10 ; i++) {
+				ptr->WMAM.unkc[i] = be32_to_cpu(ptr->WMAM.unkc[i]);
+				ptr->WMAM.unkf[i] = be32_to_cpu(ptr->WMAM.unkf[i]);
+			}
+			for (i = 0 ; i < 11 ; i++) {
+				ptr->sharp_coef[i] = be64_to_cpu(ptr->sharp_coef[i]);
+			}
+			for (i = 0 ; i < 20 ; i++) {
+				ptr->unk_sharp[i] = be16_to_cpu(ptr->unk_sharp[i]);
+			}
+			for (i = 0 ; i < 256 ; i++) {
+				ptr->WMAM.unka[i] = be64_to_cpu(ptr->WMAM.unka[i]);
+				ptr->WMAM.unkb[i] = be64_to_cpu(ptr->WMAM.unkb[i]);
+				ptr->WMAM.unkd[i] = be64_to_cpu(ptr->WMAM.unkd[i]);
+				ptr->WMAM.unke[i] = be64_to_cpu(ptr->WMAM.unke[i]);
+				ptr->WMAM.unkg[i] = be64_to_cpu(ptr->WMAM.unkg[i]);
+
+				ptr->GNMby[i] = be16_to_cpu(ptr->GNMby[i]);
+				ptr->GNMgm[i] = be16_to_cpu(ptr->GNMgm[i]);
+				ptr->GNMrc[i] = be16_to_cpu(ptr->GNMrc[i]);
+
+			}
+			// XXX TODO: KH[2048]
+			ptr++;
+		}
+#endif
 	}
 
 	if (job->is_raw) {
@@ -1676,7 +1710,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.46",
+	.version = "0.47",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
