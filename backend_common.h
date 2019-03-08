@@ -54,11 +54,30 @@
 #define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
+#define le64_to_cpu(__x) __x
 #define le32_to_cpu(__x) __x
 #define le16_to_cpu(__x) __x
 #define be16_to_cpu(__x) ntohs(__x)
 #define be32_to_cpu(__x) ntohl(__x)
+#define be64_to_cpu(__x) ((__uint64_t)(                         \
+        (((__uint64_t)(__x) & (__uint64_t)0x00000000000000ffULL) << 56) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x000000000000ff00ULL) << 40) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x0000000000ff0000ULL) << 24) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x00000000ff000000ULL) <<  8) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x000000ff00000000ULL) >>  8) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x0000ff0000000000ULL) >> 24) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x00ff000000000000ULL) >> 40) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0xff00000000000000ULL) >> 56)))
 #else
+#define le64_to_cpu(__x) ((__uint64_t)(                         \
+        (((__uint64_t)(__x) & (__uint64_t)0x00000000000000ffULL) << 56) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x000000000000ff00ULL) << 40) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x0000000000ff0000ULL) << 24) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x00000000ff000000ULL) <<  8) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x000000ff00000000ULL) >>  8) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x0000ff0000000000ULL) >> 24) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0x00ff000000000000ULL) >> 40) |   \
+        (((__uint64_t)(__x) & (__uint64_t)0xff00000000000000ULL) >> 56)))
 #define le32_to_cpu(x)							\
 	({								\
 		uint32_t __x = (x);					\
@@ -75,6 +94,7 @@
 			(((uint16_t)(__x) & (uint16_t)0x00ff) <<  8) | \
 			(((uint16_t)(__x) & (uint16_t)0xff00) >>  8))); \
 	})
+#define be64_to_cpu(__x) __x
 #define be32_to_cpu(__x) __x
 #define be16_to_cpu(__x) __x
 #endif
