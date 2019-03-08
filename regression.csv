@@ -98,8 +98,8 @@ sonyupdr150,0x054c,0x01e8,sony_updr150_4x6.raw,
 sonyupdr150,0x054c,0x01e8,sony_updr150_8x6.raw,
 sonyupdr200,0x054c,0x035f,sony_updr200_2x6.raw,
 sonyupdr200,0x054c,0x035f,sony_updr200_4x6.raw,
-#sonyupd895,0x054c,PID,file_fixme,   ### NO USB PID
-#sonyupd897,0x054c,PID,file_fixme,   ### NO USB PID
+sony-upd895,0x054c,0x0049,sony-895-1280x960.raw,
+sony-upd897,0x054c,0x01e7,sony-897-1280x960.raw,
 #
 # 'mitsu9xxx'  [9810/9820 need MATTE job]
 #

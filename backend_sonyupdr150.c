@@ -171,12 +171,24 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 				if(dyesub_debug)
 					DEBUG("Block ID '%08x' (len %d)\n", len, 0);
 				len = 0;
-				if (ctx->type == P_SONY_UPD89x)
+				if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897)
 					run = 0;
 				break;
+			case 0xffffff97:
+				if(dyesub_debug)
+					DEBUG("Block ID '%08x' (len %d)\n", len, 12);
+				len = 12;
+				break;
+			case 0xffffffef:
+				if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897) {
+					if(dyesub_debug)
+						DEBUG("Block ID '%08x' (len %d)\n", len, 0);
+					len = 0;
+					break;
+				}
+				/* Intentional Fallthrough */
 			case 0xffffffeb:
 			case 0xffffffee:
-			case 0xffffffef:
 			case 0xfffffff5:
 				if(dyesub_debug)
 					DEBUG("Block ID '%08x' (len %d)\n", len, 4);
@@ -192,7 +204,8 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			/* Only keep these chunks */
 			if(dyesub_debug)
 				DEBUG("Data block (len %d)\n", len);
-			keep = 1;
+			if (len > 0)
+				keep = 1;
 		}
 		if (keep)
 			job->datalen += sizeof(uint32_t);
@@ -209,7 +222,7 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 
 			if (job->databuf[job->datalen] == 0x1b &&
 			    job->databuf[job->datalen + 1] == 0xee) {
-				if (ctx->type == P_SONY_UPCR10)
+				if (ctx->type == P_SONY_UPCR10 || ctx->type == P_SONY_UPD895)
 					copies_offset = job->datalen + 8;
 				else
 					copies_offset = job->datalen + 12;
@@ -313,7 +326,8 @@ static const char *sonyupdr150_prefixes[] = {
 	"sony-updr150", "sony-updr200", "sony-upcr10l",
 	// Backwards compatibility
 	"sonyupdr200", "sonyupcr10",
-//	"sonyupd895", "sonyupd897", "sonyupd898",
+	"sony-upd895", "sony-upd897",
+//	"sony-upd898",
 	NULL
 };
 
@@ -322,13 +336,13 @@ static const char *sonyupdr150_prefixes[] = {
 #define USB_PID_SONY_UPDR150 0x01E8
 #define USB_PID_SONY_UPDR200 0x035F
 #define USB_PID_SONY_UPCR10  0x0226
-//#define USB_PID_SONY_UPD895 XXXXX // 0x7ea6?
-//#define USB_PID_SONY_UPD897 XXXXX // 0xbce7?
+#define USB_PID_SONY_UPD895  0x0049
+#define USB_PID_SONY_UPD897  0x01E7
 //#define USB_PID_SONY_UPD898 XXXXX // 0x589a?
 
 struct dyesub_backend updr150_backend = {
-	.name = "Sony UP-DR150/UP-DR200/UP-CR10",
-	.version = "0.27",
+	.name = "Sony UP-DR150/UP-DR200/UP-CR10/UP-D895/UP-D897",
+	.version = "0.28",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.init = updr150_init,
@@ -342,8 +356,8 @@ struct dyesub_backend updr150_backend = {
 		{ USB_VID_SONY, USB_PID_SONY_UPDR150, P_SONY_UPDR150, NULL, "sony-updr150"},
 		{ USB_VID_SONY, USB_PID_SONY_UPDR200, P_SONY_UPDR150, NULL, "sony-updr200"},
 		{ USB_VID_SONY, USB_PID_SONY_UPCR10, P_SONY_UPCR10, NULL, "sony-upcr10l"},
-//		{ USB_VID_SONY, USB_PID_SONY_UPD895MD, P_SONY_UPD89x, NULL, "sonyupd895"},
-//		{ USB_VID_SONY, USB_PID_SONY_UPD897MD, P_SONY_UPD89x, NULL, "sonyupd897"},
+		{ USB_VID_SONY, USB_PID_SONY_UPD895, P_SONY_UPD895, NULL, "sonyupd895"},
+		{ USB_VID_SONY, USB_PID_SONY_UPD897, P_SONY_UPD897, NULL, "sony-upd897"},
 //		{ USB_VID_SONY, USB_PID_SONY_UPD898MD, P_SONY_UPD89x, NULL, "sonyupd898"},
 		{ 0, 0, 0, NULL, NULL}
 	}
