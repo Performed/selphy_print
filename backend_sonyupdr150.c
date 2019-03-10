@@ -54,6 +54,8 @@ struct updr150_ctx {
 	uint8_t endp_down;
 	int type;
 
+	uint8_t upd895sts[14];
+
 	struct marker marker;
 };
 
@@ -80,7 +82,11 @@ static int updr150_attach(void *vctx, struct libusb_device_handle *dev, int type
 	ctx->endp_down = endp_down;
 	ctx->type = type;
 
-	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	if (ctx->type == P_SONY_UPD895)
+		ctx->marker.color = "#000000";  /* Ie black! */
+	else
+		ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+
 	ctx->marker.name = "Unknown";
 	ctx->marker.levelmax = -1;
 	ctx->marker.levelnow = -2;
@@ -105,6 +111,39 @@ static void updr150_teardown(void *vctx) {
 		return;
 
 	free(ctx);
+}
+
+static char* upd895_statuses(uint8_t code)
+{
+	switch (code) {
+	case 0x00:
+		return "Idle";
+	case 0x08:
+		return "Door open";
+	case 0x40:
+		return "No paper";
+	case 0x80:
+		return "Idle";
+	default:
+		return "Unknown";
+	}
+}
+
+static int upd895_get_status(struct updr150_ctx *ctx)
+{
+	int ret, num = 0;
+	uint8_t query[7] = { 0x1b, 0xe0, 0, 0, 0, 0x0e, 0 };
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     query, sizeof(query))))
+		return CUPS_BACKEND_FAILED;
+
+	ret = read_data(ctx->dev, ctx->endp_up, ctx->upd895sts, sizeof(ctx->upd895sts), &num);
+
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	return CUPS_BACKEND_OK;
 }
 
 #define MAX_PRINTJOB_LEN (2048*2764*3 + 2048)
@@ -264,6 +303,22 @@ static int updr150_main_loop(void *vctx, const void *vjob) {
 	copies = job->copies;
 
 top:
+	/* Check for idle, if appropriate */
+	if (ctx->type == P_SONY_UPD895) {
+		ret = upd895_get_status(ctx);
+
+		if (ret)
+			return ret;
+
+		if (ctx->upd895sts[5] != 0x00) {
+			if (ctx->upd895sts[5] == 0x80) {
+				INFO("Waiting for printer idle...\n");
+				sleep(1);
+				goto top;
+			}
+		}
+	}
+
 	i = 0;
 	while (i < job->datalen) {
 		uint32_t len;
@@ -279,10 +334,38 @@ top:
 		i += len;
 	}
 
+	/* Check for idle, if appropriate */
+	if (ctx->type == P_SONY_UPD895) {
+	retry:
+		sleep(1);
+
+		ret = upd895_get_status(ctx);
+		if (ret)
+			return ret;
+
+		switch (ctx->upd895sts[5]) {
+		case 0x00:
+			goto done;
+		case 0x80:
+			break;
+		default:
+			ERROR("Printer error: %s (%02x)\n", upd895_statuses(ctx->upd895sts[5]),
+			      ctx->upd895sts[5]);
+			return CUPS_BACKEND_STOP;
+		}
+
+		if (fast_return && ctx->upd895sts[3] > 0) {
+			INFO("Fast return mode enabled.\n");
+		} else {
+			goto retry;
+		}
+	}
+
 	/* Clean up */
 	if (terminate)
 		copies = 1;
 
+done:
 	INFO("Print complete (%d copies remaining)\n", copies - 1);
 
 	if (copies && --copies) {
@@ -290,6 +373,25 @@ top:
 	}
 
 	return CUPS_BACKEND_OK;
+}
+
+static int upd895_dump_status(struct updr150_ctx *ctx)
+{
+	int ret = upd895_get_status(ctx);
+	if (ret < 0)
+		return CUPS_BACKEND_FAILED;
+
+	INFO("Printer status: %s (%02x)\n", upd895_statuses(ctx->upd895sts[5]), ctx->upd895sts[5]);
+	if (ctx->upd895sts[2] == 0x0e0 && ctx->upd895sts[5] == 0x80)
+		INFO("Remaining copies: %d\n", ctx->upd895sts[3]);
+
+	return CUPS_BACKEND_OK;
+}
+
+
+static void updr150_cmdline(void)
+{
+	DEBUG("\t\t[ -s ]           # Query printer status (only UP-D895)\n");
 }
 
 static int updr150_cmdline_arg(void *vctx, int argc, char **argv)
@@ -300,9 +402,13 @@ static int updr150_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL)) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "s")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 's':
+			if (ctx->type == P_SONY_UPD895)
+				j = upd895_dump_status(ctx);
+			break;
 		}
 
 		if (j) return j;
@@ -317,6 +423,21 @@ static int updr150_query_markers(void *vctx, struct marker **markers, int *count
 
 	*markers = &ctx->marker;
 	*count = 1;
+
+	if (ctx->type == P_SONY_UPD895) {
+		int ret = upd895_get_status(ctx);
+
+		if (ret)
+			return CUPS_BACKEND_FAILED;
+
+		if (ctx->upd895sts[5] == 0x40 ||
+		    ctx->upd895sts[5] == 0x08)
+			ctx->marker.levelnow = 0;
+		else
+			ctx->marker.levelnow = -3;
+	}
+
+
 
 	return CUPS_BACKEND_OK;
 }
@@ -342,9 +463,10 @@ static const char *sonyupdr150_prefixes[] = {
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10/UP-D895/UP-D897",
-	.version = "0.28",
+	.version = "0.29",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
+	.cmdline_usage = updr150_cmdline,
 	.init = updr150_init,
 	.attach = updr150_attach,
 	.teardown = updr150_teardown,
@@ -576,4 +698,23 @@ f7 ff ff ff
 
  f4 ff ff ff
 
+ ****************
+
+ UP-D895 protocol:
+
+ <-- 1b e0 00 00 00 0e 00
+ --> 0d 00 XX YY 00 SS 00 ZZ  00 00 10 00 05 00
+
+  XX : 0xe0 when printing, 0x00 otherwise.
+  YY : Number of remaining copies
+  SS : Status
+       0x00 = Idle
+       0x08 = Door open
+       0x40 = Paper empty
+       0x80 = Printing
+       ??   = Cooling down
+       ??   = Busy / Waiting
+  ZZ : Status2
+       0x01 = Print complete
+       0x02 = no prints yet
 */

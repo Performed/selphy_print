@@ -708,7 +708,11 @@
 
    Sony UP-D898
 
-  This backend does not support additional commands.
+   Valid commands:
+
+     -s                 Query printer status [1]
+
+   [1] Only works on the UP-D895 family
 
   This backend does not support reporting marker levels.
 
