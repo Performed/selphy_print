@@ -444,20 +444,28 @@ struct dyesub_backend updr150_backend = {
 
   Sony UP-CL10 / DNP SL-10 spool format:
 
-60 ff ff ff
-f8 ff ff ff
-fd ff ff ff 14 00 00 00   1b 15 00 00 00 0d 00 00  00 00 00 07 00 00 00 00  WW WW HH HH
-fb ff ff ff
-f4 ff ff ff 0b 00 00 00   1b ea 00 00 00 00 SH SH  SH SH 00 SL SL SL SL
+60 ff ff ff f8 ff ff ff  fd ff ff ff
+14 00 00 00
+1b 15 00 00 00 0d 00 00  00 00 00 07 00 00 00 00  WW WW HH HH
+fb ff ff ff f4 ff ff ff
+0b 00 00 00
+1b ea 00 00 00 00 SH SH  SH SH 00 SL SL SL SL
 
  [[ Data, rows * cols * 3 bytes ]]
 
-f3 ff ff ff 0f 00 00 00   1b e5 00 00 00 08 00 00  00 00 00 00 00 00 00
-            12 00 00 00   1b e1 00 00 00 0b 00 00  80 00 00 00 00 00 WW WW  HH HH
-fa ff ff ff 09 00 00 00   1b ee 00 00 00 02 00 00  NN
-            07 00 00 00   1b 0a 00 00 00 00 00
-f9 ff ff ff
-fc ff ff ff 07 00 00 00   1b 17 00 00 00 00 00
+f3 ff ff ff
+0f 00 00 00
+1b e5 00 00 00 08 00 00  00 00 00 00 00 00 00
+12 00 00 00
+1b e1 00 00 00 0b 00 00  80 00 00 00 00 00 WW WW  HH HH
+fa ff ff ff
+09 00 00 00
+1b ee 00 00 00 02 00 00  NN
+07 00 00 00
+1b 0a 00 00 00 00 00
+f9 ff ff ff fc ff ff ff
+07 00 00 00
+1b 17 00 00 00 00 00
 f7 ff ff ff
 
  WW WW == Columns, Big Endian
@@ -481,24 +489,24 @@ f7 ff ff ff
  9c ff ff ff 97 ff ff ff  00 00 00 00 00 00 00 00  00 00 00 00 ff ff ff ff
 
  14 00 00 00
- 1b 15 00 00 00 0d 00 00  00 00 00 01 GG GG 00 00  YY YY XX XX
+ 1b 15 00 00 00  0d 00  00 00 00 00 01 GG GG 00 00 YY YY XX XX
  0b 00 00 00
- 1b ea 00 00 00 00 S' S'  S' S' 00
+ 1b ea 00 00 00  00 S' S' S' S' 00
  SS SS SS SS
  ...DATA... (rows * cols)
  ff ff ff ff
  09 00 00 00
- 1b ee 00 00 00 02 00 00  NN
+ 1b ee 00 00 00  02 00  00 NN
  0f 00 00 00
- 1b e5 00 00 00 08 00 00  00 00 00 00 00 00 00
+ 1b e5 00 00 00  08 00  00 00 00 00 00 00 00 00
  0c 00 00 00
- 1b c0 00 00 00 05 00 02  00 00 01 G'
+ 1b c0 00 00 00  05 00  02 00  00 01  G'
  11 00 00 00
- 1b c0 00 01 00 0a 00 02  01 00 06 00 00 00 00 00  00
+ 1b c0 00 01 00  0a 00  02 01  00 06  00 00 00 00 00 00
  12 00 00 00
- 1b e1 00 00 00 0b 00 00  08 00 GG GG 00 00 YY YY  XX XX
+ 1b e1 00 00 00  0b 00  00 08 00 GG GG 00 00 YY YY XX XX
  07 00 00 00
- 1b 0a 00 00 00 00 00
+ 1b 0a 00 00 00  00 00
  fd ff ff ff f7 ff ff ff  f8 ff ff ff
 
  **************
@@ -517,62 +525,51 @@ f7 ff ff ff
  Z` Z` Z` Z` == Data length (LE)
 
 
- 83 ff ff ff fc ff ff ff  fb ff ff ff f5 ff ff ff  f1 ff ff ff f0 ff ff ff  ef ff ff ff
+ 83 ff ff ff fc ff ff ff
+ fb ff ff ff f5 ff ff ff
+ f1 ff ff ff f0 ff ff ff
+ ef ff ff ff
 
- 07 00 00 00
- 1b 15 00 00 00 0d 00
- 0d 00 00 00
- 00 00 00 00 01 00 a2 00  00 YY YY XX XX
+ 14 00 00 00
+ 1b 15 00 00 00  0d 00  00 00 00 00 01 00 a2 00 00 YY YY XX XX
 
  0b 00 00 00
- 1b ea 00 00 00 00 ZZ ZZ  ZZ ZZ 00
+ 1b ea 00 00 00  00 ZZ ZZ  ZZ ZZ 00
 
  Z` Z` Z` Z`
  ...DATA...
 
  ea ff ff ff
 
- 07 00 00 00
- 1b ee 00 00 00 02 00
- 02 00 00 00
- 00 NN
+ 09 00 00 00
+ 1b ee 00 00 00  02 00  00 NN
 
  ee ff ff ff 01 00 00 00
 
- 07 00 00 00
- 1b e5 00 00 00 08 00
- 08 00 00 00
- 00 00 00 00 DD LL SS AA
+ 0e 00 00 00
+ 1b e5 00 00 00  08 00  00 00 00 00 DD LL SS AA
 
  eb ff ff ff ?? 00 00 00   <--- 02/05   5 at #3, 2 otherwise.  Sharpness?
 
- 07 00 00 00
- 1b c0 00 00 00 05 00
- 05 00 00 00
- 02 00 00 01 GG
+ 0c 00 00 00
+ 1b c0 00 00 00  05 00  02 00  00 01  GG
 
  ec ff ff ff ?? 00 00 00   <--- 01/00/02/01/01  Seen.  Unknown.
 
- 07 00 00 00
- 1b c0 00 01 00 0a 00
- 0a 00 00 00
- 02 01 00 06 00 00 00 00  00 00
+ 11 00 00 00
+ 1b c0 00 01 00  0a 00  02 01  00 06  00 00 00 00 00 00
 
  ed ff ff ff 00 00 00 00
 
- 07 00 00 00
- 1b e1 00 00 00 0b 00
- 0b 00 00 00
- 00 08 00 00 a2 00 00 YY  YY XX XX
+ 12 00 00 00
+ 1b e1 00 00 00  0b 00  00 08 00 00 a2 00 00 YY YY XX XX
 
  fa ff ff ff
 
  07 00 00 00
  1b 0a 00 00 00 00 00
 
- fc ff ff ff
- fd ff ff ff
- ff ff ff ff
+ fc ff ff ff fd ff ff ff ff ff ff ff
 
  07 00 00 00
  1b 17 00 00 00 00 00
