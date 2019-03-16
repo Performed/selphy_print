@@ -290,10 +290,10 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			/* Work out offset of copies command */
 			if (job->databuf[job->datalen] == 0x1b &&
 			    job->databuf[job->datalen + 1] == 0xee) {
-				if (ctx->type == P_SONY_UPCR10 || ctx->type == P_SONY_UPD895)
-					copies_offset = job->datalen + 8;
-				else
+				if (i == 7)
 					copies_offset = job->datalen + 12;
+				else
+					copies_offset = job->datalen + 8;
 			}
 
 			if (keep)
