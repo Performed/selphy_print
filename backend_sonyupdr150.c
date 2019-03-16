@@ -82,7 +82,7 @@ static int updr150_attach(void *vctx, struct libusb_device_handle *dev, int type
 	ctx->endp_down = endp_down;
 	ctx->type = type;
 
-	if (ctx->type == P_SONY_UPD895)
+	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897)
 		ctx->marker.color = "#000000";  /* Ie black! */
 	else
 		ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
@@ -259,6 +259,7 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			if (i == 0)
 				break;
 
+			/* Work out offset of copies command */
 			if (job->databuf[job->datalen] == 0x1b &&
 			    job->databuf[job->datalen + 1] == 0xee) {
 				if (ctx->type == P_SONY_UPCR10 || ctx->type == P_SONY_UPD895)
@@ -304,7 +305,7 @@ static int updr150_main_loop(void *vctx, const void *vjob) {
 
 top:
 	/* Check for idle, if appropriate */
-	if (ctx->type == P_SONY_UPD895) {
+	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897) {
 		ret = upd895_get_status(ctx);
 
 		if (ret)
@@ -335,7 +336,7 @@ top:
 	}
 
 	/* Check for idle, if appropriate */
-	if (ctx->type == P_SONY_UPD895) {
+	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897) {
 	retry:
 		sleep(1);
 
@@ -406,7 +407,8 @@ static int updr150_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 's':
-			if (ctx->type == P_SONY_UPD895)
+			if (ctx->type == P_SONY_UPD895 ||
+			    ctx->type == P_SONY_UPD897)
 				j = upd895_dump_status(ctx);
 			break;
 		}
@@ -424,17 +426,21 @@ static int updr150_query_markers(void *vctx, struct marker **markers, int *count
 	*markers = &ctx->marker;
 	*count = 1;
 
-	if (ctx->type == P_SONY_UPD895) {
+	if (ctx->type == P_SONY_UPD895 ||
+	    ctx->type == P_SONY_UPD897) {
 		int ret = upd895_get_status(ctx);
 
 		if (ret)
 			return CUPS_BACKEND_FAILED;
 
 		if (ctx->upd895sts[5] == 0x40 ||
-		    ctx->upd895sts[5] == 0x08)
+		    ctx->upd895sts[5] == 0x08) {
 			ctx->marker.levelnow = 0;
-		else
+			STATE("+media-empty");
+		} else {
 			ctx->marker.levelnow = -3;
+			STATE("-media-empty");
+		}
 	}
 
 
@@ -463,7 +469,7 @@ static const char *sonyupdr150_prefixes[] = {
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10/UP-D895/UP-D897",
-	.version = "0.29",
+	.version = "0.30",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.cmdline_usage = updr150_cmdline,
@@ -700,7 +706,7 @@ f7 ff ff ff
 
  ****************
 
- UP-D895 protocol:
+ UP-D895 comms protocol:
 
  <-- 1b e0 00 00 00 0e 00
  --> 0d 00 XX YY 00 SS 00 ZZ  00 00 10 00 05 00
