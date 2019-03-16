@@ -291,9 +291,9 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			if (job->databuf[job->datalen] == 0x1b &&
 			    job->databuf[job->datalen + 1] == 0xee) {
 				if (i == 7)
-					copies_offset = job->datalen + 12;
+					copies_offset = job->datalen + 11;
 				else
-					copies_offset = job->datalen + 8;
+					copies_offset = job->datalen + 7;
 			}
 
 			if (keep)
@@ -308,7 +308,9 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 
 	/* Some models specify copies in the print job */
 	if (copies_offset) {
-		job->databuf[copies_offset] = job->copies;
+		uint16_t tmp = copies;
+		tmp = cpu_to_be16(copies);
+		memcpy(job->databuf + copies_offset, &tmp, sizeof(tmp));
 		job->copies = 1;
 	}
 
@@ -497,7 +499,7 @@ static const char *sonyupdr150_prefixes[] = {
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10/UP-D895/UP-D897",
-	.version = "0.30",
+	.version = "0.31",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.cmdline_usage = updr150_cmdline,
