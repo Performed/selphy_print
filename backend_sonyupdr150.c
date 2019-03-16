@@ -41,6 +41,25 @@
 
 #include "backend_common.h"
 
+/* Printer status
+  --> 1b e0 00 00 00 00 XX 00   [[ XX is 0xe on UPD895, 0xf on others ]]
+  <-- this struct
+*/
+struct sony_updsts {
+	uint8_t  hdr[2];   /* 0x0d 0x00 */
+	uint8_t  prinitng; /* 0xe0 if printing, 0x00 otherwise */
+	uint8_t  remain;   /* Number of remaining pages */
+	uint8_t  zero1;
+	uint8_t  sts1;     /* primary status */
+	uint8_t  sts2;     /* seconday status */
+	uint8_t  sts3;     /* tertiary status */
+	uint8_t  zero2[2];
+	uint16_t max_cols; /* BE */
+	uint16_t max_rows; /* BE */
+	uint8_t  percent;  /* 0-99, if job is printing */
+} __attribute__((packed));
+
+
 /* Private data structure */
 struct updr150_printjob {
 	uint8_t *databuf;
@@ -54,7 +73,7 @@ struct updr150_ctx {
 	uint8_t endp_down;
 	int type;
 
-	uint8_t upd895sts[14];
+	uint8_t stsbuf[16];
 
 	struct marker marker;
 };
@@ -129,19 +148,28 @@ static char* upd895_statuses(uint8_t code)
 	}
 }
 
-static int upd895_get_status(struct updr150_ctx *ctx)
+static int sony_get_status(struct updr150_ctx *ctx)
 {
 	int ret, num = 0;
 	uint8_t query[7] = { 0x1b, 0xe0, 0, 0, 0, 0x0e, 0 };
+
+	if (ctx->type != P_SONY_UPD895)
+		query[5] = 0x0f;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     query, sizeof(query))))
 		return CUPS_BACKEND_FAILED;
 
-	ret = read_data(ctx->dev, ctx->endp_up, ctx->upd895sts, sizeof(ctx->upd895sts), &num);
+	ret = read_data(ctx->dev, ctx->endp_up, ctx->stsbuf, sizeof(ctx->stsbuf), &num);
 
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
+#if 0
+	if (ctx->type == P_SONY_UPD895 && ret != 14)
+		return CUPS_BACKEND_FAILED;
+	else if (ret != 15)
+		return CUPS_BACKEND_FAILED;
+#endif
 
 	return CUPS_BACKEND_OK;
 }
@@ -306,13 +334,13 @@ static int updr150_main_loop(void *vctx, const void *vjob) {
 top:
 	/* Check for idle, if appropriate */
 	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897) {
-		ret = upd895_get_status(ctx);
+		ret = sony_get_status(ctx);
 
 		if (ret)
 			return ret;
 
-		if (ctx->upd895sts[5] != 0x00) {
-			if (ctx->upd895sts[5] == 0x80) {
+		if (ctx->stsbuf[5] != 0x00) {
+			if (ctx->stsbuf[5] == 0x80) {
 				INFO("Waiting for printer idle...\n");
 				sleep(1);
 				goto top;
@@ -340,22 +368,22 @@ top:
 	retry:
 		sleep(1);
 
-		ret = upd895_get_status(ctx);
+		ret = sony_get_status(ctx);
 		if (ret)
 			return ret;
 
-		switch (ctx->upd895sts[5]) {
+		switch (ctx->stsbuf[5]) {
 		case 0x00:
 			goto done;
 		case 0x80:
 			break;
 		default:
-			ERROR("Printer error: %s (%02x)\n", upd895_statuses(ctx->upd895sts[5]),
-			      ctx->upd895sts[5]);
+			ERROR("Printer error: %s (%02x)\n", upd895_statuses(ctx->stsbuf[5]),
+			      ctx->stsbuf[5]);
 			return CUPS_BACKEND_STOP;
 		}
 
-		if (fast_return && ctx->upd895sts[3] > 0) {
+		if (fast_return && ctx->stsbuf[3] > 0) {
 			INFO("Fast return mode enabled.\n");
 		} else {
 			goto retry;
@@ -378,13 +406,13 @@ done:
 
 static int upd895_dump_status(struct updr150_ctx *ctx)
 {
-	int ret = upd895_get_status(ctx);
+	int ret = sony_get_status(ctx);
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
 
-	INFO("Printer status: %s (%02x)\n", upd895_statuses(ctx->upd895sts[5]), ctx->upd895sts[5]);
-	if (ctx->upd895sts[2] == 0x0e0 && ctx->upd895sts[5] == 0x80)
-		INFO("Remaining copies: %d\n", ctx->upd895sts[3]);
+	INFO("Printer status: %s (%02x)\n", upd895_statuses(ctx->stsbuf[5]), ctx->stsbuf[5]);
+	if (ctx->stsbuf[2] == 0x0e0 && ctx->stsbuf[5] == 0x80)
+		INFO("Remaining copies: %d\n", ctx->stsbuf[3]);
 
 	return CUPS_BACKEND_OK;
 }
@@ -428,13 +456,13 @@ static int updr150_query_markers(void *vctx, struct marker **markers, int *count
 
 	if (ctx->type == P_SONY_UPD895 ||
 	    ctx->type == P_SONY_UPD897) {
-		int ret = upd895_get_status(ctx);
+		int ret = sony_get_status(ctx);
 
 		if (ret)
 			return CUPS_BACKEND_FAILED;
 
-		if (ctx->upd895sts[5] == 0x40 ||
-		    ctx->upd895sts[5] == 0x08) {
+		if (ctx->stsbuf[5] == 0x40 ||
+		    ctx->stsbuf[5] == 0x08) {
 			ctx->marker.levelnow = 0;
 			STATE("+media-empty");
 		} else {
@@ -491,28 +519,109 @@ struct dyesub_backend updr150_backend = {
 	}
 };
 
-/* Sony UP-DR150/UP-DR200 Spool file format
+/* Sony spool file format
 
    The spool file is a series of 4-byte commands, followed by optional
    arguments.  The purpose of the commands is unknown, but they presumably
    instruct the driver to perform certain things.
 
    If you treat these 4 bytes as a 32-bit little-endian number, if any of the
-   most significant 4 bits are non-zero, the value is is to
+   least significant 4 bits are non-zero, the value is is to
    be interpreted as a driver command.  If the most significant bits are
    zero, the value signifies that the following N bytes of data should be
    sent to the printer as-is.
 
    Known driver "commands":
 
-   eb ff ff ff  ?? 00 00 00
-   ec ff ff ff  ?? 00 00 00
-   ed ff ff ff  ?? 00 00 00
-   ee ff ff ff  ?? 00 00 00
-   ef ff ff ff  XX 00 00 00   # XX == print size (0x01/0x02/0x03/0x04)
-   f5 ff ff ff  YY 00 00 00   # YY == ??? (seen 0x01)
+    97 ff ff ff
+    eb ff ff ff  ?? 00 00 00
+    ec ff ff ff  ?? 00 00 00
+    ed ff ff ff  ?? 00 00 00
+    ee ff ff ff  ?? 00 00 00
+    ef ff ff ff  XX 00 00 00   # XX == print size (0x01/0x02/0x03/0x04)
+    ef ff ff ff                # On UP-D895/897
+    f3 ff ff ff
+    f4 ff ff ff                # End of job on UP-D897
+    f5 ff ff ff  YY 00 00 00   # YY == ??? (seen 0x01)
+    f7 ff ff ff                # End of job on UP-D895
 
    All printer commands start with 0x1b, and are at least 7 bytes long.
+   General Command format:
+
+    1b XX ?? ?? ?? LL 00       # XX is cmd, LL is data or response length.
+
+   UNKNOWN QUERY
+
+ <- 1b 03 00 00 00 13 00
+ -> 70 00 00 00 00 00 00 0b  00 00 00 00 00 00 00 00
+    00 00 00
+
+   UNKNOWN CMD (UP-DR & SL)
+
+ <- 1b 0a 00 00 00 00 00
+
+   PRINT DIMENSIONS
+
+ <- 1b 15 00 00 00 0d 00
+ <- 00 00 00 00 ZZ QQ QQ WW  WW YY YY XX XX
+
+    QQ/WW/YY/XX are (origin_cols/origin_rows/cols/rows) in BE.
+    ZZ is 0x07 on UP-DR series, 0x01 on UP-D89x series.
+
+   RESET
+
+ <- 1b 16 00 00 00 00 00
+
+   UNKNOWN CMD (UP-DR & SL)
+
+ <- 1b 17 00 00 00 00 00
+
+   SET PARAM
+
+ <- 1b c0 00 NN LL 00 00    # LL is response length, NN is number.
+ <- [ NN bytes]
+
+   QUERY PARAM
+
+ <- 1b c1 00 NN LL 00 00    # LL is response length, NN is number.
+ -> [ NN bytes ]
+
+      PARAMS SEEN:
+
+    02, len 06   [ 02 02 00 03 00 00 ]
+    01, len 10   [ 02 01 00 06 00 02 00 00 00 00 ]
+    00, len 5    [ 02 01 00 01 00 ]                      GAMMA TBL SET
+
+   STATUS QUERY
+
+ <- 1b e0 00 00 00 XX 00       # XX = 0xe (UP-D895), 0xf (All others)
+ -> [14 or 15 bytes]
+
+   PRINT DIMENSIONS II
+
+ <- 1b e1 00 00 00 0b 00
+ <- 00 80 00 00 00 00 00 XX XX YY YY  # XX = cols, YY == rows
+
+   UNKNOWN
+
+ <- 1b e5 00 00 00 08 00
+ <- 00 00 00 00 00 00 00 XX  00  #  XX = 0 on UP-D89x & SL, 1 on up-dr series.
+
+   DATA TRANSFER
+
+ <- 1b ea 00 00 00 00 ZZ ZZ ZZ ZZ 00  # ZZ is BIG ENDIAN
+ <- [ ZZ ZZ ZZ ZZ bytes of data ]
+
+   UNKNOWN  (UPDR series)
+
+ <- 1b ef 00 00 00 06 00
+ -> 05 00 00 00 00 22
+
+   COPIES
+
+ <- 1b ee 00 00 00 02 00
+ <- NN NN                        # Number of copies (BE, 1-???)
+
 
   ************************************************************************
 
@@ -523,9 +632,10 @@ struct dyesub_backend updr150_backend = {
 
 [[ Sniff start of a UP-DR150 ]]
 
-<- 1b e0 00 00 00 0f 00
--> 0e 00 00 00 00 00 00 00  00 04 a8 08 0a a4 00
-
+<- 1b e0 00 00 00 0f 00   [ STATUS QUERY ]
+-> 0e 00 00 00 00 00 00 00  04 a8 08 00 0a a4 00
+                                  ----- -----
+                                  MAX_C MAX_R
 <- 1b 16 00 00 00 00 00
 -> "reset" ??
 
@@ -537,7 +647,7 @@ struct dyesub_backend updr150_backend = {
 <- 1b e5 00 00 00 08 00       ** In spool file
 <- 00 00 00 00 00 00 01 00
 
-<- 1b c1 00 02 06 00 00
+<- 1b c1 00 02 06 00 00       [ Query Param 2, length 6 ]
 -> 02 02 00 03 00 00
 
 <- 1b ee 00 00 00 02 00       ** In spool file
@@ -577,7 +687,8 @@ struct dyesub_backend updr150_backend = {
 1b 15 00 00 00 0d 00 00  00 00 00 07 00 00 00 00  WW WW HH HH
 fb ff ff ff f4 ff ff ff
 0b 00 00 00
-1b ea 00 00 00 00 SH SH  SH SH 00 SL SL SL SL
+1b ea 00 00 00 00 SH SH  SH SH 00
+SL SL SL SL
 
  [[ Data, rows * cols * 3 bytes ]]
 
@@ -670,7 +781,7 @@ f7 ff ff ff
  ea ff ff ff
 
  09 00 00 00
- 1b ee 00 00 00  02 00  00 NN
+ 1b ee 00 00 00  02 00  NN NN
 
  ee ff ff ff 01 00 00 00
 
@@ -723,4 +834,40 @@ f7 ff ff ff
   ZZ : Status2
        0x01 = Print complete
        0x02 = no prints yet
+
+ UP-D897 comms protocol:
+
+ <-- 1b e0 00 00 00 0f 00
+ --> 0e 00 XX YY 00 SS RR 01  02 02 10 00 05 00 PP
+
+  XX : 0xe0 when printing, 0x00 otherwise.
+  YY : Number of remaining copies
+  SS : Status
+       0x00 = Idle
+??       0x08 = Door open
+       0x40 = Paper empty
+       0x80 = Printing
+       ??   = Cooling down
+       ??   = Busy / Waiting
+  RR : Status 2
+       0x00 = Okay
+       0x08 = ?? Error state?
+       0x80 = Printing
+  PP : Percentage complete (0-99)
+
+Other commands seen:
+
+ <-- 1b 16 00 00 00 00 00   -- Reset
+
+ <-- 1b c1 00 01 00 0a 00   -- Query ID 1, legth 10
+ --> 02 01 00 06 00 02 00 00  00 00
+
+ <-- 1b c1 00 00 00 05 00   -- Query id 0, length 5
+ --> 02 01 00 01 03
+
+ <-- 1b e6 00 00 00 08 00
+ --> 07 00 00 00 00 00 00 00
+
+ <-- 1b 17 00 00 00 00 00   -- Unknown?
+
 */
