@@ -47,7 +47,7 @@
 */
 struct sony_updsts {
 	uint8_t  hdr[2];   /* 0x0d 0x00 */
-	uint8_t  prinitng; /* 0xe0 if printing, 0x00 otherwise */
+	uint8_t  printing; /* 0xe0 if printing, 0x00 otherwise */
 	uint8_t  remain;   /* Number of remaining pages */
 	uint8_t  zero1;
 	uint8_t  sts1;     /* primary status */
@@ -59,12 +59,15 @@ struct sony_updsts {
 	uint8_t  percent;  /* 0-99, if job is printing */
 } __attribute__((packed));
 
-
-/* Private data structure */
+/* Private data structures */
 struct updr150_printjob {
 	uint8_t *databuf;
 	int datalen;
+
 	int copies;
+	uint16_t rows;
+	uint16_t cols;
+	uint32_t imglen;
 };
 
 struct updr150_ctx {
@@ -73,11 +76,14 @@ struct updr150_ctx {
 	uint8_t endp_down;
 	int type;
 
-	uint8_t stsbuf[16];
+	int native_bpp;
+
+	struct sony_updsts stsbuf;
 
 	struct marker marker;
 };
 
+/* Now for the code */
 static void* updr150_init(void)
 {
 	struct updr150_ctx *ctx = malloc(sizeof(struct updr150_ctx));
@@ -101,10 +107,13 @@ static int updr150_attach(void *vctx, struct libusb_device_handle *dev, int type
 	ctx->endp_down = endp_down;
 	ctx->type = type;
 
-	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897)
+	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897) {
 		ctx->marker.color = "#000000";  /* Ie black! */
-	else
+		ctx->native_bpp = 1;
+	} else {
 		ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+		ctx->native_bpp = 3;
+	}
 
 	ctx->marker.name = "Unknown";
 	ctx->marker.levelmax = -1;
@@ -148,7 +157,7 @@ static char* upd895_statuses(uint8_t code)
 	}
 }
 
-static int sony_get_status(struct updr150_ctx *ctx)
+static int sony_get_status(struct updr150_ctx *ctx, struct sony_updsts *buf)
 {
 	int ret, num = 0;
 	uint8_t query[7] = { 0x1b, 0xe0, 0, 0, 0, 0x0e, 0 };
@@ -160,7 +169,8 @@ static int sony_get_status(struct updr150_ctx *ctx)
 			     query, sizeof(query))))
 		return CUPS_BACKEND_FAILED;
 
-	ret = read_data(ctx->dev, ctx->endp_up, ctx->stsbuf, sizeof(ctx->stsbuf), &num);
+	ret = read_data(ctx->dev, ctx->endp_up, (uint8_t*) buf, sizeof(*buf),
+			&num);
 
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
@@ -288,12 +298,27 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 				break;
 
 			/* Work out offset of copies command */
-			if (job->databuf[job->datalen] == 0x1b &&
-			    job->databuf[job->datalen + 1] == 0xee) {
-				if (i == 7)
-					copies_offset = job->datalen + 11;
-				else
-					copies_offset = job->datalen + 7;
+			if (job->databuf[job->datalen] == 0x1b) {
+				switch (job->databuf[job->datalen + 1]) {
+				case 0xee:
+					if (i == 7)
+						copies_offset = job->datalen + 11;
+					else
+						copies_offset = job->datalen + 7;
+					break;
+				case 0xe1:
+					memcpy(&job->cols, job->databuf + job->datalen + 14, sizeof(uint16_t));
+					memcpy(&job->rows, job->databuf + job->datalen + 16, sizeof(uint16_t));
+					job->cols = be16_to_cpu(job->cols);
+					job->rows = be16_to_cpu(job->rows);
+					break;
+				case 0xea:
+					memcpy(&job->imglen, job->databuf + job->datalen + 6, sizeof(uint32_t));
+					job->imglen = be32_to_cpu(job->imglen);
+					break;
+				default:
+					break;
+				}
 			}
 
 			if (keep)
@@ -334,22 +359,62 @@ static int updr150_main_loop(void *vctx, const void *vjob) {
 	copies = job->copies;
 
 top:
-	/* Check for idle, if appropriate */
-	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897) {
-		ret = sony_get_status(ctx);
-
+	/* Send Unknown CMD.  Resets? */
+	if (ctx->type == P_SONY_UPD897) {
+		const uint8_t cmdbuf[7] = { 0x1b, 0x1f, 0, 0, 0, 0, 0 };
+		ret = send_data(ctx->dev, ctx->endp_down,
+				cmdbuf, sizeof(cmdbuf));
 		if (ret)
-			return ret;
+			return CUPS_BACKEND_FAILED;
+	}
 
-		if (ctx->stsbuf[5] != 0x00) {
-			if (ctx->stsbuf[5] == 0x80) {
-				INFO("Waiting for printer idle...\n");
-				sleep(1);
-				goto top;
-			}
+	/* Query printer status */
+	ret = sony_get_status(ctx, &ctx->stsbuf);
+
+	if (ret)
+		return CUPS_BACKEND_FAILED;
+
+	/* Sanity check job parameters */
+	if (job->rows > ctx->stsbuf.max_rows ||
+	    job->cols > ctx->stsbuf.max_cols) {
+		ERROR("Job dimensions (%u/%u) exceed printer max (%u/%u)\n",
+		      job->cols, job->rows,
+		      ctx->stsbuf.max_cols,
+		      ctx->stsbuf.max_rows);
+		return CUPS_BACKEND_CANCEL;
+	}
+	if (job->imglen != (uint32_t)(job->rows * job->cols * ctx->native_bpp))
+	{
+		ERROR("Job data length mismatch!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* Check for idle */
+	if (ctx->stsbuf.sts1 != 0x00) {
+		if (ctx->stsbuf.sts1 == 0x80) {
+			INFO("Waiting for printer idle...\n");
+			sleep(1);
+			goto top;
 		}
 	}
 
+	/* Send RESET */
+	if (ctx->type != P_SONY_UPD895) {
+		const uint8_t rstbuf[7] = { 0x1b, 0x16, 0, 0, 0, 0, 0 };
+		ret = send_data(ctx->dev, ctx->endp_down,
+				rstbuf, sizeof(rstbuf));
+		if (ret)
+			return CUPS_BACKEND_FAILED;
+	}
+
+#if 0 /* Unknown query */
+	if (ctx->type == P_SONY_UPD897) {
+		// -> 1b e6 00 00 00 08 00
+		// <- ???
+	}
+#endif
+
+	/* Send over job */
 	i = 0;
 	while (i < job->datalen) {
 		uint32_t len;
@@ -365,27 +430,30 @@ top:
 		i += len;
 	}
 
+	// XXX generate and send copy cmd instead of using the offset.
+	// 1b ee 00 00 00 02 00  NN NN  (BE)
+
 	/* Check for idle, if appropriate */
 	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897) {
 	retry:
 		sleep(1);
 
-		ret = sony_get_status(ctx);
+		ret = sony_get_status(ctx, &ctx->stsbuf);
 		if (ret)
 			return ret;
 
-		switch (ctx->stsbuf[5]) {
+		switch (ctx->stsbuf.sts1) {
 		case 0x00:
 			goto done;
 		case 0x80:
 			break;
 		default:
-			ERROR("Printer error: %s (%02x)\n", upd895_statuses(ctx->stsbuf[5]),
-			      ctx->stsbuf[5]);
+			ERROR("Printer error: %s (%02x)\n", upd895_statuses(ctx->stsbuf.sts1),
+			      ctx->stsbuf.sts1);
 			return CUPS_BACKEND_STOP;
 		}
 
-		if (fast_return && ctx->stsbuf[3] > 0) {
+		if (fast_return && ctx->stsbuf.printing > 0) {
 			INFO("Fast return mode enabled.\n");
 		} else {
 			goto retry;
@@ -408,13 +476,16 @@ done:
 
 static int upd895_dump_status(struct updr150_ctx *ctx)
 {
-	int ret = sony_get_status(ctx);
+	int ret = sony_get_status(ctx, &ctx->stsbuf);
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
 
-	INFO("Printer status: %s (%02x)\n", upd895_statuses(ctx->stsbuf[5]), ctx->stsbuf[5]);
-	if (ctx->stsbuf[2] == 0x0e0 && ctx->stsbuf[5] == 0x80)
-		INFO("Remaining copies: %d\n", ctx->stsbuf[3]);
+	ctx->stsbuf.max_cols = be16_to_cpu(ctx->stsbuf.max_cols);
+	ctx->stsbuf.max_rows = be16_to_cpu(ctx->stsbuf.max_rows);
+
+	INFO("Printer status: %s (%02x)\n", upd895_statuses(ctx->stsbuf.sts1), ctx->stsbuf.sts1);
+	if (ctx->stsbuf.printing == 0x0e0 && ctx->stsbuf.sts1 == 0x80)
+		INFO("Remaining copies: %d\n", ctx->stsbuf.remain);
 
 	return CUPS_BACKEND_OK;
 }
@@ -458,13 +529,13 @@ static int updr150_query_markers(void *vctx, struct marker **markers, int *count
 
 	if (ctx->type == P_SONY_UPD895 ||
 	    ctx->type == P_SONY_UPD897) {
-		int ret = sony_get_status(ctx);
+		int ret = sony_get_status(ctx, &ctx->stsbuf);
 
 		if (ret)
 			return CUPS_BACKEND_FAILED;
 
-		if (ctx->stsbuf[5] == 0x40 ||
-		    ctx->stsbuf[5] == 0x08) {
+		if (ctx->stsbuf.sts1 == 0x40 ||
+		    ctx->stsbuf.sts1 == 0x08) {
 			ctx->marker.levelnow = 0;
 			STATE("+media-empty");
 		} else {
@@ -499,7 +570,7 @@ static const char *sonyupdr150_prefixes[] = {
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10/UP-D895/UP-D897",
-	.version = "0.31",
+	.version = "0.32",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.cmdline_usage = updr150_cmdline,
@@ -578,6 +649,10 @@ struct dyesub_backend updr150_backend = {
 
  <- 1b 17 00 00 00 00 00
 
+   UNKNOWN CMD (UP-D897)
+
+ <- 1b 1f 00 00 00 00 00
+
    SET PARAM
 
  <- 1b c0 00 NN LL 00 00    # LL is response length, NN is number.
@@ -591,15 +666,15 @@ struct dyesub_backend updr150_backend = {
       PARAMS SEEN:
 
     02, len 06   [ 02 02 00 03 00 00 ]
-    01, len 10   [ 02 01 00 06 00 02 00 00 00 00 ]
-    00, len 5    [ 02 01 00 01 00 ]                      GAMMA TBL SET
+    01, len 10   [ 02 01 00 06 00 02 00 00 00 00 ]    (UP-D897)
+    00, len 5    [ 02 01 00 01 XX ]                   XX == Gamma table
 
    STATUS QUERY
 
  <- 1b e0 00 00 00 XX 00       # XX = 0xe (UP-D895), 0xf (All others)
  -> [14 or 15 bytes]
 
-   PRINT DIMENSIONS II
+   PRINT DIMENSIONS  [[ May actually be PRINT START command ]]
 
  <- 1b e1 00 00 00 0b 00
  <- 00 80 00 00 00 00 00 XX XX YY YY  # XX = cols, YY == rows
@@ -608,6 +683,11 @@ struct dyesub_backend updr150_backend = {
 
  <- 1b e5 00 00 00 08 00
  <- 00 00 00 00 00 00 00 XX  00  #  XX = 0 on UP-D89x & SL, 1 on up-dr series.
+
+   UNKNOWN  (UP-D897)
+
+ <- 1b e6 00 00 00 08 00
+ <- 07 00 00 00 00 00 00 00
 
    DATA TRANSFER
 

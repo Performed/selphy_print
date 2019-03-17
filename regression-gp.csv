@@ -138,6 +138,10 @@ sony-updr200,sonyupdr200,0x054c,0x035f,,PageSize=w360h504
 sony-updr200,sonyupdr200,0x054c,0x035f,,PageSize=w360h504-div2
 sony-updr200,sonyupdr200,0x054c,0x035f,,PageSize=B7,StpLaminate=Glossy
 sony-updr200,sonyupdr200,0x054c,0x035f,,PageSize=B7,StpLaminate=Matte
+sony-up895,sonyup-895,0x054c,0x0049,,PageSize=w213h284
+sony-up895,sonyup-895,0x054c,0x0049,,PageSize=w907h284
+sony-up897,sonyup-897,0x054c,0x01e7,,PageSize=w213h284
+sony-up897,sonyup-897,0x054c,0x01e7,,PageSize=w907h284
 #
 mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w213h284
 mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w227h284
