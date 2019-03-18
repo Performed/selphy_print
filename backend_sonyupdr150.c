@@ -160,10 +160,10 @@ static char* upd895_statuses(uint8_t code)
 static int sony_get_status(struct updr150_ctx *ctx, struct sony_updsts *buf)
 {
 	int ret, num = 0;
-	uint8_t query[7] = { 0x1b, 0xe0, 0, 0, 0, 0x0e, 0 };
+	uint8_t query[7] = { 0x1b, 0xe0, 0, 0, 0, 0x0f, 0 };
 
-	if (ctx->type != P_SONY_UPD895)
-		query[5] = 0x0f;
+	if (ctx->type == P_SONY_UPD895)
+		query[5] = 0x0e;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     query, sizeof(query))))
@@ -339,6 +339,13 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		job->copies = 1;
 	}
 
+	/* Sanity check job parameters */
+	if (job->imglen != (uint32_t)(job->rows * job->cols * ctx->native_bpp))
+	{
+		ERROR("Job data length mismatch!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+
 	*vjob = job;
 
 	return CUPS_BACKEND_OK;
@@ -381,11 +388,6 @@ top:
 		      job->cols, job->rows,
 		      ctx->stsbuf.max_cols,
 		      ctx->stsbuf.max_rows);
-		return CUPS_BACKEND_CANCEL;
-	}
-	if (job->imglen != (uint32_t)(job->rows * job->cols * ctx->native_bpp))
-	{
-		ERROR("Job data length mismatch!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -433,31 +435,30 @@ top:
 	// XXX generate and send copy cmd instead of using the offset.
 	// 1b ee 00 00 00 02 00  NN NN  (BE)
 
-	/* Check for idle, if appropriate */
-	if (ctx->type == P_SONY_UPD895 || ctx->type == P_SONY_UPD897) {
-	retry:
-		sleep(1);
+	/* Wait for completion! */
+retry:
+	sleep(1);
 
-		ret = sony_get_status(ctx, &ctx->stsbuf);
-		if (ret)
-			return ret;
+	/* Check for idle */
+	ret = sony_get_status(ctx, &ctx->stsbuf);
+	if (ret)
+		return ret;
 
-		switch (ctx->stsbuf.sts1) {
-		case 0x00:
-			goto done;
-		case 0x80:
-			break;
-		default:
-			ERROR("Printer error: %s (%02x)\n", upd895_statuses(ctx->stsbuf.sts1),
-			      ctx->stsbuf.sts1);
-			return CUPS_BACKEND_STOP;
-		}
+	switch (ctx->stsbuf.sts1) {
+	case 0x00:
+		goto done;
+	case 0x80:
+		break;
+	default:
+		ERROR("Printer error: %s (%02x)\n", upd895_statuses(ctx->stsbuf.sts1),
+		      ctx->stsbuf.sts1);
+		return CUPS_BACKEND_STOP;
+	}
 
-		if (fast_return && ctx->stsbuf.printing > 0) {
-			INFO("Fast return mode enabled.\n");
-		} else {
-			goto retry;
-		}
+	if (fast_return && ctx->stsbuf.printing > 0) {
+		INFO("Fast return mode enabled.\n");
+	} else {
+		goto retry;
 	}
 
 	/* Clean up */
@@ -508,9 +509,7 @@ static int updr150_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 's':
-			if (ctx->type == P_SONY_UPD895 ||
-			    ctx->type == P_SONY_UPD897)
-				j = upd895_dump_status(ctx);
+			j = upd895_dump_status(ctx);
 			break;
 		}
 
@@ -523,28 +522,22 @@ static int updr150_cmdline_arg(void *vctx, int argc, char **argv)
 static int updr150_query_markers(void *vctx, struct marker **markers, int *count)
 {
 	struct updr150_ctx *ctx = vctx;
+	int ret = sony_get_status(ctx, &ctx->stsbuf);
 
 	*markers = &ctx->marker;
 	*count = 1;
 
-	if (ctx->type == P_SONY_UPD895 ||
-	    ctx->type == P_SONY_UPD897) {
-		int ret = sony_get_status(ctx, &ctx->stsbuf);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
 
-		if (ret)
-			return CUPS_BACKEND_FAILED;
-
-		if (ctx->stsbuf.sts1 == 0x40 ||
-		    ctx->stsbuf.sts1 == 0x08) {
-			ctx->marker.levelnow = 0;
-			STATE("+media-empty");
-		} else {
-			ctx->marker.levelnow = -3;
-			STATE("-media-empty");
-		}
+	if (ctx->stsbuf.sts1 == 0x40 ||
+	    ctx->stsbuf.sts1 == 0x08) {
+		ctx->marker.levelnow = 0;
+		STATE("+media-empty");
+	} else {
+		ctx->marker.levelnow = -3;
+		STATE("-media-empty");
 	}
-
-
 
 	return CUPS_BACKEND_OK;
 }
@@ -570,7 +563,7 @@ static const char *sonyupdr150_prefixes[] = {
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10/UP-D895/UP-D897",
-	.version = "0.32",
+	.version = "0.33",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.cmdline_usage = updr150_cmdline,
