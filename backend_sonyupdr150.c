@@ -190,6 +190,8 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 	struct updr150_ctx *ctx = vctx;
 	int len, run = 1;
 	uint32_t copies_offset = 0;
+	uint32_t param_offset = 0;
+	uint32_t data_offset = 0;
 
 	struct updr150_printjob *job = NULL;
 
@@ -299,22 +301,19 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 
 			/* Work out offset of copies command */
 			if (job->databuf[job->datalen] == 0x1b) {
+				int offset = 0;
+				if (i == 7)
+					offset = 4;
+
 				switch (job->databuf[job->datalen + 1]) {
 				case 0xee:
-					if (i == 7)
-						copies_offset = job->datalen + 11;
-					else
-						copies_offset = job->datalen + 7;
+					copies_offset = job->datalen + 7 + offset;
 					break;
-				case 0xe1:
-					memcpy(&job->cols, job->databuf + job->datalen + 14, sizeof(uint16_t));
-					memcpy(&job->rows, job->databuf + job->datalen + 16, sizeof(uint16_t));
-					job->cols = be16_to_cpu(job->cols);
-					job->rows = be16_to_cpu(job->rows);
+				case 0x15:
+					param_offset = job->datalen + 16 + offset;
 					break;
 				case 0xea:
-					memcpy(&job->imglen, job->databuf + job->datalen + 6, sizeof(uint32_t));
-					job->imglen = be32_to_cpu(job->imglen);
+					data_offset = job->datalen + 6 + offset;
 					break;
 				default:
 					break;
@@ -339,10 +338,23 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		job->copies = 1;
 	}
 
+	/* Parse some other stuff */
+	if (param_offset) {
+		memcpy(&job->cols, job->databuf + param_offset, sizeof(uint16_t));
+		memcpy(&job->rows, job->databuf + param_offset + 2, sizeof(uint16_t));
+		job->cols = be16_to_cpu(job->cols);
+		job->rows = be16_to_cpu(job->rows);
+	}
+	if (data_offset) {
+		memcpy(&job->imglen, job->databuf + data_offset, sizeof(uint32_t));
+		job->imglen = be32_to_cpu(job->imglen);
+	}
+
 	/* Sanity check job parameters */
 	if (job->imglen != (uint32_t)(job->rows * job->cols * ctx->native_bpp))
 	{
-		ERROR("Job data length mismatch!\n");
+		ERROR("Job data length mismatch (%u vs %u)!\n",
+		      job->imglen, job->rows * job->cols * ctx->native_bpp);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -563,7 +575,7 @@ static const char *sonyupdr150_prefixes[] = {
 
 struct dyesub_backend updr150_backend = {
 	.name = "Sony UP-DR150/UP-DR200/UP-CR10/UP-D895/UP-D897",
-	.version = "0.33",
+	.version = "0.34",
 	.uri_prefixes = sonyupdr150_prefixes,
 	.cmdline_arg = updr150_cmdline_arg,
 	.cmdline_usage = updr150_cmdline,
@@ -616,7 +628,7 @@ struct dyesub_backend updr150_backend = {
 
     1b XX ?? ?? ?? LL 00       # XX is cmd, LL is data or response length.
 
-   UNKNOWN QUERY
+   UNKNOWN QUERY  [possibly media?]
 
  <- 1b 03 00 00 00 13 00
  -> 70 00 00 00 00 00 00 0b  00 00 00 00 00 00 00 00
@@ -657,7 +669,7 @@ struct dyesub_backend updr150_backend = {
  -> [ NN bytes ]
 
       PARAMS SEEN:
-
+    03, len 5    [ 02 03 00 01 XX ]                   (UPDR200, 00 = normal, 02 is multicut/div2 print, 01 seen at end of stream too..
     02, len 06   [ 02 02 00 03 00 00 ]
     01, len 10   [ 02 01 00 06 00 02 00 00 00 00 ]    (UP-D897)
     00, len 5    [ 02 01 00 01 XX ]                   XX == Gamma table
@@ -665,7 +677,7 @@ struct dyesub_backend updr150_backend = {
    STATUS QUERY
 
  <- 1b e0 00 00 00 XX 00       # XX = 0xe (UP-D895), 0xf (All others)
- -> [14 or 15 bytes]
+ -> [14 or 15 bytes, see 'struct sony_updsts' ]
 
    PRINT DIMENSIONS  [[ May actually be PRINT START command ]]
 
@@ -675,7 +687,7 @@ struct dyesub_backend updr150_backend = {
    UNKNOWN
 
  <- 1b e5 00 00 00 08 00
- <- 00 00 00 00 00 00 00 XX  00  #  XX = 0 on UP-D89x & SL, 1 on up-dr series.
+ <- 00 00 00 00 00 00 00 01  00  #  XX = 0 on UP-D89x & SL, UP-DR200 has 1 on single-cut, 2 on dual-cut?
 
    UNKNOWN  (UP-D897)
 
