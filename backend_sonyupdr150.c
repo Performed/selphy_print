@@ -306,11 +306,14 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 					offset = 4;
 
 				switch (job->databuf[job->datalen + 1]) {
+				case 0x15: /* Print dimensions */
+					param_offset = job->datalen + 16 + offset;
+					break;
 				case 0xee:
 					copies_offset = job->datalen + 7 + offset;
 					break;
-				case 0x15:
-					param_offset = job->datalen + 16 + offset;
+				case 0xe1: /* Image dimensions */
+					param_offset = job->datalen + 14 + offset;
 					break;
 				case 0xea:
 					data_offset = job->datalen + 6 + offset;
@@ -634,7 +637,7 @@ struct dyesub_backend updr150_backend = {
  -> 70 00 00 00 00 00 00 0b  00 00 00 00 00 00 00 00
     00 00 00
 
-   UNKNOWN CMD (UP-DR & SL)
+   UNKNOWN CMD (UP-DR & SL10 & UP-D895)
 
  <- 1b 0a 00 00 00 00 00
 
@@ -650,11 +653,11 @@ struct dyesub_backend updr150_backend = {
 
  <- 1b 16 00 00 00 00 00
 
-   UNKNOWN CMD (UP-DR & SL)
+   UNKNOWN CMD (UP-DR & SL & UP-D897, may be PRINT START?)
 
  <- 1b 17 00 00 00 00 00
 
-   UNKNOWN CMD (UP-D897)
+   UNKNOWN CMD
 
  <- 1b 1f 00 00 00 00 00
 
@@ -679,7 +682,7 @@ struct dyesub_backend updr150_backend = {
  <- 1b e0 00 00 00 XX 00       # XX = 0xe (UP-D895), 0xf (All others)
  -> [14 or 15 bytes, see 'struct sony_updsts' ]
 
-   PRINT DIMENSIONS  [[ May actually be PRINT START command ]]
+   IMAGE DIMENSIONS
 
  <- 1b e1 00 00 00 0b 00
  <- 00 80 00 00 00 00 00 XX XX YY YY  # XX = cols, YY == rows
@@ -687,7 +690,7 @@ struct dyesub_backend updr150_backend = {
    UNKNOWN
 
  <- 1b e5 00 00 00 08 00
- <- 00 00 00 00 00 00 00 01  00  #  XX = 0 on UP-D89x & SL, UP-DR200 has 1 on single-cut, 2 on dual-cut?
+ <- 00 00 00 00 00 00 00 01  00
 
    UNKNOWN  (UP-D897)
 
