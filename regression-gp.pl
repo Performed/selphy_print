@@ -143,6 +143,11 @@ if ($proc_count > 1 && $kid > 0) {
 	$ENV{"PPD"} = $ppd_fname;
 	$ENV{"DEVICE_URI"} = "gutenprint53+usb://$row[0]/12345678";
 
+	if (!$quiet) {
+	    print "PPD=$ENV{PPD}\n";
+	    print "DEVICE_URI=$ENV{DEVICE_URI}\n";
+	}
+
 	@args = ("/usr/sbin/cups-genppd.5.3", "-p", $work_dir, "-Z", "-q", $gp_name);
 	if (!$quiet) {
 	    print join(":", @args) . "\n";
