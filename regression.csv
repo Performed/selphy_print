@@ -94,12 +94,13 @@ hitip910,0x0d16,0x000e,shinko_s6245_8x10.raw,0x11
 # 'sonyupdr150'
 #
 #sonyupcr10,0x054c,0x0226,file_fixme,
-sonyupdr150,0x054c,0x01e8,sony_updr150_4x6.raw,
-sonyupdr150,0x054c,0x01e8,sony_updr150_8x6.raw,
-sonyupdr200,0x054c,0x035f,sony_updr200_2x6.raw,
-sonyupdr200,0x054c,0x035f,sony_updr200_4x6.raw,
-sony-upd895,0x054c,0x0049,sony-895-1280x960.raw,
-sony-upd897,0x054c,0x01e7,sony-897-1280x960.raw,
+sonyupdr150,0x054c,0x01e8,sony_updr150_4x6.raw, 
+sonyupdr150,0x054c,0x01e8,sony_updr150_8x6.raw, 
+sonyupdr200,0x054c,0x035f,sony_updr200_2x6.raw, 
+sonyupdr200,0x054c,0x035f,sony_updr200_4x6.raw, 
+sony-upd895,0x054c,0x0049,sony-895-1280x960.raw, 
+sony-upd897,0x054c,0x01e7,sony_upd897-1280x960.raw,
+sony-upd897,0x054c,0x01e7,sony_upd897-1280x1280.raw,
 #
 # 'mitsu9xxx'  [9810/9820 need MATTE job]
 #
