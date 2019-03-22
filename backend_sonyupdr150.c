@@ -293,6 +293,13 @@ static int updr150_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		if (keep)
 			job->datalen += sizeof(uint32_t);
 
+		/* Make sure we're not too large */
+		if (job->datalen + len > MAX_PRINTJOB_LEN) {
+			ERROR("Buffer overflow when parsing printjob! (%d+%d)\n",
+			      job->datalen, len);
+			return CUPS_BACKEND_CANCEL;
+		}
+
 		/* Read in the data chunk */
 		while(len > 0) {
 			i = read(data_fd, job->databuf + job->datalen, len);
