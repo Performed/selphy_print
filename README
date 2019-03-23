@@ -685,12 +685,12 @@
     [3]  Default printer tone curve is a linear 'val << 3'
 
  ***************************************************************************
-  BACKEND=sonyupdr150
+  BACKEND=sonyupd
 
    Additional model IDs recognized:
-
-     sony-updr150 sony-updr200 sony-upcr10l sonyupdr200 sonyupcr10
+     sony-updr150 sony-updr200 sony-upcr10l
      sony-upd895 sony-upd897
+     sonyupdr150 sonyupdr200 sonyupcr10
 
    Verified supported printers:
 
@@ -710,9 +710,7 @@
 
    Valid commands:
 
-     -s                 Query printer status [1]
-
-   [1] Only works on the UP-D895 family
+     -s                 Query printer status
 
   This backend does not support reporting marker levels.
 
