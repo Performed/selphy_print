@@ -46,14 +46,16 @@
   <-- this struct
 */
 struct sony_updsts {
-	uint8_t  hdr[2];   /* 0x0d 0x00 */
+	uint8_t  len;      /* 0x0d/0x0e (ie number of bytes AFTER this one) */
+	uint8_t  zero1;    /* 0x00 */
 	uint8_t  printing; /* 0xe0 if printing, 0x00 otherwise */
 	uint8_t  remain;   /* Number of remaining pages */
-	uint8_t  zero1;
+	uint8_t  zero2;
 	uint8_t  sts1;     /* primary status */
 	uint8_t  sts2;     /* seconday status */
 	uint8_t  sts3;     /* tertiary status */
-	uint8_t  zero2[2];
+	uint8_t  zero3;
+	uint8_t  zero4;
 	uint16_t max_cols; /* BE */
 	uint16_t max_rows; /* BE */
 	uint8_t  percent;  /* 0-99, if job is printing */
@@ -720,7 +722,6 @@ struct dyesub_backend sonyupd_backend = {
 
  <- 1b ee 00 00 00 02 00
  <- NN NN                        # Number of copies (BE, 1-???)
-
 
   ************************************************************************
 
