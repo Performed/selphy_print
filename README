@@ -43,6 +43,7 @@
    Shinko CHC-S1245 (aka Sinfonia E1)
    Shinko CHC-S2145 (aka Sinfonia S2)
    Shinko CHC-S6145 (aka Sinfonia CS2)
+   Sony UP-CR10L (aka DNP DS-SL10)
    Sony UP-DR150
    Sony UP-DR200
    Sony UP-D895
@@ -71,7 +72,6 @@
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Olmec OP900
    Shinko CHC-S6245 (aka Sinfonia CE1)
-   Sony UP-CR10L (aka DNP DS-SL10)
    Sony UP-D898
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
    Magicard Rio 2E (and other Magicard models)
@@ -698,17 +698,17 @@
     Sony UP-DR200
     Sony UP-D895
     Sony UP-D897
+    Sony UP-CR10L
 
   Unverified/untested, but should work:
 
-   Sony UP-CR10L
-   DNP DS-SL10
+    DNP DS-SL10
 
   Work-in-progress printers:
 
-   Sony UP-D898
+    Sony UP-D898
 
-   Valid commands:
+  Valid commands:
 
      -s                 Query printer status
 
