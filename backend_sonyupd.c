@@ -54,7 +54,7 @@ struct sony_updsts {
 	uint8_t  sts1;     /* primary status */
 	uint8_t  sts2;     /* seconday status */
 	uint8_t  sts3;     /* tertiary status */
-	uint8_t  zero3;
+	uint8_t  zero3;    /* seen 0x04 + 0xa0 (ie 1184) on UP-CR10L */
 	uint8_t  zero4;
 	uint16_t max_cols; /* BE */
 	uint16_t max_rows; /* BE */
