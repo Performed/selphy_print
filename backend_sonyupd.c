@@ -701,7 +701,7 @@ struct dyesub_backend sonyupd_backend = {
    UNKNOWN
 
  <- 1b e5 00 00 00 08 00
- <- 00 00 00 00 00 00 00 01  00
+ <- 00 00 00 00 00 00 00 XX  00  # Seen 01, 12, 0d, etc.
 
    UNKNOWN  (UP-D897)
 
