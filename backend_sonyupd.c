@@ -54,8 +54,7 @@ struct sony_updsts {
 	uint8_t  sts1;     /* primary status */
 	uint8_t  sts2;     /* seconday status */
 	uint8_t  sts3;     /* tertiary status */
-	uint8_t  zero3;    /* seen 0x04 + 0xa0 (ie 1184) on UP-CR10L */
-	uint8_t  zero4;
+	uint16_t unk;      /* seen 0x04a0 UP-CR10L, 0x04a8 on UP-DR150 */
 	uint16_t max_cols; /* BE */
 	uint16_t max_rows; /* BE */
 	uint8_t  percent;  /* 0-99, if job is printing */
@@ -142,6 +141,28 @@ static void upd_teardown(void *vctx) {
 
 	free(ctx);
 }
+
+// UP-DR200
+// 2UPC-R203  3.5x5  (770)
+// 2UPC-R204  4x6    (700)
+// 2UPC-R205  5x7    (400)
+// 2UPC-R206  6x8    (350)
+
+// UP-DR150
+// 2UPC-R153         (610)
+// 2UPC-R154         (550)
+// 2UPC-R155         (335)
+// 2UPC-R156         (295)
+
+// UP-CR10L
+// 2UPC-C13          (300)
+// 2UPC-C14          (200)
+// 2UPC-C15          (172)
+
+// print order:  ->YMCO->
+// current prints (power on)
+// total prints (lifetime)
+// f/w version
 
 static char* upd895_statuses(uint8_t code)
 {
@@ -648,7 +669,7 @@ struct dyesub_backend sonyupd_backend = {
  -> 70 00 00 00 00 00 00 0b  00 00 00 00 00 00 00 00
     00 00 00
 
-   UNKNOWN CMD (UP-DR & SL10 & UP-D895)
+   UNKNOWN CMD (UP-DR & SL10 & UP-D895 & UP-DP10)  [ possibly START ]
 
  <- 1b 0a 00 00 00 00 00
 
@@ -693,10 +714,10 @@ struct dyesub_backend sonyupd_backend = {
  <- 1b e0 00 00 00 XX 00       # XX = 0xe (UP-D895), 0xf (All others)
  -> [14 or 15 bytes, see 'struct sony_updsts' ]
 
-   IMAGE DIMENSIONS
+   IMAGE DIMENSIONS & OVERCOAT
 
  <- 1b e1 00 00 00 0b 00
- <- 00 80 00 00 00 00 00 XX XX YY YY  # XX = cols, YY == rows
+ <- 00 ZZ QQ 00 00 00 00 XX XX YY YY  # XX = cols, YY == rows, ZZ == 0x04 on UP-DP10, otherwise 0x80. QQ == 00 glossy, 08 texture (UP-DP10 + UP-DR150), 0c matte, +0x10 for "nocorrection" on UP-DR200..
 
    UNKNOWN
 
