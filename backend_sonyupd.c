@@ -48,17 +48,29 @@
 struct sony_updsts {
 	uint8_t  len;      /* 0x0d/0x0e (ie number of bytes AFTER this one) */
 	uint8_t  zero1;    /* 0x00 */
-	uint8_t  printing; /* 0xe0 if printing, 0x00 otherwise */
+	uint8_t  printing; /* UPD_PRINTING_* */
 	uint8_t  remain;   /* Number of remaining pages */
 	uint8_t  zero2;
-	uint8_t  sts1;     /* primary status */
+	uint8_t  sts1;     /* UPD_STS1_* */
 	uint8_t  sts2;     /* seconday status */
 	uint8_t  sts3;     /* tertiary status */
 	uint16_t unk;      /* seen 0x04a0 UP-CR10L, 0x04a8 on UP-DR150 */
 	uint16_t max_cols; /* BE */
 	uint16_t max_rows; /* BE */
-	uint8_t  percent;  /* 0-99, if job is printing */
+	uint8_t  percent;  /* 0-99, if job is printing (UP-D89x) */
 } __attribute__((packed));
+
+#define UPD_PRINTING_BW    0xe0  /* UPD-895/897 only */
+#define UPD_PRINTING_Y     0x40
+#define UPD_PRINTING_M     0x80
+#define UPD_PRINTING_C     0xc0
+#define UPD_PRINTING_O     0x20
+#define UPD_PRINTING_IDLE  0x00
+
+#define UPD_STS1_IDLE      0x00
+#define UPD_STS1_DOOROPEN  0x08
+#define UPD_STS1_NOPAPER   0x40
+#define UPD_STS1_PRINTING  0x80
 
 /* Private data structures */
 struct upd_printjob {
@@ -154,11 +166,6 @@ static void upd_teardown(void *vctx) {
 // 2UPC-R155         (335)
 // 2UPC-R156         (295)
 
-// UP-CR10L
-// 2UPC-C13          (300)
-// 2UPC-C14          (200)
-// 2UPC-C15          (172)
-
 // print order:  ->YMCO->
 // current prints (power on)
 // total prints (lifetime)
@@ -167,14 +174,14 @@ static void upd_teardown(void *vctx) {
 static char* upd895_statuses(uint8_t code)
 {
 	switch (code) {
-	case 0x00:
+	case UPD_STS1_IDLE:
 		return "Idle";
-	case 0x08:
+	case UPD_STS1_DOOROPEN:
 		return "Door open";
-	case 0x40:
+	case UPD_STS1_NOPAPER:
 		return "No paper";
-	case 0x80:
-		return "Idle";
+	case UPD_STS1_PRINTING:
+		return "Printing";
 	default:
 		return "Unknown";
 	}
@@ -494,9 +501,9 @@ retry:
 		return ret;
 
 	switch (ctx->stsbuf.sts1) {
-	case 0x00:
+	case UPD_STS1_IDLE:
 		goto done;
-	case 0x80:
+	case UPD_STS1_PRINTING:
 		break;
 	default:
 		ERROR("Printer error: %s (%02x)\n", upd895_statuses(ctx->stsbuf.sts1),
@@ -504,7 +511,7 @@ retry:
 		return CUPS_BACKEND_STOP;
 	}
 
-	if (fast_return && ctx->stsbuf.printing > 0) {
+	if (fast_return && ctx->stsbuf.printing != UPD_PRINTING_IDLE) {
 		INFO("Fast return mode enabled.\n");
 	} else {
 		goto retry;
@@ -531,7 +538,8 @@ static int upd895_dump_status(struct upd_ctx *ctx)
 		return CUPS_BACKEND_FAILED;
 
 	INFO("Printer status: %s (%02x)\n", upd895_statuses(ctx->stsbuf.sts1), ctx->stsbuf.sts1);
-	if (ctx->stsbuf.printing == 0x0e0 && ctx->stsbuf.sts1 == 0x80)
+	if (ctx->stsbuf.printing != UPD_PRINTING_IDLE &&
+	    ctx->stsbuf.sts1 == UPD_STS1_PRINTING)
 		INFO("Remaining copies: %d\n", ctx->stsbuf.remain);
 
 	return CUPS_BACKEND_OK;
@@ -609,7 +617,7 @@ static const char *sonyupd_prefixes[] = {
 
 struct dyesub_backend sonyupd_backend = {
 	.name = "Sony UP-D",
-	.version = "0.35",
+	.version = "0.36",
 	.uri_prefixes = sonyupd_prefixes,
 	.cmdline_arg = upd_cmdline_arg,
 	.cmdline_usage = upd_cmdline,
@@ -988,5 +996,23 @@ Other commands seen:
  --> 07 00 00 00 00 00 00 00
 
  <-- 1b 17 00 00 00 00 00   -- Unknown?
+
+   UP-CR10L
+
+   2UPC-C13          (300)
+   2UPC-C14          (200)
+   2UPC-C15          (172)
+
+ Status progression when printing:
+
+ 0e 00 00 00 00 00 00 00 04 a0 04 e0 07 38 00
+ 0e 00 00 01 00 80 00 01 04 a0 04 e0 07 38 64
+ 0e 00 40 01 00 80 00 01 04 a0 04 e0 07 38 64  <-- Y
+ 0e 00 80 01 00 80 00 01 04 a0 04 e0 07 38 64  <-- M
+ 0e 00 c0 01 00 80 00 01 04 a0 04 e0 07 38 64  <-- C
+ 0e 00 20 01 00 80 00 01 04 a0 04 e0 07 38 64  <-- O
+ 0e 00 20 01 00 80 00 01 04 a0 04 e0 07 38 00
+ 0e 00 00 01 00 80 00 01 04 a0 04 e0 07 38 00
+ 0e 00 00 00 00 00 00 00 04 a0 04 e0 07 38 00
 
 */
