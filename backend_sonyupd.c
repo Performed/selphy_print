@@ -606,7 +606,6 @@ static const char *sonyupd_prefixes[] = {
 #define USB_PID_SONY_UPCR10  0x0226
 #define USB_PID_SONY_UPD895  0x0049
 #define USB_PID_SONY_UPD897  0x01E7
-//#define USB_PID_SONY_UPD898 XXXXX // 0x589a?
 
 struct dyesub_backend sonyupd_backend = {
 	.name = "Sony UP-D",
@@ -627,7 +626,6 @@ struct dyesub_backend sonyupd_backend = {
 		{ USB_VID_SONY, USB_PID_SONY_UPCR10, P_SONY_UPCR10, NULL, "sony-upcr10l"},
 		{ USB_VID_SONY, USB_PID_SONY_UPD895, P_SONY_UPD895, NULL, "sonyupd895"},
 		{ USB_VID_SONY, USB_PID_SONY_UPD897, P_SONY_UPD897, NULL, "sony-upd897"},
-//		{ USB_VID_SONY, USB_PID_SONY_UPD898MD, P_SONY_UPD89x, NULL, "sonyupd898"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
