@@ -72,9 +72,9 @@
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
    Olmec OP900
    Shinko CHC-S6245 (aka Sinfonia CE1)
-   Sony UP-D898
-   Sony UP-CR20L
-   Sony UP-DR80MD
+   Sony UP-D898 series
+   Sony UP-CR20L (aka DNP DS-SL20)
+   Sony UP-DR80 series
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
    Magicard Rio 2E (and other Magicard models)
 
@@ -717,11 +717,11 @@
 
    Additional model IDs recognized:
      sony-upcr20l sony-upd898
-     sony-updr80md dnp-sl20
+     sony-updr80 dnp-sl20
 
   Work-in-progress printers (Lack USB PIDs)
 
-    Sony UP-D898 / UP-DX898
+    Sony UP-D898 / UP-X898
     Sony UP-CR20L
     Sony UP-DR80MD
     DNP DS-SL20
