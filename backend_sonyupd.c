@@ -300,13 +300,13 @@ static int upd_read_parse(void *vctx, const void **vjob, int data_fd, int copies
 				}
 				/* Intentional Fallthrough */
 			case 0xffffffeb:
-			case 0xffffffec:
 			case 0xffffffee:
 			case 0xfffffff5:
 				if(dyesub_debug)
 					DEBUG("Block ID '%08x' (len %d)\n", len, 4);
 				len = 4;
 				break;
+			case 0xffffffec:
 			default:
 				if(dyesub_debug)
 					DEBUG("Block ID '%08x' (len %d)\n", len, 0);
@@ -617,7 +617,7 @@ static const char *sonyupd_prefixes[] = {
 
 struct dyesub_backend sonyupd_backend = {
 	.name = "Sony UP-D",
-	.version = "0.36",
+	.version = "0.37",
 	.uri_prefixes = sonyupd_prefixes,
 	.cmdline_arg = upd_cmdline_arg,
 	.cmdline_usage = upd_cmdline,
