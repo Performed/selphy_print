@@ -151,6 +151,12 @@ sony-upd898,sony-upd898,0x054c,0xabcd,,PageSize=w213h284
 sony-upd898,sony-upd898,0x054c,0xabcd,,PageSize=w284h284
 sony-upd898,sony-upd898,0x054c,0xabcd,,PageSize=w426h284
 sony-upd898,sony-upd898,0x054c,0xabcd,,PageSize=w907h284
+sony-upcr20l,sony-upcr20l,0x054c,0xbcde,,PageSize=w288h432
+sony-upcr20l,sony-upcr20l,0x054c,0xbcde,,PageSize=w432h576
+sony-upcr20l,sony-upcr20l,0x054c,0xbcde,,PageSize=w432h576-div2
+sony-upcr20l,sony-upcr20l,0x054c,0xbcde,,PageSize=B7
+sony-upcr20l,sony-upcr20l,0x054c,0xbcde,,PageSize=w360h504
+sony-upcr20l,sony-upcr20l,0x054c,0xbcde,,PageSize=w360h504-div2
 #
 mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w213h284
 mitsubishi-p93d,mitsup93d,0x06d3,0x0398,,PageSize=w227h284
