@@ -323,7 +323,7 @@ static int updneo_query_markers(void *vctx, struct marker **markers, int *count)
 
 static const char *sonyupdneo_prefixes[] = {
 	"sonyupdneo",
-	"sony-upd898", "sony-upcr20l", "sony-updr80",
+	"sony-upd898", "sony-upcr20l", "sony-updr80", "sony-updr80md",
 	"dnp-sl20",
 	NULL
 };
@@ -349,7 +349,7 @@ struct dyesub_backend sonyupdneo_backend = {
 	.devices = {
 		{ USB_VID_SONY, USB_PID_SONY_UPD898MD, P_SONY_UPD898, NULL, "sony-upd898"},
 		{ USB_VID_SONY, USB_PID_SONY_UPCR20L, P_SONY_UPCR20L, NULL, "sony-upcr20l"},
-		{ USB_VID_SONY, USB_PID_SONY_UPDR80MD, P_SONY_UPDR80, NULL, "sony-upd80"},
+		{ USB_VID_SONY, USB_PID_SONY_UPDR80MD, P_SONY_UPDR80, NULL, "sony-updr80md"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };

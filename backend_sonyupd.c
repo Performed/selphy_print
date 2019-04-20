@@ -606,11 +606,10 @@ static int upd_query_markers(void *vctx, struct marker **markers, int *count)
 static const char *sonyupd_prefixes[] = {
 	"sonyupd",
 	"sony-updr150", "sony-updr200", "sony-upcr10l",
-	"sony-upd895", "sony-upd897",
+	"sony-upd895", "sony-upd897", "dnp-sl10",
 	// Backwards compatibility
 	"sonyupdr150",
 	"sonyupdr200", "sonyupcr10",
-//	"sony-upd898",
 	NULL
 };
 

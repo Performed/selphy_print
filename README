@@ -73,6 +73,8 @@
    Olmec OP900
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-D898
+   Sony UP-CR20L
+   Sony UP-DR80MD
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
    Magicard Rio 2E (and other Magicard models)
 
@@ -689,7 +691,7 @@
 
    Additional model IDs recognized:
      sony-updr150 sony-updr200 sony-upcr10l
-     sony-upd895 sony-upd897
+     sony-upd895 sony-upd897 dnp-sl10
      sonyupdr150 sonyupdr200 sonyupcr10
 
    Verified supported printers:
@@ -704,13 +706,25 @@
 
     DNP DS-SL10
 
-  Work-in-progress printers:
-
-    Sony UP-D898
-
   Valid commands:
 
      -s                 Query printer status
+
+  This backend does not support reporting marker levels.
+
+ ***************************************************************************
+  BACKEND=sonyupdneo
+
+   Additional model IDs recognized:
+     sony-upcr20l sony-upd898
+     sony-updr80md dnp-sl20
+
+  Work-in-progress printers (Lack USB PIDs)
+
+    Sony UP-D898 / UP-DX898
+    Sony UP-CR20L
+    Sony UP-DR80MD
+    DNP DS-SL20
 
   This backend does not support reporting marker levels.
 
