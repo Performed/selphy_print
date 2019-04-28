@@ -1001,7 +1001,7 @@ static const char *print_ribbons (uint8_t v) {
 		return "6x8";
 	case RIBBON_6x9:
 		return "6x9";
-	// XXX 89x??? rubbons.
+	// XXX 89x??? ribbons.
 	default:
 		return "Unknown";
 	}
@@ -1083,7 +1083,7 @@ struct s6145_imagecorr_data {
 /* Private data structure */
 struct shinkos6145_printjob {
 	uint8_t *databuf;
-	size_t datalen;
+	int datalen;
 
 	struct s6145_printjob_hdr hdr;
 
@@ -2074,13 +2074,13 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	}
 }
 
+int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr, uint8_t **data, int *datalen);
+
 static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct shinkos6145_ctx *ctx = vctx;
-	int ret;
-	uint8_t tmpbuf[4];
-	uint8_t input_ymc;
-
 	struct shinkos6145_printjob *job = NULL;
+	int ret;
+	uint8_t input_ymc;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -2091,106 +2091,24 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
-	job->copies = copies;  // XXX hdr.copies?
 
-	/* Read in then validate header */
-	ret = read(data_fd, &job->hdr, sizeof(job->hdr));
-	if (ret < 0 || ret != sizeof(job->hdr)) {
-		shinkos6145_cleanup_job(job);
-		if (ret == 0)
-			return CUPS_BACKEND_CANCEL;
-		ERROR("Read failed (%d/%d/%d)\n",
-		      ret, 0, (int)sizeof(job->hdr));
-		perror("ERROR: Read failed");
+	/* Common read/parse code */
+	ret = sinfonia_read_parse(data_fd, 6145, &job->hdr, &job->databuf, &job->datalen);
+	if (ret) {
+		free(job);
 		return ret;
 	}
 
-#define SWAP_HDR(__x)  job->hdr.__x = le32_to_cpu(job->hdr.__x)
-
-	SWAP_HDR(len1);
-	SWAP_HDR(model);
-	SWAP_HDR(media_w);
-	SWAP_HDR(len2);
-	SWAP_HDR(media);
-	SWAP_HDR(method);
-	SWAP_HDR(qual);
-	SWAP_HDR(oc_mode);
-	SWAP_HDR(columns);
-	SWAP_HDR(rows);
-	SWAP_HDR(copies);
-	SWAP_HDR(dpi);
-	SWAP_HDR(ext_flags);
-
-#undef SWAP_HDR
-
-	if (job->hdr.len1 != 0x10 ||
-	    job->hdr.len2 != 0x64 ||
-	    job->hdr.dpi != 300) {
-		ERROR("Unrecognized header data format!\n");
-		shinkos6145_cleanup_job(job);
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (job->hdr.model != 6145) {
-		ERROR("Unrecognized printer (%u)!\n", job->hdr.model);
-		shinkos6145_cleanup_job(job);
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (!job->hdr.rows || !job->hdr.columns) {
-		ERROR("Bad print job header!\n");
-		shinkos6145_cleanup_job(job);
-		return CUPS_BACKEND_CANCEL;
-	}
+	if (job->hdr.copies > 1)
+		job->copies = job->hdr.copies;
+	else
+		job->copies = copies;
 
 	/* Extended spool format to re-purpose an unused header field.
 	   When bit 0 is set, this tells the backend that the data is
 	   already in planar YMC format (vs packed RGB) so we don't need
 	   to do the conversion ourselves.  Saves some processing overhead */
 	input_ymc = job->hdr.ext_flags & 0x01;
-
-	job->datalen = job->hdr.rows * job->hdr.columns * 3;
-	job->databuf = malloc(job->datalen);
-	if (!job->databuf) {
-		ERROR("Memory allocation failure!\n");
-		shinkos6145_cleanup_job(job);
-		return CUPS_BACKEND_RETRY_CURRENT;
-	}
-
-	{
-		int remain = job->datalen;
-		uint8_t *ptr = job->databuf;
-		do {
-			ret = read(data_fd, ptr, remain);
-			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%zu)\n",
-				      ret, remain, job->datalen);
-				perror("ERROR: Read failed");
-				shinkos6145_cleanup_job(job);
-				return ret;
-			}
-			ptr += ret;
-			remain -= ret;
-		} while (remain);
-	}
-
-	/* Make sure footer is sane too */
-	ret = read(data_fd, tmpbuf, 4);
-	if (ret != 4) {
-		ERROR("Read failed (%d/%d/%d)\n",
-		      ret, 4, 4);
-		perror("ERROR: Read failed");
-		shinkos6145_cleanup_job(job);
-		return ret;
-	}
-	if (tmpbuf[0] != 0x04 ||
-	    tmpbuf[1] != 0x03 ||
-	    tmpbuf[2] != 0x02 ||
-	    tmpbuf[3] != 0x01) {
-		ERROR("Unrecognized footer data format!\n");
-		shinkos6145_cleanup_job(job);
-		return CUPS_BACKEND_FAILED;
-	}
 
 	/* Convert packed RGB to planar YMC if necessary */
 	if (!input_ymc) {
@@ -2569,7 +2487,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2",
-	.version = "0.31",
+	.version = "0.32",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,

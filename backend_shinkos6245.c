@@ -1530,12 +1530,12 @@ static void shinkos6245_teardown(void *vctx) {
 	free(ctx);
 }
 
+int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr, uint8_t **data, int *datalen);
+
 static int shinkos6245_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct shinkos6245_ctx *ctx = vctx;
-	int ret;
-	uint8_t tmpbuf[4];
-
 	struct shinkos6245_printjob *job = NULL;
+	int ret;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1546,75 +1546,18 @@ static int shinkos6245_read_parse(void *vctx, const void **vjob, int data_fd, in
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
-	job->copies = copies; // XXX hdr.copies
 
-	/* Read in then validate header */
-	ret = read(data_fd, &job->hdr, sizeof(job->hdr));
-	if (ret < 0 || ret != sizeof(job->hdr)) {
-		if (ret == 0)
-			return CUPS_BACKEND_CANCEL;
-		ERROR("Read failed (%d/%d/%d)\n",
-		      ret, 0, (int)sizeof(job->hdr));
-		perror("ERROR: Read failed");
+	/* Common read/parse code */
+	ret = sinfonia_read_parse(data_fd, 6245, &job->hdr, &job->databuf, &job->datalen);
+	if (ret) {
+		free(job);
 		return ret;
 	}
 
-	if (le32_to_cpu(job->hdr.len1) != 0x10 ||
-	    le32_to_cpu(job->hdr.len2) != 0x64 ||
-	    le32_to_cpu(job->hdr.dpi) != 300) {
-		ERROR("Unrecognized header data format!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (le32_to_cpu(job->hdr.model) != 6245) {
-		ERROR("Unrecognized printer (%u)!\n", le32_to_cpu(job->hdr.model));
-
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (job->databuf) {
-		free(job->databuf);
-		job->databuf = NULL;
-	}
-
-	job->datalen = le32_to_cpu(job->hdr.rows) * le32_to_cpu(job->hdr.columns) * 3;
-	job->databuf = malloc(job->datalen);
-	if (!job->databuf) {
-		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_RETRY_CURRENT;
-	}
-
-	{
-		int remain = job->datalen;
-		uint8_t *ptr = job->databuf;
-		do {
-			ret = read(data_fd, ptr, remain);
-			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%d)\n",
-				      ret, remain, job->datalen);
-				perror("ERROR: Read failed");
-				return ret;
-			}
-			ptr += ret;
-			remain -= ret;
-		} while (remain);
-	}
-
-	/* Make sure footer is sane too */
-	ret = read(data_fd, tmpbuf, 4);
-	if (ret != 4) {
-		ERROR("Read failed (%d/%d/%d)\n",
-		      ret, 4, 4);
-		perror("ERROR: Read failed");
-		return ret;
-	}
-	if (tmpbuf[0] != 0x04 ||
-	    tmpbuf[1] != 0x03 ||
-	    tmpbuf[2] != 0x02 ||
-	    tmpbuf[3] != 0x01) {
-		ERROR("Unrecognized footer data format!\n");
-		return CUPS_BACKEND_FAILED;
-	}
+	if (job->hdr.copies > 1)
+		job->copies = job->hdr.copies;
+	else
+		job->copies = copies;
 
 	*vjob = job;
 
@@ -1647,7 +1590,7 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 		copies = 120;
 
 	/* Set up mcut */
-	switch (le32_to_cpu(job->hdr.media)) {
+	switch (job->hdr.media) {
 	case MEDIA_8x4_2:
 	case MEDIA_8x5_2:
 	case MEDIA_8x6_2:
@@ -1664,8 +1607,8 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	/* Validate print sizes */
 	for (i = 0; i < ctx->media.count ; i++) {
 		/* Look for matching media */
-		if (le16_to_cpu(ctx->media.items[i].columns) == cpu_to_le16(le32_to_cpu(job->hdr.columns)) &&
-		    le16_to_cpu(ctx->media.items[i].rows) == cpu_to_le16(le32_to_cpu(job->hdr.rows)))
+		if (le16_to_cpu(ctx->media.items[i].columns) == cpu_to_le16(job->hdr.columns) &&
+		    le16_to_cpu(ctx->media.items[i].rows) == cpu_to_le16(job->hdr.rows))
 			break;
 	}
 	if (i == ctx->media.count) {
@@ -1776,9 +1719,9 @@ top:
 
 		print->id = ctx->jobid;
 		print->count = cpu_to_le16(copies);
-		print->columns = cpu_to_le16(le32_to_cpu(job->hdr.columns));
-		print->rows = cpu_to_le16(le32_to_cpu(job->hdr.rows));
-		print->mode = le32_to_cpu(job->hdr.oc_mode);
+		print->columns = cpu_to_le16(job->hdr.columns);
+		print->rows = cpu_to_le16(job->hdr.rows);
+		print->mode = job->hdr.oc_mode;
 		print->method = mcut;
 
 		if ((ret = s6245_do_cmd(ctx,
@@ -1917,7 +1860,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Shinko/Sinfonia CHC-S6245",
-	.version = "0.15WIP",
+	.version = "0.16WIP",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,
