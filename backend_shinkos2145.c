@@ -65,7 +65,7 @@ struct s2145_printjob_hdr {
 	uint32_t unk6;
 
 	uint32_t method;
-	uint32_t mode;
+	uint32_t oc_mode;
 	uint32_t unk7;
 	uint32_t unk8;
 
@@ -986,8 +986,8 @@ static void dump_mediainfo(struct s2145_mediainfo_resp *resp)
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: C 0x%02x (%s), %04ux%04u, M 0x%02x (%s), P 0x%02x (%s)\n", i,
 		     resp->items[i].code, print_sizes(resp->items[i].code),
-		     le16_to_cpu(resp->items[i].columns),
-		     le16_to_cpu(resp->items[i].rows),
+		     resp->items[i].columns,
+		     resp->items[i].rows,
 		     resp->items[i].media_type, media_types(resp->items[i].media_type),
 		     resp->items[i].print_type, print_methods(resp->items[i].print_type));
 	}
@@ -1386,7 +1386,6 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int 
 			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos2145_ctx *ctx = vctx;
-	int i;
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
@@ -1404,6 +1403,7 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int 
 		struct s2145_cmd_hdr cmd;
 		struct s2145_mediainfo_resp *resp = (struct s2145_mediainfo_resp *) rdbuf;
 		int num = 0;
+		int i;
 
 		cmd.cmd = cpu_to_le16(S2145_CMD_MEDIAINFO);
 		cmd.len = cpu_to_le16(0);
@@ -1416,6 +1416,12 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int 
 			return CUPS_BACKEND_FAILED;
 		}
 		memcpy(&ctx->media, resp, sizeof(ctx->media));
+
+		/* Byteswap media descriptor.. */
+		for (i = 0 ; i < ctx->media.count ; i++) {
+			ctx->media.items[i].columns = le16_to_cpu(ctx->media.items[i].columns);
+			ctx->media.items[i].rows = le16_to_cpu(ctx->media.items[i].rows);
+		}
 
 		/* Figure out the media type... */
 		for (i = 0 ; i < ctx->media.count ; i++) {
@@ -1465,7 +1471,8 @@ static void shinkos2145_teardown(void *vctx) {
 #define SINFONIA_HDR_LEN (SINFONIA_HDR1_LEN + SINFONIA_HDR2_LEN)
 #define SINFONIA_DPI 300
 
-int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr, uint8_t **data, int *datalen)
+int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr,
+			uint8_t **data, int *datalen)
 {
 	uint32_t *hdr = vhdr;
 	int ret, i;
@@ -1550,6 +1557,14 @@ int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr, uint8_t **data,
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	/* Fill in what's left */
+	// *copies =
+	// *oc_mode =
+	// *media =
+	// *method =
+	// *cols =
+	// *rows =
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1603,8 +1618,8 @@ static int shinkos2145_main_loop(void *vctx, const void *vjob) {
 	/* Validate print sizes */
 	for (i = 0; i < ctx->media.count ; i++) {
 		/* Look for matching media */
-		if (le16_to_cpu(ctx->media.items[i].columns) == cpu_to_le16(job->hdr.columns) &&
-		    le16_to_cpu(ctx->media.items[i].rows) == cpu_to_le16(job->hdr.rows) &&
+		if (ctx->media.items[i].columns == job->hdr.columns &&
+		    ctx->media.items[i].rows == job->hdr.rows &&
 		    ctx->media.items[i].print_type == job->hdr.method)
 			break;
 	}
@@ -1689,7 +1704,7 @@ top:
 		print->columns = cpu_to_le16(job->hdr.columns);
 		print->rows = cpu_to_le16(job->hdr.rows);
 		print->media = job->hdr.media;
-		print->mode = job->hdr.mode;
+		print->mode = job->hdr.oc_mode;
 		print->method = job->hdr.method;
 
 		if ((ret = s2145_do_cmd(ctx,
@@ -1838,7 +1853,7 @@ static const char *shinkos2145_prefixes[] = {
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S2",
-	.version = "0.57",
+	.version = "0.58",
 	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

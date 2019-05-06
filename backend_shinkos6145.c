@@ -99,7 +99,7 @@ enum {
 struct s6145_printjob_hdr {
 	uint32_t len1;   /* Fixed at 0x10 */
 	uint32_t model;  /* Equal to the printer model (eg '6245' or '1245' decimal) */
-	uint32_t media_w; /* 0x02 for 5", 0x03 for 6" */
+	uint32_t media_w; /* 0x02 for 5", 0x03 for 6" <-- IGNORED by backend. */
 	uint32_t unk3;   /* Fixed at 0x01 */
 
 	uint32_t len2;   /* Fixed at 0x64 */
@@ -108,7 +108,7 @@ struct s6145_printjob_hdr {
 	uint32_t unk6;
 
 	uint32_t method;    /* 0x00 normal, 0x02 4x6*2, 0x04 2x6*2, 0x05 6x6+2x6 */
-	uint32_t qual;      /* 0x00 default, 0x01 std */
+	uint32_t qual;      /* 0x00 default, 0x01 std <-- IGNORED by backend */
 	uint32_t oc_mode;   /* 0x00 default, 0x01 off, 0x02 glossy, 0x03 matte */
 	uint32_t unk8;
 
@@ -1366,8 +1366,8 @@ static void dump_mediainfo(struct s6145_mediainfo_resp *resp)
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: C 0x%02x (%s), %04ux%04u, P 0x%02x (%s)\n", i,
 		     resp->items[i].media_code, print_sizes(resp->items[i].media_code),
-		     le16_to_cpu(resp->items[i].columns),
-		     le16_to_cpu(resp->items[i].rows),
+		     resp->items[i].columns,
+		     resp->items[i].rows,
 		     resp->items[i].print_method, print_methods(resp->items[i].print_method));
 	}
 }
@@ -1938,6 +1938,13 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int 
 			return CUPS_BACKEND_FAILED;
 		}
 		memcpy(&ctx->media, resp, sizeof(*resp));
+
+		/* Byteswap media descriptor.. */
+		int i;
+		for (i = 0 ; i < ctx->media.count ; i++) {
+			ctx->media.items[i].columns = le16_to_cpu(ctx->media.items[i].columns);
+			ctx->media.items[i].rows = le16_to_cpu(ctx->media.items[i].rows);
+		}
 	} else {
 		int media_code = RIBBON_6x8;
 		if (getenv("MEDIA_CODE"))
@@ -2184,8 +2191,8 @@ static int shinkos6145_main_loop(void *vctx, const void *vjob) {
 	/* Validate print sizes */
 	for (i = 0; i < media->count ; i++) {
 		/* Look for matching media */
-		if (le16_to_cpu(media->items[i].columns) == job->hdr.columns &&
-		    le16_to_cpu(media->items[i].rows) == job->hdr.rows &&
+		if (media->items[i].columns == job->hdr.columns &&
+		    media->items[i].rows == job->hdr.rows &&
 		    media->items[i].print_method == job->hdr.method &&
 		    media->items[i].media_code == job->hdr.media)
 			break;
@@ -2487,7 +2494,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2",
-	.version = "0.32",
+	.version = "0.33",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,

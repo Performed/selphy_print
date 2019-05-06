@@ -1128,8 +1128,8 @@ static void dump_mediainfo(struct s6245_mediainfo_resp *resp)
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: C 0x%02x (%s), %04ux%04u, P 0x%02x (%s)\n", i,
 		     resp->items[i].media_code, print_sizes(resp->items[i].media_code),
-		     le16_to_cpu(resp->items[i].columns),
-		     le16_to_cpu(resp->items[i].rows),
+		     resp->items[i].columns,
+		     resp->items[i].rows,
 		     resp->items[i].print_method, print_methods(resp->items[i].print_method));
 	}
 }
@@ -1494,6 +1494,14 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 			ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 			return CUPS_BACKEND_FAILED;
 		}
+
+		/* Byteswap media descriptor.. */
+		int i;
+		for (i = 0 ; i < ctx->media.count ; i++) {
+			ctx->media.items[i].columns = le16_to_cpu(ctx->media.items[i].columns);
+			ctx->media.items[i].rows = le16_to_cpu(ctx->media.items[i].rows);
+		}
+
 	} else {
 		int media_code = 0x12;
 		if (getenv("MEDIA_CODE"))
@@ -1607,8 +1615,8 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	/* Validate print sizes */
 	for (i = 0; i < ctx->media.count ; i++) {
 		/* Look for matching media */
-		if (le16_to_cpu(ctx->media.items[i].columns) == cpu_to_le16(job->hdr.columns) &&
-		    le16_to_cpu(ctx->media.items[i].rows) == cpu_to_le16(job->hdr.rows))
+		if (ctx->media.items[i].columns == job->hdr.columns &&
+		    ctx->media.items[i].rows == job->hdr.rows)
 			break;
 	}
 	if (i == ctx->media.count) {
@@ -1860,7 +1868,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Shinko/Sinfonia CHC-S6245",
-	.version = "0.16WIP",
+	.version = "0.17WIP",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,
