@@ -56,7 +56,7 @@ struct s1245_printjob_hdr {
 	uint32_t unk6;   /* Null */
 
 	uint32_t method; /* Print Method */
-	uint32_t mode;   /* Print Mode */
+	uint32_t oc_mode;  /* Lamination Mode */
 	uint32_t unk7;   /* Null */
 	 int32_t mattedepth; /* 0x7fffffff for glossy, 0x00 +- 25 for matte */
 
@@ -407,6 +407,8 @@ struct shinkos1245_printjob {
 	uint8_t *databuf;
 	int datalen;
 
+	struct s1245_printjob_hdr hdr;
+
 	int copies;
 };
 
@@ -417,8 +419,6 @@ struct shinkos1245_ctx {
 	int type;
 
 	uint8_t jobid;
-
-	struct s1245_printjob_hdr hdr;
 
 	struct shinkos1245_mediadesc medias[15];
 	int num_medias;
@@ -1331,10 +1331,11 @@ static void shinkos1245_teardown(void *vctx) {
 	free(ctx);
 }
 
+int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr, uint8_t **data, int *datalen);
+
 static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct shinkos1245_ctx *ctx = vctx;
 	int ret;
-	uint8_t tmpbuf[4];
 
 	struct shinkos1245_printjob *job = NULL;
 
@@ -1347,88 +1348,18 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
-	job->copies = copies;
 
-	/* Read in then validate header */
-	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
-	if (ret < 0) {
-		shinkos1245_cleanup_job(job);
+	/* Common read/parse code */
+	ret = sinfonia_read_parse(data_fd, 1245, &job->hdr, &job->databuf, &job->datalen);
+	if (ret) {
+		free(job);
 		return ret;
 	}
-	if (ret != sizeof(ctx->hdr)) {
-		shinkos1245_cleanup_job(job);
-		return CUPS_BACKEND_CANCEL;
-	}
 
-	if (le32_to_cpu(ctx->hdr.len1) != 0x10 ||
-	    le32_to_cpu(ctx->hdr.len2) != 0x64 ||
-	    le32_to_cpu(ctx->hdr.dpi) != 300) {
-		ERROR("Unrecognized header data format!\n");
-		shinkos1245_cleanup_job(job);
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	ctx->hdr.model = le32_to_cpu(ctx->hdr.model);
-
-	if(ctx->hdr.model != 1245) {
-		ERROR("Unrecognized printer (%u)!\n", ctx->hdr.model);
-		shinkos1245_cleanup_job(job);
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	/* Finish byteswapping */
-	ctx->hdr.media = le32_to_cpu(ctx->hdr.media);
-	ctx->hdr.method = le32_to_cpu(ctx->hdr.method);
-	ctx->hdr.mode = le32_to_cpu(ctx->hdr.mode);
-	ctx->hdr.mattedepth = le32_to_cpu(ctx->hdr.mattedepth);
-	ctx->hdr.dust = le32_to_cpu(ctx->hdr.dust);
-	ctx->hdr.columns = le32_to_cpu(ctx->hdr.columns);
-	ctx->hdr.rows = le32_to_cpu(ctx->hdr.rows);
-	ctx->hdr.copies = le32_to_cpu(ctx->hdr.copies);
-
-	/* Allocate space */
-	job->datalen = ctx->hdr.rows * ctx->hdr.columns * 3;
-	job->databuf = malloc(job->datalen);
-	if (!job->databuf) {
-		ERROR("Memory allocation failure!\n");
-		shinkos1245_cleanup_job(job);
-		return CUPS_BACKEND_RETRY_CURRENT;
-	}
-
-	{
-		int remain = job->datalen;
-		uint8_t *ptr = job->databuf;
-		do {
-			ret = read(data_fd, ptr, remain);
-			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%d)\n",
-				      ret, remain, job->datalen);
-				perror("ERROR: Read failed");
-				shinkos1245_cleanup_job(job);
-				return ret;
-			}
-			ptr += ret;
-			remain -= ret;
-		} while (remain);
-	}
-
-	/* Make sure footer is sane too */
-	ret = read(data_fd, tmpbuf, 4);
-	if (ret != 4) {
-		ERROR("Read failed (%d/%d/%d)\n",
-		      ret, 4, 4);
-		perror("ERROR: Read failed");
-		shinkos1245_cleanup_job(job);
-		return ret;
-	}
-	if (tmpbuf[0] != 0x04 ||
-	    tmpbuf[1] != 0x03 ||
-	    tmpbuf[2] != 0x02 ||
-	    tmpbuf[3] != 0x01) {
-		ERROR("Unrecognized footer data format!\n");
-		shinkos1245_cleanup_job(job);
-		return CUPS_BACKEND_FAILED;
-	}
+	if (job->hdr.copies > 1)
+		job->copies = job->hdr.copies;
+	else
+		job->copies = copies;
 
 	*vjob = job;
 	return CUPS_BACKEND_OK;
@@ -1450,10 +1381,10 @@ static int shinkos1245_main_loop(void *vctx, const void *vjob) {
 
 	/* Make sure print size is supported */
 	for (i = 0 ; i < ctx->num_medias ; i++) {
-		if (ctx->hdr.media == ctx->medias[i].code &&
-		    ctx->hdr.method == ctx->medias[i].print_type &&
-		    ctx->hdr.rows == ctx->medias[i].rows &&
-		    ctx->hdr.columns == ctx->medias[i].columns)
+		if (job->hdr.media == ctx->medias[i].code &&
+		    job->hdr.method == ctx->medias[i].print_type &&
+		    job->hdr.rows == ctx->medias[i].rows &&
+		    job->hdr.columns == ctx->medias[i].columns)
 			break;
 	}
 	if (i == ctx->num_medias) {
@@ -1533,13 +1464,13 @@ top:
 		struct shinkos1245_cmd_print cmd;
 
 		/* Set matte intensity */
-		if (ctx->hdr.mattedepth != 0x7fffffff) {
+		if (job->hdr.mattedepth != 0x7fffffff) {
 			int current = -1;
 			i = shinkos1245_get_matte(ctx, &current);
 			if (i < 0)
 				goto printer_error;
-			if (current != ctx->hdr.mattedepth) {
-				i = shinkos1245_set_matte(ctx, ctx->hdr.mattedepth);
+			if (current != job->hdr.mattedepth) {
+				i = shinkos1245_set_matte(ctx, job->hdr.mattedepth);
 				if (i < 0)
 					goto printer_error;
 				if (i > 0) {
@@ -1559,11 +1490,11 @@ top:
 
 		cmd.id = ctx->jobid;
 		cmd.count = cpu_to_be16(uint16_to_packed_bcd(copies));
-		cmd.columns = cpu_to_be16(ctx->hdr.columns);
-		cmd.rows = cpu_to_be16(ctx->hdr.rows);
-		cmd.media = ctx->hdr.media;
-		cmd.mode = (ctx->hdr.mode & 0x3f) || ((ctx->hdr.dust & 0x3) << 6);
-		cmd.combo = ctx->hdr.method;
+		cmd.columns = cpu_to_be16(job->hdr.columns);
+		cmd.rows = cpu_to_be16(job->hdr.rows);
+		cmd.media = job->hdr.media;
+		cmd.mode = (job->hdr.oc_mode & 0x3f) || ((job->hdr.dust & 0x3) << 6);
+		cmd.combo = job->hdr.method;
 
 		/* Issue print command */
 		i = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
@@ -1689,7 +1620,7 @@ static const char *shinkos1245_prefixes[] = {
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245/E1",
-	.version = "0.27",
+	.version = "0.28",
 	.uri_prefixes = shinkos1245_prefixes,
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
