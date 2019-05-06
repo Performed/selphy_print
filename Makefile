@@ -61,12 +61,8 @@ LDFLAGS += -ldl
 #LDFLAGS += -lltdl
 
 # Build stuff
-DEPS += backend_common.h
-SOURCES = backend_common.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
-
-# Backend-specific joy:
-backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
-backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
+DEPS += backend_common.h backend_shinko.h
+SOURCES = backend_common.c backend_shinko.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 
 # And now the rules!
 .PHONY: clean all install cppcheck
@@ -115,3 +111,8 @@ release:
 	cp -a *.c *.h Makefile blacklist COPYING README lib6145 D70 selphy_print-rel
 	tar -czvf selphy_print-rel.tar.gz selphy_print-rel
 	$(RM) -Rf selphy_print-rel
+
+# Backend-specific joy:
+backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
+backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
+#backend_shinko%.o: backend_shinko.h

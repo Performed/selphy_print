@@ -80,6 +80,7 @@
 #define BACKEND shinkos6145_backend
 
 #include "backend_common.h"
+#include "backend_shinko.h"
 
 /* Image processing library function prototypes */
 typedef int (*ImageProcessingFN)(unsigned char *, unsigned short *, void *);
@@ -95,6 +96,7 @@ enum {
 	S_FINISHED,
 };
 
+#if 0
 /* Structure of printjob header.  All fields are LITTLE ENDIAN */
 struct s6145_printjob_hdr {
 	uint32_t len1;   /* Fixed at 0x10 */
@@ -134,6 +136,7 @@ struct s6145_printjob_hdr {
 
 	uint32_t ext_flags;  /* 0x00 in the official headers. 0x01 to mark inout data as YMC planar */
 } __attribute__((packed));
+#endif
 
 /* "Image Correction Parameter" File */
 // 128 bytes total, apparently an array of 32-bit values
@@ -500,26 +503,6 @@ struct s6145_update_cmd {
 	uint32_t size;
 } __attribute__((packed));
 
-#define UPDATE_TARGET_USER    0x03
-#define UPDATE_TARGET_CURRENT 0x04
-
-static char *update_targets (uint8_t v) {
-	switch (v) {
-	case UPDATE_TARGET_USER:
-		return "User";
-	case UPDATE_TARGET_CURRENT:
-		return "Current";
-	default:
-		return "Unknown";
-	}
-}
-
-#define UPDATE_SIZE 0x600
-/* Update is three channels, Y, M, C;
-   each is 256 entries of 11-bit data padded to 16-bits.
-   Printer expects LE data.  We use BE data on disk.
-*/
-
 struct s6145_status_hdr {
 	uint8_t  result;
 	uint8_t  error;
@@ -856,45 +839,6 @@ struct s6145_status_resp {
 	uint8_t  reserved3[6];
 } __attribute__((packed));
 
-#define BANK_STATUS_FREE  0x00
-#define BANK_STATUS_XFER  0x01
-#define BANK_STATUS_FULL  0x02
-#define BANK_STATUS_PRINTING  0x12
-
-static char *bank_statuses(uint8_t v)
-{
-	switch (v) {
-	case BANK_STATUS_FREE:
-		return "Free";
-	case BANK_STATUS_XFER:
-		return "Xfer";
-	case BANK_STATUS_FULL:
-		return "Full";
-	case BANK_STATUS_PRINTING:
-		return "Printing";
-	default:
-		return "Unknown";
-	}
-}
-
-#define TONECURVE_INIT    0x00
-#define TONECURVE_USER    0x01
-#define TONECURVE_CURRENT 0x02
-
-static char *tonecurve_statuses (uint8_t v)
-{
-	switch(v) {
-	case 0:
-		return "Initial";
-	case 1:
-		return "UserSet";
-	case 2:
-		return "Current";
-	default:
-		return "Unknown";
-	}
-}
-
 struct s6145_geteeprom_resp {
 	struct s6145_status_hdr hdr;
 	uint8_t data[256];
@@ -1081,15 +1025,6 @@ struct s6145_imagecorr_data {
 } __attribute__((packed));
 
 /* Private data structure */
-struct shinkos6145_printjob {
-	uint8_t *databuf;
-	int datalen;
-
-	struct s6145_printjob_hdr hdr;
-
-	int copies;
-};
-
 struct shinkos6145_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
@@ -1202,20 +1137,20 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	INFO(" Cutter Actuations:\t%08u\n", le32_to_cpu(resp->count_cutter));
 	INFO(" Ribbon Remaining:\t%08u\n", le32_to_cpu(resp->count_ribbon_left));
 	INFO("Bank 1: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
-	     resp->bank1_status, bank_statuses(resp->bank1_status),
+	     resp->bank1_status, sinfonia_bank_statuses(resp->bank1_status),
 	     resp->bank1_printid,
 	     le16_to_cpu(resp->bank1_finished),
 	     le16_to_cpu(resp->bank1_specified),
 	     le16_to_cpu(resp->bank1_remaining));
 
 	INFO("Bank 2: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
-	     resp->bank2_status, bank_statuses(resp->bank1_status),
+	     resp->bank2_status, sinfonia_bank_statuses(resp->bank1_status),
 	     resp->bank2_printid,
 	     le16_to_cpu(resp->bank2_finished),
 	     le16_to_cpu(resp->bank2_specified),
 	     le16_to_cpu(resp->bank2_remaining));
 
-	INFO("Tonecurve Status: 0x%02x (%s)\n", resp->tonecurve_status, tonecurve_statuses(resp->tonecurve_status));
+	INFO("Tonecurve Status: 0x%02x (%s)\n", resp->tonecurve_status, sinfonia_tonecurve_statuses(resp->tonecurve_status));
 
 	/* Query Extended counters */
 	cmd.cmd = cpu_to_le16(S6145_CMD_EXTCOUNTER);
@@ -1564,7 +1499,7 @@ static int get_tonecurve(struct shinkos6145_ctx *ctx, int type, char *fname)
 	cmd.hdr.cmd = cpu_to_le16(S6145_CMD_READTONE);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	INFO("Dump %s Tone Curve to '%s'\n", tonecurve_statuses(type), fname);
+	INFO("Dump %s Tone Curve to '%s'\n", sinfonia_tonecurve_statuses(type), fname);
 
 	if ((ret = s6145_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
@@ -1627,7 +1562,7 @@ static int set_tonecurve(struct shinkos6145_ctx *ctx, int target, char *fname)
 	struct s6145_status_hdr *resp = (struct s6145_status_hdr *) rdbuf;
 	int ret, num = 0;
 
-	INFO("Set %s Tone Curve from '%s'\n", update_targets(target), fname);
+	INFO("Set %s Tone Curve from '%s'\n", sinfonia_update_targets(target), fname);
 
 	uint16_t *data = malloc(UPDATE_SIZE * sizeof(uint16_t));
 	if (!data) {
@@ -1963,7 +1898,7 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int 
 
 static void shinkos6145_cleanup_job(const void *vjob)
 {
-	const struct shinkos6145_printjob *job = vjob;
+	const struct sinfonia_printjob *job = vjob;
 
 	if (job->databuf)
 		free(job->databuf);
@@ -1990,7 +1925,7 @@ static void shinkos6145_teardown(void *vctx) {
 }
 
 static void lib6145_calc_avg(struct shinkos6145_ctx *ctx,
-			     const struct shinkos6145_printjob *job,
+			     const struct sinfonia_printjob *job,
 			     uint16_t rows, uint16_t cols)
 {
 	uint32_t plane, i, planelen;
@@ -2081,11 +2016,9 @@ static void lib6145_process_image(uint8_t *src, uint16_t *dest,
 	}
 }
 
-int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr, uint8_t **data, int *datalen);
-
 static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct shinkos6145_ctx *ctx = vctx;
-	struct shinkos6145_printjob *job = NULL;
+	struct sinfonia_printjob *job = NULL;
 	int ret;
 	uint8_t input_ymc;
 
@@ -2100,14 +2033,14 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	memset(job, 0, sizeof(*job));
 
 	/* Common read/parse code */
-	ret = sinfonia_read_parse(data_fd, 6145, &job->hdr, &job->databuf, &job->datalen);
+	ret = sinfonia_read_parse(data_fd, 6145, &job->jp, &job->databuf, &job->datalen);
 	if (ret) {
 		free(job);
 		return ret;
 	}
 
-	if (job->hdr.copies > 1)
-		job->copies = job->hdr.copies;
+	if (job->jp.copies > 1)
+		job->copies = job->jp.copies;
 	else
 		job->copies = copies;
 
@@ -2115,12 +2048,12 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	   When bit 0 is set, this tells the backend that the data is
 	   already in planar YMC format (vs packed RGB) so we don't need
 	   to do the conversion ourselves.  Saves some processing overhead */
-	input_ymc = job->hdr.ext_flags & 0x01;
+	input_ymc = job->jp.ext_flags & 0x01;
 
 	/* Convert packed RGB to planar YMC if necessary */
 	if (!input_ymc) {
 		INFO("Converting Packed RGB to Planar YMC\n");
-		int planelen = job->hdr.columns * job->hdr.rows;
+		int planelen = job->jp.columns * job->jp.rows;
 		uint8_t *databuf3 = malloc(job->datalen);
 		int i;
 		if (!databuf3) {
@@ -2167,7 +2100,7 @@ static int shinkos6145_main_loop(void *vctx, const void *vjob) {
 
 	uint32_t cur_mode;
 
-	struct shinkos6145_printjob *job = (struct shinkos6145_printjob*) vjob; /* XXX stupid, we can't do this. */
+	struct sinfonia_printjob *job = (struct sinfonia_printjob*) vjob; /* XXX stupid, we can't do this. */
 
 	if (!job)
 		return CUPS_BACKEND_FAILED;
@@ -2191,10 +2124,10 @@ static int shinkos6145_main_loop(void *vctx, const void *vjob) {
 	/* Validate print sizes */
 	for (i = 0; i < media->count ; i++) {
 		/* Look for matching media */
-		if (media->items[i].columns == job->hdr.columns &&
-		    media->items[i].rows == job->hdr.rows &&
-		    media->items[i].print_method == job->hdr.method &&
-		    media->items[i].media_code == job->hdr.media)
+		if (media->items[i].columns == job->jp.columns &&
+		    media->items[i].rows == job->jp.rows &&
+		    media->items[i].print_method == job->jp.method &&
+		    media->items[i].media_code == job->jp.media)
 			break;
 	}
 	if (i == media->count) {
@@ -2265,7 +2198,7 @@ top:
 	case S_PRINTER_READY_CMD: {
 		/* Set matte/etc */
 
-		uint32_t oc_mode = job->hdr.oc_mode;
+		uint32_t oc_mode = job->jp.oc_mode;
 		uint32_t updated = 0;
 
 		if (!oc_mode) /* if nothing set, default to glossy */
@@ -2306,19 +2239,19 @@ top:
 
 		/* Set up library transform... */
 		uint32_t newlen = le16_to_cpu(ctx->corrdata->headDots) *
-			job->hdr.rows * sizeof(uint16_t) * 4;
+			job->jp.rows * sizeof(uint16_t) * 4;
 		uint16_t *databuf2 = malloc(newlen);
 
 		/* Set the size in the correctiondata */
-		ctx->corrdata->width = cpu_to_le16(job->hdr.columns);
-		ctx->corrdata->height = cpu_to_le16(job->hdr.rows);
+		ctx->corrdata->width = cpu_to_le16(job->jp.columns);
+		ctx->corrdata->height = cpu_to_le16(job->jp.rows);
 
 
 		/* Perform the actual library transform */
 		if (ctx->dl_handle) {
 			INFO("Calling image processing library...\n");
 
-			if (ctx->ImageAvrCalc(job->databuf, job->hdr.columns, job->hdr.rows, ctx->image_avg)) {
+			if (ctx->ImageAvrCalc(job->databuf, job->jp.columns, job->jp.rows, ctx->image_avg)) {
 				free(databuf2);
 				ERROR("Library returned error!\n");
 				return CUPS_BACKEND_FAILED;
@@ -2328,7 +2261,7 @@ top:
 			WARNING("Utilizing fallback internal image processing code\n");
 			WARNING(" *** Output quality will be poor! *** \n");
 
-			lib6145_calc_avg(ctx, job, job->hdr.columns, job->hdr.rows);
+			lib6145_calc_avg(ctx, job, job->jp.columns, job->jp.rows);
 			lib6145_process_image(job->databuf, databuf2, ctx->corrdata, oc_mode);
 		}
 
@@ -2344,15 +2277,15 @@ top:
 
 		print->id = ctx->jobid;
 		print->count = cpu_to_le16(job->copies);
-		print->columns = cpu_to_le16(job->hdr.columns);
-		print->rows = cpu_to_le16(job->hdr.rows);
+		print->columns = cpu_to_le16(job->jp.columns);
+		print->rows = cpu_to_le16(job->jp.rows);
 		print->image_avg = ctx->image_avg[2]; /* Cyan level */
-		print->method = cpu_to_le32(job->hdr.method);
+		print->method = cpu_to_le32(job->jp.method);
 		print->combo_wait = 0;
 
 		/* Brava21 header has a few quirks */
 		if(ctx->type == P_SHINKO_S6145D) {
-			print->media = job->hdr.media;
+			print->media = job->jp.media;
 			print->unk_1 = 0x01;
 		}
 

@@ -43,7 +43,7 @@
 #define BACKEND shinkos6245_backend
 
 #include "backend_common.h"
-
+#include "backend_shinko.h"
 
 enum {
 	S_IDLE = 0,
@@ -52,6 +52,7 @@ enum {
 	S_FINISHED,
 };
 
+#if 0
 /* Structure of printjob header.  All fields are LITTLE ENDIAN */
 struct s6245_printjob_hdr {
 	uint32_t len1;   /* Fixed at 0x10 */
@@ -91,6 +92,7 @@ struct s6245_printjob_hdr {
 
 	uint32_t unk21;
 } __attribute__((packed));
+#endif
 
 /* Structs for printer */
 struct s6245_cmd_hdr {
@@ -325,26 +327,6 @@ struct s6245_update_cmd {
 	uint8_t  reserved[3];
 	uint32_t size;
 } __attribute__((packed));
-
-#define UPDATE_TARGET_USER    0x03
-#define UPDATE_TARGET_CURRENT 0x04
-
-static char *update_targets (uint8_t v) {
-	switch (v) {
-	case UPDATE_TARGET_USER:
-		return "User";
-	case UPDATE_TARGET_CURRENT:
-		return "Current";
-	default:
-		return "Unknown";
-	}
-}
-
-#define UPDATE_SIZE 0x600
-/* Update is three channels, Y, M, C;
-   each is 256 entries of 11-bit data padded to 16-bits.
-   Printer expects LE data.  We use BE data on disk.
-*/
 
 struct s6245_status_hdr {
 	uint8_t  result;
@@ -705,45 +687,6 @@ struct s6245_status_resp {
 	uint8_t  reserved3[6];
 } __attribute__((packed));
 
-#define BANK_STATUS_FREE  0x00
-#define BANK_STATUS_XFER  0x01
-#define BANK_STATUS_FULL  0x02
-#define BANK_STATUS_PRINTING  0x12
-
-static char *bank_statuses(uint8_t v)
-{
-	switch (v) {
-	case BANK_STATUS_FREE:
-		return "Free";
-	case BANK_STATUS_XFER:
-		return "Xfer";
-	case BANK_STATUS_FULL:
-		return "Full";
-	case BANK_STATUS_PRINTING:
-		return "Printing";
-	default:
-		return "Unknown";
-	}
-}
-
-#define TONECURVE_INIT    0x00
-#define TONECURVE_USER    0x01
-#define TONECURVE_CURRENT 0x02
-
-static char *tonecurve_statuses (uint8_t v)
-{
-	switch(v) {
-	case 0:
-		return "Initial";
-	case 1:
-		return "UserSet";
-	case 2:
-		return "Current";
-	default:
-		return "Unknown";
-	}
-}
-
 struct s6245_geteeprom_resp {
 	struct s6245_status_hdr hdr;
 	uint8_t data[256];
@@ -908,14 +851,6 @@ struct s6245_fwinfo_resp {
 } __attribute__((packed));
 
 /* Private data structure */
-struct shinkos6245_printjob {
-	uint8_t *databuf;
-	int datalen;
-	int copies;
-
-	struct s6245_printjob_hdr hdr;
-};
-
 struct shinkos6245_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
@@ -1004,20 +939,20 @@ static int get_status(struct shinkos6245_ctx *ctx)
 	INFO(" Cutter Actuations:\t%08u\n", le32_to_cpu(resp.count_cutter));
 	INFO(" Ribbon Remaining:\t%08u\n", le32_to_cpu(resp.count_ribbon_left));
 	INFO("Bank 1: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
-	     resp.bank1_status, bank_statuses(resp.bank1_status),
+	     resp.bank1_status, sinfonia_bank_statuses(resp.bank1_status),
 	     resp.bank1_printid,
 	     le16_to_cpu(resp.bank1_finished),
 	     le16_to_cpu(resp.bank1_specified),
 	     le16_to_cpu(resp.bank1_remaining));
 
 	INFO("Bank 2: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
-	     resp.bank2_status, bank_statuses(resp.bank1_status),
+	     resp.bank2_status, sinfonia_bank_statuses(resp.bank1_status),
 	     resp.bank2_printid,
 	     le16_to_cpu(resp.bank2_finished),
 	     le16_to_cpu(resp.bank2_specified),
 	     le16_to_cpu(resp.bank2_remaining));
 
-	INFO("Tonecurve Status: 0x%02x (%s)\n", resp.tonecurve_status, tonecurve_statuses(resp.tonecurve_status));
+	INFO("Tonecurve Status: 0x%02x (%s)\n", resp.tonecurve_status, sinfonia_tonecurve_statuses(resp.tonecurve_status));
 
 	/* Query Extended counters */
 	cmd.cmd = cpu_to_le16(S6245_CMD_EXTCOUNTER);
@@ -1242,7 +1177,7 @@ static int get_tonecurve(struct shinkos6245_ctx *ctx, int type, char *fname)
 	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_READTONE);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	INFO("Dump %s Tone Curve to '%s'\n", tonecurve_statuses(type), fname);
+	INFO("Dump %s Tone Curve to '%s'\n", sinfonia_tonecurve_statuses(type), fname);
 
 	if ((ret = s6245_do_cmd(ctx,
 				(uint8_t*)&cmd, sizeof(cmd),
@@ -1305,7 +1240,7 @@ static int set_tonecurve(struct shinkos6245_ctx *ctx, int target, char *fname)
 	struct s6245_status_hdr resp;
 	int ret, num = 0;
 
-	INFO("Set %s Tone Curve from '%s'\n", update_targets(target), fname);
+	INFO("Set %s Tone Curve from '%s'\n", sinfonia_update_targets(target), fname);
 
 	uint16_t *data = malloc(UPDATE_SIZE * sizeof(uint16_t));
 	if (!data) {
@@ -1521,7 +1456,7 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 
 static void shinkos6245_cleanup_job(const void *vjob)
 {
-	const struct shinkos6245_printjob *job = vjob;
+	const struct sinfonia_printjob *job = vjob;
 
 	if (job->databuf)
 		free(job->databuf);
@@ -1538,11 +1473,9 @@ static void shinkos6245_teardown(void *vctx) {
 	free(ctx);
 }
 
-int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr, uint8_t **data, int *datalen);
-
 static int shinkos6245_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct shinkos6245_ctx *ctx = vctx;
-	struct shinkos6245_printjob *job = NULL;
+	struct sinfonia_printjob *job = NULL;
 	int ret;
 
 	if (!ctx)
@@ -1556,14 +1489,14 @@ static int shinkos6245_read_parse(void *vctx, const void **vjob, int data_fd, in
 	memset(job, 0, sizeof(*job));
 
 	/* Common read/parse code */
-	ret = sinfonia_read_parse(data_fd, 6245, &job->hdr, &job->databuf, &job->datalen);
+	ret = sinfonia_read_parse(data_fd, 6245, &job->jp, &job->databuf, &job->datalen);
 	if (ret) {
 		free(job);
 		return ret;
 	}
 
-	if (job->hdr.copies > 1)
-		job->copies = job->hdr.copies;
+	if (job->jp.copies > 1)
+		job->copies = job->jp.copies;
 	else
 		job->copies = copies;
 
@@ -1587,7 +1520,7 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	struct s6245_status_resp sts, sts2;
 	struct s6245_status_hdr resp;
 
-	struct shinkos6245_printjob *job = (struct shinkos6245_printjob*) vjob;
+	struct sinfonia_printjob *job = (struct sinfonia_printjob*) vjob;
 
 	copies = job->copies;
 
@@ -1598,7 +1531,7 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 		copies = 120;
 
 	/* Set up mcut */
-	switch (job->hdr.media) {
+	switch (job->jp.media) {
 	case MEDIA_8x4_2:
 	case MEDIA_8x5_2:
 	case MEDIA_8x6_2:
@@ -1615,8 +1548,8 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	/* Validate print sizes */
 	for (i = 0; i < ctx->media.count ; i++) {
 		/* Look for matching media */
-		if (ctx->media.items[i].columns == job->hdr.columns &&
-		    ctx->media.items[i].rows == job->hdr.rows)
+		if (ctx->media.items[i].columns == job->jp.columns &&
+		    ctx->media.items[i].rows == job->jp.rows)
 			break;
 	}
 	if (i == ctx->media.count) {
@@ -1727,9 +1660,9 @@ top:
 
 		print->id = ctx->jobid;
 		print->count = cpu_to_le16(copies);
-		print->columns = cpu_to_le16(job->hdr.columns);
-		print->rows = cpu_to_le16(job->hdr.rows);
-		print->mode = job->hdr.oc_mode;
+		print->columns = cpu_to_le16(job->jp.columns);
+		print->rows = cpu_to_le16(job->jp.rows);
+		print->mode = job->jp.oc_mode;
 		print->method = mcut;
 
 		if ((ret = s6245_do_cmd(ctx,

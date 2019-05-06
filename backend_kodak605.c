@@ -40,6 +40,7 @@
 #define BACKEND kodak605_backend
 
 #include "backend_common.h"
+#include "backend_shinko.h"
 
 #define USB_VID_KODAK       0x040A
 #define USB_PID_KODAK_605   0x402E
@@ -186,27 +187,6 @@ struct kodak605_hdr {
 	uint8_t  laminate; /* 0x02 to laminate, 0x01 for not */
 	uint8_t  mode;     /* Print mode -- 0x00, 0x01 seen */
 } __attribute__((packed));
-
-#define BANK_STATUS_FREE      0x00
-#define BANK_STATUS_XFER      0x01
-#define BANK_STATUS_FULL      0x02
-#define BANK_STATUS_PRINTING  0x12
-
-static char *bank_statuses(uint8_t v)
-{
-        switch (v) {
-        case BANK_STATUS_FREE:
-                return "Free";
-        case BANK_STATUS_XFER:
-                return "Xfer";
-        case BANK_STATUS_FULL:
-                return "Full";
-        case BANK_STATUS_PRINTING:
-                return "Printing";
-        default:
-                return "Unknown";
-        }
-}
 
 static const char *kodak68xx_mediatypes(int type)
 {
@@ -605,10 +585,10 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 	     sts->hdr.printer_major, sts->hdr.printer_minor);
 
 	INFO("Bank 1: %s Job %03u @ %03u/%03u\n",
-	     bank_statuses(sts->b1_sts), sts->b1_id,
+	     sinfonia_bank_statuses(sts->b1_sts), sts->b1_id,
 	     le16_to_cpu(sts->b1_complete), le16_to_cpu(sts->b1_total));
 	INFO("Bank 2: %s Job %03u @ %03u/%03u\n",
-	     bank_statuses(sts->b2_sts), sts->b2_id,
+	     sinfonia_bank_statuses(sts->b2_sts), sts->b2_id,
 	     le16_to_cpu(sts->b2_complete), le16_to_cpu(sts->b2_total));
 
 	INFO("Lifetime prints   : %u\n", be32_to_cpu(sts->ctr_life));
@@ -710,7 +690,6 @@ static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
 	DEBUG("\n");
 }
 
-#define UPDATE_SIZE 1536
 static int kodak605_set_tonecurve(struct kodak605_ctx *ctx, char *fname)
 {
 	libusb_device_handle *dev = ctx->dev;
@@ -892,7 +871,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.37",
+	.version = "0.38",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,

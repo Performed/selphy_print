@@ -42,7 +42,9 @@
 #define BACKEND shinkos1245_backend
 
 #include "backend_common.h"
+#include "backend_shinko.h"
 
+#if 0
 /* Structure of printjob header.  All fields are LITTLE ENDIAN */
 struct s1245_printjob_hdr {
 	uint32_t len1;   /* Fixed at 0x10 */
@@ -82,6 +84,7 @@ struct s1245_printjob_hdr {
 
 	uint32_t unk21;  /* Null */
 } __attribute__((packed));
+#endif
 
 /* Printer data structures */
 struct shinkos1245_cmd_hdr {
@@ -403,15 +406,6 @@ struct shinkos1245_resp_matte {
 #define MATTE_MODE_MATTE 0x00
 
 /* Private data structure */
-struct shinkos1245_printjob {
-	uint8_t *databuf;
-	int datalen;
-
-	struct s1245_printjob_hdr hdr;
-
-	int copies;
-};
-
 struct shinkos1245_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
@@ -1314,7 +1308,7 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev, int 
 
 static void shinkos1245_cleanup_job(const void *vjob)
 {
-	const struct shinkos1245_printjob *job = vjob;
+	const struct sinfonia_printjob *job = vjob;
 
 	if (job->databuf)
 		free(job->databuf);
@@ -1331,13 +1325,11 @@ static void shinkos1245_teardown(void *vctx) {
 	free(ctx);
 }
 
-int sinfonia_read_parse(int data_fd, uint32_t model, void *vhdr, uint8_t **data, int *datalen);
-
 static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct shinkos1245_ctx *ctx = vctx;
 	int ret;
 
-	struct shinkos1245_printjob *job = NULL;
+	struct sinfonia_printjob *job = NULL;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1350,14 +1342,14 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 	memset(job, 0, sizeof(*job));
 
 	/* Common read/parse code */
-	ret = sinfonia_read_parse(data_fd, 1245, &job->hdr, &job->databuf, &job->datalen);
+	ret = sinfonia_read_parse(data_fd, 1245, &job->jp, &job->databuf, &job->datalen);
 	if (ret) {
 		free(job);
 		return ret;
 	}
 
-	if (job->hdr.copies > 1)
-		job->copies = job->hdr.copies;
+	if (job->jp.copies > 1)
+		job->copies = job->jp.copies;
 	else
 		job->copies = copies;
 
@@ -1370,7 +1362,7 @@ static int shinkos1245_main_loop(void *vctx, const void *vjob) {
 	int i, num, last_state = -1, state = S_IDLE;
 	struct shinkos1245_resp_status status1, status2;
 
-	const struct shinkos1245_printjob *job = vjob;
+	const struct sinfonia_printjob *job = vjob;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1381,10 +1373,10 @@ static int shinkos1245_main_loop(void *vctx, const void *vjob) {
 
 	/* Make sure print size is supported */
 	for (i = 0 ; i < ctx->num_medias ; i++) {
-		if (job->hdr.media == ctx->medias[i].code &&
-		    job->hdr.method == ctx->medias[i].print_type &&
-		    job->hdr.rows == ctx->medias[i].rows &&
-		    job->hdr.columns == ctx->medias[i].columns)
+		if (job->jp.media == ctx->medias[i].code &&
+		    job->jp.method == ctx->medias[i].print_type &&
+		    job->jp.rows == ctx->medias[i].rows &&
+		    job->jp.columns == ctx->medias[i].columns)
 			break;
 	}
 	if (i == ctx->num_medias) {
@@ -1464,13 +1456,13 @@ top:
 		struct shinkos1245_cmd_print cmd;
 
 		/* Set matte intensity */
-		if (job->hdr.mattedepth != 0x7fffffff) {
+		if (job->jp.mattedepth != 0x7fffffff) {
 			int current = -1;
 			i = shinkos1245_get_matte(ctx, &current);
 			if (i < 0)
 				goto printer_error;
-			if (current != job->hdr.mattedepth) {
-				i = shinkos1245_set_matte(ctx, job->hdr.mattedepth);
+			if (current != job->jp.mattedepth) {
+				i = shinkos1245_set_matte(ctx, job->jp.mattedepth);
 				if (i < 0)
 					goto printer_error;
 				if (i > 0) {
@@ -1490,11 +1482,11 @@ top:
 
 		cmd.id = ctx->jobid;
 		cmd.count = cpu_to_be16(uint16_to_packed_bcd(copies));
-		cmd.columns = cpu_to_be16(job->hdr.columns);
-		cmd.rows = cpu_to_be16(job->hdr.rows);
-		cmd.media = job->hdr.media;
-		cmd.mode = (job->hdr.oc_mode & 0x3f) || ((job->hdr.dust & 0x3) << 6);
-		cmd.combo = job->hdr.method;
+		cmd.columns = cpu_to_be16(job->jp.columns);
+		cmd.rows = cpu_to_be16(job->jp.rows);
+		cmd.media = job->jp.media;
+		cmd.mode = (job->jp.oc_mode & 0x3f) || ((job->jp.dust & 0x3) << 6);
+		cmd.combo = job->jp.method;
 
 		/* Issue print command */
 		i = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
