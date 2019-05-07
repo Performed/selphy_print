@@ -44,7 +44,7 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 			struct sinfonia_job_param *jp,
 			uint8_t **data, int *datalen)
 {
-	uint32_t hdr[28];
+	uint32_t hdr[29];
 	int ret, i;
 	uint8_t tmpbuf[4];
 

@@ -1361,6 +1361,7 @@ static int shinkos1245_main_loop(void *vctx, const void *vjob) {
 	struct shinkos1245_ctx *ctx = vctx;
 	int i, num, last_state = -1, state = S_IDLE;
 	struct shinkos1245_resp_status status1, status2;
+	int copies;
 
 	const struct sinfonia_printjob *job = vjob;
 

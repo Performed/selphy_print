@@ -1753,7 +1753,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 			j = get_fwinfo(ctx);
 			break;
 		case 'k': {
-			uint32_t i = atoi(optarg);
+			i = atoi(optarg);
 			if (i <= 5)
 				i = 0;
 			else if (i <= 15)
@@ -2377,7 +2377,7 @@ static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t end
 	resp->hdr.payload_len = le16_to_cpu(resp->hdr.payload_len);
 	if (resp->hdr.payload_len > 23)
 		resp->hdr.payload_len = 23;
-	resp->data[resp->hdr.payload_len] = 0;
+	rdbuf[resp->hdr.payload_len] = 0;
 	strncpy(buf, (char*)resp->data, buf_len);
 	buf[buf_len-1] = 0; /* ensure it's null terminated */
 

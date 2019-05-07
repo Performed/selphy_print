@@ -656,7 +656,7 @@ hdr_done:
 
 		/* Byteswap data table to native endianness, if necessary */
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
-		int i, j;
+		int j;
 		struct mitsu98xx_data *ptr = &ctx->m98xxdata->superfine;
 		for (j = 0 ; j < 3 ; j++) {
 			for (i = 3 ; i < 3 ; i++) {
@@ -833,19 +833,19 @@ hdr_done:
 		}
 
 		if (!ctx->lut) {
-			uint8_t *buf = malloc(LUT_LEN);
-			if (!buf) {
+			uint8_t *lbuf = malloc(LUT_LEN);
+			if (!lbuf) {
 				ERROR("Memory allocation failure!\n");
 				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_RETRY_CURRENT;
 			}
-			if (ctx->Get3DColorTable(buf, MITSU_M98xx_LUT_FILE)) {
+			if (ctx->Get3DColorTable(lbuf, MITSU_M98xx_LUT_FILE)) {
 				ERROR("Unable to open LUT file '%s'\n", MITSU_M98xx_LUT_FILE);
 				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
-			ctx->lut = ctx->Load3DColorTable(buf);
-			free(buf);
+			ctx->lut = ctx->Load3DColorTable(lbuf);
+			free(lbuf);
 			if (!ctx->lut) {
 				ERROR("Unable to parse LUT\n");
 				mitsu9550_cleanup_job(job);
@@ -1337,7 +1337,6 @@ top:
 	/* Send over plane data */
 	while(ptr < (job->databuf + job->datalen)) {
 		struct mitsu9550_plane *plane = (struct mitsu9550_plane *)ptr;
-		uint32_t planelen;
 		if (plane->cmd[0] != 0x1b ||
 		    plane->cmd[1] != 0x5a ||
 		    plane->cmd[2] != 0x54)
@@ -1432,7 +1431,7 @@ top:
 	/* Don't forget the 9810's matte plane */
 	if (job->hdr1.matte) {
 		struct mitsu9550_plane *plane = (struct mitsu9550_plane *)ptr;
-		uint32_t planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
+		planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
 
 		if (plane->cmd[3] == 0x10)
 			planelen *= 2;

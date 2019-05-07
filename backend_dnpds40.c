@@ -820,10 +820,6 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		}
 
 		if (ctx->type == P_DNP_DS80D) {
-			struct dnpds40_cmd cmd;
-			uint8_t *resp;
-			int len = 0;
-
 			/* Query Duplex Media Info */
 			dnpds40_build_cmd(&cmd, "INFO", "CUT_PAPER", 0);
 
@@ -1231,6 +1227,7 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 
 	job->databuf = malloc(MAX_PRINTJOB_LEN);
 	if (!job->databuf) {
+		dnpds40_cleanup_job(job);
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
@@ -2892,18 +2889,18 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 			j = dnpds40_get_sensors(ctx);
 			break;
 		case 'k': {
-			int time = atoi(optarg);
+			int sleeptime = atoi(optarg);
 			if (!ctx->supports_standby) {
 				ERROR("Printer does not support standby\n");
 				j = -1;
 				break;
 			}
-			if (time < 0 || time > 99) {
+			if (sleeptime < 0 || sleeptime > 99) {
 				ERROR("Value out of range (0-99)");
 				j = -1;
 				break;
 			}
-			j = dnpds620_standby_mode(ctx, time);
+			j = dnpds620_standby_mode(ctx, sleeptime);
 			break;
 		}
 		case 'K': {

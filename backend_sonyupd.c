@@ -334,6 +334,7 @@ static int upd_read_parse(void *vctx, const void **vjob, int data_fd, int copies
 		if (job->datalen + len > MAX_PRINTJOB_LEN) {
 			ERROR("Buffer overflow when parsing printjob! (%d+%d)\n",
 			      job->datalen, len);
+			upd_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 

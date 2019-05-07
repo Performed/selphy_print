@@ -49,7 +49,7 @@ int fast_return = 0;
 int extra_vid = -1;
 int extra_pid = -1;
 int extra_type = -1;
-int copies = 1;
+int ncopies = 1;
 int test_mode = 0;
 int old_uri = 0;
 int quiet = 0;
@@ -1027,7 +1027,7 @@ int main (int argc, char **argv)
 		if (argv[base])
 			jobid = atoi(argv[base]);
 		if (argv[base + 3])
-			copies = atoi(argv[base + 3]);
+			ncopies = atoi(argv[base + 3]);
 		if (argc > 6)
 			fname = argv[base + 5];
 		else
@@ -1265,7 +1265,7 @@ bypass:
 	signal(SIGTERM, sigterm_handler);
 
 	/* Time for the main processing loop */
-	INFO("Printing started (%d copies)\n", copies);
+	INFO("Printing started (%d copies)\n", ncopies);
 
 	/* See if it's a CUPS command stream, and if yes, handle it! */
 	if (type && !strcmp("application/vnd.cups-command", type))
@@ -1277,7 +1277,7 @@ bypass:
 newpage:
 
 	/* Read in data */
-	if ((ret = backend->read_parse(backend_ctx, &job, data_fd, copies))) {
+	if ((ret = backend->read_parse(backend_ctx, &job, data_fd, ncopies))) {
 		if (current_page)
 			goto done_multiple;
 		else
@@ -1291,11 +1291,11 @@ newpage:
 
 	/* Create our own joblist if necessary */
 	if (!(backend->flags & BACKEND_FLAG_JOBLIST)) {
-		struct dyesub_joblist *list = dyesub_joblist_create(backend, backend_ctx);
+		struct dyesub_joblist *jlist = dyesub_joblist_create(backend, backend_ctx);
 		if (!list)
 			goto done_claimed;
-		dyesub_joblist_addjob(list, job);
-		job = list;
+		dyesub_joblist_addjob(jlist, job);
+		job = jlist;
 	}
 
 	/* Dump the full marker dump */
@@ -1318,7 +1318,7 @@ newpage:
 
 	/* Log the completed page */
 	if (!uri)
-		PAGE("%d %d\n", current_page, copies);
+		PAGE("%d %d\n", current_page, ncopies);
 
 	/* Dump a marker status update */
 	ret = query_markers(backend, backend_ctx, !current_page);
@@ -1335,7 +1335,7 @@ done_multiple:
 
 	/* Done printing, log the total number of pages */
 	if (!uri)
-		PAGE("total %d\n", current_page * copies);
+		PAGE("total %d\n", current_page * ncopies);
 	ret = CUPS_BACKEND_OK;
 
 done_claimed:
@@ -1525,7 +1525,7 @@ struct dyesub_joblist *dyesub_joblist_create(struct dyesub_backend *backend, voi
 	list->backend = backend;
 	list->ctx = ctx;
 	list->num_entries = 0;
-	list->copies = 1;
+	list->copies = ncopies;
 
 	return list;
 }

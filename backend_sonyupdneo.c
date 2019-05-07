@@ -174,14 +174,15 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 		*/
 
 		if (strncmp("JOBSIZE=", (char*) job->databuf + job->datalen, 8)) {
+			updneo_cleanup_job(job);
 			ERROR("Invalid spool format!\n");
 			return CUPS_BACKEND_CANCEL;
 		}
-		i = 0;
 
 		/* PDL */
 		char *tok = strtok((char*)job->databuf + job->datalen + 8, "\r\n,");
 		if (!tok) {
+			updneo_cleanup_job(job);
 			ERROR("Invalid spool format (PDL)!\n");
 			return CUPS_BACKEND_CANCEL;
 		}

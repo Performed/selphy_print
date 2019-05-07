@@ -726,8 +726,10 @@ static int canonselphy_read_parse(void *vctx, const void **vjob, int data_fd, in
 	   job contents.  Ignore it if it comes through here.. */
 	i = read(data_fd, rdbuf, 4);
 	if (i != 4) {
-		if (i == 0)
+		if (i == 0) {
+			canonselphy_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		ERROR("Read failed (%d/%d)\n", i, 4);
 		perror("ERROR: Read failed");
 		canonselphy_cleanup_job(job);

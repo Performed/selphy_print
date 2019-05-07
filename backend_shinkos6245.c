@@ -1337,7 +1337,7 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 			j = get_fwinfo(ctx);
 			break;
 		case 'k': {
-			uint32_t i = atoi(optarg);
+			i = atoi(optarg);
 			if (i < 5)
 				i = 0;
 			else if (i < 15)
@@ -1559,26 +1559,26 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 
 	/* Send Set Time */
 	{
-		struct s6245_settime_cmd *stime = (struct s6245_settime_cmd *)cmdbuf;
+		struct s6245_settime_cmd *settime = (struct s6245_settime_cmd *)cmdbuf;
 		time_t now = time(NULL);
 		struct tm *cur = localtime(&now);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
 		cmd->cmd = cpu_to_le16(S6245_CMD_SETTIME);
 		cmd->len = cpu_to_le16(0);
-		stime->enable = 1;
-		stime->second = cur->tm_sec;
-		stime->minute = cur->tm_min;
-		stime->hour = cur->tm_hour;
-		stime->day = cur->tm_mday;
-		stime->month = cur->tm_mon;
-		stime->year = cur->tm_year + 1900 - 2000;
+		settime->enable = 1;
+		settime->second = cur->tm_sec;
+		settime->minute = cur->tm_min;
+		settime->hour = cur->tm_hour;
+		settime->day = cur->tm_mday;
+		settime->month = cur->tm_mon;
+		settime->year = cur->tm_year + 1900 - 2000;
 
 		if ((ret = s6245_do_cmd(ctx,
-					cmdbuf, sizeof(*stime),
+					cmdbuf, sizeof(*settime),
 					sizeof(struct s6245_status_hdr),
 					&num, (void*)&resp)) < 0) {
-			ERROR("Failed to execute %s command\n", cmd_names(stime->hdr.cmd));
+			ERROR("Failed to execute %s command\n", cmd_names(settime->hdr.cmd));
 			return CUPS_BACKEND_FAILED;
 		}
 		if (resp.result != RESULT_SUCCESS)
@@ -1750,7 +1750,6 @@ static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t end
 	resp.hdr.payload_len = le16_to_cpu(resp.hdr.payload_len);
 	if (resp.hdr.payload_len > 23)
 		resp.hdr.payload_len = 23;
-	resp.data[resp.hdr.payload_len] = 0;
 	strncpy(buf, (char*)resp.data, buf_len);
 	buf[buf_len-1] = 0; /* ensure it's null terminated */
 
