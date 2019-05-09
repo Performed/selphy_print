@@ -41,6 +41,8 @@ struct sinfonia_job_param {
 	uint32_t media;
 	uint32_t oc_mode;
 
+	uint32_t quality;
+
 	int       mattedepth;
 	uint32_t dust;
 

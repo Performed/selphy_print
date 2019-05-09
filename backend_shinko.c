@@ -132,6 +132,8 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 		jp->media = hdr[6];
 		if (hdr[1] != 6245)
 			jp->method = hdr[8];
+		if (hdr[1] == 2245 || hdr[1] == 6245)
+			jp->quality = hdr[9];
 		if (hdr[1] == 1245 || hdr[1] == 2145)
 			jp->oc_mode = hdr[9];
 		else
@@ -140,8 +142,8 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 			jp->mattedepth = hdr[11];
 		if (hdr[1] == 1245)
 			jp->dust = hdr[12];
-		jp->rows = hdr[13];
-		jp->columns = hdr[14];
+		jp->columns = hdr[13];
+		jp->rows = hdr[14];
 		jp->copies = hdr[15];
 
 		if (hdr[1] == 6145)
