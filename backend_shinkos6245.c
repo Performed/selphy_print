@@ -342,15 +342,6 @@ struct s6245_status_hdr {
 #define RESULT_SUCCESS 0x01
 #define RESULT_FAIL    0x02
 
-#define ERROR_NONE              0x00
-#define ERROR_INVALID_PARAM     0x01
-#define ERROR_MAIN_APP_INACTIVE 0x02
-#define ERROR_COMMS_TIMEOUT     0x03
-#define ERROR_MAINT_NEEDED      0x04
-#define ERROR_BAD_COMMAND       0x05
-#define ERROR_PRINTER           0x11
-#define ERROR_BUFFER_FULL       0x21
-
 static char *error_codes(uint8_t major, uint8_t minor)
 {
 	switch(major) {
@@ -561,29 +552,6 @@ static char *error_codes(uint8_t major, uint8_t minor)
 		default:
 			return "Unknown";
 		}
-	default:
-		return "Unknown";
-	}
-}
-
-static char *error_str(uint8_t v) {
-	switch (v) {
-	case ERROR_NONE:
-		return "None";
-	case ERROR_INVALID_PARAM:
-		return "Invalid Command Parameter";
-	case ERROR_MAIN_APP_INACTIVE:
-		return "Main App Inactive";
-	case ERROR_COMMS_TIMEOUT:
-		return "Main Communication Timeout";
-	case ERROR_MAINT_NEEDED:
-		return "Maintenance Needed";
-	case ERROR_BAD_COMMAND:
-		return "Inappropriate Command";
-	case ERROR_PRINTER:
-		return "Printer Error";
-	case ERROR_BUFFER_FULL:
-		return "Buffer Full";
 	default:
 		return "Unknown";
 	}
@@ -924,7 +892,7 @@ static int get_status(struct shinkos6245_ctx *ctx)
 			resp.hdr.error = resp.hdr.status;
 		INFO(" Error 0x%02x (%s) 0x%02x/0x%02x (%s)\n",
 		     resp.hdr.error,
-		     error_str(resp.hdr.error),
+		     sinfonia_error_str(resp.hdr.error),
 		     resp.hdr.printer_major,
 		     resp.hdr.printer_minor, error_codes(resp.hdr.printer_major, resp.hdr.printer_minor));
 	}
@@ -1715,7 +1683,7 @@ top:
 printer_error:
 	ERROR("Printer reported error: %#x (%s) status: %#x (%s) -> %#x.%#x (%s)\n",
 	      sts.hdr.error,
-	      error_str(sts.hdr.error),
+	      sinfonia_error_str(sts.hdr.error),
 	      sts.hdr.status,
 	      status_str(sts.hdr.status),
 	      sts.hdr.printer_major, sts.hdr.printer_minor,

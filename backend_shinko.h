@@ -85,3 +85,20 @@ char *sinfonia_update_targets (uint8_t v);
 #define TONECURVE_CURRENT 0x02
 
 char *sinfonia_tonecurve_statuses (uint8_t v);
+
+struct sinfonia_error_item {
+	uint8_t  major;
+	uint8_t  minor;
+	uint32_t print_counter;
+} __attribute__((packed));
+
+#define ERROR_NONE              0x00
+#define ERROR_INVALID_PARAM     0x01
+#define ERROR_MAIN_APP_INACTIVE 0x02
+#define ERROR_COMMS_TIMEOUT     0x03
+#define ERROR_MAINT_NEEDED      0x04
+#define ERROR_BAD_COMMAND       0x05
+#define ERROR_PRINTER           0x11
+#define ERROR_BUFFER_FULL       0x21
+
+char *sinfonia_error_str(uint8_t v);

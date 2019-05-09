@@ -146,7 +146,7 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 		jp->rows = hdr[14];
 		jp->copies = hdr[15];
 
-		if (hdr[1] == 6145)
+		if (hdr[1] == 2245 || hdr[1] == 6145)
 			jp->ext_flags = hdr[28];
 	}
 
@@ -189,6 +189,29 @@ char *sinfonia_bank_statuses(uint8_t v)
 		return "Full";
 	case BANK_STATUS_PRINTING:
 		return "Printing";
+	default:
+		return "Unknown";
+	}
+}
+
+char *sinfonia_error_str(uint8_t v) {
+	switch (v) {
+	case ERROR_NONE:
+		return "None";
+	case ERROR_INVALID_PARAM:
+		return "Invalid Command Parameter";
+	case ERROR_MAIN_APP_INACTIVE:
+		return "Main App Inactive";
+	case ERROR_COMMS_TIMEOUT:
+		return "Main Communication Timeout";
+	case ERROR_MAINT_NEEDED:
+		return "Maintenance Needed";
+	case ERROR_BAD_COMMAND:
+		return "Inappropriate Command";
+	case ERROR_PRINTER:
+		return "Printer Error";
+	case ERROR_BUFFER_FULL:
+		return "Buffer Full";
 	default:
 		return "Unknown";
 	}

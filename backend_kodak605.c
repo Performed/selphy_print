@@ -77,15 +77,6 @@ struct kodak605_sts_hdr {
 #define RESULT_FAIL    0x02
 
 /* ERROR_* and STATUS_* are all guesses */
-#define ERROR_NONE              0x00
-#define ERROR_INVALID_PARAM     0x01
-#define ERROR_MAIN_APP_INACTIVE 0x02
-#define ERROR_COMMS_TIMEOUT     0x03
-#define ERROR_MAINT_NEEDED      0x04
-#define ERROR_BAD_COMMAND       0x05
-#define ERROR_PRINTER           0x11
-#define ERROR_BUFFER_FULL       0x21
-
 #define STATUS_INIT_CPU         0x31
 #define STATUS_INIT_RIBBON      0x32
 #define STATUS_INIT_PAPER       0x33
@@ -164,16 +155,10 @@ struct kodak605_status {
 } __attribute__((packed));
 
 /* Error logs are guesses */
-struct kodak605_error_item {
-	uint8_t  major;
-	uint8_t  minor;
-	uint32_t print_counter;
-} __attribute__((packed));
-
 struct kodak605_errorlog_resp {
 	struct kodak605_sts_hdr hdr;
 	uint8_t  count;
-	struct kodak605_error_item items[10];  /* Not all necessarily used */
+	struct sinfonia_error_item items[10];  /* Not all necessarily used */
 } __attribute__((packed));
 
 /* File header */
@@ -470,8 +455,9 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 
 		if (sts.hdr.result != RESULT_SUCCESS) {
 			ERROR("Printer Status:  %02x\n", sts.hdr.status);
-			ERROR("Result: %02x Error: %02x (%02x %02x)\n",
+			ERROR("Result: %02x Error: %02x (%s) %02x/%02x\n",
 			      sts.hdr.result, sts.hdr.error,
+			      sinfonia_error_str(sts.hdr.error),
 			      sts.hdr.printer_major, sts.hdr.printer_minor);
 			return CUPS_BACKEND_FAILED;
 		}
@@ -552,8 +538,9 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 		if (sts.hdr.result != RESULT_SUCCESS ||
 		    sts.hdr.error == ERROR_PRINTER) {
 			INFO("Printer Status:  %02x\n", sts.hdr.status);
-			INFO("Result: %02x Error: %02x (%02x %02x)\n",
+			INFO("Result: %02x Error: %02x (%s) %02x/%02x\n",
 			     sts.hdr.result, sts.hdr.error,
+			     sinfonia_error_str(sts.hdr.error),
 			     sts.hdr.printer_major, sts.hdr.printer_minor);
 			return CUPS_BACKEND_STOP;
 		}
@@ -580,8 +567,9 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 
 static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_status *sts)
 {
-	INFO("Status: %02x Error: %02x %02x/%02x\n",
+	INFO("Status: %02x Error: %02x (%s) %02x/%02x\n",
 	     sts->hdr.status, sts->hdr.error,
+	     sinfonia_error_str(sts->hdr.error),
 	     sts->hdr.printer_major, sts->hdr.printer_minor);
 
 	INFO("Bank 1: %s Job %03u @ %03u/%03u\n",
