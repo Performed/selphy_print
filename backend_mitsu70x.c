@@ -2232,6 +2232,15 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 	INFO("Standby Timeout: %d minutes\n", resp->sleeptime);
 	INFO("iSerial Reporting: %s\n", resp->iserial ? "No" : "Yes" );
 	INFO("Power Status: %s\n", resp->power ? "Sleeping" : "Awake");
+	INFO("Memory Status: %s%s%s%s%s%s%s%s Free\n",
+	     resp->memory & 0x01 ? "b1" : "",
+	     resp->memory & 0x02 ? "b2" : "",
+	     resp->memory & 0x04 ? "b3" : "",
+	     resp->memory & 0x08 ? "b4" : "",
+	     resp->memory & 0x10 ? "b5" : "",
+	     resp->memory & 0x20 ? "b6" : "",
+	     resp->memory & 0x40 ? "b7" : "",
+	     resp->memory & 0x80 ? "b8" : "");
 
 	if (resp->lower.error_status[0]) {
 		INFO("Lower Error Status: %s/%s -> %s\n",
@@ -2326,6 +2335,7 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 		}
 		INFO("Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature));
 	}
+
 	// memory status?
 
 #if 0
@@ -2481,7 +2491,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.94",
+	.version = "0.95",
 	.uri_prefixes = mitsu70x_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
