@@ -2201,6 +2201,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 					struct mitsu70x_printerstatus_resp *resp)
 {
 	uint32_t i;
+	uint8_t memory = ~resp->memory;
 
 	INFO("Model         : ");
 	for (i = 0 ; i < 6 ; i++) {
@@ -2233,14 +2234,14 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 	INFO("iSerial Reporting: %s\n", resp->iserial ? "No" : "Yes" );
 	INFO("Power Status: %s\n", resp->power ? "Sleeping" : "Awake");
 	INFO("Memory Status: %s%s%s%s%s%s%s%s Free\n",
-	     resp->memory & 0x01 ? "b1" : "",
-	     resp->memory & 0x02 ? "b2" : "",
-	     resp->memory & 0x04 ? "b3" : "",
-	     resp->memory & 0x08 ? "b4" : "",
-	     resp->memory & 0x10 ? "b5" : "",
-	     resp->memory & 0x20 ? "b6" : "",
-	     resp->memory & 0x40 ? "b7" : "",
-	     resp->memory & 0x80 ? "b8" : "");
+	     memory & 0x01 ? "mem8 " : "",
+	     memory & 0x02 ? "mem7 " : "",
+	     memory & 0x04 ? "mem6 " : "",
+	     memory & 0x08 ? "mem5 " : "",
+	     memory & 0x10 ? "mem4 " : "",
+	     memory & 0x20 ? "mem3 " : "",
+	     memory & 0x40 ? "mem2 " : "",
+	     memory & 0x80 ? "mem1 " : "");
 
 	if (resp->lower.error_status[0]) {
 		INFO("Lower Error Status: %s/%s -> %s\n",
