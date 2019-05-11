@@ -1331,7 +1331,7 @@ struct dyesub_backend kodak6800_backend = {
   NN NN                          Number of copies in BCD form (0001->9999)
   WW WW                          Number of columns (Fixed at 1844 on 6800)
   HH HH                          Number of rows.
-  SS                             Print size -- 0x00 (4x6) 0x06 (8x6) 0x07 (5x7 on 6850)
+  SS                             Print size -- 0x00 (4x6/3x6/2x6) 0x06 (8x6) 0x07 (5x7 on 6850)
   LL                             Laminate mode -- 0x00 (off) or 0x01 (on)
   UU                             Print mode -- 0x00 (normal) or (0x01) 4x6 on 8x6
 
