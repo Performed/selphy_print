@@ -2233,7 +2233,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 	INFO("Standby Timeout: %d minutes\n", resp->sleeptime);
 	INFO("iSerial Reporting: %s\n", resp->iserial ? "No" : "Yes" );
 	INFO("Power Status: %s\n", resp->power ? "Sleeping" : "Awake");
-	INFO("Memory Status: %s%s%s%s%s%s%s%s Free\n",
+	INFO("Available Memory Banks: %s%s%s%s%s%s%s%s\n",
 	     memory & 0x01 ? "mem8 " : "",
 	     memory & 0x02 ? "mem7 " : "",
 	     memory & 0x04 ? "mem6 " : "",
