@@ -1191,6 +1191,8 @@ static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int 
 		job->hdr.method = 0x23;
 	} else if (rows == 1240) {
 		job->hdr.method = 0x01;
+	} else if (rows == 1282) {
+		job->hdr.method = 0x20;
 	} else if (rows == 1882) {
 		job->hdr.method = 0x22;
 	} else if (rows == 2490) {
