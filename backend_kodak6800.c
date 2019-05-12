@@ -1179,24 +1179,27 @@ static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int 
 		job->datalen += 1844*2*3;
 	}
 
-	/* Some header jiggery */
-	if (cols == 1844)
-		job->hdr.size = 6;
-	else if (cols == 1548)
-		job->hdr.size = 7;
-
-	if (rows == 636) {
-		job->hdr.method = 0x21;
-	} else if (rows == 936) {
-		job->hdr.method = 0x23;
-	} else if (rows == 1240) {
-		job->hdr.method = 0x01;
-	} else if (rows == 1282) {
-		job->hdr.method = 0x20;
-	} else if (rows == 1882) {
-		job->hdr.method = 0x22;
-	} else if (rows == 2490) {
-		job->hdr.method = 0x2;
+	/* Perform some header re-jiggery */
+	if (job->hdr.size == 0) {
+		if (cols == 1844)
+			job->hdr.size = 6;
+		else if (cols == 1548)
+			job->hdr.size = 7;
+	}
+	if (job->hdr.method == 0) {
+		if (rows == 636) {
+			job->hdr.method = 0x21;
+		} else if (rows == 936) {
+			job->hdr.method = 0x23;
+		} else if (rows == 1240) {
+			job->hdr.method = 0x01;
+		} else if (rows == 1282) {
+			job->hdr.method = 0x20;
+		} else if (rows == 1882) {
+			job->hdr.method = 0x22;
+		} else if (rows == 2490) {
+			job->hdr.method = 0x2;
+		}
 	}
 
         /* Fix max print count. */
@@ -1364,7 +1367,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.69",
+	.version = "0.70",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
