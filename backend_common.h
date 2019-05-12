@@ -245,6 +245,7 @@ extern int extra_vid;
 extern int extra_pid;
 extern int extra_type;
 extern int ncopies;
+extern int collate;
 extern int test_mode;
 extern int quiet;
 

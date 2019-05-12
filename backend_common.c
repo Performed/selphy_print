@@ -50,6 +50,7 @@ int extra_vid = -1;
 int extra_pid = -1;
 int extra_type = -1;
 int ncopies = 1;
+int collate = 0;
 int test_mode = 0;
 int old_uri = 0;
 int quiet = 0;
@@ -1525,7 +1526,11 @@ struct dyesub_joblist *dyesub_joblist_create(struct dyesub_backend *backend, voi
 	list->backend = backend;
 	list->ctx = ctx;
 	list->num_entries = 0;
-	list->copies = ncopies;
+
+	if (collate)
+		list->copies = ncopies;
+	else
+		list->copies = 1;
 
 	return list;
 }
