@@ -362,6 +362,7 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 			break;
 	}
 
+	free(media);
 	return CUPS_BACKEND_OK;
 }
 
@@ -1045,16 +1046,16 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int ty
 		}
 		uint16_t fw = be16_to_cpu(ctx->sts.main_fw);
 		if (ctx->type == P_KODAK_6850) {
-			if ((fw > 800 && fw >= 878) ||
-			    (fw > 600 && fw >= 678)) {
+			if ((fw >= 878) ||
+			    (fw < 800 && fw >= 678)) {
 				ctx->supports_sub4x6 = 1;
 			} else {
 				WARNING("Printer FW out of date, recommend updating for current media and features\n");
 			}
 		} else {
-			if ((fw > 400 && fw >= 459) ||
-			    (fw > 300 && fw >= 359) ||
-			    (fw > 200 && fw >= 259)) {
+			if ((fw >= 459) ||
+			    (fw < 400 && fw >= 359) ||
+			    (fw < 300 && fw >= 259)) {
 				ctx->supports_sub4x6 = 1;
 			} else {
 				WARNING("Printer FW out of date, recommend updating for current media and features\n");

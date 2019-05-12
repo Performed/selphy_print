@@ -1549,8 +1549,10 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 			ERROR("Failed to execute %s command\n", cmd_names(settime->hdr.cmd));
 			return CUPS_BACKEND_FAILED;
 		}
-		if (resp.result != RESULT_SUCCESS)
-			goto printer_error;
+		if (resp.result != RESULT_SUCCESS) {
+			ERROR("Bad result %02x\n", resp.result);
+			goto fail;
+		}
 	}
 
 	// XXX check copies against remaining media!
@@ -1688,6 +1690,7 @@ printer_error:
 	      status_str(sts.hdr.status),
 	      sts.hdr.printer_major, sts.hdr.printer_minor,
 	      error_codes(sts.hdr.printer_major, sts.hdr.printer_minor));
+fail:
 	return CUPS_BACKEND_FAILED;
 }
 

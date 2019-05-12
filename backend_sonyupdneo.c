@@ -198,11 +198,13 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 		/* Payload length */
 		tok = strtok(NULL, "\r\n,");
 		if (!tok) {
+			updneo_cleanup_job(job);
 			ERROR("Invalid spool format (block length missing)!\n");
 			return CUPS_BACKEND_CANCEL;
 		}
 		len = atoi(tok);
 		if (len == 0 || len > MAX_PRINTJOB_LEN) {
+			updneo_cleanup_job(job);
 			ERROR("Invalid spool format (block length %d)!\n", len);
 			return CUPS_BACKEND_CANCEL;
 		}

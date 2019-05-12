@@ -130,7 +130,7 @@ if ($proc_count > 1 && $kid > 0) {
 		$rval = run \@args;
 	    }
 	    if (!$rval) {
-		print("***** $row[0] $row[1] $row[2] $row[3] $row[4] $copies ***** FAIL: $? \n");
+		print("***** $row[0] $row[1] $row[2] $row[3] $row[4] $i ***** FAIL: $? \n");
 		$error++;
 	    }
 	}

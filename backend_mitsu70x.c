@@ -2234,14 +2234,14 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 	INFO("iSerial Reporting: %s\n", resp->iserial ? "No" : "Yes" );
 	INFO("Power Status: %s\n", resp->power ? "Sleeping" : "Awake");
 	INFO("Available Memory Banks: %s%s%s%s%s%s%s%s\n",
-	     memory & 0x01 ? "mem8 " : "",
-	     memory & 0x02 ? "mem7 " : "",
-	     memory & 0x04 ? "mem6 " : "",
-	     memory & 0x08 ? "mem5 " : "",
-	     memory & 0x10 ? "mem4 " : "",
-	     memory & 0x20 ? "mem3 " : "",
-	     memory & 0x40 ? "mem2 " : "",
-	     memory & 0x80 ? "mem1 " : "");
+	     (memory & 0x01) ? "mem8 " : "",
+	     (memory & 0x02) ? "mem7 " : "",
+	     (memory & 0x04) ? "mem6 " : "",
+	     (memory & 0x08) ? "mem5 " : "",
+	     (memory & 0x10) ? "mem4 " : "",
+	     (memory & 0x20) ? "mem3 " : "",
+	     (memory & 0x40) ? "mem2 " : "",
+	     (memory & 0x80) ? "mem1 " : "");
 
 	if (resp->lower.error_status[0]) {
 		INFO("Lower Error Status: %s/%s -> %s\n",
