@@ -130,12 +130,14 @@ if ($proc_count > 1 && $kid > 0) {
 		$rval = run \@args;
 	    }
 	    if (!$rval) {
-		print("***** $row[0] $row[1] $row[2] $row[3] $row[4] ***** FAIL: backend $? $row[0] $row[1] $row[2] $row[3] $row[4]\n");
+		print("***** $row[0] $row[1] $row[2] $row[3] $row[4] $copies ***** FAIL: $? \n");
 		$error++;
 	    }
 	}
 
-	print "***** $row[0] $row[1] $row[2] $row[3] $row[4] ***** PASS\n";
+	if ($error == 0) {
+	    print "***** $row[0] $row[1] $row[2] $row[3] $row[4] ***** PASS\n";
+	}
     }
     $retval = $error;
     close (INFILE);
