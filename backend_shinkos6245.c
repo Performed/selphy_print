@@ -1135,7 +1135,7 @@ static int get_tonecurve(struct shinkos6245_ctx *ctx, int type, char *fname)
 	int ret, num = 0;
 
 	uint8_t *data;
-	uint16_t curves[UPDATE_SIZE] = { 0 };
+	uint16_t curves[TONE_CURVE_SIZE] = { 0 };
 
 	int i,j;
 
@@ -1189,11 +1189,11 @@ static int get_tonecurve(struct shinkos6245_ctx *ctx, int type, char *fname)
 			goto done;
 		}
 
-		for (i = 0 ; i < UPDATE_SIZE; i++) {
+		for (i = 0 ; i < TONE_CURVE_SIZE; i++) {
 			/* Byteswap appropriately */
 			curves[i] = cpu_to_be16(le16_to_cpu(curves[i]));
 		}
-		write(tc_fd, curves, UPDATE_SIZE * sizeof(uint16_t));
+		write(tc_fd, curves, TONE_CURVE_SIZE * sizeof(uint16_t));
 		close(tc_fd);
 	}
 
@@ -1210,20 +1210,20 @@ static int set_tonecurve(struct shinkos6245_ctx *ctx, int target, char *fname)
 
 	INFO("Set %s Tone Curve from '%s'\n", sinfonia_update_targets(target), fname);
 
-	uint16_t *data = malloc(UPDATE_SIZE * sizeof(uint16_t));
+	uint16_t *data = malloc(TONE_CURVE_SIZE * sizeof(uint16_t));
 	if (!data) {
 		ERROR("Memory Allocation Failure!\n");
 		return -1;
 	}
 
 	/* Read in file */
-	if ((ret = dyesub_read_file(fname, data, UPDATE_SIZE * sizeof(uint16_t), NULL))) {
+	if ((ret = dyesub_read_file(fname, data, TONE_CURVE_SIZE * sizeof(uint16_t), NULL))) {
 		ERROR("Failed to read Tone Curve file\n");
 		goto done;
 	}
 
 	/* Byteswap data to local CPU.. */
-	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
+	for (ret = 0; ret < TONE_CURVE_SIZE ; ret++) {
 		data[ret] = be16_to_cpu(data[ret]);
 	}
 
@@ -1231,13 +1231,13 @@ static int set_tonecurve(struct shinkos6245_ctx *ctx, int target, char *fname)
 	cmd.target = target;
 	cmd.reserved[0] = cmd.reserved[1] = cmd.reserved[2] = 0;
 	cmd.reset = 0;
-	cmd.size = cpu_to_le32(UPDATE_SIZE * sizeof(uint16_t));
+	cmd.size = cpu_to_le32(TONE_CURVE_SIZE * sizeof(uint16_t));
 
 	cmd.hdr.cmd = cpu_to_le16(S6245_CMD_UPDATE);
 	cmd.hdr.len = cpu_to_le16(sizeof(struct s6245_update_cmd)-sizeof(cmd.hdr));
 
 	/* Byteswap data to format printer is expecting.. */
-	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
+	for (ret = 0; ret < TONE_CURVE_SIZE ; ret++) {
 		data[ret] = cpu_to_le16(data[ret]);
 	}
 
@@ -1251,7 +1251,7 @@ static int set_tonecurve(struct shinkos6245_ctx *ctx, int target, char *fname)
 
 	/* Sent transfer */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t *) data, UPDATE_SIZE * sizeof(uint16_t)))) {
+			     (uint8_t *) data, TONE_CURVE_SIZE * sizeof(uint16_t)))) {
 		goto done;
 	}
 

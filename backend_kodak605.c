@@ -688,18 +688,18 @@ static int kodak605_set_tonecurve(struct kodak605_ctx *ctx, char *fname)
 	uint8_t respbuf[16];
 	int ret, num = 0;
 
-	uint16_t *data = malloc(UPDATE_SIZE);
+	uint16_t *data = malloc(TONE_CURVE_SIZE);
 
 	INFO("Set Tone Curve from '%s'\n", fname);
 
 	/* Read in file */
-	if ((ret = dyesub_read_file(fname, data, UPDATE_SIZE, NULL))) {
+	if ((ret = dyesub_read_file(fname, data, TONE_CURVE_SIZE, NULL))) {
 		ERROR("Failed to read Tone Curve file\n");
 		goto done;
 	}
 
 	/* Byteswap data to printer's format */
-	for (ret = 0; ret < (UPDATE_SIZE/2) ; ret++) {
+	for (ret = 0; ret < (TONE_CURVE_SIZE/2) ; ret++) {
 		data[ret] = cpu_to_le16(be16_to_cpu(data[ret]));
 	}
 

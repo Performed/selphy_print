@@ -320,7 +320,7 @@ struct s2145_update_cmd {
 	uint32_t size;
 } __attribute__((packed));
 
-#define UPDATE_SIZE 0x600
+#define TONE_CURVE_SIZE 0x600
 
 struct s2145_setunique_cmd {
 	struct s2145_cmd_hdr hdr;
@@ -649,20 +649,6 @@ struct s2145_mediainfo_item {
 	uint8_t  reserved[3];
 } __attribute__((packed));
 
-#define MEDIA_TYPE_UNKNOWN 0x00
-#define MEDIA_TYPE_PAPER   0x01
-
-static char *media_types(uint8_t v) {
-	switch (v) {
-	case MEDIA_TYPE_UNKNOWN:
-		return "Unknown";
-	case MEDIA_TYPE_PAPER:
-		return "Paper";
-	default:
-		return "Unknown";
-	}
-}
-
 struct s2145_mediainfo_resp {
 	struct s2145_status_hdr hdr;
 	uint8_t  count;
@@ -888,11 +874,10 @@ static void dump_mediainfo(struct s2145_mediainfo_resp *resp)
 
 	INFO("Supported Media Information: %u entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: C 0x%02x (%s), %04ux%04u, M 0x%02x (%s), P 0x%02x (%s)\n", i,
+		INFO(" %02d: C 0x%02x (%s), %04ux%04u, P 0x%02x (%s)\n", i,
 		     resp->items[i].code, print_sizes(resp->items[i].code),
 		     resp->items[i].columns,
 		     resp->items[i].rows,
-		     resp->items[i].media_type, media_types(resp->items[i].media_type),
 		     resp->items[i].print_method, print_methods(resp->items[i].print_method));
 	}
 }
@@ -1049,7 +1034,7 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 	int ret, num = 0;
 
 	uint8_t *data;
-	uint16_t curves[UPDATE_SIZE]  = { 0 } ;
+	uint16_t curves[TONE_CURVE_SIZE]  = { 0 } ;
 
 	int i,j;
 
@@ -1103,11 +1088,11 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 			goto done;
 		}
 
-		for (i = 0 ; i < UPDATE_SIZE; i++) {
+		for (i = 0 ; i < TONE_CURVE_SIZE; i++) {
 			/* Byteswap appropriately */
 			curves[i] = cpu_to_be16(le16_to_cpu(curves[i]));
 		}
-		ret = write(tc_fd, curves, UPDATE_SIZE * sizeof(uint16_t));
+		ret = write(tc_fd, curves, TONE_CURVE_SIZE * sizeof(uint16_t));
 		if (ret < 0)
 			ERROR("Can't write curve file\n");
 		else
@@ -1130,35 +1115,35 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 
 	INFO("Set %s Tone Curve from '%s'\n", sinfonia_update_targets(target), fname);
 
-	uint16_t *data = malloc(UPDATE_SIZE * sizeof(uint16_t));
+	uint16_t *data = malloc(TONE_CURVE_SIZE * sizeof(uint16_t));
 
 	if (!data) {
 		ERROR("Memory allocation failure! (%d bytes)\n",
-		      UPDATE_SIZE);
+		      TONE_CURVE_SIZE);
 		return -1;
 	}
 
 	/* Read in file */
-	if ((ret = dyesub_read_file(fname, data, UPDATE_SIZE, NULL))) {
+	if ((ret = dyesub_read_file(fname, data, TONE_CURVE_SIZE, NULL))) {
 		ERROR("Failed to read Tone Curve file\n");
 		goto done;
 	}
 
 	/* Byteswap data to local CPU.. */
-	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
+	for (ret = 0; ret < TONE_CURVE_SIZE ; ret++) {
 		data[ret] = be16_to_cpu(data[ret]);
 	}
 
 	/* Set up command */
 	cmd.target = target;
 	cmd.reserved = 0;
-	cmd.size = cpu_to_le32(UPDATE_SIZE * sizeof(uint16_t));
+	cmd.size = cpu_to_le32(TONE_CURVE_SIZE * sizeof(uint16_t));
 
 	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_UPDATE);
 	cmd.hdr.len = cpu_to_le16(sizeof(struct s2145_update_cmd)-sizeof(cmd.hdr));
 
 	/* Byteswap data to format printer is expecting.. */
-	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
+	for (ret = 0; ret < TONE_CURVE_SIZE ; ret++) {
 		data[ret] = cpu_to_le16(data[ret]);
 	}
 
@@ -1172,7 +1157,7 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 
 	/* Sent transfer */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t *) data, UPDATE_SIZE * sizeof(uint16_t)))) {
+			     (uint8_t *) data, TONE_CURVE_SIZE * sizeof(uint16_t)))) {
 		goto done;
 	}
 

@@ -216,3 +216,160 @@ char *sinfonia_error_str(uint8_t v) {
 		return "Unknown";
 	}
 }
+
+char *media_types(uint8_t v) {
+	switch (v) {
+	case MEDIA_TYPE_UNKNOWN:
+		return "Unknown";
+	case MEDIA_TYPE_PAPER:
+		return "Paper";
+	default:
+		return "Unknown";
+	}
+}
+
+/* Below are for S1145 (EK68xx) and S1245 only! */
+char *sinfonia_1x45_status_str(uint8_t status1, uint32_t status2, uint8_t error)
+{
+	switch(status1) {
+	case STATE_STATUS1_STANDBY:
+		return "Standby (Ready)";
+	case STATE_STATUS1_WAIT:
+		switch (status2) {
+		case WAIT_STATUS2_INIT:
+			return "Wait (Initializing)";
+		case WAIT_STATUS2_RIBBON:
+			return "Wait (Ribbon Winding)";
+		case WAIT_STATUS2_THERMAL:
+			return "Wait (Thermal Protection)";
+		case WAIT_STATUS2_OPERATING:
+			return "Wait (Operating)";
+		case WAIT_STATUS2_BUSY:
+			return "Wait (Busy)";
+		default:
+			return "Wait (Unknown)";
+		}
+	case STATE_STATUS1_ERROR:
+		switch (status2) {
+		case ERROR_STATUS2_CTRL_CIRCUIT:
+			switch (error) {
+			case CTRL_CIR_ERROR_EEPROM1:
+				return "Error (EEPROM1)";
+			case CTRL_CIR_ERROR_EEPROM2:
+				return "Error (EEPROM2)";
+			case CTRL_CIR_ERROR_DSP:
+				return "Error (DSP)";
+			case CTRL_CIR_ERROR_CRC_MAIN:
+				return "Error (Main CRC)";
+			case CTRL_CIR_ERROR_DL_MAIN:
+				return "Error (Main Download)";
+			case CTRL_CIR_ERROR_CRC_DSP:
+				return "Error (DSP CRC)";
+			case CTRL_CIR_ERROR_DL_DSP:
+				return "Error (DSP Download)";
+			case CTRL_CIR_ERROR_ASIC:
+				return "Error (ASIC)";
+			case CTRL_CIR_ERROR_DRAM:
+				return "Error (DRAM)";
+			case CTRL_CIR_ERROR_DSPCOMM:
+				return "Error (DSP Communincation)";
+			default:
+				return "Error (Unknown Circuit)";
+			}
+		case ERROR_STATUS2_MECHANISM_CTRL:
+			switch (error) {
+			case MECH_ERROR_HEAD_UP:
+				return "Error (Head Up Mechanism)";
+			case MECH_ERROR_HEAD_DOWN:
+				return "Error (Head Down Mechanism)";
+			case MECH_ERROR_MAIN_PINCH_UP:
+				return "Error (Main Pinch Up Mechanism)";
+			case MECH_ERROR_MAIN_PINCH_DOWN:
+				return "Error (Main Pinch Down Mechanism)";
+			case MECH_ERROR_SUB_PINCH_UP:
+				return "Error (Sub Pinch Up Mechanism)";
+			case MECH_ERROR_SUB_PINCH_DOWN:
+				return "Error (Sub Pinch Down Mechanism)";
+			case MECH_ERROR_FEEDIN_PINCH_UP:
+				return "Error (Feed-in Pinch Up Mechanism)";
+			case MECH_ERROR_FEEDIN_PINCH_DOWN:
+				return "Error (Feed-in Pinch Down Mechanism)";
+			case MECH_ERROR_FEEDOUT_PINCH_UP:
+				return "Error (Feed-out Pinch Up Mechanism)";
+			case MECH_ERROR_FEEDOUT_PINCH_DOWN:
+				return "Error (Feed-out Pinch Down Mechanism)";
+			case MECH_ERROR_CUTTER_LR:
+				return "Error (Left->Right Cutter)";
+			case MECH_ERROR_CUTTER_RL:
+				return "Error (Right->Left Cutter)";
+			default:
+				return "Error (Unknown Mechanism)";
+			}
+		case ERROR_STATUS2_SENSOR:
+			switch (error) {
+			case SENSOR_ERROR_CUTTER:
+				return "Error (Cutter Sensor)";
+			case SENSOR_ERROR_HEAD_DOWN:
+				return "Error (Head Down Sensor)";
+			case SENSOR_ERROR_HEAD_UP:
+				return "Error (Head Up Sensor)";
+			case SENSOR_ERROR_MAIN_PINCH_DOWN:
+				return "Error (Main Pinch Down Sensor)";
+			case SENSOR_ERROR_MAIN_PINCH_UP:
+				return "Error (Main Pinch Up Sensor)";
+			case SENSOR_ERROR_FEED_PINCH_DOWN:
+				return "Error (Feed Pinch Down Sensor)";
+			case SENSOR_ERROR_FEED_PINCH_UP:
+				return "Error (Feed Pinch Up Sensor)";
+			case SENSOR_ERROR_EXIT_PINCH_DOWN:
+				return "Error (Exit Pinch Up Sensor)";
+			case SENSOR_ERROR_EXIT_PINCH_UP:
+				return "Error (Exit Pinch Up Sensor)";
+			case SENSOR_ERROR_LEFT_CUTTER:
+				return "Error (Left Cutter Sensor)";
+			case SENSOR_ERROR_RIGHT_CUTTER:
+				return "Error (Right Cutter Sensor)";
+			case SENSOR_ERROR_CENTER_CUTTER:
+				return "Error (Center Cutter Sensor)";
+			case SENSOR_ERROR_UPPER_CUTTER:
+				return "Error (Upper Cutter Sensor)";
+			case SENSOR_ERROR_PAPER_FEED_COVER:
+				return "Error (Paper Feed Cover)";
+			default:
+				return "Error (Unknown Sensor)";
+			}
+		case ERROR_STATUS2_COVER_OPEN:
+			switch (error) {
+			case COVER_OPEN_ERROR_UPPER:
+				return "Error (Upper Cover Open)";
+			case COVER_OPEN_ERROR_LOWER:
+				return "Error (Lower Cover Open)";
+			default:
+				return "Error (Unknown Cover Open)";
+			}
+		case ERROR_STATUS2_TEMP_SENSOR:
+			switch (error) {
+			case TEMP_SENSOR_ERROR_HEAD_HIGH:
+				return "Error (Head Temperature High)";
+			case TEMP_SENSOR_ERROR_HEAD_LOW:
+				return "Error (Head Temperature Low)";
+			case TEMP_SENSOR_ERROR_ENV_HIGH:
+				return "Error (Environmental Temperature High)";
+			case TEMP_SENSOR_ERROR_ENV_LOW:
+				return "Error (Environmental Temperature Low)";
+			default:
+				return "Error (Unknown Temperature)";
+			}
+		case ERROR_STATUS2_PAPER_JAM:
+			return "Error (Paper Jam)";
+		case ERROR_STATUS2_PAPER_EMPTY:
+			return "Error (Paper Empty)";
+		case ERROR_STATUS2_RIBBON_ERR:
+			return "Error (Ribbon)";
+		default:
+			return "Error (Unknown)";
+		}
+	default:
+		return "Unknown!";
+	}
+}
