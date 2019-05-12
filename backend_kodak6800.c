@@ -90,9 +90,8 @@ struct kodak68x0_status_readback {
 	uint8_t  curve_status; /* Always seems to be 0x00 */
 } __attribute__((packed));
 
-
 struct kodak6800_printsize {
-	uint8_t  hdr;    /* Always 0x06 */
+	uint8_t  code;   /* 0x06 (6x8) or 0x03 (5x7) */
 	uint16_t width;  /* BE */
 	uint16_t height; /* BE */
 	uint8_t  type;   /* MEDIA_TYPE_* [ ie paper ] */
@@ -1179,5 +1178,19 @@ struct dyesub_backend kodak6800_backend = {
     00 00 00 01 00 00 b7 d3  00 00 00 5c 00 03 02 8c
     00 01 02 1c 00 00 00 00  00 01 00 01 00 00 00 00
     00 00 00
+
+  An additional command that's also unknown
+
+->  03 1b 43 48 43 4d 01 00  00 00 00 00 00 00 00 00
+<-  01 02 01 00 00 00 00 00  00 00 5d ca 00 00 5d ca
+    00 00 00 15 00 00 b8 f8  00 00 00 40 00 03 02 a6
+    00 01 02 31 1e 00 00 00  00 01 00 01 00 00 00 00
+    00 00 00
+
+  One more note for the 6850.  These sizes have been seen:
+
+     1844x2434, method 0x03
+     1844x2490, method 0x05
+     1844x2222, method 0x00
 
 */
