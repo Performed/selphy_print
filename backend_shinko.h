@@ -110,6 +110,54 @@ enum {
 
 char *media_types(uint8_t v);
 
+/* Common command structs */
+struct sinfonia_cmd_hdr {
+	uint16_t cmd;
+	uint16_t len;  /* Not including this header */
+} __attribute__((packed));
+
+struct sinfonia_status_hdr {
+	uint8_t  result;
+	uint8_t  error;
+	uint8_t  printer_major;
+	uint8_t  printer_minor;
+	uint8_t  reserved[2];
+	uint8_t  mode;  /* S6245 only, so far */
+	uint8_t  status;
+	uint16_t payload_len;
+} __attribute__((packed));
+
+struct sinfonia_cancel_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  id;
+} __attribute__((packed));
+
+struct sinfonia_fwinfo_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  target;
+} __attribute__((packed));
+
+struct sinfonia_fwinfo_resp {
+	struct sinfonia_status_hdr hdr;
+	uint8_t  name[8];
+	uint8_t  type[16];
+	uint8_t  date[10];
+	uint8_t  major;
+	uint8_t  minor;
+	uint16_t checksum;
+} __attribute__((packed));
+
+/* 6R: Also seen: 101-0867, 141-9597, 659-9054, 169-6418, DNP 900-060 */
+#define KODAK6_MEDIA_6R   0x0b // 197-4096
+#define KODAK6_MEDIA_UNK  0x03
+#define KODAK6_MEDIA_6TR2 0x2c // 396-2941
+#define KODAK6_MEDIA_NONE 0x00
+
+const char *kodak6_mediatypes(int type);
+void kodak6_dumpmediacommon(int type);
+
+#define RESULT_SUCCESS 0x01
+#define RESULT_FAIL    0x02
 
 /* ********** Below are for the old S1145 (EK68xx) and S1245 only! */
 

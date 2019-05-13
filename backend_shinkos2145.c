@@ -96,11 +96,6 @@ struct s2145_printjob_hdr {
 #endif
 
 /* Structs for printer */
-struct s2145_cmd_hdr {
-	uint16_t cmd;
-	uint16_t len;  /* Not including this header */
-} __attribute__((packed));
-
 #define S2145_CMD_STATUS    0x0001
 #define S2145_CMD_MEDIAINFO 0x0002
 #define S2145_CMD_MODELNAME 0x0003
@@ -152,7 +147,7 @@ static char *cmd_names(uint16_t v) {
 }
 
 struct s2145_print_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  id;
 	uint16_t count;
 	uint16_t columns;
@@ -218,7 +213,7 @@ static char *print_modes(uint8_t v) {
 	switch (v) {
 	case PRINT_MODE_DEFAULT:
 		return "Default";
-	case PRINT_MODE_STD_GLOSSY:
+s	case PRINT_MODE_STD_GLOSSY:
 		return "Std Glossy";
 	case PRINT_MODE_FINE_GLOSSY:
 		return "Fine Glossy";
@@ -253,13 +248,8 @@ static char *print_methods (uint8_t v) {
 	}
 }
 
-struct s2145_cancel_cmd {
-	struct s2145_cmd_hdr hdr;
-	uint8_t  id;
-} __attribute__((packed));
-
 struct s2145_reset_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
 } __attribute__((packed));
 
@@ -267,22 +257,17 @@ struct s2145_reset_cmd {
 #define RESET_USER_CURVE    0x04
 
 struct s2145_readtone_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  curveid;
 } __attribute__((packed));
 
 struct s2145_button_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  enabled;
 } __attribute__((packed));
 
 #define BUTTON_ENABLED  0x01
 #define BUTTON_DISABLED 0x00
-
-struct s2145_fwinfo_cmd {
-	struct s2145_cmd_hdr hdr;
-	uint8_t  target;
-} __attribute__((packed));
 
 #define FWINFO_TARGET_MAIN_BOOT 0x01
 #define FWINFO_TARGET_MAIN_APP  0x02
@@ -314,32 +299,17 @@ static char *fwinfo_targets (uint8_t v) {
 }
 
 struct s2145_update_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
 	uint32_t reserved;
 	uint32_t size;
 } __attribute__((packed));
 
-#define TONE_CURVE_SIZE 0x600
-
 struct s2145_setunique_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  len;
 	uint8_t  data[23];  /* Not necessarily all used. */
 } __attribute__((packed));
-
-struct s2145_status_hdr {
-	uint8_t  result;
-	uint8_t  error;
-	uint8_t  printer_major;
-	uint8_t  printer_minor;
-	uint8_t  reserved[3];
-	uint8_t  status;
-	uint16_t payload_len;
-} __attribute__((packed));
-
-#define RESULT_SUCCESS 0x01
-#define RESULT_FAIL    0x02
 
 static char *error_codes(uint8_t major, uint8_t minor)
 {
@@ -615,7 +585,7 @@ static char *status_str(uint8_t v) {
 }
 
 struct s2145_status_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint32_t count_lifetime;
 	uint32_t count_maint;
 	uint32_t count_paper;
@@ -636,7 +606,7 @@ struct s2145_status_resp {
 } __attribute__((packed));
 
 struct s2145_readtone_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint16_t total_size;
 } __attribute__((packed));
 
@@ -650,36 +620,26 @@ struct s2145_mediainfo_item {
 } __attribute__((packed));
 
 struct s2145_mediainfo_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t  count;
 	struct s2145_mediainfo_item items[10];  /* Not all necessarily used */
 } __attribute__((packed));
 
 struct s2145_modelname_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t vendor[4];
 	uint8_t product[4];
 	uint8_t modelname[40];
 } __attribute__((packed));
 
 struct s2145_errorlog_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t  count;
 	struct sinfonia_error_item items[10];  /* Not all necessarily used */
 } __attribute__((packed));
 
-struct s2145_fwinfo_resp {
-	struct s2145_status_hdr hdr;
-	uint8_t  name[8];
-	uint8_t  type[16];
-	uint8_t  date[10];
-	uint8_t  major;
-	uint8_t  minor;
-	uint16_t checksum;
-} __attribute__((packed));
-
 struct s2145_getunique_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t  data[24];  /* Not necessarily all used. */
 } __attribute__((packed));
 
@@ -708,7 +668,7 @@ static int s2145_do_cmd(struct shinkos2145_ctx *ctx,
 			int minlen, int *num)
 {
 	int ret;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr *resp = (struct sinfonia_status_hdr *) rdbuf;
 
 	libusb_device_handle *dev = ctx->dev;
 	uint8_t endp_up = ctx->endp_up;
@@ -742,7 +702,7 @@ static int s2145_do_cmd(struct shinkos2145_ctx *ctx,
 
 static int get_status(struct shinkos2145_ctx *ctx)
 {
-	struct s2145_cmd_hdr cmd;
+	struct sinfonia_cmd_hdr cmd;
 	struct s2145_status_resp *resp = (struct s2145_status_resp *) rdbuf;
 	int ret, num = 0;
 
@@ -768,7 +728,7 @@ static int get_status(struct shinkos2145_ctx *ctx)
 		     resp->hdr.printer_major,
 		     resp->hdr.printer_minor, error_codes(resp->hdr.printer_major, resp->hdr.printer_minor));
 	}
-	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct s2145_status_hdr)))
+	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct sinfonia_status_hdr)))
 		return 0;
 
 	INFO(" Print Counts:\n");
@@ -799,8 +759,8 @@ static int get_status(struct shinkos2145_ctx *ctx)
 
 static int get_fwinfo(struct shinkos2145_ctx *ctx)
 {
-	struct s2145_fwinfo_cmd  cmd;
-	struct s2145_fwinfo_resp *resp = (struct s2145_fwinfo_resp *)rdbuf;
+	struct sinfonia_fwinfo_cmd  cmd;
+	struct sinfonia_fwinfo_resp *resp = (struct sinfonia_fwinfo_resp *)rdbuf;
 	int num = 0;
 	int i;
 
@@ -821,7 +781,7 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 			continue;
 		}
 
-		if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_fwinfo_resp) - sizeof(struct s2145_status_hdr)))
+		if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct sinfonia_fwinfo_resp) - sizeof(struct sinfonia_status_hdr)))
 			continue;
 
 		INFO(" %s\t ver %02x.%02x\n", fwinfo_targets(i),
@@ -839,7 +799,7 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 
 static int get_errorlog(struct shinkos2145_ctx *ctx)
 {
-	struct s2145_cmd_hdr cmd;
+	struct sinfonia_cmd_hdr cmd;
 	struct s2145_errorlog_resp *resp = (struct s2145_errorlog_resp *) rdbuf;
 	int ret, num = 0;
 	int i;
@@ -855,7 +815,7 @@ static int get_errorlog(struct shinkos2145_ctx *ctx)
 		return ret;
 	}
 
-	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_errorlog_resp) - sizeof(struct s2145_status_hdr)))
+	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_errorlog_resp) - sizeof(struct sinfonia_status_hdr)))
 		return -2;
 
 	INFO("Stored Error Events: %u entries:\n", resp->count);
@@ -884,7 +844,7 @@ static void dump_mediainfo(struct s2145_mediainfo_resp *resp)
 
 static int get_user_string(struct shinkos2145_ctx *ctx)
 {
-	struct s2145_cmd_hdr cmd;
+	struct sinfonia_cmd_hdr cmd;
 	struct s2145_getunique_resp *resp = (struct s2145_getunique_resp*) rdbuf;
 	int ret, num = 0;
 
@@ -911,7 +871,7 @@ static int get_user_string(struct shinkos2145_ctx *ctx)
 static int set_user_string(struct shinkos2145_ctx *ctx, char *str)
 {
 	struct s2145_setunique_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr *resp = (struct sinfonia_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	if (str) {
@@ -940,8 +900,8 @@ static int set_user_string(struct shinkos2145_ctx *ctx, char *str)
 
 static int cancel_job(struct shinkos2145_ctx *ctx, char *str)
 {
-	struct s2145_cancel_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_cancel_cmd cmd;
+	struct sinfonia_status_hdr *resp = (struct sinfonia_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	if (!str)
@@ -965,8 +925,8 @@ static int cancel_job(struct shinkos2145_ctx *ctx, char *str)
 
 static int flash_led(struct shinkos2145_ctx *ctx)
 {
-	struct s2145_cmd_hdr cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_cmd_hdr cmd;
+	struct sinfonia_status_hdr *resp = (struct sinfonia_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	cmd.cmd = cpu_to_le16(S2145_CMD_FLASHLED);
@@ -986,7 +946,7 @@ static int flash_led(struct shinkos2145_ctx *ctx)
 static int reset_curve(struct shinkos2145_ctx *ctx, int target)
 {
 	struct s2145_reset_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr *resp = (struct sinfonia_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	cmd.target = target;
@@ -1008,7 +968,7 @@ static int reset_curve(struct shinkos2145_ctx *ctx, int target)
 static int button_set(struct shinkos2145_ctx *ctx, int enable)
 {
 	struct s2145_button_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr *resp = (struct sinfonia_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_BUTTON);
@@ -1110,7 +1070,7 @@ done:
 static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 {
 	struct s2145_update_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr *resp = (struct sinfonia_status_hdr *) rdbuf;
 	int ret, num = 0;
 
 	INFO("Set %s Tone Curve from '%s'\n", sinfonia_update_targets(target), fname);
@@ -1289,7 +1249,7 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int 
 	int media_prints = 65536;
 	if (test_mode < TEST_MODE_NOATTACH) {
 		/* Query Media */
-		struct s2145_cmd_hdr cmd;
+		struct sinfonia_cmd_hdr cmd;
 		struct s2145_mediainfo_resp *resp = (struct s2145_mediainfo_resp *) rdbuf;
 		int num = 0;
 		int i;
@@ -1396,7 +1356,7 @@ static int shinkos2145_main_loop(void *vctx, const void *vjob) {
 
 	int i, last_state = -1, state = S_IDLE;
 
-	struct s2145_cmd_hdr *cmd = (struct s2145_cmd_hdr *) cmdbuf;;
+	struct sinfonia_cmd_hdr *cmd = (struct sinfonia_cmd_hdr *) cmdbuf;;
 	struct s2145_print_cmd *print = (struct s2145_print_cmd *) cmdbuf;
 	struct s2145_status_resp *sts = (struct s2145_status_resp *) rdbuf;
 
@@ -1430,7 +1390,7 @@ top:
 
 	if ((ret = s2145_do_cmd(ctx,
 				cmdbuf, sizeof(*cmd),
-				sizeof(struct s2145_status_hdr),
+				sizeof(struct sinfonia_status_hdr),
 				&num)) < 0) {
 		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
 		return CUPS_BACKEND_FAILED;
@@ -1496,7 +1456,7 @@ top:
 
 		if ((ret = s2145_do_cmd(ctx,
 					cmdbuf, sizeof(*print),
-					sizeof(struct s2145_status_hdr),
+					sizeof(struct sinfonia_status_hdr),
 					&num)) < 0) {
 			ERROR("Failed to execute %s command\n", cmd_names(print->hdr.cmd));
 			return ret;
@@ -1566,7 +1526,7 @@ printer_error:
 
 static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
 {
-	struct s2145_cmd_hdr cmd;
+	struct sinfonia_cmd_hdr cmd;
 	struct s2145_getunique_resp *resp = (struct s2145_getunique_resp*) rdbuf;
 	int ret, num = 0;
 
@@ -1601,7 +1561,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 static int shinkos2145_query_markers(void *vctx, struct marker **markers, int *count)
 {
 	struct shinkos2145_ctx *ctx = vctx;
-	struct s2145_cmd_hdr cmd;
+	struct sinfonia_cmd_hdr cmd;
 	struct s2145_status_resp *sts = (struct s2145_status_resp *) rdbuf;
 	int num;
 

@@ -73,9 +73,6 @@ struct kodak605_sts_hdr {
         uint16_t length;    /* LE, not counting this header */
 } __attribute__((packed));
 
-#define RESULT_SUCCESS 0x01
-#define RESULT_FAIL    0x02
-
 /* ERROR_* and STATUS_* are all guesses */
 #define STATUS_INIT_CPU         0x31
 #define STATUS_INIT_RIBBON      0x32
@@ -117,12 +114,6 @@ struct kodak605_media_list {
 	uint8_t  count;
 	struct kodak605_medium entries[];
 } __attribute__((packed));
-
-#define KODAK68x0_MEDIA_6R   0x0b // 197-4096
-#define KODAK68x0_MEDIA_UNK  0x03
-#define KODAK68x0_MEDIA_6TR2 0x2c // 396-2941
-#define KODAK68x0_MEDIA_NONE 0x00
-/* 6R: Also seen: 101-0867, 141-9597, 659-9054, 169-6418, DNP 900-060 */
 
 #define MAX_MEDIA_LEN 128
 
@@ -172,20 +163,6 @@ struct kodak605_hdr {
 	uint8_t  laminate; /* 0x02 to laminate, 0x01 for not */
 	uint8_t  mode;     /* Print mode -- 0x00, 0x01 seen */
 } __attribute__((packed));
-
-static const char *kodak68xx_mediatypes(int type)
-{
-	switch(type) {
-	case KODAK68x0_MEDIA_NONE:
-		return "No media";
-	case KODAK68x0_MEDIA_6R:
-	case KODAK68x0_MEDIA_6TR2:
-		return "Kodak 6R";
-	default:
-		return "Unknown";
-	}
-	return "Unknown";
-}
 
 #define CMDBUF_LEN 4
 
@@ -313,7 +290,7 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int typ
 			return CUPS_BACKEND_FAILED;
 		}
 	} else {
-		int media_code = KODAK68x0_MEDIA_6TR2;
+		int media_code = KODAK6_MEDIA_6TR2;
 		if (getenv("MEDIA_CODE"))
 			media_code = atoi(getenv("MEDIA_CODE"));
 
@@ -321,7 +298,7 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker.name = kodak68xx_mediatypes(ctx->media->type);
+	ctx->marker.name = kodak6_mediatypes(ctx->media->type);
 	ctx->marker.levelmax = 100; /* Ie percentage */
 	ctx->marker.levelnow = -2;
 
@@ -587,8 +564,8 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 		int max;
 
 		switch(ctx->media->type) {
-		case KODAK68x0_MEDIA_6R:
- 		case KODAK68x0_MEDIA_6TR2:
+		case KODAK6_MEDIA_6R:
+		case KODAK6_MEDIA_6TR2:
 			max = 375;
 			break;
 		default:
@@ -652,22 +629,11 @@ static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
 {
 	int i;
 
-        if (media->type == KODAK68x0_MEDIA_NONE) {
+        if (media->type == KODAK6_MEDIA_NONE) {
                 DEBUG("No Media Loaded\n");
                 return;
         }
-
-	switch (media->type) {
-	case KODAK68x0_MEDIA_6R:
-		INFO("Media type: 6R (Kodak 197-4096 or equivalent)\n");
-		break;
-	case KODAK68x0_MEDIA_6TR2:
-		INFO("Media type: 6R (Kodak 396-2941 or equivalent)\n");
-		break;
-	default:
-		INFO("Media type %02x (unknown, please report!)\n", media->type);
-		break;
-	}
+	kodak6_dumpmediacommon(media->type);
 
 	DEBUG("Legal print sizes:\n");
 	for (i = 0 ; i < media->count ; i++) {

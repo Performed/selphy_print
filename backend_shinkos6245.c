@@ -95,11 +95,6 @@ struct s6245_printjob_hdr {
 #endif
 
 /* Structs for printer */
-struct s6245_cmd_hdr {
-	uint16_t cmd;
-	uint16_t len;  /* Not including this header */
-} __attribute__((packed));
-
 #define S6245_CMD_GETSTATUS  0x0001
 #define S6245_CMD_MEDIAINFO  0x0002
 #define S6245_CMD_ERRORLOG   0x0004
@@ -166,7 +161,7 @@ static char *cmd_names(uint16_t v) {
 }
 
 struct s6245_print_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  id;
 	uint16_t count;
 	uint16_t columns;
@@ -215,13 +210,8 @@ static char *print_methods (uint8_t v) {
 	}
 }
 
-struct s6245_cancel_cmd {
-	struct s6245_cmd_hdr hdr;
-	uint8_t  id;
-} __attribute__((packed));
-
 struct s6245_reset_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
 	uint8_t  curveid;
 } __attribute__((packed));
@@ -232,7 +222,7 @@ struct s6245_reset_cmd {
 #define TONE_CURVE_ID       0x01
 
 struct s6245_readtone_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
 	uint8_t  curveid;
 } __attribute__((packed));
@@ -241,7 +231,7 @@ struct s6245_readtone_cmd {
 #define READ_TONE_CURVE_CURR 0x02
 
 struct s6245_setparam_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t target;
 	uint32_t param;
 } __attribute__((packed));
@@ -264,12 +254,12 @@ struct s6245_setparam_cmd {
 #define PARAM_SLEEP_240MIN  0x00000005
 
 struct s6245_seteeprom_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t data[256]; /* Maxlen */
 } __attribute__((packed));
 
 struct s6245_settime_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t enable;  /* 0 or 1 */
 	uint8_t second;
 	uint8_t minute;
@@ -280,23 +270,18 @@ struct s6245_settime_cmd {
 } __attribute__((packed));
 
 struct s6245_errorlog_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint16_t index;  /* 0 is latest */
 } __attribute__((packed));
 
 struct s6245_getparam_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t target;
 } __attribute__((packed));
 
 struct s6245_getprintidstatus_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t id;
-} __attribute__((packed));
-
-struct s6245_fwinfo_cmd {
-	struct s6245_cmd_hdr hdr;
-	uint8_t  target;
 } __attribute__((packed));
 
 #define FWINFO_TARGET_MAIN_BOOT    0x01
@@ -320,27 +305,13 @@ static char *fwinfo_targets (uint8_t v) {
 }
 
 struct s6245_update_cmd {
-	struct s6245_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
 	uint8_t  curve_id;
 	uint8_t  reset; // ??
 	uint8_t  reserved[3];
 	uint32_t size;
 } __attribute__((packed));
-
-struct s6245_status_hdr {
-	uint8_t  result;
-	uint8_t  error;
-	uint8_t  printer_major;
-	uint8_t  printer_minor;
-	uint8_t  reserved[2];
-	uint8_t  mode;
-	uint8_t  status;
-	uint16_t payload_len;
-} __attribute__((packed));
-
-#define RESULT_SUCCESS 0x01
-#define RESULT_FAIL    0x02
 
 static char *error_codes(uint8_t major, uint8_t minor)
 {
@@ -629,7 +600,7 @@ static char *status_str(uint8_t v) {
 }
 
 struct s6245_status_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint32_t count_lifetime;
 	uint32_t count_maint;
 	uint32_t count_paper;
@@ -656,12 +627,12 @@ struct s6245_status_resp {
 } __attribute__((packed));
 
 struct s6245_geteeprom_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t data[256];
 } __attribute__((packed));
 
 struct s6245_readtone_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint16_t total_size;
 } __attribute__((packed));
 
@@ -713,7 +684,7 @@ static const char *print_sizes (uint8_t v) {
 }
 
 struct s6245_mediainfo_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t ribbon_code;
 	uint8_t reserved;
 	uint8_t count;
@@ -745,7 +716,7 @@ static int ribbon_counts (uint8_t v) {
 }
 
 struct s6245_errorlog_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint16_t error_count;
 	uint8_t  error_major;
 	uint8_t  error_minor;
@@ -777,17 +748,17 @@ struct s6245_errorlog_resp {
 } __attribute__((packed));
 
 struct s6245_getparam_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint32_t param;
 } __attribute__((packed));
 
 struct s6245_getserial_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t  data[8];
 } __attribute__((packed));
 
 struct s6245_getprintidstatus_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t  id;
 	uint16_t remaining;
 	uint16_t finished;
@@ -801,21 +772,11 @@ struct s6245_getprintidstatus_resp {
 #define STATUS_ERROR     0xFFFF
 
 struct s6245_getextcounter_resp {
-	struct s6245_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint32_t lifetime_distance;  /* Inches */
 	uint32_t maint_distance;
 	uint32_t head_distance;
 	uint8_t  reserved[32];
-} __attribute__((packed));
-
-struct s6245_fwinfo_resp {
-	struct s6245_status_hdr hdr;
-	uint8_t  name[8];
-	uint8_t  type[16];
-	uint8_t  date[10];
-	uint8_t  major;
-	uint8_t  minor;
-	uint16_t checksum;
 } __attribute__((packed));
 
 /* Private data structure */
@@ -838,7 +799,7 @@ struct shinkos6245_ctx {
 static int s6245_do_cmd(struct shinkos6245_ctx *ctx,
 			uint8_t *cmd, int cmdlen,
 			int buflen,
-			int *num, struct s6245_status_hdr *resp)
+			int *num, struct sinfonia_status_hdr *resp)
 {
 	libusb_device_handle *dev = ctx->dev;
 	uint8_t endp_up = ctx->endp_up;
@@ -869,7 +830,7 @@ static int s6245_do_cmd(struct shinkos6245_ctx *ctx,
 
 static int get_status(struct shinkos6245_ctx *ctx)
 {
-	struct s6245_cmd_hdr cmd;
+	struct sinfonia_cmd_hdr cmd;
 	struct s6245_status_resp resp;
 	struct s6245_getextcounter_resp resp2;
 	int ret, num = 0;
@@ -896,7 +857,7 @@ static int get_status(struct shinkos6245_ctx *ctx)
 		     resp.hdr.printer_major,
 		     resp.hdr.printer_minor, error_codes(resp.hdr.printer_major, resp.hdr.printer_minor));
 	}
-	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s6245_status_resp) - sizeof(struct s6245_status_hdr)))
+	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s6245_status_resp) - sizeof(struct sinfonia_status_hdr)))
 		return 0;
 
 	INFO(" Print Counts:\n");
@@ -933,7 +894,7 @@ static int get_status(struct shinkos6245_ctx *ctx)
 		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
-	if (le16_to_cpu(resp2.hdr.payload_len) != (sizeof(struct s6245_getextcounter_resp) - sizeof(struct s6245_status_hdr)))
+	if (le16_to_cpu(resp2.hdr.payload_len) != (sizeof(struct s6245_getextcounter_resp) - sizeof(struct sinfonia_status_hdr)))
 		return 0;
 
 	INFO("Lifetime Distance: %08u inches\n", le32_to_cpu(resp2.lifetime_distance));
@@ -945,8 +906,8 @@ static int get_status(struct shinkos6245_ctx *ctx)
 
 static int get_fwinfo(struct shinkos6245_ctx *ctx)
 {
-	struct s6245_fwinfo_cmd  cmd;
-	struct s6245_fwinfo_resp resp;
+	struct sinfonia_fwinfo_cmd  cmd;
+	struct sinfonia_fwinfo_resp resp;
 	int num = 0;
 	int i;
 
@@ -967,7 +928,7 @@ static int get_fwinfo(struct shinkos6245_ctx *ctx)
 			continue;
 		}
 
-		if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s6245_fwinfo_resp) - sizeof(struct s6245_status_hdr)))
+		if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct sinfonia_fwinfo_resp) - sizeof(struct sinfonia_status_hdr)))
 			continue;
 
 		INFO(" %s\t ver %02x.%02x\n", fwinfo_targets(i),
@@ -1005,7 +966,7 @@ static int get_errorlog(struct shinkos6245_ctx *ctx)
 			return ret;
 		}
 
-		if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s6245_errorlog_resp) - sizeof(struct s6245_status_hdr)))
+		if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s6245_errorlog_resp) - sizeof(struct sinfonia_status_hdr)))
 			return -2;
 
 		INFO("Stored Error ID %d:\n", i);
@@ -1039,8 +1000,8 @@ static void dump_mediainfo(struct s6245_mediainfo_resp *resp)
 
 static int cancel_job(struct shinkos6245_ctx *ctx, char *str)
 {
-	struct s6245_cancel_cmd cmd;
-	struct s6245_status_hdr resp;
+	struct sinfonia_cancel_cmd cmd;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
 	if (!str)
@@ -1064,8 +1025,8 @@ static int cancel_job(struct shinkos6245_ctx *ctx, char *str)
 
 static int flash_led(struct shinkos6245_ctx *ctx)
 {
-	struct s6245_cmd_hdr cmd;
-	struct s6245_status_hdr resp;
+	struct sinfonia_cmd_hdr cmd;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
 	cmd.cmd = cpu_to_le16(S6245_CMD_FLASHLED);
@@ -1086,7 +1047,7 @@ static int flash_led(struct shinkos6245_ctx *ctx)
 static int set_param(struct shinkos6245_ctx *ctx, int target, uint32_t param)
 {
 	struct s6245_setparam_cmd cmd;
-	struct s6245_status_hdr resp;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
 	/* Set up command */
@@ -1109,7 +1070,7 @@ static int set_param(struct shinkos6245_ctx *ctx, int target, uint32_t param)
 static int reset_curve(struct shinkos6245_ctx *ctx, int target)
 {
 	struct s6245_reset_cmd cmd;
-	struct s6245_status_hdr resp;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
 	cmd.target = target;
@@ -1205,7 +1166,7 @@ done:
 static int set_tonecurve(struct shinkos6245_ctx *ctx, int target, char *fname)
 {
 	struct s6245_update_cmd cmd;
-	struct s6245_status_hdr resp;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
 	INFO("Set %s Tone Curve from '%s'\n", sinfonia_update_targets(target), fname);
@@ -1386,7 +1347,7 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 
 	/* Query Media */
 	if (test_mode < TEST_MODE_NOATTACH) {
-		struct s6245_cmd_hdr cmd;
+		struct sinfonia_cmd_hdr cmd;
 		cmd.cmd = cpu_to_le16(S6245_CMD_MEDIAINFO);
 		cmd.len = cpu_to_le16(0);
 
@@ -1483,10 +1444,10 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	uint8_t mcut;
 	int copies;
 
-	struct s6245_cmd_hdr *cmd = (struct s6245_cmd_hdr *) cmdbuf;;
+	struct sinfonia_cmd_hdr *cmd = (struct sinfonia_cmd_hdr *) cmdbuf;;
 	struct s6245_print_cmd *print = (struct s6245_print_cmd *) cmdbuf;
 	struct s6245_status_resp sts, sts2;
-	struct s6245_status_hdr resp;
+	struct sinfonia_status_hdr resp;
 
 	struct sinfonia_printjob *job = (struct sinfonia_printjob*) vjob;
 
@@ -1544,7 +1505,7 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 
 		if ((ret = s6245_do_cmd(ctx,
 					cmdbuf, sizeof(*settime),
-					sizeof(struct s6245_status_hdr),
+					sizeof(struct sinfonia_status_hdr),
 					&num, (void*)&resp)) < 0) {
 			ERROR("Failed to execute %s command\n", cmd_names(settime->hdr.cmd));
 			return CUPS_BACKEND_FAILED;
@@ -1696,7 +1657,7 @@ fail:
 
 static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
 {
-	struct s6245_cmd_hdr cmd;
+	struct sinfonia_cmd_hdr cmd;
 	struct s6245_getserial_resp resp;
 	int ret, num = 0;
 
@@ -1730,7 +1691,7 @@ static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t end
 static int shinkos6245_query_markers(void *vctx, struct marker **markers, int *count)
 {
 	struct shinkos6245_ctx *ctx = vctx;
-	struct s6245_cmd_hdr cmd;
+	struct sinfonia_cmd_hdr cmd;
 	struct s6245_status_resp status;
 	int num;
 

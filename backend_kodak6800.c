@@ -111,12 +111,6 @@ struct kodak68x0_media_readback {
 	struct kodak6800_printsize sizes[];
 } __attribute__((packed));
 
-#define KODAK68x0_MEDIA_6R   0x0b // 197-4096
-#define KODAK68x0_MEDIA_UNK  0x03
-#define KODAK68x0_MEDIA_6TR2 0x2c // 396-2941
-#define KODAK68x0_MEDIA_NONE 0x00
-/* 6R: Also seen: 101-0867, 141-9597, 659-9054, 169-6418, DNP 900-060 */
-
 #define CMDBUF_LEN 17
 
 /* Private data structure */
@@ -147,20 +141,6 @@ struct kodak6800_ctx {
 
 };
 
-static const char *kodak68xx_mediatypes(int type)
-{
-	switch(type) {
-	case KODAK68x0_MEDIA_NONE:
-		return "No media";
-	case KODAK68x0_MEDIA_6R:
-	case KODAK68x0_MEDIA_6TR2:
-		return "Kodak 6R";
-	default:
-		return "Unknown";
-	}
-	return "Unknown";
-}
-
 /* Baseline commands */
 static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
                               void *cmd, int cmd_len,
@@ -185,22 +165,13 @@ static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
 
 static void kodak68x0_dump_mediainfo(struct kodak6800_printsize *sizes, uint8_t media_count, uint8_t media_type) {
 	int i;
-	if (media_type == KODAK68x0_MEDIA_NONE) {
+
+	if (media_type == KODAK6_MEDIA_NONE) {
 		INFO("No Media Loaded\n");
 		return;
 	}
+	kodak6_dumpmediacommon(media_type);
 
-	switch (media_type) {
-	case KODAK68x0_MEDIA_6R:
-		INFO("Media type: 6R (Kodak 197-4096 or equivalent)\n");
-		break;
-	case KODAK68x0_MEDIA_6TR2:
-		INFO("Media type: 6R (Kodak 396-2941 or equivalent)\n");
-		break;
-	default:
-		INFO("Media type %02x (unknown, please report!)\n", media_type);
-		break;
-	}
 	INFO("Legal print sizes:\n");
 	for (i = 0 ; i < media_count ; i++) {
 		INFO("\t%d: %dx%d (%02x)\n", i,
@@ -375,8 +346,8 @@ static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_st
 		INFO("\tMedia         : %u\n", be32_to_cpu(status->media));
 
 		switch(ctx->media_type) {
-		case KODAK68x0_MEDIA_6R:
- 		case KODAK68x0_MEDIA_6TR2:
+		case KODAK6_MEDIA_6R:
+		case KODAK6_MEDIA_6TR2:
 			max = 375;
 			break;
 		default:
@@ -817,7 +788,7 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int ty
 			return CUPS_BACKEND_FAILED;
 		}
 	} else {
-		int media_code = KODAK68x0_MEDIA_6TR2;
+		int media_code = KODAK6_MEDIA_6TR2;
 		if (getenv("MEDIA_CODE"))
 			media_code = atoi(getenv("MEDIA_CODE"));
 
@@ -825,7 +796,7 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker.name = kodak68xx_mediatypes(ctx->media_type);
+	ctx->marker.name = kodak6_mediatypes(ctx->media_type);
 	ctx->marker.levelmax = 100; /* Ie percentage */
 	ctx->marker.levelnow = -2;
 

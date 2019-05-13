@@ -228,6 +228,35 @@ char *media_types(uint8_t v) {
 	}
 }
 
+const char *kodak6_mediatypes(int type)
+{
+	switch(type) {
+	case KODAK6_MEDIA_NONE:
+		return "No media";
+	case KODAK6_MEDIA_6R:
+	case KODAK6_MEDIA_6TR2:
+		return "Kodak 6R";
+	default:
+		return "Unknown";
+	}
+	return "Unknown";
+}
+
+void kodak6_dumpmediacommon(int type)
+{
+	switch (type) {
+	case KODAK6_MEDIA_6R:
+		INFO("Media type: 6R (Kodak 197-4096 or equivalent)\n");
+		break;
+	case KODAK6_MEDIA_6TR2:
+		INFO("Media type: 6R (Kodak 396-2941 or equivalent)\n");
+		break;
+	default:
+		INFO("Media type %02x (unknown, please report!)\n", type);
+		break;
+	}
+}
+
 /* Below are for S1145 (EK68xx) and S1245 only! */
 char *sinfonia_1x45_status_str(uint8_t status1, uint32_t status2, uint8_t error)
 {
