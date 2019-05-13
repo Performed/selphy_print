@@ -61,8 +61,8 @@ LDFLAGS += -ldl
 #LDFLAGS += -lltdl
 
 # Build stuff
-DEPS += backend_common.h backend_shinko.h
-SOURCES = backend_common.c backend_shinko.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
+DEPS += backend_common.h backend_sinfonia.h
+SOURCES = backend_common.c backend_sinfonia.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 
 # And now the rules!
 .PHONY: clean all install cppcheck

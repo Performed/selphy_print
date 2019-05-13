@@ -42,7 +42,7 @@
 #define BACKEND shinkos1245_backend
 
 #include "backend_common.h"
-#include "backend_shinko.h"
+#include "backend_sinfonia.h"
 
 #if 0
 /* Structure of printjob header.  All fields are LITTLE ENDIAN */

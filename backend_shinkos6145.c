@@ -80,7 +80,7 @@
 #define BACKEND shinkos6145_backend
 
 #include "backend_common.h"
-#include "backend_shinko.h"
+#include "backend_sinfonia.h"
 
 /* Image processing library function prototypes */
 typedef int (*ImageProcessingFN)(unsigned char *, unsigned short *, void *);

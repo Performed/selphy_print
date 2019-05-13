@@ -43,7 +43,7 @@
 #define BACKEND shinkos6245_backend
 
 #include "backend_common.h"
-#include "backend_shinko.h"
+#include "backend_sinfonia.h"
 
 enum {
 	S_IDLE = 0,

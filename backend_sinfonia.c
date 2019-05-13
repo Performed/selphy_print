@@ -38,7 +38,7 @@
 #include <signal.h>
 
 #include "backend_common.h"
-#include "backend_shinko.h"
+#include "backend_sinfonia.h"
 
 int sinfonia_read_parse(int data_fd, uint32_t model,
 			struct sinfonia_job_param *jp,

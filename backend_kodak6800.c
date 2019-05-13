@@ -44,7 +44,7 @@
 #define BACKEND kodak6800_backend
 
 #include "backend_common.h"
-#include "backend_shinko.h"
+#include "backend_sinfonia.h"
 
 #define USB_VID_KODAK       0x040A
 #define USB_PID_KODAK_6800  0x4021
