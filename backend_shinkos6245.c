@@ -191,25 +191,6 @@ static char *print_modes(uint8_t v) {
 }
 #endif
 
-#define PRINT_METHOD_STD     0x00
-#define PRINT_METHOD_COMBO_2 0x02
-#define PRINT_METHOD_COMBO_3 0x03
-
-#define PRINT_METHOD_DISABLE_ERR 0x10
-
-static char *print_methods (uint8_t v) {
-	switch (v & 0xf) {
-	case PRINT_METHOD_STD:
-		return "Standard";
-	case PRINT_METHOD_COMBO_2:
-		return "2up";
-	case PRINT_METHOD_COMBO_3:
-		return "3up";
-	default:
-		return "Unknown";
-	}
-}
-
 struct s6245_reset_cmd {
 	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
@@ -994,7 +975,8 @@ static void dump_mediainfo(struct s6245_mediainfo_resp *resp)
 		     resp->items[i].media_code, print_sizes(resp->items[i].media_code),
 		     resp->items[i].columns,
 		     resp->items[i].rows,
-		     resp->items[i].print_method, print_methods(resp->items[i].print_method));
+		     resp->items[i].print_method,
+		     sinfonia_print_methods(resp->items[i].print_method));
 	}
 }
 

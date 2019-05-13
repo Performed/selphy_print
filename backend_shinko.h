@@ -67,7 +67,7 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 #define BANK_STATUS_FULL  0x02
 #define BANK_STATUS_PRINTING  0x12  /* Not on S2145 */
 
-char *sinfonia_bank_statuses(uint8_t v);
+const char *sinfonia_bank_statuses(uint8_t v);
 
 
 #define UPDATE_TARGET_USER    0x03
@@ -78,13 +78,13 @@ char *sinfonia_bank_statuses(uint8_t v);
    Printer expects LE data.  We use BE data on disk.
 */
 #define TONE_CURVE_SIZE 0x600
-char *sinfonia_update_targets (uint8_t v);
+const char *sinfonia_update_targets (uint8_t v);
 
 #define TONECURVE_INIT    0x00
 #define TONECURVE_USER    0x01
 #define TONECURVE_CURRENT 0x02
 
-char *sinfonia_tonecurve_statuses (uint8_t v);
+const char *sinfonia_tonecurve_statuses (uint8_t v);
 
 struct sinfonia_error_item {
 	uint8_t  major;
@@ -101,14 +101,24 @@ struct sinfonia_error_item {
 #define ERROR_PRINTER           0x11
 #define ERROR_BUFFER_FULL       0x21
 
-char *sinfonia_error_str(uint8_t v);
+const char *sinfonia_error_str(uint8_t v);
 
 enum {
 	MEDIA_TYPE_UNKNOWN = 0x00,
 	MEDIA_TYPE_PAPER = 0x01,
 };
 
-char *media_types(uint8_t v);
+const char *sinfonia_media_types(uint8_t v);
+
+#define PRINT_METHOD_STD     0x00
+#define PRINT_METHOD_COMBO_2 0x02
+#define PRINT_METHOD_COMBO_3 0x03 // S6245 only
+#define PRINT_METHOD_SPLIT   0x04
+#define PRINT_METHOD_DOUBLE  0x08 // S6145 only
+#define PRINT_METHOD_DISABLE_ERR 0x10 // S6245 only
+#define PRINT_METHOD_NOTRIM  0x80 // S6145 only
+
+const char *sinfonia_print_methods (uint8_t v);
 
 /* Common command structs */
 struct sinfonia_cmd_hdr {
@@ -267,4 +277,4 @@ enum {
         CURVE_TABLE_STATUS_CURRENT = 0x02,
 };
 
-char *sinfonia_1x45_status_str(uint8_t status1, uint32_t status2, uint8_t error);
+const char *sinfonia_1x45_status_str(uint8_t status1, uint32_t status2, uint8_t error);

@@ -153,7 +153,7 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 	return CUPS_BACKEND_OK;
 }
 
-char *sinfonia_update_targets (uint8_t v) {
+const char *sinfonia_update_targets (uint8_t v) {
 	switch (v) {
 	case UPDATE_TARGET_USER:
 		return "User";
@@ -164,7 +164,7 @@ char *sinfonia_update_targets (uint8_t v) {
 	}
 }
 
-char *sinfonia_tonecurve_statuses (uint8_t v)
+const char *sinfonia_tonecurve_statuses (uint8_t v)
 {
 	switch(v) {
 	case 0:
@@ -178,7 +178,7 @@ char *sinfonia_tonecurve_statuses (uint8_t v)
 	}
 }
 
-char *sinfonia_bank_statuses(uint8_t v)
+const char *sinfonia_bank_statuses(uint8_t v)
 {
 	switch (v) {
 	case BANK_STATUS_FREE:
@@ -194,7 +194,7 @@ char *sinfonia_bank_statuses(uint8_t v)
 	}
 }
 
-char *sinfonia_error_str(uint8_t v) {
+const char *sinfonia_error_str(uint8_t v) {
 	switch (v) {
 	case ERROR_NONE:
 		return "None";
@@ -217,12 +217,29 @@ char *sinfonia_error_str(uint8_t v) {
 	}
 }
 
-char *media_types(uint8_t v) {
+const char *sinfonia_media_types(uint8_t v) {
 	switch (v) {
 	case MEDIA_TYPE_UNKNOWN:
 		return "Unknown";
 	case MEDIA_TYPE_PAPER:
 		return "Paper";
+	default:
+		return "Unknown";
+	}
+}
+
+const char *sinfonia_print_methods (uint8_t v) {
+	switch (v & 0xf) {
+	case PRINT_METHOD_STD:
+		return "Standard";
+	case PRINT_METHOD_COMBO_2:
+		return "2up";
+	case PRINT_METHOD_COMBO_3:
+		return "3up";
+	case PRINT_METHOD_SPLIT:
+		return "Split";
+	case PRINT_METHOD_DOUBLE:
+		return "Double";
 	default:
 		return "Unknown";
 	}
@@ -258,7 +275,7 @@ void kodak6_dumpmediacommon(int type)
 }
 
 /* Below are for S1145 (EK68xx) and S1245 only! */
-char *sinfonia_1x45_status_str(uint8_t status1, uint32_t status2, uint8_t error)
+const char *sinfonia_1x45_status_str(uint8_t status1, uint32_t status2, uint8_t error)
 {
 	switch(status1) {
 	case STATE_STATUS1_STANDBY:

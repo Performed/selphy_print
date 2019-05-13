@@ -231,23 +231,6 @@ s	case PRINT_MODE_STD_GLOSSY:
 }
 #endif
 
-#define PRINT_METHOD_STD     0x00
-#define PRINT_METHOD_4x6_2UP 0x02
-#define PRINT_METHOD_2x6_2UP 0x04
-
-static char *print_methods (uint8_t v) {
-	switch (v) {
-	case PRINT_METHOD_STD:
-		return "Standard";
-	case PRINT_METHOD_4x6_2UP:
-		return "4x6 2up";
-	case PRINT_METHOD_2x6_2UP:
-		return "2x6 2up";
-	default:
-		return "Unknown";
-	}
-}
-
 struct s2145_reset_cmd {
 	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
@@ -838,7 +821,8 @@ static void dump_mediainfo(struct s2145_mediainfo_resp *resp)
 		     resp->items[i].code, print_sizes(resp->items[i].code),
 		     resp->items[i].columns,
 		     resp->items[i].rows,
-		     resp->items[i].print_method, print_methods(resp->items[i].print_method));
+		     resp->items[i].print_method,
+		     sinfonia_print_methods(resp->items[i].print_method));
 	}
 }
 
