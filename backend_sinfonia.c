@@ -41,8 +41,7 @@
 #include "backend_sinfonia.h"
 
 int sinfonia_read_parse(int data_fd, uint32_t model,
-			struct sinfonia_job_param *jp,
-			uint8_t **data, int *datalen)
+			struct sinfonia_printjob *job)
 {
 	uint32_t hdr[29];
 	int ret, i;
@@ -82,25 +81,25 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 	}
 
 	/* Work out data length */
-	*datalen = hdr[13] * hdr[14] * 3;
-	*data = malloc(*datalen);
-	if (!*data) {
+	job->datalen = hdr[13] * hdr[14] * 3;
+	job->databuf = malloc(job->datalen);
+	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	/* Read in payload data */
 	{
-		uint32_t remain = *datalen;
-		uint8_t *ptr = *data;
+		uint32_t remain = job->datalen;
+		uint8_t *ptr = job->databuf;
 		do {
 			ret = read(data_fd, ptr, remain);
 			if (ret < 0) {
 				ERROR("Read failed (%d/%d/%d)\n",
-				      ret, remain, *datalen);
+				      ret, remain, job->datalen);
 				perror("ERROR: Read failed");
-				free(*data);
-				*data = NULL;
+				free(job->databuf);
+				job->databuf = NULL;
 				return ret;
 			}
 			ptr += ret;
@@ -113,8 +112,8 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 	if (ret != 4) {
 		ERROR("Read failed (%d/%d)\n", ret, 4);
 		perror("ERROR: Read failed");
-		free(*data);
-		*data = NULL;
+		free(job->databuf);
+		job->databuf = NULL;
 		return ret;
 	}
 	if (tmpbuf[0] != 0x04 ||
@@ -122,33 +121,31 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 	    tmpbuf[2] != 0x02 ||
 	    tmpbuf[3] != 0x01) {
 		ERROR("Unrecognized footer data format!\n");
-		free (*data);
-		*data = NULL;
+		free (job->databuf);
+		job->databuf = NULL;
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* Fill out job params */
-	if (jp) {
-		jp->media = hdr[6];
-		if (hdr[1] != 6245)
-			jp->method = hdr[8];
-		if (hdr[1] == 2245 || hdr[1] == 6245)
-			jp->quality = hdr[9];
-		if (hdr[1] == 1245 || hdr[1] == 2145)
-			jp->oc_mode = hdr[9];
-		else
-			jp->oc_mode = hdr[10];
-		if (hdr[1] == 1245)
-			jp->mattedepth = hdr[11];
-		if (hdr[1] == 1245)
-			jp->dust = hdr[12];
-		jp->columns = hdr[13];
-		jp->rows = hdr[14];
-		jp->copies = hdr[15];
+	job->jp.media = hdr[6];
+	if (hdr[1] != 6245)
+		job->jp.method = hdr[8];
+	if (hdr[1] == 2245 || hdr[1] == 6245)
+		job->jp.quality = hdr[9];
+	if (hdr[1] == 1245 || hdr[1] == 2145)
+		job->jp.oc_mode = hdr[9];
+	else
+		job->jp.oc_mode = hdr[10];
+	if (hdr[1] == 1245)
+		job->jp.mattedepth = hdr[11];
+	if (hdr[1] == 1245)
+		job->jp.dust = hdr[12];
+	job->jp.columns = hdr[13];
+	job->jp.rows = hdr[14];
+	job->jp.copies = hdr[15];
 
-		if (hdr[1] == 2245 || hdr[1] == 6145)
-			jp->ext_flags = hdr[28];
-	}
+	if (hdr[1] == 2245 || hdr[1] == 6145)
+		job->jp.ext_flags = hdr[28];
 
 	return CUPS_BACKEND_OK;
 }
@@ -242,6 +239,170 @@ const char *sinfonia_print_methods (uint8_t v) {
 		return "Double";
 	default:
 		return "Unknown";
+	}
+}
+
+const char *sinfonia_print_codes (uint8_t v, int eightinch) {
+	if (eightinch) {
+		switch (v) {
+		case CODE_8x10:
+			return "8x10";
+		case CODE_8x12:
+			return "8x12";
+		case CODE_8x4:
+			return "8x4";
+		case CODE_8x5:
+			return "8x5";
+		case CODE_8x6:
+			return "8x6";
+		case CODE_8x8:
+			return "8x8";
+		case CODE_8x4_2:
+			return "8x4*2";
+		case CODE_8x5_2:
+			return "8x5*2";
+		case CODE_8x6_2:
+			return "8x6*2";
+		case CODE_8x4_3:
+			return "8x4*3";
+		default:
+			return "Unknown";
+		}
+	}
+
+	switch (v) {
+	case CODE_4x6:
+		return "4x6";
+	case CODE_3_5x5:
+		return "3.5x5";
+	case CODE_5x7:
+		return "5x7";
+	case CODE_6x9:
+		return "6x9";
+	case CODE_6x8:
+		return "6x8";
+	case CODE_2x6:
+		return "2x6";
+	case CODE_6x6:
+		return "6x6";
+	case CODE_89x60mm:
+		return "89x60mm";
+	case CODE_89x59mm:
+		return "89x59mm";
+	case CODE_89x58mm:
+		return "89x58mm";
+	case CODE_89x57mm:
+		return "89x57mm";
+	case CODE_89x56mm:
+		return "89x56mm";
+	case CODE_89x55mm:
+		return "89x55mm";
+	default:
+		return "Unknown";
+	}
+}
+
+const char *sinfonia_status_str(uint8_t v) {
+	switch (v) {
+	case STATUS_READY:
+		return "Ready";
+	case STATUS_INIT_CPU:
+		return "Initializing CPU";
+	case STATUS_INIT_RIBBON:
+		return "Initializing Ribbon";
+	case STATUS_INIT_PAPER:
+		return "Loading Paper";
+	case STATUS_THERMAL_PROTECT:
+		return "Thermal Protection";
+	case STATUS_USING_PANEL:
+		return "Using Operation Panel";
+	case STATUS_SELF_DIAG:
+		return "Processing Self Diagnosis";
+	case STATUS_DOWNLOADING:
+		return "Processing Download";
+	case STATUS_FEEDING_PAPER:
+		return "Feeding Paper";
+	case STATUS_PRE_HEAT:
+		return "Pre-Heating";
+	case STATUS_PRINT_Y:
+		return "Printing Yellow";
+	case STATUS_BACK_FEED_Y:
+		return "Back-Feeding - Yellow Complete";
+	case STATUS_PRINT_M:
+		return "Printing Magenta";
+	case STATUS_BACK_FEED_M:
+		return "Back-Feeding - Magenta Complete";
+	case STATUS_PRINT_C:
+		return "Printing Cyan";
+	case STATUS_BACK_FEED_C:
+		return "Back-Feeding - Cyan Complete";
+	case STATUS_PRINT_OP:
+		return "Laminating";
+	case STATUS_PAPER_CUT:
+		return "Cutting Paper";
+	case STATUS_PAPER_EJECT:
+		return "Ejecting Paper";
+	case STATUS_BACK_FEED_E:
+		return "Back-Feeding - Ejected";
+	case STATUS_FINISHED:
+		return "Print Finished";
+	case ERROR_PRINTER:
+		return "Printer Error";
+	default:
+		return "Unknown";
+	}
+}
+
+const char *sinfonia_cmd_names(uint16_t v) {
+	switch (le16_to_cpu(v)) {
+	case SINFONIA_CMD_GETSTATUS:
+		return "Get Status";
+	case SINFONIA_CMD_MEDIAINFO:
+		return "Get Media Info";
+	case SINFONIA_CMD_MODELNAME:
+		return "Get Model Name";
+	case SINFONIA_CMD_ERRORLOG:
+		return "Get Error Log";
+	case SINFONIA_CMD_GETPARAM:
+		return "Get Parameter";
+	case SINFONIA_CMD_GETSERIAL:
+		return "Get Serial Number";
+	case SINFONIA_CMD_PRINTSTAT:
+		return "Get Print ID Status";
+	case SINFONIA_CMD_EXTCOUNTER:
+		return "Get Extended Counters";
+	case SINFONIA_CMD_PRINTJOB:
+		return "Print";
+	case SINFONIA_CMD_CANCELJOB:
+		return "Cancel Print";
+	case SINFONIA_CMD_FLASHLED:
+		return "Flash LEDs";
+	case SINFONIA_CMD_RESET:
+		return "Reset";
+	case SINFONIA_CMD_READTONE:
+		return "Read Tone Curve";
+	case SINFONIA_CMD_BUTTON:
+		return "Button Enable";
+	case SINFONIA_CMD_SETPARAM:
+		return "Set Parameter";
+	case SINFONIA_CMD_GETUNIQUE:
+		return "Get Unique String";
+	case SINFONIA_CMD_GETCORR:
+		return "Get Image Correction Parameter";
+	case SINFONIA_CMD_GETEEPROM:
+		return "Get EEPROM Backup Parameter";
+	case SINFONIA_CMD_SETEEPROM:
+		return "Set EEPROM Backup Parameter";
+	case SINFONIA_CMD_SETTIME:
+		return "Time Setting";
+	case SINFONIA_CMD_FWINFO:
+		return "Get Firmware Info";
+	case SINFONIA_CMD_UPDATE:
+		return "Update";
+	case SINFONIA_CMD_SETUNIQUE:
+		return "Set Unique String";
+	default:
+		return "Unknown Command";
 	}
 }
 

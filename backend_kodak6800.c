@@ -90,16 +90,6 @@ struct kodak68x0_status_readback {
 	uint8_t  curve_status; /* Always seems to be 0x00 */
 } __attribute__((packed));
 
-struct kodak6800_printsize {
-	uint8_t  code;   /* 0x06 (6x8) or 0x03 (5x7) */
-	uint16_t width;  /* BE */
-	uint16_t height; /* BE */
-	uint8_t  type;   /* MEDIA_TYPE_* [ ie paper ] */
-	uint8_t  method; /* Special handling.. */
-	uint8_t  flag;   /* 00 if it can be done without skipping a panel, 01 otherwise */
-	uint8_t  null[2];
-} __attribute__((packed));
-
 #define MAX_MEDIA_LEN 128
 #define MAX_MEDIAS 16
 
@@ -108,7 +98,7 @@ struct kodak68x0_media_readback {
 	uint8_t  type;     /* Media code, KODAK68x0_MEDIA_xxx */
 	uint8_t  null[5];
 	uint8_t  count;    /* Always 0x04 (6800) or 0x06 (6850)? */
-	struct kodak6800_printsize sizes[];
+	struct sinfonia_mediainfo_item sizes[];
 } __attribute__((packed));
 
 #define CMDBUF_LEN 17
@@ -131,7 +121,7 @@ struct kodak6800_ctx {
 
 	uint8_t jobid;
 
-	struct kodak6800_printsize sizes[MAX_MEDIA_LEN];
+	struct sinfonia_mediainfo_item sizes[MAX_MEDIA_LEN];
 	uint8_t media_count;
 	uint8_t media_type;
 
@@ -163,7 +153,7 @@ static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
         return 0;
 }
 
-static void kodak68x0_dump_mediainfo(struct kodak6800_printsize *sizes, uint8_t media_count, uint8_t media_type) {
+static void kodak68x0_dump_mediainfo(struct sinfonia_mediainfo_item *sizes, uint8_t media_count, uint8_t media_type) {
 	int i;
 
 	if (media_type == KODAK6_MEDIA_NONE) {
@@ -175,8 +165,8 @@ static void kodak68x0_dump_mediainfo(struct kodak6800_printsize *sizes, uint8_t 
 	INFO("Legal print sizes:\n");
 	for (i = 0 ; i < media_count ; i++) {
 		INFO("\t%d: %dx%d (%02x)\n", i,
-		     be16_to_cpu(sizes[i].width),
-		     be16_to_cpu(sizes[i].height),
+		     be16_to_cpu(sizes[i].columns),
+		     be16_to_cpu(sizes[i].rows),
 		     sizes[i].method);
 	}
 	INFO("\n");
@@ -221,7 +211,7 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 		ctx->media_type = media->type;
 
 		for (i = 0; i < media->count ; i++) {
-			memcpy(&ctx->sizes[ctx->media_count], &media->sizes[i], sizeof(struct kodak6800_printsize));
+			memcpy(&ctx->sizes[ctx->media_count], &media->sizes[i], sizeof(struct sinfonia_mediainfo_item));
 			ctx->media_count++;
 		}
 		if (i < 6)
@@ -953,8 +943,8 @@ static int kodak6800_main_loop(void *vctx, const void *vjob) {
 
 	/* Validate against supported media list */
 	for (num = 0 ; num < ctx->media_count; num++) {
-		if (ctx->sizes[num].height == hdr.rows &&
-		    ctx->sizes[num].width == hdr.columns &&
+		if (ctx->sizes[num].rows == hdr.rows &&
+		    ctx->sizes[num].columns == hdr.columns &&
 		    ctx->sizes[num].method == hdr.method)
 			break;
 	}

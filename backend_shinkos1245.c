@@ -44,48 +44,6 @@
 #include "backend_common.h"
 #include "backend_sinfonia.h"
 
-#if 0
-/* Structure of printjob header.  All fields are LITTLE ENDIAN */
-struct s1245_printjob_hdr {
-	uint32_t len1;   /* Fixed at 0x10 */
-	uint32_t model;  /* Equal to the printer model (eg '1245' or '2145' decimal) */
-	uint32_t unk2;   /* Null */
-	uint32_t unk3;   /* Fixed at 0x01 */
-
-	uint32_t len2;   /* Fixed at 0x64 */
-	uint32_t unk5;   /* Null */
-	uint32_t media;  /* Fixed at 0x10 */
-	uint32_t unk6;   /* Null */
-
-	uint32_t method; /* Print Method */
-	uint32_t oc_mode;  /* Lamination Mode */
-	uint32_t unk7;   /* Null */
-	 int32_t mattedepth; /* 0x7fffffff for glossy, 0x00 +- 25 for matte */
-
-	uint32_t dust;   /* Dust control */
-	uint32_t columns;
-	uint32_t rows;
-	uint32_t copies;
-
-	uint32_t unk10;  /* Null */
-	uint32_t unk11;  /* Null */
-	uint32_t unk12;  /* Null */
-	uint32_t unk13;  /* 0xceffffff */
-
-	uint32_t unk14;  /* Null */
-	uint32_t unk15;  /* 0xceffffff */
-	uint32_t dpi; /* Fixed at '300' (decimal) */
-	uint32_t unk16;  /* 0xceffffff */
-
-	uint32_t unk17;  /* Null */
-	uint32_t unk18;  /* 0xceffffff */
-	uint32_t unk19;  /* Null */
-	uint32_t unk20;  /* Null */
-
-	uint32_t unk21;  /* Null */
-} __attribute__((packed));
-#endif
-
 /* Printer data structures */
 struct shinkos1245_cmd_hdr {
 	uint8_t prefix; /* 0x03 */
@@ -1084,7 +1042,7 @@ static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, in
 	memset(job, 0, sizeof(*job));
 
 	/* Common read/parse code */
-	ret = sinfonia_read_parse(data_fd, 1245, &job->jp, &job->databuf, &job->datalen);
+	ret = sinfonia_read_parse(data_fd, 1245, job);
 	if (ret) {
 		free(job);
 		return ret;

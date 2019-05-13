@@ -58,9 +58,7 @@ struct sinfonia_printjob {
 };
 
 int sinfonia_read_parse(int data_fd, uint32_t model,
-			struct sinfonia_job_param *jp,
-			uint8_t **data, int *datalen);
-
+			struct sinfonia_printjob *job);
 
 #define BANK_STATUS_FREE  0x00
 #define BANK_STATUS_XFER  0x01
@@ -132,7 +130,7 @@ struct sinfonia_status_hdr {
 	uint8_t  printer_major;
 	uint8_t  printer_minor;
 	uint8_t  reserved[2];
-	uint8_t  mode;  /* S6245 only, so far */
+	uint8_t  mode;  /* S6245 and EK605 only, so far */
 	uint8_t  status;
 	uint16_t payload_len;
 } __attribute__((packed));
@@ -156,6 +154,160 @@ struct sinfonia_fwinfo_resp {
 	uint8_t  minor;
 	uint16_t checksum;
 } __attribute__((packed));
+
+struct sinfonia_errorlog_resp {
+	struct sinfonia_status_hdr hdr;
+	uint8_t  count;
+	struct sinfonia_error_item items[10];  /* Not all necessarily used */
+} __attribute__((packed));
+
+struct sinfonia_mediainfo_item {
+	uint8_t  code;
+	uint16_t columns;
+	uint16_t rows;
+	uint8_t  type; /* S2145, EK68xx, EK605 only -- MEDIA_TYPE_* */
+	uint8_t  method; /* PRINT_METHOD_* */
+	uint8_t  flag;   /* EK68xx only */
+	uint8_t  reserved[2];
+} __attribute__((packed));
+
+struct sinfonia_setparam_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t target;
+	uint32_t param;
+} __attribute__((packed));
+
+struct sinfonia_getparam_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t target;
+} __attribute__((packed));
+
+struct sinfonia_getparam_resp {
+	struct sinfonia_status_hdr hdr;
+	uint32_t param;
+} __attribute__((packed));
+
+struct sinfonia_getprintidstatus_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t id;
+} __attribute__((packed));
+
+struct sinfonia_getprintidstatus_resp {
+	struct sinfonia_status_hdr hdr;
+	uint8_t  id;
+	uint16_t remaining;
+	uint16_t finished;
+	uint16_t specified;
+	uint16_t status;
+} __attribute__((packed));
+
+#define IDSTATUS_WAITING   0x0000
+#define IDSTATUS_PRINTING  0x0100
+#define IDSTATUS_COMPLETED 0x0200
+#define IDSTATUS_ERROR     0xFFFF
+
+struct sinfonia_getserial_resp {
+	struct sinfonia_status_hdr hdr;
+	uint8_t  data[8];
+} __attribute__((packed));
+
+struct sinfonia_getextcounter_resp {
+	struct sinfonia_status_hdr hdr;
+	uint32_t lifetime_distance;  /* Inches */
+	uint32_t maint_distance;
+	uint32_t head_distance;
+	uint8_t  reserved[32];
+} __attribute__((packed));
+
+struct sinfonia_seteeprom_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t data[256]; /* Maxlen */
+} __attribute__((packed));
+
+#define CODE_4x6     0x00
+#define CODE_3_5x5   0x01
+#define CODE_5x7     0x03
+#define CODE_6x9     0x05
+#define CODE_6x8     0x06
+#define CODE_2x6     0x07
+#define CODE_6x6     0x08
+
+#define CODE_8x10    0x10
+#define CODE_8x12    0x11
+#define CODE_8x4     0x20
+#define CODE_8x5     0x21
+#define CODE_8x6     0x22
+#define CODE_8x8     0x23
+#define CODE_8x4_2   0x30
+#define CODE_8x5_2   0x31
+#define CODE_8x6_2   0x32
+#define CODE_8x4_3   0x40
+
+#define CODE_89x60mm 0x10
+#define CODE_89x59mm 0x11
+#define CODE_89x58mm 0x12
+#define CODE_89x57mm 0x13
+#define CODE_89x56mm 0x14
+#define CODE_89x55mm 0x15
+
+const char *sinfonia_print_codes (uint8_t v, int eightinch);
+
+#define STATUS_READY            0x00
+#define STATUS_INIT_CPU         0x31
+#define STATUS_INIT_RIBBON      0x32
+#define STATUS_INIT_PAPER       0x33
+#define STATUS_THERMAL_PROTECT  0x34
+#define STATUS_USING_PANEL      0x35
+#define STATUS_SELF_DIAG        0x36
+#define STATUS_DOWNLOADING      0x37
+
+#define STATUS_FEEDING_PAPER    0x61
+#define STATUS_PRE_HEAT         0x62
+#define STATUS_PRINT_Y          0x63
+#define STATUS_BACK_FEED_Y      0x64
+#define STATUS_PRINT_M          0x65
+#define STATUS_BACK_FEED_M      0x66
+#define STATUS_PRINT_C          0x67
+#define STATUS_BACK_FEED_C      0x68
+#define STATUS_PRINT_OP         0x69
+#define STATUS_PAPER_CUT        0x6A
+#define STATUS_PAPER_EJECT      0x6B
+#define STATUS_BACK_FEED_E      0x6C
+#define STATUS_FINISHED         0x6D
+
+const char *sinfonia_status_str(uint8_t v);
+
+#define SINFONIA_CMD_GETSTATUS  0x0001
+#define SINFONIA_CMD_MEDIAINFO  0x0002
+#define SINFONIA_CMD_MODELNAME  0x0003 // 2145 only
+#define SINFONIA_CMD_ERRORLOG   0x0004
+#define SINFONIA_CMD_GETPARAM   0x0005 // !2145
+#define SINFONIA_CMD_GETSERIAL  0x0006 // !2145
+#define SINFONIA_CMD_PRINTSTAT  0x0007 // !2145
+#define SINFONIA_CMD_EXTCOUNTER 0x0008 // !2145
+
+#define SINFONIA_CMD_MEMORYBANK 0x000A // Brava 21 only?
+
+#define SINFONIA_CMD_PRINTJOB   0x4001
+#define SINFONIA_CMD_CANCELJOB  0x4002
+#define SINFONIA_CMD_FLASHLED   0x4003
+#define SINFONIA_CMD_RESET      0x4004
+#define SINFONIA_CMD_READTONE   0x4005
+#define SINFONIA_CMD_BUTTON     0x4006 // 2145 only
+#define SINFONIA_CMD_SETPARAM   0x4007
+
+#define SINFONIA_CMD_GETUNIQUE  0x8003 // 2145 only
+
+#define SINFONIA_CMD_GETCORR    0x400D
+#define SINFONIA_CMD_GETEEPROM  0x400E
+#define SINFONIA_CMD_SETEEPROM  0x400F
+#define SINFONIA_CMD_SETTIME    0x4011 // 6245 only
+
+#define SINFONIA_CMD_FWINFO     0xC003
+#define SINFONIA_CMD_UPDATE     0xC004
+#define SINFONIA_CMD_SETUNIQUE  0xC007 // 2145 only
+
+const char *sinfonia_cmd_names(uint16_t v);
 
 /* 6R: Also seen: 101-0867, 141-9597, 659-9054, 169-6418, DNP 900-060 */
 #define KODAK6_MEDIA_6R   0x0b // 197-4096

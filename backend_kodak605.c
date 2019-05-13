@@ -45,81 +45,26 @@
 #define USB_VID_KODAK       0x040A
 #define USB_PID_KODAK_605   0x402E
 
-/* Command Header */
-struct kodak605_cmd {
-	uint16_t cmd; /* LE */
-	uint16_t len; /* LE, not counting this header */
-} __attribute__((packed));
-
-/* List of known commands */
-#define KODAK605_CMD_GETSTATUS  0x0001
-#define KODAK605_CMD_MEDIAINFO  0x0002
-#define KODAK605_CMD_ERRORLOG   0x0004 // guess
-#define KODAK605_CMD_PRINTJOB   0x4001
-#define KODAK605_CMD_CANCELJOB  0x4002 // guess
-#define KODAK605_CMD_FLASHLED   0x4003 // guess
-#define KODAK605_CMD_RESET      0x4004 // guess
-#define KODAK605_CMD_READTONE   0x4005 // guess
-#define KODAK605_CMD_FWINFO     0xC003 // guess
-#define KODAK605_CMD_UPDATE     0xC004
-
-struct kodak605_sts_hdr {
-	uint8_t  result;    /* RESULT_* */
-	uint8_t  error;     /* ERROR_* */
-	uint8_t  printer_major;
-	uint8_t  printer_minor;
-        uint8_t  reserved[3];  /* 00 00 [00|01|02] */
-        uint8_t  status;    /* STATUS_* */
-        uint16_t length;    /* LE, not counting this header */
-} __attribute__((packed));
-
-/* ERROR_* and STATUS_* are all guesses */
-#define STATUS_INIT_CPU         0x31
-#define STATUS_INIT_RIBBON      0x32
-#define STATUS_INIT_PAPER       0x33
-#define STATUS_THERMAL_PROTECT  0x34
-#define STATUS_USING_PANEL      0x35
-#define STATUS_SELF_DIAG        0x36
-#define STATUS_DOWNLOADING      0x37
-#define STATUS_READY            0x00
-#define STATUS_FEEDING_PAPER    0x61
-#define STATUS_PRE_HEAT         0x62
-#define STATUS_PRINT_Y          0x63
-#define STATUS_BACK_FEED_Y      0x64
-#define STATUS_PRINT_M          0x65
-#define STATUS_BACK_FEED_M      0x66
-#define STATUS_PRINT_C          0x67
-#define STATUS_BACK_FEED_C      0x68
-#define STATUS_PRINT_OP         0x69
-#define STATUS_PAPER_CUT        0x6A
-#define STATUS_PAPER_EJECT      0x6B
-#define STATUS_BACK_FEED_E      0x6C
+/* List of confirmed commands */
+//#define SINFONIA_CMD_GETSTATUS  0x0001
+//#define SINFONIA_CMD_MEDIAINFO  0x0002
+//#define SINFONIA_CMD_PRINTJOB   0x4001
+//#define SINFONIA_CMD_UPDATE     0xC004
 
 /* Media structure */
-struct kodak605_medium {
-	uint8_t  index;
-	uint16_t cols;   /* LE */
-	uint16_t rows;   /* LE */
-	uint8_t  type;   /* MEDIA_TYPE_* */
-	uint8_t  unk[4]; /* 00 00 00 00 */
-}  __attribute__((packed));
-
-#define MEDIA_TYPE_UNKNOWN 0x00
-#define MEDIA_TYPE_PAPER   0x01
-
 struct kodak605_media_list {
-	struct kodak605_sts_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t  unk;  /* always seen 02 */
 	uint8_t  type; /* KODAK68x0_MEDIA_* */
 	uint8_t  count;
-	struct kodak605_medium entries[];
+	struct sinfonia_mediainfo_item entries[];
 } __attribute__((packed));
 
 #define MAX_MEDIA_LEN 128
 
 /* Status response */
 struct kodak605_status {
-	struct kodak605_sts_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 /*@10*/	uint32_t ctr_life;  /* Lifetime Prints */
 	uint32_t ctr_maint; /* Prints since last maintenance */
 	uint32_t ctr_media; /* Prints on current media */
@@ -143,13 +88,6 @@ struct kodak605_status {
 /*@59*/	uint16_t total;     /* in current job */
 /*@61*/	uint8_t  null_2[9]; /* 00 00 00 00 00 00 00 00 00 */
 /*@70*/	uint8_t  unk_12[6]; /* 01 00 00 00 00 00 */
-} __attribute__((packed));
-
-/* Error logs are guesses */
-struct kodak605_errorlog_resp {
-	struct kodak605_sts_hdr hdr;
-	uint8_t  count;
-	struct sinfonia_error_item items[10];  /* Not all necessarily used */
 } __attribute__((packed));
 
 /* File header */
@@ -411,7 +349,7 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 	/* Validate against supported media list */
 	for (num = 0 ; num < ctx->media->count; num++) {
 		if (ctx->media->entries[num].rows == hdr.rows &&
-		    ctx->media->entries[num].cols == hdr.columns)
+		    ctx->media->entries[num].columns == hdr.columns)
 			break;
 	}
 	if (num == ctx->media->count) {
@@ -431,7 +369,8 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 		}
 
 		if (sts.hdr.result != RESULT_SUCCESS) {
-			ERROR("Printer Status:  %02x\n", sts.hdr.status);
+			ERROR("Printer Status:  %02x (%s)\n", sts.hdr.status,
+			      sinfonia_status_str(sts.hdr.status));
 			ERROR("Result: %02x Error: %02x (%s) %02x/%02x\n",
 			      sts.hdr.result, sts.hdr.error,
 			      sinfonia_error_str(sts.hdr.error),
@@ -467,7 +406,7 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 				     (uint8_t*)&hdr, sizeof(hdr))))
 			return CUPS_BACKEND_FAILED;
 
-		struct kodak605_sts_hdr resp;
+		struct sinfonia_status_hdr resp;
 		if ((ret = read_data(ctx->dev, ctx->endp_up,
 				     (uint8_t*) &resp, sizeof(resp), &num)))
 			return CUPS_BACKEND_FAILED;
@@ -478,11 +417,11 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 				sleep(1);
 				continue;
 			} else if ((resp.status & 0xf0) == 0x30 || resp.status == 0x21) {
-				INFO("Printer busy (%02x), retrying\n", resp.status);
+				INFO("Printer busy (%02x : %s), retrying\n", resp.status, sinfonia_status_str(resp.status));
 
 			} else {
 				ERROR("Unexpected response from print command!\n");
-				ERROR("Printer Status:  %02x\n", resp.status);
+				ERROR("Printer Status:  %02x: %s\n", resp.status, sinfonia_status_str(resp.status));
 				ERROR("Result: %02x Error: %02x (%02x %02x)\n",
 				      resp.result, resp.error,
 				      resp.printer_major, resp.printer_minor);
@@ -514,7 +453,8 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 
 		if (sts.hdr.result != RESULT_SUCCESS ||
 		    sts.hdr.error == ERROR_PRINTER) {
-			INFO("Printer Status:  %02x\n", sts.hdr.status);
+			INFO("Printer Status:  %02x (%s)\n", sts.hdr.status,
+			     sinfonia_status_str(sts.hdr.status));
 			INFO("Result: %02x Error: %02x (%s) %02x/%02x\n",
 			     sts.hdr.result, sts.hdr.error,
 			     sinfonia_error_str(sts.hdr.error),
@@ -544,9 +484,10 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 
 static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_status *sts)
 {
-	INFO("Status: %02x Error: %02x (%s) %02x/%02x\n",
-	     sts->hdr.status, sts->hdr.error,
-	     sinfonia_error_str(sts->hdr.error),
+	INFO("Status: %02x (%s)\n",
+	     sts->hdr.status, sinfonia_status_str(sts->hdr.status));
+	INFO("Error: %02x (%s) %02x/%02x\n",
+	     sts->hdr.error, sinfonia_error_str(sts->hdr.error),
 	     sts->hdr.printer_major, sts->hdr.printer_minor);
 
 	INFO("Bank 1: %s Job %03u @ %03u/%03u\n",
@@ -583,23 +524,20 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 	INFO("Donor             : %u%%\n", sts->donor);
 }
 
-
 static int kodak605_get_errorlog(struct kodak605_ctx *ctx)
 {
-	uint8_t cmdbuf[16];
-	struct kodak605_errorlog_resp resp;
+	struct sinfonia_cmd_hdr cmd;
+	struct sinfonia_errorlog_resp resp;
 
 	int ret, num = 0;
 	int i;
 
 	/* Initial Request */
-	cmdbuf[0] = 0x04;
-	cmdbuf[1] = 0x00;
-	cmdbuf[2] = 0x00;
-	cmdbuf[3] = 0x00;
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_ERRORLOG);
+	cmd.len = cpu_to_le16(0);
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, 4)))
+			     (uint8_t*)&cmd, sizeof(cmd))))
 		goto done;
 
 	/* Get response back */
@@ -608,11 +546,8 @@ static int kodak605_get_errorlog(struct kodak605_ctx *ctx)
 	if (ret < 0)
 		goto done;
 
-	if (num != sizeof(resp)) {
-		ERROR("Short Read! (%d/%d)\n", num, 10);
-		ret = 4;
-		goto done;
-	}
+	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct sinfonia_errorlog_resp) - sizeof(struct sinfonia_status_hdr)))
+		return -2;
 
 	INFO("Stored Error Events: %u entries:\n", resp.count);
 	for (i = 0 ; i < resp.count ; i++) {
@@ -638,7 +573,7 @@ static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
 	DEBUG("Legal print sizes:\n");
 	for (i = 0 ; i < media->count ; i++) {
 		DEBUG("\t%d: %ux%u\n", i,
-		      le16_to_cpu(media->entries[i].cols),
+		      le16_to_cpu(media->entries[i].columns),
 		      le16_to_cpu(media->entries[i].rows));
 	}
 	DEBUG("\n");
@@ -713,36 +648,35 @@ static int kodak605_set_tonecurve(struct kodak605_ctx *ctx, char *fname)
 
 static int kodak605_cancel_job(struct kodak605_ctx *ctx, char *str)
 {
-	uint8_t cmdbuf[5];
+	struct sinfonia_cancel_cmd cmd;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
-	struct kodak605_sts_hdr hdr;
 
 	if (!str)
 		return -1;
 
 	/* Send Job Cancel */
-	cmdbuf[0] = 0x02;
-	cmdbuf[1] = 0x40;
-	cmdbuf[2] = 0x01;
-	cmdbuf[3] = 0x00;
-	cmdbuf[4] = atoi(str);
+	cmd.id = atoi(str);
+	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_CANCELJOB);
+	cmd.hdr.len = cpu_to_le16(1);
+
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, sizeof(cmdbuf))))
+			     (uint8_t*)&cmd, sizeof(cmd))))
 		return ret;
 
 	/* Read the media response */
 	ret = read_data(ctx->dev, ctx->endp_up,
-			(uint8_t*) &hdr, sizeof(hdr), &num);
+			(uint8_t*) &resp, sizeof(resp), &num);
 	if (ret < 0)
 		return ret;
 
-	if (num < (int)sizeof(hdr)) {
-		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(hdr));
+	if (num < (int)sizeof(resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(resp));
 		return CUPS_BACKEND_FAILED;
 	}
 
-        if (hdr.result != RESULT_SUCCESS) {
-                ERROR("Unexpected response from job cancel query (%x)!\n", hdr.result);
+        if (resp.result != RESULT_SUCCESS) {
+                ERROR("Unexpected response from job cancel query (%x)!\n", resp.result);
                 return CUPS_BACKEND_FAILED;
         }
 
