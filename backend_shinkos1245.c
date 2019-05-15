@@ -135,22 +135,13 @@ struct shinkos1245_cmd_getmedia {
 	uint8_t pad[10];
 } __attribute__((packed));
 
-struct shinkos1245_mediadesc {
-	uint8_t  code;  /* Fixed at 0x10 */
-	uint16_t columns; /* BE */
-	uint16_t rows;    /* BE */
-	uint8_t  type;       /* MEDIA_TYPE_* */
-	uint8_t  print_type; /* aka "print method" in the spool file */
-	uint8_t  reserved[3];
-} __attribute__((packed));
-
 #define NUM_MEDIAS 5 /* Maximum per message */
 
 struct shinkos1245_resp_media {
 	uint8_t  code;
 	uint8_t  reserved[6];
 	uint8_t  count;  /* 1-5? */
-	struct shinkos1245_mediadesc data[NUM_MEDIAS];
+	struct sinfonia_mediainfo_item data[NUM_MEDIAS];
 } __attribute__((packed));
 
 
@@ -250,6 +241,7 @@ struct shinkos1245_resp_matte {
 } __attribute__((packed));
 
 #define MATTE_MODE_MATTE 0x00
+#define MAX_MEDIA_ITEMS 15
 
 /* Private data structure */
 struct shinkos1245_ctx {
@@ -260,7 +252,7 @@ struct shinkos1245_ctx {
 
 	uint8_t jobid;
 
-	struct shinkos1245_mediadesc medias[15];
+	struct sinfonia_mediainfo_item medias[MAX_MEDIA_ITEMS];
 	int num_medias;
 	int media_8x12;
 
@@ -371,7 +363,7 @@ static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
 			ctx->medias[ctx->num_medias].columns = be16_to_cpu(resp.data[j].columns);
 			ctx->medias[ctx->num_medias].rows = be16_to_cpu(resp.data[j].rows);
 			ctx->medias[ctx->num_medias].type = resp.data[j].type;
-			ctx->medias[ctx->num_medias].print_type = resp.data[j].print_type;
+			ctx->medias[ctx->num_medias].method = resp.data[j].method;
 			ctx->num_medias++;
 
 			if (ctx->medias[i].rows >= 3636)
@@ -639,7 +631,7 @@ static void shinkos1245_dump_status(struct shinkos1245_ctx *ctx,
 	INFO("Tone Curve Status: %s\n", detail);
 }
 
-static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
+static void shinkos1245_dump_media(struct sinfonia_mediainfo_item *medias,
 				   int media_8x12,
 				   int count)
 {
@@ -649,11 +641,12 @@ static void shinkos1245_dump_media(struct shinkos1245_mediadesc *medias,
 	INFO("Supported print sizes: %d\n", count);
 
 	for (i = 0 ; i < count ; i++) {
-		INFO("\t %02x: %04u*%04u (%02x/%02u)\n",
-		     medias[i].print_type,
+		INFO("\t %02d: %04u*%04u (%02x/%02u)\n",
+		     i,
 		     medias[i].columns,
 		     medias[i].rows,
-		     medias[i].type, medias[i].print_type);
+		     medias[i].type,
+		     medias[i].method);
 	}
 }
 
@@ -1075,7 +1068,7 @@ static int shinkos1245_main_loop(void *vctx, const void *vjob) {
 	/* Make sure print size is supported */
 	for (i = 0 ; i < ctx->num_medias ; i++) {
 		if (job->jp.media == ctx->medias[i].code &&
-		    job->jp.method == ctx->medias[i].print_type &&
+		    job->jp.method == ctx->medias[i].method &&
 		    job->jp.rows == ctx->medias[i].rows &&
 		    job->jp.columns == ctx->medias[i].columns)
 			break;
@@ -1157,11 +1150,11 @@ top:
 			int current = -1;
 			i = shinkos1245_get_matte(ctx, &current);
 			if (i < 0)
-				goto printer_error;
+				goto printer_error2;
 			if (current != job->jp.mattedepth) {
 				i = shinkos1245_set_matte(ctx, job->jp.mattedepth);
 				if (i < 0)
-					goto printer_error;
+					goto printer_error2;
 				if (i > 0) {
 					INFO("Can't set matte intensity when printing in progress...\n");
 					state = S_IDLE;
@@ -1189,6 +1182,7 @@ top:
 		i = shinkos1245_do_cmd(ctx, &cmd, sizeof(cmd),
 				       &status1, sizeof(status1),
 				       &num);
+		status1.state.status2 = be32_to_cpu(status1.state.status2);
 		if (i < 0)
 			goto printer_error;
 
@@ -1239,13 +1233,10 @@ top:
 	return CUPS_BACKEND_OK;
 
 printer_error:
-	/* Byteswap */
-	status1.state.status2 = be32_to_cpu(status1.state.status2);
-
 	ERROR("Printer Error: %s # %02x %08x %02x\n",
 	      sinfonia_1x45_status_str(status1.state.status1, status1.state.status2, status1.state.error),
 	      status1.state.status1, status1.state.status2, status1.state.error);
-
+printer_error2:
 	return CUPS_BACKEND_FAILED;
 }
 
@@ -1309,7 +1300,7 @@ static const char *shinkos1245_prefixes[] = {
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245/E1",
-	.version = "0.29" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.30" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos1245_prefixes,
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
