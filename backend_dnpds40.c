@@ -1996,7 +1996,7 @@ top:
 
 	/* Program in the multicut setting, if one exists */
 	if (multicut) {
-		snprintf(buf, sizeof(buf), "%08u", multicut);
+		snprintf(buf, sizeof(buf), "%08d", multicut);
 		dnpds40_build_cmd(&cmd, "IMAGE", "MULTICUT", 8);
 		if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)buf, 8)))
 			return CUPS_BACKEND_FAILED;

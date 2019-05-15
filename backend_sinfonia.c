@@ -95,7 +95,7 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 		do {
 			ret = read(data_fd, ptr, remain);
 			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%d)\n",
+				ERROR("Read failed (%d/%u/%d)\n",
 				      ret, remain, job->datalen);
 				perror("ERROR: Read failed");
 				free(job->databuf);

@@ -348,7 +348,7 @@ static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_st
 		}
 
 		if (max) {
-			INFO("\t  Remaining   : %d\n", max - be32_to_cpu(status->media));
+			INFO("\t  Remaining   : %u\n", max - be32_to_cpu(status->media));
 		} else {
 			INFO("\t  Remaining   : Unknown\n");
 		}
