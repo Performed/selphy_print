@@ -90,7 +90,6 @@ struct kodak68x0_status_readback {
 	uint8_t  curve_status; /* Always seems to be 0x00 */
 } __attribute__((packed));
 
-#define MAX_MEDIA_LEN 128
 #define MAX_MEDIAS 16
 
 struct kodak68x0_media_readback {
@@ -121,21 +120,20 @@ struct kodak6800_ctx {
 
 	uint8_t jobid;
 
-	struct sinfonia_mediainfo_item sizes[MAX_MEDIA_LEN];
+	struct sinfonia_mediainfo_item sizes[MAX_MEDIAS];
 	uint8_t media_count;
 	uint8_t media_type;
 
 	struct kodak68x0_status_readback sts;
 
 	struct marker marker;
-
 };
 
 /* Baseline commands */
 static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
-                              void *cmd, int cmd_len,
-                              void *resp, int resp_len,
-                              int *actual_len)
+			    void *cmd, int cmd_len,
+			    void *resp, int resp_len,
+			    int *actual_len)
 {
         int ret;
 
@@ -153,7 +151,9 @@ static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
         return 0;
 }
 
-static void kodak68x0_dump_mediainfo(struct sinfonia_mediainfo_item *sizes, uint8_t media_count, uint8_t media_type) {
+static void kodak68x0_dump_mediainfo(struct sinfonia_mediainfo_item *sizes,
+				     uint8_t media_count, uint8_t media_type)
+{
 	int i;
 
 	if (media_type == KODAK6_MEDIA_NONE) {
@@ -171,6 +171,8 @@ static void kodak68x0_dump_mediainfo(struct sinfonia_mediainfo_item *sizes, uint
 	}
 	INFO("\n");
 }
+
+#define MAX_MEDIA_LEN (sizeof(struct kodak68x0_media_readback) + MAX_MEDIAS * sizeof(struct sinfonia_mediainfo_item))
 
 static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 {
