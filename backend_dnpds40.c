@@ -1193,7 +1193,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	if (ctx->type == P_DNP_DS80D) {
 		ctx->marker[1].color = "#00FFFF#FF00FF#FFFF00";
 		ctx->marker[1].name = dnpds80_duplex_media_types(ctx->duplex_media);
-		ctx->marker[1].levelmax = 65;
+		ctx->marker[1].levelmax = ctx->marker[0].levelmax/2;
 		ctx->marker[1].levelnow = -2;
 		ctx->marker_count++;
 	}
@@ -3075,7 +3075,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.112",
+	.version = "0.113",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
