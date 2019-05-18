@@ -111,8 +111,8 @@ if ($proc_count > 1 && $kid > 0) {
 
 	my $gp_name = $row[0];
 	$ENV{"BACKEND"} = $row[0];
-	$ENV{"EXTRA_VID"} = $row[2];
-	$ENV{"EXTRA_PID"} = $row[3];
+	$ENV{"EXTRA_VID"} = $row[1];
+	$ENV{"EXTRA_PID"} = $row[2];
 	my $work_dir = "${work_dir_base}/$currow/";
 	if (!mkdir($work_dir)) {
 	    print("cannot crate work dir ${work_dir}\n");
@@ -120,15 +120,15 @@ if ($proc_count > 1 && $kid > 0) {
 	    next;
 	}
 
-	if (length($row[4])) {
-	    $ENV{"MEDIA_CODE"} = $row[4];
+	if (length($row[3])) {
+	    $ENV{"MEDIA_CODE"} = $row[3];
 	} else {
 	    undef($ENV{"MEDIA_CODE"});
 	}
 
 	my $options = "";
 
-	my @gp_options = split(/;/,$row[5]);
+	my @gp_options = split(/;/,$row[4]);
 	# generate options list
 	foreach my $x (@gp_options) {
 	    $options .= "$x ";
@@ -158,7 +158,7 @@ if ($proc_count > 1 && $kid > 0) {
 	    $rval = run \@args;
 	}
 	if (!$rval) {
-	    print("***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]' FAIL genppd $?: -- " . join(":", @args) . "\n");
+	    print("***** $row[0] $row[1] $row[2] $row[3] '$row[4]' FAIL genppd $?: -- " . join(":", @args) . "\n");
 	    $error++;
 	    next;
 	}
@@ -177,7 +177,7 @@ if ($proc_count > 1 && $kid > 0) {
 	    }
 	    $rval = run \@args;
 	    if (!$rval) {
-		print("***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]' FAIL: convert: $? -- " . join(":", @args) . "\n");
+		print("***** $row[0] $row[1] $row[2] $row[3] '$row[4]' FAIL: convert: $? -- " . join(":", @args) . "\n");
 		$error++;
 		next;
 	    }
@@ -193,7 +193,7 @@ if ($proc_count > 1 && $kid > 0) {
 		$rval = run \@args, ">", "${work_dir}$currow-${gp_name}.raster";
 	    }
 	    if (!$rval) {
-		print("***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]' FAIL: imagetoraster $?: $pages -- " . join(":", @args) . "\n");
+		print("***** $row[0] $row[1] $row[2] $row[3] '$row[4]' FAIL: imagetoraster $?: $pages -- " . join(":", @args) . "\n");
 		$error++;
 		next;
 	    }
@@ -216,7 +216,7 @@ if ($proc_count > 1 && $kid > 0) {
 		    $rval = run \@args, "<", "${work_dir}$currow-${gp_name}.raster", ">", "${work_dir}$currow-${gp_name}.raw";
 		}
 		if (!$rval) {
-		    print("***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]' FAIL: rastertogutenorint $?: $pages $copies -- " . join(":", @args) . "\n");
+		    print("***** $row[0] $row[1] $row[2] $row[3] '$row[4]' FAIL: rastertogutenorint $?: $pages $copies -- " . join(":", @args) . "\n");
 		    $error++;
 		    next;
 		}
@@ -238,13 +238,13 @@ if ($proc_count > 1 && $kid > 0) {
 		    run \@args, "<", "${work_dir}$currow-${gp_name}.raw";
 		}
 		if (!$rval) {
-		    print("***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]' FAIL: backend $?: $pages $copies -- " . join(":", @args) . "\n");
+		    print("***** $row[0] $row[1] $row[2] $row[3] '$row[4]' FAIL: backend $?: $pages $copies -- " . join(":", @args) . "\n");
 		    $error++;
 		    next;
 		}
 	    }
 	}
-	print "***** $row[0] $row[1] $row[2] $row[3] $row[4] '$row[5]' PASS\n";
+	print "***** $row[0] $row[1] $row[2] $row[3] '$row[4]' PASS\n";
 
 	unlink ("${work_dir}$currow-${gp_name}.pdf");
 	unlink ("${work_dir}$currow-${gp_name}.raster");
