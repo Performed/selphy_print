@@ -31,6 +31,7 @@
    Citizen CW-02 / OP900II
    DNP DS40 / Citizen CX
    DNP DS80 / Citizen CX-W
+   DNP DS80DX
    DNP DS-RX1 / DS-RX1HS / Citizen CY / CY-02
    DNP DS620 / DS620A / Citizen CX-02
    DNP DS820 / DS820A
@@ -62,7 +63,6 @@
 
   Work-in-progress Printers:
 
-   DNP DS80DX
    HiTi P910L
    ICI Imagedata OP900
    Kodak 6900
@@ -987,6 +987,7 @@
 
     DNP DS40 (aka Citizen CX)
     DNP DS80 (aka Citizen CX-W)
+    DNP DS80DX
     DNP DS620 / DS620A
     DNP DS820 / DS820A
     DNP DS-RX1 / DNP DS-RX1HS (aka Citizen CY and CY-02)
@@ -996,7 +997,6 @@
     Citizen CW-01 / OP900
     Citizen CW-02 / OP900II
     Citizen CX-02
-    DNP DS80DX
     Mitsubishi CP-3800DW
 
    Work-in-progress printers: (USB PIDs unknown)
