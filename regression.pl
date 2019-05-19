@@ -45,6 +45,8 @@ my @children = ();
 my $kid;
 my $error = 0;
 
+my $backend_exec = "./dyesub_backend";
+
 $ENV{"TEST_MODE"} = "2";
 
 if (!defined($ARGV[0])) {
@@ -113,7 +115,7 @@ if ($proc_count > 1 && $kid > 0) {
 	}
 
 	foreach (my $i = 1; $i <= $copies ; $i++) {
-	    my @args = ("./dyesub_backend", "-d", $i, "testjobs/${row[3]}");
+	    my @args = ($backend_exec, "-d", $i, "testjobs/${row[3]}");
 	    if ($valgrind) {
 		if ($quiet) {
 		    unshift(@args,"-q");

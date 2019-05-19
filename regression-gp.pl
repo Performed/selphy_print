@@ -52,6 +52,12 @@ my @children = ();
 my $kid;
 my $error = 0;
 
+my $genppd_exec = "/usr/sbin/cups-genppd.5.3";
+my $convert_exec = "/usr/bin/convert";
+my $pdftoraster_exec = "/usr/lib/cups/filter/pdftoraster";
+my $rastertogutenprint_exec = "/usr/lib/cups/filter/rastertogutenprint.5.3";
+my $backend_exec = "./dyesub_backend";
+
 $ENV{"STP_SUPPRESS_VERBOSE_MESSAGES"} = 1;
 $ENV{"OMP_NUM_THREADS"} = 1;
 $ENV{"TEST_MODE"} = "2";
@@ -65,6 +71,13 @@ if (defined($ENV{"STP_VERBOSE"})) {
 if (defined($ENV{"STP_PARALLEL"})) {
     $proc_count = $ENV{"STP_PARALLEL"};
 };
+if (defined($ENV{"STP_GENPPD"})) {
+    $genppd_exec = $ENV{"STP_GENPPD"};
+}
+if (defined($ENV{"STP_RASTERTOGUTENPRINT"})) {
+    $rastertogutenprint_exec = $ENV{"STP_RASTERTOGUTENPRINT"};
+}
+
 
 if ($proc_count > 1) {
     $quiet = 1;
@@ -148,7 +161,7 @@ if ($proc_count > 1 && $kid > 0) {
 	    print "DEVICE_URI=$ENV{DEVICE_URI}\n";
 	}
 
-	@args = ("/usr/sbin/cups-genppd.5.3", "-p", $work_dir, "-Z", "-q", $gp_name);
+	@args = ($genppd_exec, "-p", $work_dir, "-Z", "-q", $gp_name);
 	if (!$quiet) {
 	    print join(":", @args) . "\n";
 	}
@@ -165,7 +178,7 @@ if ($proc_count > 1 && $kid > 0) {
 
 	for (my $pages = 1 ; $pages <= $max_pages ; $pages++) {
 	    # generate PDF.
-	    @args = ("/usr/bin/convert");
+	    @args = ($convert_exec);
 	    for (my $i = 0 ; $i < $pages ; $i++) {
 		push(@args, $input_image);
 	    }
@@ -183,7 +196,7 @@ if ($proc_count > 1 && $kid > 0) {
 	    }
 
 	    # Generate raster from PDF
-	    @args = ("/usr/lib/cups/filter/pdftoraster", $id, $user, $title, 1, $options, "${work_dir}$currow-${gp_name}.pdf");
+	    @args = ($pdftoraster_exec, $id, $user, $title, 1, $options, "${work_dir}$currow-${gp_name}.pdf");
 	    if (!$quiet) {
 		print join(":", @args) . "\n";
 	    }
@@ -200,7 +213,7 @@ if ($proc_count > 1 && $kid > 0) {
 
 	    for (my $copies = 1 ; $copies <= $max_copies ; $copies++) {
 		# Call raster2gutenprint
-		@args = ("/usr/lib/cups/filter/rastertogutenprint.5.3", $id, $user, $title, $copies, $options);
+		@args = ($rastertogutenprint_exec, $id, $user, $title, $copies, $options);
 		if ($valgrind) {
 		    if ($quiet) {
 			unshift(@args,"-q");
@@ -222,7 +235,7 @@ if ($proc_count > 1 && $kid > 0) {
 		}
 
 		# Call backend using CUPS methodologies, using STDIN.
-		@args = ("./dyesub_backend", $id, $user, $title, $copies, $options);
+		@args = ($backend_exec, $id, $user, $title, $copies, $options);
 		if ($valgrind) {
 		    if ($quiet) {
 			unshift(@args,"-q");
