@@ -55,7 +55,7 @@ if (defined($ENV{"STP_PARALLEL"})) {
     $proc_count = $ENV{"STP_PARALLEL"};
 };
 if (defined($ENV{"STP_VERBOSE"})) {
-    $quiet = $ENV{"STP_VERBOSE"};
+    $quiet = !$ENV{"STP_VERBOSE"};
 };
 
 if ($proc_count > 1) {
