@@ -747,7 +747,11 @@ struct dyesub_backend sonyupd_backend = {
  <- 1b ea 00 00 00 00 ZZ ZZ ZZ ZZ 00  # ZZ is BIG ENDIAN
  <- [ ZZ ZZ ZZ ZZ bytes of data ]
 
-   UNKNOWN  (UPDR series)
+   UNKNOWN CMD (UP-DR and UP-D)
+
+ <- 1b ed 00 00 00 00 00
+
+   UNKNOWN (UPDR series)
 
  <- 1b ef 00 00 00 06 00
  -> 05 00 00 00 00 22
@@ -756,6 +760,11 @@ struct dyesub_backend sonyupd_backend = {
 
  <- 1b ee 00 00 00 02 00
  <- NN NN                        # Number of copies (BE, 1-???)
+
+   UNKNOWN (UPDR series)
+
+ <- 1b f5 00 00 00 02 00
+ <- ?? ??
 
   ************************************************************************
 

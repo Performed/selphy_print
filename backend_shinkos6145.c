@@ -1981,9 +1981,13 @@ static int shinkos6145_query_markers(void *vctx, struct marker **markers, int *c
 #define USB_VID_SHINKO        0x10CE
 #define USB_PID_SHINKO_S6145  0x0019
 #define USB_PID_SHINKO_S6145D 0x001E /* Aka CIAAT Brava 21 */
+//#define USB_PID_SHINKO_S2245 0xXXXX
+#define USB_VID_KODAK         0x040a
+//#define USB_PID_KODAK_6900    0xXXXX /* Aka S2245-6A */
 
 static const char *shinkos6145_prefixes[] = {
 	"sinfonia-chcs6145", "ciaat-brava-21",
+	// "sinfoina-chcs2245", "kodak-6900",
 	// extras
 	"shinko-chcs6145",
 	// backwards-compatiblity
@@ -2008,6 +2012,8 @@ struct dyesub_backend shinkos6145_backend = {
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL, "sinfonia-chcs6145"},
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145D, P_SHINKO_S6145D, NULL, "ciaat-brava-21"},
+//		{ USB_VID_SHINKO, USB_PID_SHINKO_S2245, P_SHINKO_S2245, NULL, "sinfonia-chcs2245"},
+//		{ USB_VID_KODAK, USB_PID_KODAK_6900, P_SHINKO_S2245, NULL, "sinfonia-chcs6145"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
