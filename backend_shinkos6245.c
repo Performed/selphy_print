@@ -1087,16 +1087,6 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 	return CUPS_BACKEND_OK;
 }
 
-static void shinkos6245_cleanup_job(const void *vjob)
-{
-	const struct sinfonia_printjob *job = vjob;
-
-	if (job->databuf)
-		free(job->databuf);
-
-	free((void*)job);
-}
-
 static void shinkos6245_teardown(void *vctx) {
 	struct shinkos6245_ctx *ctx = vctx;
 
@@ -1122,7 +1112,11 @@ static int shinkos6245_read_parse(void *vctx, const void **vjob, int data_fd, in
 	memset(job, 0, sizeof(*job));
 
 	/* Common read/parse code */
-	ret = sinfonia_read_parse(data_fd, 6245, job);
+	if (ctx->type == P_KODAK_8810) {
+		ret = sinfonia_raw18_read_parse(data_fd, job);
+	} else {
+		ret = sinfonia_read_parse(data_fd, 6245, job);
+	}
 	if (ret) {
 		free(job);
 		return ret;
@@ -1417,9 +1411,11 @@ static int shinkos6245_query_markers(void *vctx, struct marker **markers, int *c
 #define USB_PID_SHINKO_S6245 0x001D
 #define USB_VID_HITI         0x0D16
 #define USB_PID_HITI_P910L   0x000E
+#define USB_VID_KODAK        0x040A
+#define USB_PID_KODAK_8810   0x404D
 
 static const char *shinkos6245_prefixes[] = {
-	"sinfonia-chcs6245", "hiti-p910l",
+	"sinfonia-chcs6245", "hiti-p910l", "kodak-8810",
 	// extras
 	"shinko-chcs6245",
 	// backwards compatibility
@@ -1429,14 +1425,14 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Shinko/Sinfonia CHC-S6245",
-	.version = "0.18WIP" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.19WIP" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,
 	.init = shinkos6245_init,
 	.attach = shinkos6245_attach,
 	.teardown = shinkos6245_teardown,
-	.cleanup_job = shinkos6245_cleanup_job,
+	.cleanup_job = sinfonia_cleanup_job,
 	.read_parse = shinkos6245_read_parse,
 	.main_loop = shinkos6245_main_loop,
 	.query_serno = shinkos6245_query_serno,
@@ -1444,6 +1440,7 @@ struct dyesub_backend shinkos6245_backend = {
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, NULL, "shinfonia-chcs6245"},
 		{ USB_VID_HITI, USB_PID_HITI_P910L, P_SHINKO_S6245, NULL, "hiti-p910l"},
+		{ USB_VID_KODAK, USB_PID_KODAK_8810, P_KODAK_8810, NULL, "kodak-8810"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
@@ -1466,5 +1463,11 @@ struct dyesub_backend shinkos6245_backend = {
    [[Packed RGB payload of WW*HH*3 bytes]]
 
    04 03 02 01  [[ footer ]]
+
+   Kodak 8810 data format:  (Note: EK8810 is actually a Sinfonia CHC-S1845-5A)
+
+  Spool file is the print_cmd_hdr (22 bytes) followed by RGB-packed data.
+
+  NOTE:  NOT YET HANDLED by backend.
 
 */

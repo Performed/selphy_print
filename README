@@ -452,13 +452,14 @@
 
    Additional model IDs recognized:
 
-     kodak-605
+     kodak-605, kodak-7000, kodak-7010, kodak-7015,
+     kodak-701x, kodak-7xxx
 
    Verified supported printers:
 
      Kodak 605
 
-   Unsupported printers (Unknown VID/PID):
+   Work-in-progress printers:
 
      Kodak 7000/7010/7015
 
@@ -687,6 +688,7 @@
    Model IDs recognized:
 
      sinfonia-chcs6245 hiti-p910l shinko-chcs6245
+     kodak-8810
 
    Model IDs for backwards compatibility with older releases:
 
@@ -695,11 +697,8 @@
    Work-in-process printers:
 
      HiTi P910L
-     Shinko CHC-S6245 (aka "Sinfonia CE1")
-
-   Unsupported printers (Unknown VID/PID):
-
      Kodak 8810
+     Shinko CHC-S6245 (aka "Sinfonia CE1")
 
    Valid commands:
 

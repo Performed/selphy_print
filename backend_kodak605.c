@@ -44,6 +44,8 @@
 
 #define USB_VID_KODAK       0x040A
 #define USB_PID_KODAK_605   0x402E
+#define USB_PID_KODAK_7000  0x4035
+#define USB_PID_KODAK_701X  0x4037
 
 /* List of confirmed commands */
 //#define SINFONIA_CMD_GETSTATUS  0x0001
@@ -87,30 +89,13 @@ struct kodak605_status {
 /*@57*/	uint16_t complete;  /* in current job */
 /*@59*/	uint16_t total;     /* in current job */
 /*@61*/	uint8_t  null_2[9]; /* 00 00 00 00 00 00 00 00 00 */
-/*@70*/	uint8_t  unk_12[6]; /* 01 00 00 00 00 00 */
-} __attribute__((packed));
-
-/* File header */
-struct kodak605_hdr {
-	uint8_t  hdr[4];   /* 01 40 0a 00 */
-	uint8_t  jobid;
-	uint16_t copies;   /* LE, 0x0001 or more */
-	uint16_t columns;  /* LE, always 0x0734 */
-	uint16_t rows;     /* LE */
-	uint8_t  media;    /* 0x03 for 6x8, 0x01 for 6x4 */
-	uint8_t  laminate; /* 0x02 to laminate, 0x01 for not */
-	uint8_t  mode;     /* Print mode -- 0x00, 0x01 seen */
+/*@70*/	uint8_t  unk_12[6]; /* 01 00 00 00 00 00 (605) 01 01 01 01 00 00 (EK7000) */
+/*@76*/	uint8_t  unk_13[1]; // EK7000-series only?
 } __attribute__((packed));
 
 #define CMDBUF_LEN 4
 
 /* Private data structure */
-struct kodak605_printjob {
-	struct kodak605_hdr hdr;
-	uint8_t *databuf;
-	int datalen;
-};
-
 struct kodak605_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
@@ -121,7 +106,6 @@ struct kodak605_ctx {
 	struct kodak605_media_list *media;
 
 	struct marker marker;
-
 };
 
 static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_list *media)
@@ -243,16 +227,6 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	return CUPS_BACKEND_OK;
 }
 
-static void kodak605_cleanup_job(const void *vjob)
-{
-	const struct kodak605_printjob *job = vjob;
-
-	if (job->databuf)
-		free(job->databuf);
-
-	free((void*)job);
-}
-
 static void kodak605_teardown(void *vctx) {
 	struct kodak605_ctx *ctx = vctx;
 
@@ -266,7 +240,7 @@ static int kodak605_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	struct kodak605_ctx *ctx = vctx;
 	int ret;
 
-	struct kodak605_printjob *job = NULL;
+	struct sinfonia_printjob *job = NULL;
 
 	if (!ctx)
 		return CUPS_BACKEND_CANCEL;
@@ -278,51 +252,16 @@ static int kodak605_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	}
 	memset(job, 0, sizeof(*job));
 
-	/* Read in then validate header */
-	ret = read(data_fd, &job->hdr, sizeof(job->hdr));
-	if (ret < 0 || ret != sizeof(job->hdr)) {
-		if (ret == 0)
-			return CUPS_BACKEND_CANCEL;
-		ERROR("Read failed (%d/%d/%d)\n",
-		      ret, 0, (int)sizeof(job->hdr));
-		perror("ERROR: Read failed");
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (job->hdr.hdr[0] != 0x01 ||
-	    job->hdr.hdr[1] != 0x40 ||
-	    job->hdr.hdr[2] != 0x0a ||
-	    job->hdr.hdr[3] != 0x00) {
-		ERROR("Unrecognized data format!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	job->datalen = le16_to_cpu(job->hdr.rows) * le16_to_cpu(job->hdr.columns) * 3;
-	job->databuf = malloc(job->datalen);
-	if (!job->databuf) {
-		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_RETRY_CURRENT;
-	}
-
-	{
-		int remain = job->datalen;
-		uint8_t *ptr = job->databuf;
-		do {
-			ret = read(data_fd, ptr, remain);
-			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%d)\n",
-				      ret, remain, job->datalen);
-				perror("ERROR: Read failed");
-				return CUPS_BACKEND_CANCEL;
-			}
-			ptr += ret;
-			remain -= ret;
-		} while (remain);
+	/* Read in header */
+	ret = sinfonia_raw10_read_parse(data_fd, job);
+	if (ret) {
+		free(job);
+		return ret;
 	}
 
 	/* Printer handles generating copies.. */
-	if (le16_to_cpu(job->hdr.copies) < copies)
-		job->hdr.copies = cpu_to_le16(copies);
+	if (le16_to_cpu(job->jp.copies) < (uint16_t)copies)
+		job->jp.copies = cpu_to_le16(copies);
 
 	*vjob = job;
 
@@ -336,20 +275,18 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 
 	int num, ret;
 
-	const struct kodak605_printjob *job = vjob;
+	const struct sinfonia_printjob *job = vjob;
+	struct sinfonia_printcmd10_hdr hdr;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 	if (!job)
 		return CUPS_BACKEND_FAILED;
 
-	struct kodak605_hdr hdr;
-	memcpy(&hdr, &job->hdr, sizeof(hdr));
-
 	/* Validate against supported media list */
 	for (num = 0 ; num < ctx->media->count; num++) {
-		if (ctx->media->entries[num].rows == hdr.rows &&
-		    ctx->media->entries[num].columns == hdr.columns)
+		if (ctx->media->entries[num].rows == job->jp.rows &&
+		    ctx->media->entries[num].columns == job->jp.columns)
 			break;
 	}
 	if (num == ctx->media->count) {
@@ -399,6 +336,16 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 
 	/* Use specified jobid */
 	hdr.jobid = ctx->jobid;
+
+	/* Set up header */
+	hdr.hdr.cmd = cpu_to_le16(SINFONIA_CMD_PRINTJOB);
+	hdr.hdr.len = cpu_to_le16(10);
+	hdr.rows = cpu_to_le16(job->jp.rows);
+	hdr.columns = cpu_to_le16(job->jp.columns);
+	hdr.copies = cpu_to_le16(job->jp.copies);
+	hdr.media = job->jp.media;
+	hdr.oc_mode = job->jp.oc_mode;
+	hdr.method = job->jp.method;
 
 	do {
 		INFO("Sending image header (internal id %u)\n", ctx->jobid);
@@ -497,10 +444,10 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 	     sinfonia_bank_statuses(sts->b2_sts), sts->b2_id,
 	     le16_to_cpu(sts->b2_complete), le16_to_cpu(sts->b2_total));
 
-	INFO("Lifetime prints   : %u\n", be32_to_cpu(sts->ctr_life));
-	INFO("Cutter actuations : %u\n", be32_to_cpu(sts->ctr_cut));
-	INFO("Head prints       : %u\n", be32_to_cpu(sts->ctr_head));
-	INFO("Media prints      : %u\n", be32_to_cpu(sts->ctr_media));
+	INFO("Lifetime prints   : %u\n", le32_to_cpu(sts->ctr_life));
+	INFO("Cutter actuations : %u\n", le32_to_cpu(sts->ctr_cut));
+	INFO("Head prints       : %u\n", le32_to_cpu(sts->ctr_head));
+	INFO("Media prints      : %u\n", le32_to_cpu(sts->ctr_media));
 	{
 		int max;
 
@@ -509,13 +456,16 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 		case KODAK6_MEDIA_6TR2:
 			max = 375;
 			break;
+		case KODAK7_MEDIA_6R:
+			max = 570;
+			break;
 		default:
 			max = 0;
 			break;
 		}
 
 		if (max) {
-			INFO("\t  Remaining   : %u\n", max - be32_to_cpu(sts->ctr_media));
+			INFO("\t  Remaining   : %u\n", max - le32_to_cpu(sts->ctr_media));
 		} else {
 			INFO("\t  Remaining   : Unknown\n");
 		}
@@ -752,34 +702,37 @@ static int kodak605_query_markers(void *vctx, struct marker **markers, int *coun
 
 static const char *kodak605_prefixes[] = {
 	"kodak605",  // Family driver, do NOT nuke.
-	"kodak-605",
+	"kodak-605", "kodak-7000", "kodak-7010", "kodak-7015", "kodak-701x", "kodak-7xxx",
 	NULL,
 };
 
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605",
-	.version = "0.38" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.40" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
 	.init = kodak605_init,
 	.attach = kodak605_attach,
 	.teardown = kodak605_teardown,
-	.cleanup_job = kodak605_cleanup_job,
+	.cleanup_job = sinfonia_cleanup_job,
 	.read_parse = kodak605_read_parse,
 	.main_loop = kodak605_main_loop,
 	.query_markers = kodak605_query_markers,
 	.devices = {
 		{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak", "kodak-605"},
+		{ USB_VID_KODAK, USB_PID_KODAK_7000, P_KODAK_7000, "Kodak", "kodak-7000"},
+		{ USB_VID_KODAK, USB_PID_KODAK_701X, P_KODAK_701X, "Kodak", "kodak-701x"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
 
-/* Kodak 605 data format
+/* Kodak 605/70xx data format
 
   Spool file consists of 14-byte header followed by plane-interleaved BGR data.
-  Native printer resolution is 1844 pixels per row, and 1240 or 2434 rows.
+  Native printer resolution is 1844 pixels per row on all models but 7015,
+  which is 1548 pixels per row.
 
   All fields are LITTLE ENDIAN unless otherwise specified
 
@@ -788,15 +741,18 @@ struct dyesub_backend kodak605_backend = {
   01 40 0a 00                    Fixed header
   XX                             Job ID
   CC CC                          Number of copies (1-???)
-  WW WW                          Number of columns (Fixed at 1844)
-  HH HH                          Number of rows (1240 or 2434)
+  WW WW                          Number of columns (Fixed at 1844 or 1548)
+  HH HH                          Number of rows
   DD                             0x01 (4x6) 0x03 (8x6)
-  LL                             Laminate, 0x01 (off) or 0x02 (on)
+  LL                             Laminate, 0x01/0x02/0x03 (off/on/satin[70xx only])
   00                             Print Mode (???)
 
   ************************************************************************
 
-  Note:  Kodak 605 is actually a Shinko CHC-S1545-5A
+  Note:  Kodak 605  is actually a Shinko CHC-S1545-5A
+  Note:  Kodak 7000 is actually a Shinko CHC-S1645-5A
+  Note:  Kodak 7010 is actually a Shinko CHC-S1645-5B
+  Note:  Kodak 7015 is actually a Shinko CHC-S1645-5C
 
   ************************************************************************
 

@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.1"
+#define LIBSINFONIA_VER "0.02"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -61,6 +61,10 @@ struct sinfonia_printjob {
 
 int sinfonia_read_parse(int data_fd, uint32_t model,
 			struct sinfonia_printjob *job);
+
+int sinfonia_raw10_read_parse(int data_fd, struct sinfonia_printjob *job);
+int sinfonia_raw18_read_parse(int data_fd, struct sinfonia_printjob *job);
+void sinfonia_cleanup_job(const void *vjob);
 
 #define BANK_STATUS_FREE  0x00
 #define BANK_STATUS_XFER  0x01
@@ -226,6 +230,28 @@ struct sinfonia_seteeprom_cmd {
 	uint8_t data[256]; /* Maxlen */
 } __attribute__((packed));
 
+struct sinfonia_printcmd10_hdr {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  jobid;
+	uint16_t copies;
+	uint16_t columns;
+	uint16_t rows;
+	uint8_t  media;
+	uint8_t  oc_mode;
+	uint8_t  method;
+} __attribute__((packed));
+
+struct sinfonia_printcmd18_hdr {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  jobid;
+	uint16_t copies;
+	uint16_t columns;
+	uint16_t rows;
+	uint8_t  media;
+	uint8_t  oc_mode;
+	uint8_t  method;
+} __attribute__((packed));
+
 #define CODE_4x6     0x00
 #define CODE_3_5x5   0x01
 #define CODE_5x7     0x03
@@ -316,6 +342,7 @@ const char *sinfonia_cmd_names(uint16_t v);
 #define KODAK6_MEDIA_UNK  0x03
 #define KODAK6_MEDIA_6TR2 0x2c // 396-2941
 #define KODAK6_MEDIA_NONE 0x00
+#define KODAK7_MEDIA_6R   0x29
 
 const char *kodak6_mediatypes(int type);
 void kodak6_dumpmediacommon(int type);

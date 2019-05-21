@@ -1488,16 +1488,6 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int 
 	return CUPS_BACKEND_OK;
 }
 
-static void shinkos6145_cleanup_job(const void *vjob)
-{
-	const struct sinfonia_printjob *job = vjob;
-
-	if (job->databuf)
-		free(job->databuf);
-
-	free((void*)job);
-}
-
 static void shinkos6145_teardown(void *vctx) {
 	struct shinkos6145_ctx *ctx = vctx;
 
@@ -1612,10 +1602,13 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	struct shinkos6145_ctx *ctx = vctx;
 	struct sinfonia_printjob *job = NULL;
 	int ret;
+	int model;
 	uint8_t input_ymc;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
+
+	model = ctx->type == P_SHINKO_S6145 ? 6145 : 2245;
 
 	job = malloc(sizeof(*job));
 	if (!job) {
@@ -1625,7 +1618,11 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	memset(job, 0, sizeof(*job));
 
 	/* Common read/parse code */
-	ret = sinfonia_read_parse(data_fd, 6145, job);
+	if (ctx->type == P_KODAK_6900) {
+		ret = sinfonia_raw10_read_parse(data_fd, job);
+	} else {
+		ret = sinfonia_read_parse(data_fd, model, job);
+	}
 	if (ret) {
 		free(job);
 		return ret;
@@ -1650,7 +1647,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 		int i;
 		if (!databuf3) {
 			ERROR("Memory allocation failure!\n");
-			shinkos6145_cleanup_job(job);
+			sinfonia_cleanup_job(job);
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
 		for (i = 0 ; i < planelen ; i++) {
@@ -1997,14 +1994,14 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2",
-	.version = "0.34" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.35" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
 	.init = shinkos6145_init,
 	.attach = shinkos6145_attach,
 	.teardown = shinkos6145_teardown,
-	.cleanup_job = shinkos6145_cleanup_job,
+	.cleanup_job = sinfonia_cleanup_job,
 	.read_parse = shinkos6145_read_parse,
 	.main_loop = shinkos6145_main_loop,
 	.query_serno = shinkos6145_query_serno,
