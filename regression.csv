@@ -90,6 +90,7 @@ brava21,0x10ce,0x001e,shinko_s6145_4x6.raw,1
 shinkos6245,0x10ce,0x001d,shinko_s6245_8x10.raw,0x11
 shinkos6245,0x10ce,0x001d,shinko_s6245_8x10.raw,0x12
 hitip910,0x0d16,0x000e,shinko_s6245_8x10.raw,0x11
+kodak-8810,0x040a,0x404d,kodak_8810_8x10.raw,0x11
 #
 # 'sonyupd'
 #
