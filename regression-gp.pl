@@ -246,9 +246,9 @@ if ($proc_count > 1 && $kid > 0) {
 		    print join(":", @args) . "\n";
 		}
 		if ($quiet) {
-		    run \@args, "<", "${work_dir}$currow-${gp_name}.raw", "2>", "/dev/null";
+		    $rval = run \@args, "<", "${work_dir}$currow-${gp_name}.raw", "2>", "/dev/null";
 		} else {
-		    run \@args, "<", "${work_dir}$currow-${gp_name}.raw";
+		    $rval = run \@args, "<", "${work_dir}$currow-${gp_name}.raw";
 		}
 		if (!$rval) {
 		    print("***** $row[0] $row[1] $row[2] $row[3] '$row[4]' FAIL: backend $?: $pages $copies -- " . join(":", @args) . "\n");
