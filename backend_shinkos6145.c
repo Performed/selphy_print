@@ -1988,7 +1988,7 @@ static int shinkos6145_query_markers(void *vctx, struct marker **markers, int *c
 
 static const char *shinkos6145_prefixes[] = {
 	"sinfonia-chcs6145", "ciaat-brava-21",
-	"sinfoina-chcs2245", // "kodak-6900",
+	"sinfonia-chcs2245", // "kodak-6900",
 	// extras
 	"shinko-chcs6145",
 	// backwards-compatiblity
