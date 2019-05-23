@@ -57,18 +57,22 @@ selphycp1300,0x04a9,0x32db,canon_cp1200-p-cmy.raw,0x1
 #
 # 'kodak1400'
 #
-kodak1400,0x040a,0x4022,kodak_1400_letter_matte.raw,
-kodak805,0x040a,0x4034,kodak_805_letter_glossy.raw,
+kodak-1400,0x040a,0x4022,kodak_1400_letter_matte.raw,
+kodak-805,0x040a,0x4034,kodak_805_letter_glossy.raw,
 #
 # 'kodak68x0'
 #
-kodak6800,0x040a,0x4021,kodak_68x0_4x6.raw,0xb
-kodak6850,0x040a,0x402b,kodak_68x0_4x6.raw,0xb
+kodak-6800,0x040a,0x4021,kodak_68x0_4x6.raw,0xb
+kodak-6850,0x040a,0x402b,kodak_68x0_4x6.raw,0xb
 #
 # 'kodak605'
 #
-kodak605,0x040a,0x402e,kodak_605_4x6.raw,0xb
-kodak605,0x040a,0x402e,kodak_605_8x6.raw,0xb
+kodak-605,0x040a,0x402e,kodak_605_4x6.raw,0xb
+kodak-605,0x040a,0x402e,kodak_605_8x6.raw,0xb
+kodak-7000,0x040a,0x4035,kodak_605_4x6.raw,0xb
+kodak-7000,0x040a,0x4035,kodak_605_8x6.raw,0xb
+kodak-7010,0x040a,0x4037,kodak_605_4x6.raw,0xb
+kodak-7010,0x040a,0x4037,kodak_605_8x6.raw,0xb
 #
 # 'shinkos1245'
 #
