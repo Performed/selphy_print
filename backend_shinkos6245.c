@@ -166,7 +166,7 @@ struct s6245_update_cmd {
 	uint32_t size;
 } __attribute__((packed));
 
-static char *error_codes(uint8_t major, uint8_t minor)
+static const char *error_codes(uint8_t major, uint8_t minor)
 {
 	switch(major) {
 	case 0x01: /* "Controller Error" */

@@ -108,6 +108,179 @@ struct kodak605_ctx {
 	struct marker marker;
 };
 
+/* Note this is for Kodak 7000-series only! */
+static const char *error_codes(uint8_t major, uint8_t minor)
+{
+	switch(major) {
+	case 0x01: /* "Controller Error" */
+		switch(minor) {
+		case 0x01:
+			return "Controller: EEPROM Write Timeout";
+		case 0x02:
+			return "Controller: EEPROM Verify";
+		case 0x09:
+			return "Controller: DSP FW Boot";
+		case 0x0A:
+			return "Controller: Invalid Print Parameter Table";
+		case 0x0B:
+			return "Controller: DSP FW Mismatch";
+		case 0x0C:
+			return "Controller: Print Parameter Table Mismatch";
+		case 0x0D:
+			return "Controller: ASIC Error";
+		case 0x0E:
+			return "Controller: FPGA Error";
+		case 0x0F:
+			return "Controller: Main FW Checksum";
+		case 0x10:
+			return "Controller: Main FW Write Failed";
+		case 0x11:
+			return "Controller: DSP Checksum";
+		case 0x12:
+			return "Controller: DSP FW Write Failed";
+		case 0x13:
+			return "Controller: Print Parameter Table Checksum";
+		case 0x14:
+			return "Controller: Print Parameter Table Write Failed";
+		case 0x15:
+			return "Controller: User Tone Curve Write Failed";
+		case 0x16:
+			return "Controller: Main-DSP Communication";
+		case 0x17:
+			return "Controller: DSP DMA Failed";
+		case 0x18:
+			return "Controller: Matte Pattern Write Failed";
+		case 0x19:
+			return "Controller: Matte not Initialized";
+		case 0x20:
+			return "Controller: Serial Number Error";
+		default:
+			return "Controller: Unknown";
+		}
+	case 0x02: /* "Mechanical Error" */
+		switch (minor) {
+		case 0x01:
+			return "Mechanical: Pinch Head Up";
+		case 0x02:
+			return "Mechanical: Pinch Head Down";
+		case 0x03:
+			return "Mechanical: Pinch Roll Main Up Feed Up";
+		case 0x04:
+			return "Mechanical: Pinch Roll Main Dn Feed Up";
+		case 0x05:
+			return "Mechanical: Pinch Roll Main Dn Feed Dn";
+		case 0x06:
+			return "Mechanical: Pinch Roll Eject Up";
+		case 0x07:
+			return "Mechanical: Pinch Roll Eject Dn";
+		case 0x0B:
+			return "Mechanical: Cutter (Left->Right)";
+		case 0x0C:
+			return "Mechanical: Cutter (Right->Left)";
+		default:
+			return "Mechanical: Unknown";
+		}
+	case 0x03: /* "Sensor Error" */
+		switch (minor) {
+		case 0x01:
+			return "Sensor: Head Up/Dn All On";
+		case 0x02:
+			return "Sensor: Feed Pitch Roll Up/Dn All On";
+		case 0x05:
+			return "Sensor: Cutter L/R All On";
+		case 0x06:
+			return "Sensor: Cutter L Stuck On";
+		case 0x07:
+			return "Sensor: Cutter Move not Detected";
+		case 0x08:
+			return "Sensor: Cutter R Stuck On";
+		case 0x09:
+			return "Sensor: Head Up Unstable";
+		case 0x0A:
+			return "Sensor: Head Dn Unstable";
+		case 0x0B:
+			return "Sensor: Main/Feed Pinch Up Unstabe";
+		case 0x0C:
+			return "Sensor: Main/Feed Pinch Dn Unstable";
+		case 0x0D:
+			return "Sensor: Eject Up Unstable";
+		case 0x0E:
+			return "Sensor: Eject Dn Unstable";
+		case 0x0F:
+			return "Sensor: Left Cutter Unstable";
+		case 0x10:
+			return "Sensor: Right Cutter Unstable";
+		case 0x11:
+			return "Sensor: Center Cutter Unstable";
+		case 0x12:
+			return "Sensor: Upper Cover Unstable";
+		case 0x13:
+			return "Sensor: Paper Cover Unstable";
+		case 0x14:
+			return "Sensor: Ribbon Takeup Unstable";
+		case 0x15:
+			return "Sensor: Ribbon Supply Unstable";
+		default:
+			return "Sensor: Unknown";
+		}
+	case 0x04: /* "Temperature Sensor Error" */
+		switch (minor) {
+		case 0x01:
+			return "Temp Sensor: Thermal Head High";
+		case 0x02:
+			return "Temp Sensor: Thermal Head Low";
+		case 0x05:
+			return "Temp Sensor: Environment High";
+		case 0x09:
+			return "Temp Sensor: Environment Low";
+		case 0x0A:
+			return "Temp Sensor: Preheat";
+		default:
+			return "Temp Sensor: Unknown";
+		}
+	case 0x5: /* "Paper Jam" */
+		switch (minor) {
+		case 0x3D:
+			return "Paper Jam: Feed Cut->Home";
+		case 0x3E:
+			return "Paper Jam: Feed Cut->Exit Stuck Off";
+		case 0x3F:
+			return "Paper Jam: Feed Cut->Exit Stuck On";
+		case 0x4A:
+			return "Paper Jam: Idle / Paper Set";
+		case 0x51:
+			return "Paper Jam: Paper Exit On";
+		case 0x52:
+			return "Paper Jam: Print Position On";
+		case 0x53:
+			return "Paper Jam: Paper Empty On";
+		case 0x54:
+			return "Paper Jam: Idle / Paper Not Set";
+		default:
+			return "Paper Jam: Unknown";
+		}
+	case 0x06: /* User Error */
+		switch (minor) {
+		case 0x01:
+			return "Drawer Unit Open";
+		case 0x02:
+			return "Incorrect Ribbon";
+		case 0x03:
+			return "No/Empty Ribbon";
+		case 0x04:
+			return "Mismatched Ribbon";
+		case 0x08:
+			return "No Paper";
+		case 0x0C:
+			return "Paper End";
+		default:
+			return "User: Unknown";
+		}
+	default:
+		return "Unknown";
+	}
+}
+
 static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_list *media)
 {
 	uint8_t cmdbuf[4];
@@ -308,10 +481,11 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 		if (sts.hdr.result != RESULT_SUCCESS) {
 			ERROR("Printer Status:  %02x (%s)\n", sts.hdr.status,
 			      sinfonia_status_str(sts.hdr.status));
-			ERROR("Result: %02x Error: %02x (%s) %02x/%02x\n",
+			ERROR("Result: %02x Error: %02x (%s) %02x/%02x = %s\n",
 			      sts.hdr.result, sts.hdr.error,
 			      sinfonia_error_str(sts.hdr.error),
-			      sts.hdr.printer_major, sts.hdr.printer_minor);
+			      sts.hdr.printer_major, sts.hdr.printer_minor,
+			      error_codes(sts.hdr.printer_major, sts.hdr.printer_minor));
 			return CUPS_BACKEND_FAILED;
 		}
 
@@ -369,9 +543,10 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 			} else {
 				ERROR("Unexpected response from print command!\n");
 				ERROR("Printer Status:  %02x: %s\n", resp.status, sinfonia_status_str(resp.status));
-				ERROR("Result: %02x Error: %02x (%02x %02x)\n",
+				ERROR("Result: %02x Error: %02x (%02x %02x = %s)\n",
 				      resp.result, resp.error,
-				      resp.printer_major, resp.printer_minor);
+				      resp.printer_major, resp.printer_minor,
+				      error_codes(resp.printer_major, resp.printer_minor));
 
 				return CUPS_BACKEND_FAILED;
 			}
@@ -402,10 +577,11 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 		    sts.hdr.error == ERROR_PRINTER) {
 			INFO("Printer Status:  %02x (%s)\n", sts.hdr.status,
 			     sinfonia_status_str(sts.hdr.status));
-			INFO("Result: %02x Error: %02x (%s) %02x/%02x\n",
+			INFO("Result: %02x Error: %02x (%s) %02x/%02x = %s\n",
 			     sts.hdr.result, sts.hdr.error,
 			     sinfonia_error_str(sts.hdr.error),
-			     sts.hdr.printer_major, sts.hdr.printer_minor);
+			     sts.hdr.printer_major, sts.hdr.printer_minor,
+			     error_codes(sts.hdr.printer_major, sts.hdr.printer_minor));
 			return CUPS_BACKEND_STOP;
 		}
 
@@ -433,9 +609,10 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 {
 	INFO("Status: %02x (%s)\n",
 	     sts->hdr.status, sinfonia_status_str(sts->hdr.status));
-	INFO("Error: %02x (%s) %02x/%02x\n",
+	INFO("Error: %02x (%s) %02x/%02x = %s\n",
 	     sts->hdr.error, sinfonia_error_str(sts->hdr.error),
-	     sts->hdr.printer_major, sts->hdr.printer_minor);
+	     sts->hdr.printer_major, sts->hdr.printer_minor,
+	     error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
 
 	INFO("Bank 1: %s Job %03u @ %03u/%03u\n",
 	     sinfonia_bank_statuses(sts->b1_sts), sts->b1_id,
@@ -708,8 +885,8 @@ static const char *kodak605_prefixes[] = {
 
 /* Exported */
 struct dyesub_backend kodak605_backend = {
-	.name = "Kodak 605",
-	.version = "0.40" " (lib " LIBSINFONIA_VER ")",
+	.name = "Kodak 605/70xx",
+	.version = "0.41" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
