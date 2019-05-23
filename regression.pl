@@ -31,7 +31,7 @@
 use strict;
 use IPC::Run qw( run );
 
-my $copies = 3;
+my @copies_set = (1, 3);
 my $retval = 0;
 my $valgrind = 1;
 
@@ -114,7 +114,7 @@ if ($proc_count > 1 && $kid > 0) {
 	    undef($ENV{"MEDIA_CODE"});
 	}
 
-	foreach (my $i = 1; $i <= $copies ; $i++) {
+	foreach my $i (@copies_set) {
 	    my @args = ($backend_exec, "-d", $i, "testjobs/${row[3]}");
 	    if ($valgrind) {
 		if ($quiet) {

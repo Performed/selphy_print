@@ -36,9 +36,11 @@ my $retval = 0;
 my $id = 123;
 my $user = "tester";
 my $title = "image_test";
-my $max_copies = 3;
 my $input_image = "testjobs/s3s-59.png";
-my $max_pages = 3;
+
+my @pages_set = (1, 3);
+my @copies_set = (1, 3);
+
 my $valgrind = 0;
 my $work_dir_base = "/tmp/";
 
@@ -176,7 +178,7 @@ if ($proc_count > 1 && $kid > 0) {
 	    next;
 	}
 
-	for (my $pages = 1 ; $pages <= $max_pages ; $pages++) {
+	foreach my $pages (@pages_set) {
 	    # generate PDF.
 	    @args = ($convert_exec);
 	    for (my $i = 0 ; $i < $pages ; $i++) {
@@ -211,7 +213,7 @@ if ($proc_count > 1 && $kid > 0) {
 		next;
 	    }
 
-	    for (my $copies = 1 ; $copies <= $max_copies ; $copies++) {
+	    foreach my $copies (@copies_set) {
 		# Call raster2gutenprint
 		@args = ($rastertogutenprint_exec, $id, $user, $title, $copies, $options);
 		if ($valgrind) {
