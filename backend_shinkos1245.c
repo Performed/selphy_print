@@ -999,15 +999,6 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev, int 
 	return CUPS_BACKEND_OK;
 }
 
-static void shinkos1245_teardown(void *vctx) {
-	struct shinkos1245_ctx *ctx = vctx;
-
-	if (!ctx)
-		return;
-
-	free(ctx);
-}
-
 static int shinkos1245_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct shinkos1245_ctx *ctx = vctx;
 	int ret;
@@ -1296,7 +1287,6 @@ struct dyesub_backend shinkos1245_backend = {
 	.cmdline_arg = shinkos1245_cmdline_arg,
 	.init = shinkos1245_init,
 	.attach = shinkos1245_attach,
-	.teardown = shinkos1245_teardown,
 	.cleanup_job = sinfonia_cleanup_job,
 	.read_parse = shinkos1245_read_parse,
 	.main_loop = shinkos1245_main_loop,

@@ -115,15 +115,6 @@ static void updneo_cleanup_job(const void *vjob)
 	free((void*)job);
 }
 
-static void updneo_teardown(void *vctx) {
-	struct updneo_ctx *ctx = vctx;
-
-	if (!ctx)
-		return;
-
-	free(ctx);
-}
-
 #define MAX_PRINTJOB_LEN (3400*2392*3 + 2048)
 
 static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
@@ -344,7 +335,6 @@ struct dyesub_backend sonyupdneo_backend = {
 	.cmdline_arg = updneo_cmdline_arg,
 	.init = updneo_init,
 	.attach = updneo_attach,
-	.teardown = updneo_teardown,
 	.cleanup_job = updneo_cleanup_job,
 	.read_parse = updneo_read_parse,
 	.main_loop = updneo_main_loop,

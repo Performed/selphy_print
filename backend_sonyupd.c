@@ -145,15 +145,6 @@ static void upd_cleanup_job(const void *vjob)
 	free((void*)job);
 }
 
-static void upd_teardown(void *vctx) {
-	struct upd_ctx *ctx = vctx;
-
-	if (!ctx)
-		return;
-
-	free(ctx);
-}
-
 // UP-DR200
 // 2UPC-R203  3.5x5  (770)
 // 2UPC-R204  4x6    (700)
@@ -630,7 +621,6 @@ struct dyesub_backend sonyupd_backend = {
 	.cmdline_usage = upd_cmdline,
 	.init = upd_init,
 	.attach = upd_attach,
-	.teardown = upd_teardown,
 	.cleanup_job = upd_cleanup_job,
 	.read_parse = upd_read_parse,
 	.main_loop = upd_main_loop,

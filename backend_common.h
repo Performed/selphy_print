@@ -230,6 +230,8 @@ int dyesub_read_file(char *filename, void *databuf, int datalen,
 uint16_t uint16_to_packed_bcd(uint16_t val);
 uint32_t packed_bcd_to_uint32(char *in, int len);
 
+void generic_teardown(void *vctx);
+
 /* USB enumeration and attachment */
 #define NUM_CLAIM_ATTEMPTS 10
 int backend_claim_interface(struct libusb_device_handle *dev, int iface,

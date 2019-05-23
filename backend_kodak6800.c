@@ -789,15 +789,6 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	return CUPS_BACKEND_OK;
 }
 
-static void kodak6800_teardown(void *vctx) {
-	struct kodak6800_ctx *ctx = vctx;
-
-	if (!ctx)
-		return;
-
-	free(ctx);
-}
-
 static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct kodak6800_ctx *ctx = vctx;
 	int ret;
@@ -1095,7 +1086,6 @@ struct dyesub_backend kodak6800_backend = {
 	.cmdline_arg = kodak6800_cmdline_arg,
 	.init = kodak6800_init,
 	.attach = kodak6800_attach,
-	.teardown = kodak6800_teardown,
 	.cleanup_job = sinfonia_cleanup_job,
 	.read_parse = kodak6800_read_parse,
 	.main_loop = kodak6800_main_loop,

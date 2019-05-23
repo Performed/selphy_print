@@ -30,7 +30,7 @@
 #include "backend_common.h"
 #include <errno.h>
 
-#define BACKEND_VERSION "0.93"
+#define BACKEND_VERSION "0.94"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -665,6 +665,14 @@ abort:
 	STATE("-connecting-to-device\n");
 
 	return found;
+}
+
+void generic_teardown(void *vctx)
+{
+	if (!vctx)
+		return;
+
+	free(vctx);
 }
 
 extern struct dyesub_backend sonyupd_backend;
@@ -1349,7 +1357,10 @@ done_close:
 done:
 
 	if (backend && backend_ctx) {
-		backend->teardown(backend_ctx);
+		if (backend->teardown)
+			backend->teardown(backend_ctx);
+		else
+			generic_teardown(backend_ctx);
 //		STATE("-org.gutenprint-attached-to-device");
 	}
 
