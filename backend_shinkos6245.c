@@ -579,7 +579,7 @@ static int get_status(struct shinkos6245_ctx *ctx)
 	INFO("\tMaintenance:\t\t%08u\n", le32_to_cpu(resp.count_maint));
 	INFO("\tPrint Head:\t\t%08u\n", le32_to_cpu(resp.count_head));
 	INFO(" Cutter Actuations:\t%08u\n", le32_to_cpu(resp.count_cutter));
-	INFO(" Ribbon Remaining:\t%08u\n", le32_to_cpu(resp.count_ribbon_left));
+	INFO(" Ribbon Remaining:\t%8u%%\n", le32_to_cpu(resp.count_ribbon_left));
 	INFO("Bank 1: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
 	     resp.bank1_status, sinfonia_bank_statuses(resp.bank1_status),
 	     resp.bank1_printid,
@@ -606,6 +606,7 @@ static int get_status(struct shinkos6245_ctx *ctx)
 				&num)) < 0) {
 		return ret;
 	}
+	// XXX breaks on Kodak 8810!
 	if (le16_to_cpu(resp2.hdr.payload_len) != (sizeof(struct sinfonia_getextcounter_resp) - sizeof(struct sinfonia_status_hdr)))
 		return 0;
 

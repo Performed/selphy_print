@@ -584,6 +584,7 @@
    Model IDs recognized:
 
      sinfonia-chcs6145 ciaat-brava-21 shinko-chcs6145
+     sinfonia-chcs2245
 
    Model IDs for backwards compatibility with older releases:
 
@@ -594,10 +595,13 @@
      Ciaat Brava 21
      Shinko CHC-S6145 (aka "Sinfonia CS2")
 
+   Work-in-progress printers:
+
+     Sinfonia CHC-S2245 (aka "S3")
+
    Unsupported printers (Unknown VID/PID)
 
      Kodak 6900
-     Sinfonia CHC-S2245 (aka "S3")
 
    *** VERY IMPORTANT ***
 

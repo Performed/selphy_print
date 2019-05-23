@@ -162,6 +162,7 @@ enum {
 	P_KODAK_7000 = 50,
 	P_KODAK_701X = 51,
 	P_KODAK_6900 = 52,
+	P_SHINKO_S2245 = 53,
 	P_END,
 };
 

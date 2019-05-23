@@ -60,6 +60,7 @@ kodak-6800,0x040a,0x4021,0xb,PageSize=w432h432
 kodak-6800,0x040a,0x4021,0xb,PageSize=w432h432-div2
 kodak-6800,0x040a,0x4021,0xb,PageSize=w432h576
 kodak-6800,0x040a,0x4021,0xb,PageSize=w432h576-div2
+#
 kodak-6850,0x040a,0x402b,0xb,PageSize=w144h432
 kodak-6850,0x040a,0x402b,0xb,PageSize=w216h432
 kodak-6850,0x040a,0x402b,0xb,PageSize=w288h432
@@ -75,10 +76,13 @@ kodak-605,0x040a,0x402e,0xb,PageSize=w216h432
 kodak-605,0x040a,0x402e,0xb,PageSize=w288h432
 kodak-605,0x040a,0x402e,0xb,PageSize=w432h576
 kodak-605,0x040a,0x402e,0x3,PageSize=w360h504
+#
 kodak-7000,0x040a,0x4035,0xb,PageSize=w288h432
 kodak-7000,0x040a,0x4035,0xb,PageSize=w432h576
+#
 kodak-7010,0x040a,0x4037,0xb,PageSize=w288h432
 kodak-7010,0x040a,0x4037,0xb,PageSize=w432h576
+#
 kodak-7015,0x040a,0x4037,0x3,PageSize=w360h504
 #
 shinko-chcs1245,0x10ce,0x0007,0,PageSize=w288h576
@@ -126,6 +130,22 @@ shinko-chcs6145,0x10ce,0x0019,3,PageSize=w360h504
 shinko-chcs6145,0x10ce,0x0019,3,PageSize=w360h504;StpLamination=None
 shinko-chcs6145,0x10ce,0x0019,3,PageSize=w360h504;StpLamination=Glossy
 shinko-chcs6145,0x10ce,0x0019,3,PageSize=w360h504;StpLamination=Matte
+#
+shinko-chcs2245,0x10ce,0x0039,1,PageSize=w144h432
+shinko-chcs2245,0x10ce,0x0039,1,PageSize=w288h432
+shinko-chcs2245,0x10ce,0x0039,4,PageSize=w288h432
+shinko-chcs2245,0x10ce,0x0039,1,PageSize=w288h432-div2
+shinko-chcs2245,0x10ce,0x0039,4,PageSize=w432h432
+shinko-chcs2245,0x10ce,0x0039,4,PageSize=w432h576
+shinko-chcs2245,0x10ce,0x0039,4,PageSize=w432h576-w432h432_w432h144
+shinko-chcs2245,0x10ce,0x0039,4,PageSize=w432h576-div2
+shinko-chcs2245,0x10ce,0x0039,5,PageSize=w432h648
+shinko-chcs2245,0x10ce,0x0039,3,PageSize=w360h360
+shinko-chcs2245,0x10ce,0x0039,3,PageSize=w360h504
+shinko-chcs2245,0x10ce,0x0039,3,PageSize=w360h504;StpLamination=None
+shinko-chcs2245,0x10ce,0x0039,3,PageSize=w360h504;StpLamination=Glossy
+shinko-chcs2245,0x10ce,0x0039,3,PageSize=w360h504;StpLamination=Matte
+#
 ciaat-brava-21,0x10ce,0x001e,4,PageSize=w288h432
 #
 shinko-chcs6245,0x10ce,0x001d,0x11,PageSize=w288h576
@@ -141,6 +161,7 @@ shinko-chcs6245,0x10ce,0x001d,0x12,PageSize=w576h864-div3
 shinko-chcs6245,0x10ce,0x001d,0x11,PageSize=c8x10;StpLamination=Glossy
 shinko-chcs6245,0x10ce,0x001d,0x11,PageSize=c8x10;StpLamination=Matte
 shinko-chcs6245,0x10ce,0x001d,0x11,PageSize=c8x10;StpLamination=None
+#
 kodak-8810,0x040a,0x404d,0x11,PageSize=w288h576
 kodak-8810,0x040a,0x404d,0x11,PageSize=c8x10
 kodak-8810,0x040a,0x404d,0x12,PageSize=A4
@@ -153,9 +174,11 @@ sony-updr150,0x054c,0x01e8,,PageSize=w288h432
 sony-updr150,0x054c,0x01e8,,PageSize=w432h576
 sony-updr150,0x054c,0x01e8,,PageSize=B7
 sony-updr150,0x054c,0x01e8,,PageSize=w360h504
+#
 sony-upcr10l,0x054c,0x0226,,PageSize=w288h432
 sony-upcr10l,0x054c,0x0226,,PageSize=B7
 sony-upcr10l,0x054c,0x0226,,PageSize=w260h504
+#
 sony-updr200,0x054c,0x035f,,PageSize=w288h432
 sony-updr200,0x054c,0x035f,,PageSize=w288h432-div2
 sony-updr200,0x054c,0x035f,,PageSize=w432h576
@@ -165,10 +188,12 @@ sony-updr200,0x054c,0x035f,,PageSize=w360h504
 sony-updr200,0x054c,0x035f,,PageSize=w360h504-div2
 sony-updr200,0x054c,0x035f,,PageSize=B7,StpLaminate=Glossy
 sony-updr200,0x054c,0x035f,,PageSize=B7,StpLaminate=Matte
+#
 sony-upd895,0x054c,0x0049,,PageSize=w213h284
 sony-upd895,0x054c,0x0049,,PageSize=w284h284
 sony-upd895,0x054c,0x0049,,PageSize=w426h284
 sony-upd895,0x054c,0x0049,,PageSize=w907h284
+#
 sony-upd897,0x054c,0x01e7,,PageSize=w213h284
 sony-upd897,0x054c,0x01e7,,PageSize=w284h284
 sony-upd897,0x054c,0x01e7,,PageSize=w426h284
@@ -197,6 +222,7 @@ mitsubishi-p93d,0x06d3,0x0398,,PageSize=w284h284;StpUserComment=0123456789abcdef
 mitsubishi-p93d,0x06d3,0x0398,,PageSize=w284h284;StpComment=DateTime
 mitsubishi-p93d,0x06d3,0x0398,,PageSize=w284h284;StpComment=Date
 mitsubishi-p93d,0x06d3,0x0398,,PageSize=w284h284;StpComment=Settings
+#
 mitsubishi-p95d,0x06d3,0x3b10,,PageSize=w213h284
 mitsubishi-p95d,0x06d3,0x3b10,,PageSize=w227h284
 mitsubishi-p95d,0x06d3,0x3b10,,PageSize=w284h284
@@ -221,6 +247,7 @@ mitsubishi-9550dw,0x06d3,0x03a1,0x4,PageSize=w360h504
 mitsubishi-9550dw,0x06d3,0x03a1,0x1,PageSize=B7;StpPrintSpeed=Fine
 mitsubishi-9550dw,0x06d3,0x03a1,0x1,PageSize=B7;StpPrintSpeed=FineDeep
 mitsubishi-9550dw,0x06d3,0x03a1,0x1,PageSize=B7;StpPrintSpeed=SuperFine
+#
 mitsubishi-9550dw-s,0x06d3,0x03a5,0x2,PageSize=w288h432
 mitsubishi-9550dw-s,0x06d3,0x03a5,0x2,PageSize=w288h432-div2
 mitsubishi-9550dw-s,0x06d3,0x03a5,0x5,PageSize=w432h576
@@ -231,6 +258,7 @@ mitsubishi-9550dw-s,0x06d3,0x03a5,0x4,PageSize=w360h504
 mitsubishi-9550dw-s,0x06d3,0x03a5,0x4,PageSize=B7;StpPrintSpeed=Fine
 mitsubishi-9550dw-s,0x06d3,0x03a5,0x4,PageSize=B7;StpPrintSpeed=FineDeep
 mitsubishi-9550dw-s,0x06d3,0x03a5,0x4,PageSize=B7;StpPrintSpeed=SuperFine
+#
 mitsubishi-9600dw,0x06d3,0x03a9,0x2,PageSize=w288h432;Resolution=300x300dpi
 mitsubishi-9600dw,0x06d3,0x03a9,0x6,PageSize=w432h576;Resolution=300x300dpi
 mitsubishi-9600dw,0x06d3,0x03a9,0x5,PageSize=w432h612;Resolution=300x300dpi
@@ -243,6 +271,7 @@ mitsubishi-9600dw,0x06d3,0x03a9,0x5,PageSize=w432h612;Resolution=600x600dpi
 mitsubishi-9600dw,0x06d3,0x03a9,0x5,PageSize=w432h648;Resolution=600x600dpi
 mitsubishi-9600dw,0x06d3,0x03a9,0x4,PageSize=B7;Resolution=600x600dpi
 mitsubishi-9600dw,0x06d3,0x03a9,0x4,PageSize=w360h504;Resolution=600x600dpi
+#
 mitsubishi-9800dw,0x06d3,0x03ad,0x2,PageSize=w288h432
 mitsubishi-9800dw,0x06d3,0x03ad,0x6,PageSize=w432h576
 mitsubishi-9800dw,0x06d3,0x03ad,0x5,PageSize=w432h612
@@ -260,6 +289,7 @@ mitsubishi-9800dw-s,0x06d3,0x03ae,0x5,PageSize=w432h612
 mitsubishi-9800dw-s,0x06d3,0x03ae,0x5,PageSize=w432h648
 mitsubishi-9800dw-s,0x06d3,0x03ae,0x4,PageSize=B7
 mitsubishi-9800dw-s,0x06d3,0x03ae,0x4,PageSize=w360h504
+#
 mitsubishi-9810dw,0x06d3,0x3b21,0x2,PageSize=w288h432
 mitsubishi-9810dw,0x06d3,0x3b21,0x6,PageSize=w432h576
 mitsubishi-9810dw,0x06d3,0x3b21,0x5,PageSize=w432h612
@@ -308,6 +338,7 @@ kodak-305,0x040a,0x404f,0xf,PageSize=w432h576;StpLaminate=Matte
 kodak-305,0x040a,0x404f,0xf,PageSize=w432h576;StpUseLUT=True
 kodak-305,0x040a,0x404f,0xf,PageSize=w432h576;StpSharpen=0
 kodak-305,0x040a,0x404f,0xf,PageSize=w432h576;StpSharpen=9
+#
 mitsubishi-k60dw,0x006d3,0x3b31,0xf,PageSize=w288h432
 mitsubishi-k60dw,0x006d3,0x3b31,0xf,PageSize=w288h432-div2
 mitsubishi-k60dw,0x006d3,0x3b31,0xf,PageSize=w432h432
@@ -322,6 +353,7 @@ mitsubishi-k60dw,0x006d3,0x3b31,0xf,PageSize=w432h576;StpSharpen=9
 mitsubishi-k60dw,0x006d3,0x3b31,0x4,PageSize=B7
 mitsubishi-k60dw,0x006d3,0x3b31,0x4,PageSize=w360h504
 mitsubishi-k60dw,0x006d3,0x3b31,0x4,PageSize=w360h504-div2
+#
 mitsubishi-d80dw,0x06d3,0x3b36,0xf,PageSize=w288h432
 mitsubishi-d80dw,0x06d3,0x3b36,0xf,PageSize=w288h432-div2
 mitsubishi-d80dw,0x06d3,0x3b36,0xf,PageSize=w432h432
@@ -335,6 +367,7 @@ mitsubishi-d80dw,0x06d3,0x3b36,0xf,PageSize=w432h576;StpSharpen=0
 mitsubishi-d80dw,0x06d3,0x3b36,0xf,PageSize=w432h576;StpSharpen=9
 mitsubishi-d80dw,0x06d3,0x3b36,0x4,PageSize=w360h360
 mitsubishi-d80dw,0x06d3,0x3b36,0x4,PageSize=w360h504
+#
 mitsubishi-d70dw,0x06d3,0x3b30,0xf,PageSize=w288h432
 mitsubishi-d70dw,0x06d3,0x3b30,0xf,PageSize=w288h432-div2
 mitsubishi-d70dw,0x06d3,0x3b30,0xf,PageSize=w432h432
@@ -351,6 +384,7 @@ mitsubishi-d70dw,0x06d3,0x3b30,0xf,PageSize=w432h576;StpSharpen=0
 mitsubishi-d70dw,0x06d3,0x3b30,0xf,PageSize=w432h576;StpSharpen=9
 mitsubishi-d70dw,0x06d3,0x3b30,0x4,PageSize=w360h360
 mitsubishi-d70dw,0x06d3,0x3b30,0x4,PageSize=w360h504
+#
 fujifilm-ask-300,0x04cb,0x5006,0xf,PageSize=w288h432
 fujifilm-ask-300,0x04cb,0x5006,0xf,PageSize=w288h432-div2
 fujifilm-ask-300,0x04cb,0x5006,0xf,PageSize=w432h432
@@ -388,6 +422,7 @@ dnp-ds40,0x1343,0x0003,210,PageSize=B7;Resolution=300x600dpi
 dnp-ds40,0x1343,0x0003,210,PageSize=w360h504;Resolution=300x600dpi
 dnp-ds40,0x1343,0x0003,210,PageSize=w360h504-div2;Resolution=300x600dpi
 dnp-ds40,0x1343,0x0003,400,PageSize=w432h576;Resolution=300x600dpi;StpLaminate=Matte
+#
 dnp-dsrx1,0x1343,0x0005,310,PageSize=w288h432;Resolution=300x300dpi
 dnp-dsrx1,0x1343,0x0005,310,PageSize=w288h432-div2;Resolution=300x300dpi
 dnp-dsrx1,0x1343,0x0005,310,PageSize=w432h432;Resolution=300x300dpi
@@ -409,6 +444,7 @@ dnp-dsrx1,0x1343,0x0005,210,PageSize=w360h360;Resolution=300x600dpi
 dnp-dsrx1,0x1343,0x0005,210,PageSize=w360h504;Resolution=300x600dpi
 dnp-dsrx1,0x1343,0x0005,210,PageSize=w360h504-div2;Resolution=300x600dpi
 dnp-dsrx1,0x1343,0x0005,310,PageSize=w432h576;Resolution=300x600dpi;StpLaminate=Matte
+#
 citizen-cw-01,0x1343,0x0002,400,PageSize=w288h432;Resolution=334x334dpi
 citizen-cw-01,0x1343,0x0002,400,PageSize=w432h576;Resolution=334x334dpi
 citizen-cw-01,0x1343,0x0002,400,PageSize=w432h648;Resolution=334x334dpi
@@ -423,6 +459,7 @@ citizen-cw-01,0x1343,0x0002,210,PageSize=w252h338;Resolution=334x600dpi
 citizen-cw-01,0x1343,0x0002,210,PageSize=B7;Resolution=334x600dpi
 citizen-cw-01,0x1343,0x0002,210,PageSize=w360h504;Resolution=334x600dpi
 citizen-cw-01,0x1343,0x0002,210,PageSize=w338h504;Resolution=334x600dpi
+#
 dnp-ds620,0x1452,0x8b01,400,PageSize=w288h432;Resolution=300x300dpi
 dnp-ds620,0x1452,0x8b01,400,PageSize=w288h432-div2;Resolution=300x300dpi
 dnp-ds620,0x1452,0x8b01,400,PageSize=w324h432;Resolution=300x300dpi
@@ -459,6 +496,7 @@ dnp-ds620,0x1452,0x8b01,210,PageSize=w360h504-w360h360_w360h144;Resolution=300x6
 dnp-ds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x600dpi;StpLaminate=Matte
 dnp-ds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x600dpi;StpLaminate=MatteFine
 dnp-ds620,0x1452,0x8b01,400,PageSize=w432h576;Resolution=300x600dpi;StpLaminate=MatteLuster
+#
 dnp-ds80,0x1343,0x0004,510,PageSize=w288h576;Resolution=300x300dpi
 dnp-ds80,0x1343,0x0004,510,PageSize=w360h576;Resolution=300x300dpi
 dnp-ds80,0x1343,0x0004,510,PageSize=w432h576;Resolution=300x300dpi
@@ -489,6 +527,7 @@ dnp-ds80,0x1343,0x0004,510,PageSize=w576h864-div2;Resolution=300x600dpi
 dnp-ds80,0x1343,0x0004,510,PageSize=w576h864-div3;Resolution=300x600dpi
 dnp-ds80,0x1343,0x0004,510,PageSize=w576h864-w576h576_w576h288;Resolution=300x600dpi
 dnp-ds80,0x1343,0x0004,510,PageSize=w576h864;Resolution=300x600dpi;StpLaminate=Matte
+#
 dnp-ds820,0x1452,0x9001,510,PageSize=w288h576;Resolution=300x300dpi
 dnp-ds820,0x1452,0x9001,510,PageSize=w360h576;Resolution=300x300dpi
 dnp-ds820,0x1452,0x9001,510,PageSize=w432h576;Resolution=300x300dpi

@@ -240,6 +240,9 @@ static const char *error_codes(uint8_t major, uint8_t minor)
 		}
 	case 0x5: /* "Paper Jam" */
 		switch (minor) {
+		// XXX these have been seen on EK7000:
+		// case 0x0c:
+		// case 0x36:
 		case 0x3D:
 			return "Paper Jam: Feed Cut->Home";
 		case 0x3E:
