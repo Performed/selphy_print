@@ -180,7 +180,7 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 
 		/* Behavior based on the various blocks */
 		if (!strncmp("PJL-T", tok, 5))
-			run = 1;
+			run = 0;
 		else if (!strncmp("SONY-PDL-DS2", tok, 12))
 			job->payload_offset = job->datalen;
 
@@ -330,7 +330,7 @@ static const char *sonyupdneo_prefixes[] = {
 
 struct dyesub_backend sonyupdneo_backend = {
 	.name = "Sony UP-D Neo",
-	.version = "0.01WIP",
+	.version = "0.02WIP",
 	.uri_prefixes = sonyupdneo_prefixes,
 	.cmdline_arg = updneo_cmdline_arg,
 	.init = updneo_init,
