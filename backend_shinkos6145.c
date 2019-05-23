@@ -1608,7 +1608,11 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	model = ctx->type == P_SHINKO_S6145 ? 6145 : 2245;
+	if (ctx->type == P_SHINKO_S6145 ||
+	    ctx->type == P_SHINKO_S6145D)
+		model = 6145;
+	else
+		model = 2245;
 
 	job = malloc(sizeof(*job));
 	if (!job) {
