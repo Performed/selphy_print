@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.02"
+#define LIBSINFONIA_VER "0.03"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -66,13 +66,35 @@ int sinfonia_raw10_read_parse(int data_fd, struct sinfonia_printjob *job);
 int sinfonia_raw18_read_parse(int data_fd, struct sinfonia_printjob *job);
 void sinfonia_cleanup_job(const void *vjob);
 
+/* Common usb functions */
+struct sinfonia_usbdev {
+	struct libusb_device_handle *dev;
+	uint8_t endp_up;
+	uint8_t endp_down;
+	int type;
+
+	char const *(*error_codes)(uint8_t major, uint8_t minor);
+};
+int sinfonia_docmd(struct sinfonia_usbdev *usbh,
+		   uint8_t *cmd, int cmdlen,
+		   uint8_t *resp, int resplen,
+		   int *num);
+int sinfonia_flashled(struct sinfonia_usbdev *usbh);
+int sinfonia_canceljob(struct sinfonia_usbdev *usbh, int id);
+int sinfonia_getparam(struct sinfonia_usbdev *usbh, int target, uint32_t *param);
+int sinfonia_setparam(struct sinfonia_usbdev *usbh, int target, uint32_t param);
+int sinfonia_getfwinfo(struct sinfonia_usbdev *usbh);
+int sinfonia_geterrorlog(struct sinfonia_usbdev *usbh);
+int sinfonia_resetcurve(struct sinfonia_usbdev *usbh, int target, int id);
+int sinfonia_gettonecurve(struct sinfonia_usbdev *usbh, int type, char *fname);
+int sinfonia_settonecurve(struct sinfonia_usbdev *usbh, int target, char *fname);
+
 #define BANK_STATUS_FREE  0x00
 #define BANK_STATUS_XFER  0x01
 #define BANK_STATUS_FULL  0x02
 #define BANK_STATUS_PRINTING  0x12  /* Not on S2145 */
 
 const char *sinfonia_bank_statuses(uint8_t v);
-
 
 #define UPDATE_TARGET_USER    0x03
 #define UPDATE_TARGET_CURRENT 0x04
@@ -123,6 +145,13 @@ const char *sinfonia_media_types(uint8_t v);
 #define PRINT_METHOD_NOTRIM  0x80 // S6145 only
 
 const char *sinfonia_print_methods (uint8_t v);
+
+#define FWINFO_TARGET_MAIN_BOOT    0x01
+#define FWINFO_TARGET_MAIN_APP     0x02
+#define FWINFO_TARGET_PRINT_TABLES 0x03
+#define FWINFO_TARGET_DSP          0x04
+
+const char *sinfonia_fwinfo_targets (uint8_t v);
 
 /* Common command structs */
 struct sinfonia_cmd_hdr {
@@ -211,6 +240,40 @@ struct sinfonia_getprintidstatus_resp {
 #define IDSTATUS_PRINTING  0x0100
 #define IDSTATUS_COMPLETED 0x0200
 #define IDSTATUS_ERROR     0xFFFF
+
+struct sinfonia_reset_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  target;
+	uint8_t  curveid;
+} __attribute__((packed));
+
+#define RESET_PRINTER       0x03
+#define RESET_TONE_CURVE    0x04
+
+#define TONE_CURVE_ID       0x01
+
+struct sinfonia_readtone_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  target;
+	uint8_t  curveid;
+} __attribute__((packed));
+
+#define READ_TONE_CURVE_USER 0x01
+#define READ_TONE_CURVE_CURR 0x02
+
+struct sinfonia_readtone_resp {
+	struct sinfonia_status_hdr hdr;
+	uint16_t total_size;
+} __attribute__((packed));
+
+struct sinfonia_update_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  target;
+	uint8_t  curve_id;
+	uint8_t  reset; // ??
+	uint8_t  reserved[3];
+	uint32_t size;
+} __attribute__((packed));
 
 struct sinfonia_getserial_resp {
 	struct sinfonia_status_hdr hdr;

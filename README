@@ -465,10 +465,17 @@
 
    Valid commands:
 
-     -C filename        Set tone curve   [1]
-     -m                 Query media information
-     -s                 Query printer status
+     -c filename        Query User tone curve from flash        [1]
+     -C filename        Store User tone curve in flash          [1]
      -e                 Query error log
+     -F                 Flash printer LEDs for 5 seconds
+     -i                 Query printer firmware information
+     -l filename        Query Current tone curve from RAM       [1]
+     -L filename        Store Current tone curve in RAM         [1]
+     -m                 Query media information
+     -r                 Reset User tone curve to default        [3]
+     -R                 Reset printer to factory defaults
+     -s                 Query printer status
      -X id              Cancel print job 'id' [2]
 
   Notes:
@@ -485,6 +492,8 @@
 	 This cancels a multi-copy print job.
 	 To see which jobs are active/pending, see the output of the
 	 '-s' command, specifically the 'Bank' output.
+
+    [3] Default printer tone curve is a linear 'val << 3'
 
  ***************************************************************************
   BACKEND=shinkos2145
