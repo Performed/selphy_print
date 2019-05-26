@@ -398,6 +398,7 @@ static int upd_read_parse(void *vctx, const void **vjob, int data_fd, int copies
 	{
 		ERROR("Job data length mismatch (%u vs %d)!\n",
 		      job->imglen, job->rows * job->cols * ctx->native_bpp);
+		upd_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 

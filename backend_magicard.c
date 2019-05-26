@@ -654,6 +654,7 @@ static int magicard_read_parse(void *vctx, const void **vjob, int data_fd, int c
 			/* Safety valve */
 			if (strlen(ptr) + job->datalen > MAX_HEADERS_LEN) {
 				ERROR("headers too long, bogus job!\n");
+				magicard_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 

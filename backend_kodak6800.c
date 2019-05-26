@@ -194,13 +194,16 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 		/* Issue command and get response */
 		if ((ret = kodak6800_do_cmd(ctx, req, sizeof(req),
 					    media, MAX_MEDIA_LEN,
-					    &num)))
+					    &num))) {
+			free(media);
 			return ret;
+		}
 
 		/* Validate proper response */
 		if (media->hdr != CMD_CODE_OK ||
 		    media->null[0] != 0x00) {
 			ERROR("Unexpected response from media query!\n");
+			free(media);
 			return CUPS_BACKEND_STOP;
 		}
 		ctx->media_type = media->type;
@@ -809,11 +812,14 @@ static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	/* Read in then validate header */
 	ret = read(data_fd, &hdr, sizeof(hdr));
 	if (ret < 0 || ret != sizeof(hdr)) {
-		if (ret == 0)
+		if (ret == 0) {
+			sinfonia_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		ERROR("Read failed (%d/%d/%d)\n",
 		      ret, 0, (int)sizeof(hdr));
 		perror("ERROR: Read failed");
+		sinfonia_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 	if (hdr.hdr[0] != 0x03 ||
@@ -822,6 +828,7 @@ static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	    hdr.hdr[3] != 0x48 ||
 	    hdr.hdr[4] != 0x43) {
 		ERROR("Unrecognized data format!\n");
+		sinfonia_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -829,6 +836,7 @@ static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	uint16_t cols = be16_to_cpu(hdr.columns);
 	if (rows != 1240 && rows != 2434 && rows != 2140 && !ctx->supports_sub4x6) {
 		ERROR("Printer Firmware does not support non-4x6/8x6/5x7 prints, please upgrade!\n");
+		sinfonia_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -836,6 +844,7 @@ static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	job->databuf = malloc(job->datalen);
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
+		sinfonia_cleanup_job(job);
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
@@ -855,6 +864,7 @@ static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int 
 				ERROR("Read failed (%d/%d/%d)\n",
 				      ret, remain, job->datalen);
 				perror("ERROR: Read failed");
+				sinfonia_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
 			ptr += ret;

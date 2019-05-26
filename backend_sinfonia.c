@@ -403,6 +403,8 @@ int sinfonia_getfwinfo(struct sinfonia_usbdev *usbh)
 	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_FWINFO);
 	cmd.hdr.len = cpu_to_le16(1);
 
+	resp.hdr.payload_len = 0;
+
 	INFO("FW Information:\n");
 
 	for (i = FWINFO_TARGET_MAIN_BOOT ; i <= FWINFO_TARGET_PRINT_TABLES ; i++) {
@@ -441,6 +443,8 @@ int sinfonia_geterrorlog(struct sinfonia_usbdev *usbh)
 
 	cmd.cmd = cpu_to_le16(SINFONIA_CMD_ERRORLOG);
 	cmd.len = cpu_to_le16(0);
+
+	resp.hdr.payload_len = 0;
 
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
@@ -500,6 +504,8 @@ int sinfonia_gettonecurve(struct sinfonia_usbdev *usbh, int type, char *fname)
 	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_READTONE);
 	cmd.hdr.len = cpu_to_le16(1);
 
+	resp.hdr.payload_len = 0;
+
 	INFO("Dump %s Tone Curve to '%s'\n", sinfonia_tonecurve_statuses(type), fname);
 
 	if ((ret = sinfonia_docmd(usbh,
@@ -508,6 +514,9 @@ int sinfonia_gettonecurve(struct sinfonia_usbdev *usbh, int type, char *fname)
 				  &num)) < 0) {
 		return ret;
 	}
+
+	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct sinfonia_readtone_resp) - sizeof(struct sinfonia_status_hdr)))
+		return -2;
 
 	resp.total_size = le16_to_cpu(resp.total_size);
 

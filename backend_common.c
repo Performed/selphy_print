@@ -1240,7 +1240,13 @@ bypass:
 
 	if (!fname) {
 		if (uri)
-			fprintf(stderr, "ERROR: No input file specified\n");
+			ERROR("ERROR: No input file specified\n");
+		goto done_claimed;
+	}
+
+	if (ncopies < 1) {
+		ERROR("ERROR: need to have at least 1 copy!\n");
+		ret = CUPS_BACKEND_FAILED;
 		goto done_claimed;
 	}
 
@@ -1250,7 +1256,7 @@ bypass:
 		if (data_fd < 0) {
 			perror("ERROR:Can't open input file");
 			ret = CUPS_BACKEND_FAILED;
-			goto done;
+			goto done_claimed;
 		}
 	}
 
@@ -1266,7 +1272,7 @@ bypass:
 	if (i < 0) {
 		perror("ERROR:Can't open input");
 		ret = CUPS_BACKEND_FAILED;
-		goto done;
+		goto done_claimed;
 	}
 
 	/* Ignore SIGPIPE */
