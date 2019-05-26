@@ -65,25 +65,6 @@ struct s6245_print_cmd {
 	uint8_t  reserved2;
 } __attribute__((packed));
 
-#define PRINT_MODE_NO_OC        0x01
-#define PRINT_MODE_GLOSSY       0x02
-#define PRINT_MODE_MATTE        0x03
-
-#if 0
-static char *print_modes(uint8_t v) {
-	switch (v) {
-	case PRINT_MODE_NO_OC:
-		return "No Overcoat";
-	case PRINT_MODE_GLOSSY:
-		return "Glossy";
-	case PRINT_MODE_MATTE:
-		return "Matte";
-	default:
-		return "Unknown";
-	}
-}
-#endif
-
 #define PARAM_DRIVER_MODE  0x3e
 #define PARAM_PAPER_MODE   0x3f
 #define PARAM_SLEEP_TIME   0x54

@@ -71,6 +71,7 @@ static int print_counts (uint8_t v) {
 	}
 }
 
+#if 0
 #define PRINT_MODE_DEFAULT      0x01
 #define PRINT_MODE_STD_GLOSSY   0x02
 #define PRINT_MODE_FINE_GLOSSY  0x03
@@ -79,12 +80,11 @@ static int print_counts (uint8_t v) {
 #define PRINT_MODE_STD_EGLOSSY  0x06
 #define PRINT_MODE_FINE_EGLOSSY 0x07
 
-#if 0
-static char *print_modes(uint8_t v) {
+static char *s2145_print_modes(uint8_t v) {
 	switch (v) {
 	case PRINT_MODE_DEFAULT:
 		return "Default";
-s	case PRINT_MODE_STD_GLOSSY:
+	case PRINT_MODE_STD_GLOSSY:
 		return "Std Glossy";
 	case PRINT_MODE_FINE_GLOSSY:
 		return "Fine Glossy";

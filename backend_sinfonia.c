@@ -707,6 +707,19 @@ const char *sinfonia_print_methods (uint8_t v) {
 	}
 }
 
+const char *sinfonia_print_modes(uint8_t v) {
+	switch (v) {
+	case PRINT_MODE_NO_OC:
+		return "No Overcoat";
+	case PRINT_MODE_GLOSSY:
+		return "Glossy";
+	case PRINT_MODE_MATTE:
+		return "Matte";
+	default:
+		return "Unknown";
+	}
+}
+
 const char *sinfonia_fwinfo_targets (uint8_t v) {
 	switch (v) {
 	case FWINFO_TARGET_MAIN_BOOT:

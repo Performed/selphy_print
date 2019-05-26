@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.03"
+#define LIBSINFONIA_VER "0.04"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -135,6 +135,11 @@ enum {
 };
 
 const char *sinfonia_media_types(uint8_t v);
+
+#define PRINT_MODE_NO_OC        0x01
+#define PRINT_MODE_GLOSSY       0x02
+#define PRINT_MODE_MATTE        0x03
+const char *sinfonia_print_modes(uint8_t v);
 
 #define PRINT_METHOD_STD     0x00
 #define PRINT_METHOD_COMBO_2 0x02
