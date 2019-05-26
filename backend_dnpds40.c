@@ -1995,6 +1995,13 @@ top:
 		}
 	}
 
+	/* Work around a bug in older gutenprint releases. */
+	if (ctx->last_multicut >= 200 && ctx->last_multicut < 300 &&
+	    multicut >= 200 && multicut < 300) {
+		WARNING("Bogus multicut value for duplex page, correcting\n");
+		multicut += 100;
+	}
+
 	/* Store our last multicut state */
 	ctx->last_multicut = multicut;
 
@@ -3075,7 +3082,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.113",
+	.version = "0.114",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
