@@ -24,7 +24,7 @@
      * Mitsubishi CP-K60DW-S
      * Mitsubishi CP-D80DW
      * Kodak 305
-     * Fuji ASK-300
+     * Fujifilm ASK-300
 
    ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **
 
