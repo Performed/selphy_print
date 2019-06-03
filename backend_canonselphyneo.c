@@ -1,7 +1,7 @@
 /*
  *   Canon SELPHY CPneo series CUPS backend -- libusb-1.0 version
  *
- *   (c) 2016-2018 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2016-2019 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *

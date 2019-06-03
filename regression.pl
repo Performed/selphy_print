@@ -3,7 +3,7 @@
 #
 #  Test harness code for the dyesub backend (standalone sample jobs)
 #
-#  Copyright (c) 2018 Solomon Peachy <pizza@shaftnet.org>
+#  Copyright (c) 2018-2019 Solomon Peachy <pizza@shaftnet.org>
 #
 #  The latest version of this program can be found at:
 #

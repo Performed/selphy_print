@@ -1,7 +1,7 @@
 /*
  *   Mitsubishi CP-D90DW Photo Printer CUPS backend
  *
- *   (c) 2018 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2019 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *
