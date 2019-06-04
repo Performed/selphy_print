@@ -1197,7 +1197,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 
 	/* Common read/parse code */
 	if (ctx->dev.type == P_KODAK_6900) {
-		ret = sinfonia_raw10_read_parse(data_fd, job);
+		ret = sinfonia_raw28_read_parse(data_fd, job);
 	} else {
 		ret = sinfonia_read_parse(data_fd, model, job);
 	}

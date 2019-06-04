@@ -260,6 +260,62 @@ int sinfonia_raw18_read_parse(int data_fd, struct sinfonia_printjob *job)
 	return CUPS_BACKEND_OK;
 }
 
+int sinfonia_raw28_read_parse(int data_fd, struct sinfonia_printjob *job)
+{
+	struct sinfonia_printcmd28_hdr hdr;
+	int ret;
+
+	/* Read in header */
+	ret = read(data_fd, &hdr, sizeof(hdr));
+	if (ret < 0 || ret != sizeof(hdr)) {
+		if (ret == 0)
+			return CUPS_BACKEND_CANCEL;
+		ERROR("Read failed (%d/%d/%d)\n",
+		      ret, 0, (int)sizeof(hdr));
+		perror("ERROR: Read failed");
+		return CUPS_BACKEND_CANCEL;
+	}
+	/* Validate header */
+	if (le16_to_cpu(hdr.hdr.cmd) != SINFONIA_CMD_PRINTJOB ||
+	    le16_to_cpu(hdr.hdr.len) != 28) {
+		ERROR("Unrecognized data format!\n");
+		return CUPS_BACKEND_CANCEL;
+	}
+	job->jp.copies = le16_to_cpu(hdr.copies);
+	job->jp.rows = le16_to_cpu(hdr.rows);
+	job->jp.columns = le16_to_cpu(hdr.columns);
+	job->jp.media = hdr.media;
+	job->jp.oc_mode = hdr.options & 0x03;
+	job->jp.quality = hdr.options & 0x08;
+	job->jp.method = hdr.method;
+
+	/* Allocate buffer */
+	job->datalen = job->jp.rows * job->jp.columns * 3;
+	job->databuf = malloc(job->datalen);
+	if (!job->databuf) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+
+	{
+		int remain = job->datalen;
+		uint8_t *ptr = job->databuf;
+		do {
+			ret = read(data_fd, ptr, remain);
+			if (ret < 0) {
+				ERROR("Read failed (%d/%d/%d)\n",
+				      ret, remain, job->datalen);
+				perror("ERROR: Read failed");
+				return CUPS_BACKEND_CANCEL;
+			}
+			ptr += ret;
+			remain -= ret;
+		} while (remain);
+	}
+
+	return CUPS_BACKEND_OK;
+}
+
 void sinfonia_cleanup_job(const void *vjob)
 {
 	const struct sinfonia_printjob *job = vjob;

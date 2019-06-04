@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.04"
+#define LIBSINFONIA_VER "0.05"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -64,6 +64,7 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 
 int sinfonia_raw10_read_parse(int data_fd, struct sinfonia_printjob *job);
 int sinfonia_raw18_read_parse(int data_fd, struct sinfonia_printjob *job);
+int sinfonia_raw28_read_parse(int data_fd, struct sinfonia_printjob *job);
 void sinfonia_cleanup_job(const void *vjob);
 
 /* Common usb functions */
@@ -315,9 +316,23 @@ struct sinfonia_printcmd18_hdr {
 	uint16_t copies;
 	uint16_t columns;
 	uint16_t rows;
+	uint8_t  reserved[8]; // columns and rows repeated, then nulls
 	uint8_t  media;
 	uint8_t  oc_mode;
 	uint8_t  method;
+} __attribute__((packed));
+
+struct sinfonia_printcmd28_hdr {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  jobid;
+	uint16_t copies;
+	uint16_t columns;
+	uint16_t rows;
+	uint8_t  media;
+	uint8_t  reserved[7];
+	uint8_t  options;
+	uint8_t  method;
+	uint8_t  reserved2[11];
 } __attribute__((packed));
 
 #define CODE_4x6     0x00
