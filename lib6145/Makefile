@@ -13,7 +13,7 @@ INSTALL ?= install
 RM ?= rm
 
 # Flags
-CFLAGS += -Wall -Wextra -g -Os -std=c99 -fPIC --no-strict-overflow # -Wconversion
+CFLAGS += -Wall -Wextra -g -Os -std=c99 -D_FORTIFY_SOURCE=2 -fPIC --no-strict-overflow # -Wconversion
 #LDFLAGS +=
 #CPPFLAGS +=
 CFLAGS += -funit-at-a-time
