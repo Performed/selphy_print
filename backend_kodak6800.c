@@ -158,8 +158,8 @@ static void kodak68x0_dump_mediainfo(struct sinfonia_mediainfo_item *sizes,
 	INFO("Legal print sizes:\n");
 	for (i = 0 ; i < media_count ; i++) {
 		INFO("\t%d: %dx%d (%02x)\n", i,
-		     be16_to_cpu(sizes[i].columns),
-		     be16_to_cpu(sizes[i].rows),
+		     sizes[i].columns,
+		     sizes[i].rows,
 		     sizes[i].method);
 	}
 	INFO("\n");
@@ -210,6 +210,8 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 
 		for (i = 0; i < media->count ; i++) {
 			memcpy(&ctx->sizes[ctx->media_count], &media->sizes[i], sizeof(struct sinfonia_mediainfo_item));
+			ctx->sizes[ctx->media_count].rows = be16_to_cpu(ctx->sizes[ctx->media_count].rows);
+			ctx->sizes[ctx->media_count].columns = be16_to_cpu(ctx->sizes[ctx->media_count].columns);
 			ctx->media_count++;
 		}
 		if (i < 6)
@@ -1090,7 +1092,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.71" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.72" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
