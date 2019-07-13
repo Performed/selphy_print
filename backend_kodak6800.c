@@ -1006,8 +1006,8 @@ static int kodak6800_main_loop(void *vctx, const void *vjob) {
 	hdr.hdr[6] = 0x00;
 	hdr.jobid = ctx->jobid;
 	hdr.copies = cpu_to_be16(uint16_to_packed_bcd(copies));
-	hdr.columns = cpu_to_le16(job->jp.columns);
-	hdr.rows = cpu_to_le16(job->jp.rows);
+	hdr.columns = cpu_to_be16(job->jp.columns);
+	hdr.rows = cpu_to_be16(job->jp.rows);
 	hdr.size = job->jp.media;
 	hdr.laminate = job->jp.oc_mode;
 	hdr.method = job->jp.method;
