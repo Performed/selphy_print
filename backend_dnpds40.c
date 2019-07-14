@@ -221,8 +221,7 @@ struct cw01_spool_hdr {
 #define TYPE_A6   6
 /* Legacy CW-01 spool file support */
 
-static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
-			   struct cw01_spool_hdr *hdr, int read_data);
+static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
 static void dnpds40_cleanup_job(const void *vjob);
 static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count);
 
@@ -1291,29 +1290,26 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			return CUPS_BACKEND_CANCEL;
 		}
 
-		if (job->databuf[job->datalen + 0] != 0x1b ||
-		    job->databuf[job->datalen + 1] != 0x50) {
-			struct cw01_spool_hdr hdr;
-			/* See if it's the "classic" CW01 header */
-			memcpy(&hdr, job->databuf + job->datalen, sizeof(hdr));
-			hdr.plane_len = le32_to_cpu(hdr.plane_len);
+		/* Special case handling for beginning of job */
+		if (job->datalen == 0) {
+			/* See if job lacks the standard ESC-P start sequence */
+			if (job->databuf[job->datalen + 0] != 0x1b ||
+			    job->databuf[job->datalen + 1] != 0x50) {
+				switch(ctx->type) {
+				case P_CITIZEN_CW01:
+				{
+					i = cw01_read_parse(job, data_fd, i);
+					if (i == CUPS_BACKEND_OK) {
+						goto parsed;
+					}
 
-			if (hdr.type > 0x06 ||
-			    hdr.res > 0x01 ||
-			    hdr.null1[0] || hdr.null1[1] || hdr.null1[2] || hdr.null1[3]) {
-				ERROR("Unrecognized header data format @%d!\n", job->datalen);
-				dnpds40_cleanup_job(job);
-			} else {
-				job->dpi = (hdr.res == DPI_600) ? 600 : 334;
-				i = cw01_read_parse(job, data_fd, &hdr, i);
-				if (i == CUPS_BACKEND_OK)
-					goto parsed;
-				else {
 					dnpds40_cleanup_job(job);
 					return i;
 				}
+				default:
+					break;
+				}
 			}
-			return CUPS_BACKEND_CANCEL;
 		}
 
 		/* Parse out length of data chunk, if any */
@@ -3082,7 +3078,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.114",
+	.version = "0.115",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
@@ -3111,23 +3107,41 @@ struct dyesub_backend dnpds40_backend = {
 
 /* Legacy CW-01 spool file support */
 
-static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
-			   struct cw01_spool_hdr *hdr, int read_data)
+static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
 {
+	struct cw01_spool_hdr hdr;
 	int i, remain;
 	uint32_t j;
 	uint8_t *buf;
 	uint8_t plane_hdr[14];
 
-	remain = hdr->plane_len * 3;
+	/* get original header out of structure */
+	memcpy(&hdr, job->databuf + job->datalen, sizeof(hdr));
+
+	/* Early parsing and sanity checking */
+	hdr.plane_len = le32_to_cpu(hdr.plane_len);
+
+	if (hdr.type > 0x06 ||
+	    hdr.res > 0x01 ||
+	    hdr.null1[0] || hdr.null1[1] || hdr.null1[2] || hdr.null1[3]) {
+		ERROR("Unrecognized header data format @%d!\n", job->datalen);
+		return CUPS_BACKEND_CANCEL;
+	}
+	job->dpi = (hdr.res == DPI_600) ? 600 : 334;
+
+	/* Allocate a temp processing buffer */
+	remain = hdr.plane_len * 3;
 	buf = malloc(remain);
 	if (!buf) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
-	j = read_data - sizeof(*hdr);
-	memcpy(buf, job->databuf, j);
+
+	/* Copy over the post-jobhdr crap into our processing buffer */
+	j = read_data - sizeof(hdr);
+	memcpy(buf, job->databuf + sizeof(hdr), j);
 	remain -= j;
+
 	/* Read in the remaining spool data */
 	while (remain) {
 		i = read(data_fd, buf + j, remain);
@@ -3141,8 +3155,8 @@ static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
 		j += i;
 	}
 
-	/* Generate plane header (same for all planes) */
-	j = cpu_to_le32(hdr->plane_len) + 24;
+	/* Generate bitmap file header (same for all planes) */
+	j = cpu_to_le32(hdr.plane_len + 24);
 	memset(plane_hdr, 0, sizeof(plane_hdr));
 	plane_hdr[0] = 0x42;
 	plane_hdr[1] = 0x4d;
@@ -3157,34 +3171,34 @@ static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd,
 
 	/* Y plane */
 	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE YPLANE          %08u", hdr->plane_len + 24);
+				"\033PIMAGE YPLANE          %08u", hdr.plane_len + 24);
 	memcpy(job->databuf + job->datalen, plane_hdr, sizeof(plane_hdr));
 	job->datalen += sizeof(plane_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr->plane_len);
-	job->datalen += hdr->plane_len;
-	j += hdr->plane_len;
+	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
+	job->datalen += hdr.plane_len;
+	j += hdr.plane_len;
 	memset(job->databuf + job->datalen, 0, 10);
 	job->datalen += 10;
 
 	/* M plane */
 	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE MPLANE          %08u", hdr->plane_len + 24);
+				"\033PIMAGE MPLANE          %08u", hdr.plane_len + 24);
 	memcpy(job->databuf + job->datalen, plane_hdr, sizeof(plane_hdr));
 	job->datalen += sizeof(plane_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr->plane_len);
-	job->datalen += hdr->plane_len;
-	j += hdr->plane_len;
+	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
+	job->datalen += hdr.plane_len;
+	j += hdr.plane_len;
 	memset(job->databuf + job->datalen, 0, 10);
 	job->datalen += 10;
 
 	/* C plane */
 	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE CPLANE          %08u", hdr->plane_len + 24);
+				"\033PIMAGE CPLANE          %08u", hdr.plane_len + 24);
 	memcpy(job->databuf + job->datalen, plane_hdr, sizeof(plane_hdr));
 	job->datalen += sizeof(plane_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr->plane_len);
-	job->datalen += hdr->plane_len;
-	j += hdr->plane_len;
+	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
+	job->datalen += hdr.plane_len;
+	j += hdr.plane_len;
 	memset(job->databuf + job->datalen, 0, 10);
 	job->datalen += 10;
 
@@ -3206,11 +3220,11 @@ TT RR NN 00 XX XX XX XX  00 00 00 00              <- FILE header.
 
   NN          : copies (0x01 or more)
   RR          : resolution; 0 == 334 dpi, 1 == 600dpi
-  TT          : type 0x02 == 4x6, 0x01 == 5x3.5
+  TT          : type 0x02 == 4x6, 0x01 == 5x3.5, 0x06 = 6x9
   XX XX XX XX : plane length (LE)
                 plane length * 3 + 12 == file length.
 
-Followed by three planes, each with this header:
+Followed by three planes, each with this 40b header:
 
 28 00 00 00 00 08 00 00  RR RR 00 00 01 00 08 00
 00 00 00 00 00 00 00 00  5a 33 00 00 YY YY 00 00
