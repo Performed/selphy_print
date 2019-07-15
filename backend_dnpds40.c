@@ -200,8 +200,8 @@ struct dnpds40_cmd {
 #define min(__x, __y) ((__x) < (__y)) ? __x : __y
 
 /* Legacy spool file support */
-static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
-static int rx1_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
+static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
+static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
 
 static void dnpds40_cleanup_job(const void *vjob);
 static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count);
@@ -1276,27 +1276,28 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			/* See if job lacks the standard ESC-P start sequence */
 			if (job->databuf[job->datalen + 0] != 0x1b ||
 			    job->databuf[job->datalen + 1] != 0x50) {
-				switch(ctx->type) {
-				case P_CITIZEN_CW01:
-				{
-					i = cw01_read_parse(job, data_fd, i);
-					if (i == CUPS_BACKEND_OK) {
-						goto parsed;
-					}
+				i = CUPS_BACKEND_CANCEL;
 
-					dnpds40_cleanup_job(job);
-					return i;
-				}
-				case P_DNP_DSRX1:
-				{
-					i = rx1_read_parse(job, data_fd, i);
-					if (i == CUPS_BACKEND_OK) {
-						goto parsed;
-					}
-				}
-				default:
+				switch(ctx->type) {
+				case P_CITIZEN_CW01: {
+					i = legacy_cw01_read_parse(job, data_fd, i);
 					break;
 				}
+				case P_DNP_DSRX1:
+				case P_DNP_DS40:
+				case P_DNP_DS80:
+				case P_DNP_DS80D:
+				default: {
+					i = legacy_dnp_read_parse(job, data_fd, i);
+					break;
+				}
+				}
+
+				if (i == CUPS_BACKEND_OK) {
+					goto parsed;
+				}
+				dnpds40_cleanup_job(job);
+				return i;
 			}
 		}
 
@@ -3067,7 +3068,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.115",
+	.version = "0.116",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
@@ -3115,7 +3116,7 @@ struct cw01_spool_hdr {
 #define TYPE_A5   5
 #define TYPE_A6   6
 
-static int cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
+static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
 {
 	struct cw01_spool_hdr hdr;
 	int i, remain;
@@ -3234,7 +3235,7 @@ struct rx1_spool_hdr {
 #define FLAG_NORETRY 0x08
 #define FLAG_2INCH 0x10
 
-static int rx1_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
+static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
 {
 	struct rx1_spool_hdr hdr;
 	int i, remain;
