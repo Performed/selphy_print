@@ -179,7 +179,6 @@ struct dnpds40_cmd {
 #define MULTICUT_A4       41
 #define MULTICUT_A4x5X2   43
 
-
 #define MULTICUT_S_SIMPLEX  100
 #define MULTICUT_S_FRONT    200
 #define MULTICUT_S_BACK     300
@@ -3249,7 +3248,7 @@ static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int 
 	/* Early parsing and sanity checking */
 	hdr.plane_len = le32_to_cpu(hdr.plane_len);
 
-	if (hdr.type > 0x1a ||
+	if (hdr.type >= MULTICUT_A4x5X2 ||
 	    hdr.null2[0] || hdr.null2[1] || hdr.null2[2]) {
 		ERROR("Unrecognized header data format @%d!\n", job->datalen);
 		return CUPS_BACKEND_CANCEL;
