@@ -1275,8 +1275,6 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			/* See if job lacks the standard ESC-P start sequence */
 			if (job->databuf[job->datalen + 0] != 0x1b ||
 			    job->databuf[job->datalen + 1] != 0x50) {
-				i = CUPS_BACKEND_CANCEL;
-
 				switch(ctx->type) {
 				case P_CITIZEN_CW01: {
 					i = legacy_cw01_read_parse(job, data_fd, i);
@@ -3148,7 +3146,7 @@ static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int
 
 	/* Copy over the post-jobhdr crap into our processing buffer */
 	j = read_data - sizeof(hdr);
-	memcpy(buf, job->databuf + sizeof(hdr), j);
+	memcpy(buf, job->databuf + job->datalen + sizeof(hdr), j);
 	remain -= j;
 
 	/* Read in the remaining spool data */
@@ -3269,7 +3267,7 @@ static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int 
 
 	/* Copy over the post-jobhdr crap into our processing buffer */
 	j = read_data - sizeof(hdr);
-	memcpy(buf, job->databuf + sizeof(hdr), j);
+	memcpy(buf, job->databuf + job->datalen + sizeof(hdr), j);
 	remain -= j;
 
 	/* Read in the remaining spool data */
