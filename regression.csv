@@ -168,9 +168,11 @@ dnpds40,0x1343,0x0003,dnp_ds40_6x8-600.raw,400
 dnpds620,0x1452,0x8b01,dnp_ds40_4x6.raw,300
 dnpds620,0x1452,0x8b01,dnp_ds40_4x6.raw,310
 dnpds620,0x1452,0x8b01,dnp_ds40_6x8-600.raw,400
+dnpds620,0x1452,0x8b01,dnp_ds620_4x6c.raw,400
 dnpds80,0x1343,0x0004,dnp_ds80_8x12.raw,510
 dnpds80dx,0x1343,0x0008,dnp_ds80_8x12.raw,510  # Duplex media 200
 dnpds820,0x1452,0x9001,dnp_ds80_8x12.raw,510
+dnpds820,0x1452,0x9001,dnp_ds820-8x12c.raw,510
 dnprx1,0x1343,0x0005,dnp_ds40_4x6.raw,300
 dnprx1,0x1343,0x0005,dnp_ds40_4x6.raw,310
 dnprx1,0x1343,0x0005,dnp_ds40_6x8-600.raw,400
