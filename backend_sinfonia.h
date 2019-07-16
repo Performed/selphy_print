@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.05"
+#define LIBSINFONIA_VER "0.06"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
