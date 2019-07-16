@@ -202,6 +202,7 @@ struct dnpds40_cmd {
 static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
 static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
 static int legacy_dnp620_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
+static int legacy_dnp820_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
 
 static void dnpds40_cleanup_job(const void *vjob);
 static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count);
@@ -1281,8 +1282,10 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 					i = legacy_cw01_read_parse(job, data_fd, i);
 					break;
 				case P_DNP_DS620:
-				case P_DNP_DS820:
 					i = legacy_dnp620_read_parse(job, data_fd, i);
+					break;
+				case P_DNP_DS820:
+					i = legacy_dnp820_read_parse(job, data_fd, i);
 					break;
 				case P_DNP_DSRX1:
 				case P_DNP_DS40:
@@ -1469,7 +1472,7 @@ parsed:
 	/* And sanity-check whatever value is there */
 	if (job->printspeed == 0 && job->dpi == 600) {
 		job->printspeed = 1;
-	} else if (job->printspeed == 1 && job->dpi == 300) {
+	} else if (job->printspeed >= 1 && job->dpi == 300) {
 		job->printspeed = 0;
 	}
 
@@ -3292,9 +3295,9 @@ static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int 
 struct ds620_spool_hdr {
 	uint8_t  type; /* MULTICUT_?? -1, but >0x90 is a flag for rewind */
 	uint8_t  copies; /* Always fixed at 01..*/
-	uint8_t  null0;
-	uint8_t  quality;  /* 0x02 is HQ, 0x00 is HS.  Ignored, I think. */
-	uint8_t  unk[4];   /* Always 00 00 01 00 */
+	uint8_t  null0[2];
+	uint8_t  quality;  /* 0x02 is HQ, 0x00 is HS.  Equivalent to DPI. */
+	uint8_t  unk[3];   /* Always 00 01 00 */
 	uint32_t plane_len; /* LE */
 	uint8_t  flags; /* FLAG_?? */
 	uint8_t  null1[3];
@@ -3337,6 +3340,50 @@ static int legacy_dnp620_read_parse(struct dnpds40_printjob *job, int data_fd, i
 	return legacy_spool_helper(job, data_fd, read_data,
 				   sizeof(hdr), plane_len, 1);
 }
+
+#define FLAG_820_HD     0x80
+#define FLAG_820_RETRY  0x20
+#define FLAG_820_LUSTER 0x06
+#define FLAG_820_FMATTE 0x04
+#define FLAG_820_MATTE  0x02
+
+static int legacy_dnp820_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
+{
+	struct ds620_spool_hdr hdr;
+	uint32_t plane_len;
+
+	/* get original header out of structure */
+	memcpy(&hdr, job->databuf + job->datalen, sizeof(hdr));
+
+	/* Early parsing and sanity checking */
+	plane_len = le32_to_cpu(hdr.plane_len);
+
+	/* Used to signify rewind request.  Backend handles automatically. */
+	if (hdr.type > 0x90)
+		hdr.type -= 0x90;
+
+	if (hdr.type > MULTICUT_A4x5X2 ||
+	    hdr.null1[0] || hdr.null1[1] || hdr.null1[2]) {
+		ERROR("Unrecognized header data format @%d!\n", job->datalen);
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* Don't bother with FW version checks for legacy stuff */
+	job->multicut = hdr.type + 1;
+	if ((hdr.flags & FLAG_820_FMATTE) == FLAG_820_FMATTE)
+		job->matte = 21;
+	else if (hdr.flags & FLAG_820_LUSTER)
+		job->matte = 22;
+	else if (hdr.flags & FLAG_820_MATTE)
+		job->matte = 1;
+
+	if (hdr.flags & FLAG_820_HD)
+		job->printspeed = 3;
+
+	return legacy_spool_helper(job, data_fd, read_data,
+				   sizeof(hdr), plane_len, 1);
+}
+
 
 /*
 
