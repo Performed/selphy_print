@@ -201,6 +201,7 @@ struct dnpds40_cmd {
 /* Legacy spool file support */
 static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
 static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
+static int legacy_dnp620_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
 
 static void dnpds40_cleanup_job(const void *vjob);
 static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count);
@@ -1276,18 +1277,20 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 			if (job->databuf[job->datalen + 0] != 0x1b ||
 			    job->databuf[job->datalen + 1] != 0x50) {
 				switch(ctx->type) {
-				case P_CITIZEN_CW01: {
+				case P_CITIZEN_CW01:
 					i = legacy_cw01_read_parse(job, data_fd, i);
 					break;
-				}
+				case P_DNP_DS620:
+				case P_DNP_DS820:
+					i = legacy_dnp620_read_parse(job, data_fd, i);
+					break;
 				case P_DNP_DSRX1:
 				case P_DNP_DS40:
 				case P_DNP_DS80:
 				case P_DNP_DS80D:
-				default: {
+				default:
 					i = legacy_dnp_read_parse(job, data_fd, i);
 					break;
-				}
 				}
 
 				if (i == CUPS_BACKEND_OK) {
@@ -3065,7 +3068,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.116",
+	.version = "0.117",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
@@ -3092,7 +3095,116 @@ struct dyesub_backend dnpds40_backend = {
 	}
 };
 
-/* Legacy spool file support */
+/* Windows spool file support */
+static int legacy_spool_helper(struct dnpds40_printjob *job, int data_fd,
+			       int read_data, int hdrlen, uint32_t plane_len,
+			       int parse_dpi)
+{
+	uint8_t *buf;
+	uint8_t bmp_hdr[14];
+	int i, remain;
+	uint32_t j;
+
+	/* Allocate a temp processing buffer */
+	remain = plane_len * 3;
+	buf = malloc(remain);
+	if (!buf) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+
+	/* Copy over the post-jobhdr crap into our processing buffer */
+	j = read_data - hdrlen;
+	memcpy(buf, job->databuf + hdrlen, j);
+	remain -= j;
+
+	/* Read in the remaining spool data */
+	while (remain) {
+		i = read(data_fd, buf + j, remain);
+
+		if (i < 0) {
+			free(buf);
+			return i;
+		}
+
+		remain -= i;
+		j += i;
+	}
+
+	if (parse_dpi) {
+		/* Parse out Y DPI */
+		memcpy(&j, buf + 28, sizeof(j));
+		j = le32_to_cpu(j);
+		switch(j) {
+		case 11808:
+			job->dpi = 300;
+			break;
+		case 23615:
+		case 23616:
+			job->dpi = 600;
+			break;
+		default:
+			ERROR("Unrecognized printjob resolution (%u ppm)\n", j);
+			free(buf);
+			return CUPS_BACKEND_CANCEL;
+		}
+	}
+
+	/* Generate bitmap file header (same for all planes) */
+	j = cpu_to_le32(plane_len + 24);
+	memset(bmp_hdr, 0, sizeof(bmp_hdr));
+	bmp_hdr[0] = 0x42;
+	bmp_hdr[1] = 0x4d;
+	memcpy(bmp_hdr + 2, &j, sizeof(j));
+	bmp_hdr[10] = 0x40;
+	bmp_hdr[11] = 0x04;
+
+	/* Set up planes */
+	j = 0;
+
+	/* Y plane */
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
+				"\033PIMAGE YPLANE          %08u", plane_len + 24);
+	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
+	job->datalen += sizeof(bmp_hdr);
+	memcpy(job->databuf + job->datalen, buf + j, plane_len);
+	job->datalen += plane_len;
+	j += plane_len;
+	memset(job->databuf + job->datalen, 0, 10);
+	job->datalen += 10;
+
+	/* M plane */
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
+				"\033PIMAGE MPLANE          %08u", plane_len + 24);
+	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
+	job->datalen += sizeof(bmp_hdr);
+	memcpy(job->databuf + job->datalen, buf + j, plane_len);
+	job->datalen += plane_len;
+	j += plane_len;
+	memset(job->databuf + job->datalen, 0, 10);
+	job->datalen += 10;
+
+	/* C plane */
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
+				"\033PIMAGE CPLANE          %08u", plane_len + 24);
+	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
+	job->datalen += sizeof(bmp_hdr);
+	memcpy(job->databuf + job->datalen, buf + j, plane_len);
+	job->datalen += plane_len;
+	j += plane_len;
+	memset(job->databuf + job->datalen, 0, 10);
+	job->datalen += 10;
+
+	/* Start */
+	job->datalen += sprintf((char*)job->databuf + job->datalen,
+				"\033PCNTRL START                   ");
+
+	/* We're done */
+	free(buf);
+
+	return CUPS_BACKEND_OK;
+}
+
 struct cw01_spool_hdr {
 	uint8_t  type; /* TYPE_??? */
 	uint8_t  res; /* DPI_??? */
@@ -3116,16 +3228,13 @@ struct cw01_spool_hdr {
 static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
 {
 	struct cw01_spool_hdr hdr;
-	int i, remain;
-	uint32_t j;
-	uint8_t *buf;
-	uint8_t bmp_hdr[14];
+	uint32_t plane_len;
 
 	/* get original header out of structure */
 	memcpy(&hdr, job->databuf + job->datalen, sizeof(hdr));
 
 	/* Early parsing and sanity checking */
-	hdr.plane_len = le32_to_cpu(hdr.plane_len);
+	plane_len = le32_to_cpu(hdr.plane_len);
 
 	if (hdr.type > TYPE_A6 ||
 	    hdr.res > DPI_600 ||
@@ -3136,115 +3245,34 @@ static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int
 	job->dpi = (hdr.res == DPI_600) ? 600 : 334;
 	job->cutter = 0;
 
-	/* Allocate a temp processing buffer */
-	remain = hdr.plane_len * 3;
-	buf = malloc(remain);
-	if (!buf) {
-		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_RETRY_CURRENT;
-	}
-
-	/* Copy over the post-jobhdr crap into our processing buffer */
-	j = read_data - sizeof(hdr);
-	memcpy(buf, job->databuf + job->datalen + sizeof(hdr), j);
-	remain -= j;
-
-	/* Read in the remaining spool data */
-	while (remain) {
-		i = read(data_fd, buf + j, remain);
-
-		if (i < 0) {
-			free(buf);
-			return i;
-		}
-
-		remain -= i;
-		j += i;
-	}
-
-	/* Generate bitmap file header (same for all planes) */
-	j = cpu_to_le32(hdr.plane_len + 24);
-	memset(bmp_hdr, 0, sizeof(bmp_hdr));
-	bmp_hdr[0] = 0x42;
-	bmp_hdr[1] = 0x4d;
-	memcpy(bmp_hdr + 2, &j, sizeof(j));
-	bmp_hdr[10] = 0x40;
-	bmp_hdr[11] = 0x04;
-
-	/* Okay, generate a new stream into job->databuf! */
-
-	j = 0;
-
-	/* Y plane */
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE YPLANE          %08u", hdr.plane_len + 24);
-	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
-	job->datalen += sizeof(bmp_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
-	job->datalen += hdr.plane_len;
-	j += hdr.plane_len;
-	memset(job->databuf + job->datalen, 0, 10);
-	job->datalen += 10;
-
-	/* M plane */
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE MPLANE          %08u", hdr.plane_len + 24);
-	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
-	job->datalen += sizeof(bmp_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
-	job->datalen += hdr.plane_len;
-	j += hdr.plane_len;
-	memset(job->databuf + job->datalen, 0, 10);
-	job->datalen += 10;
-
-	/* C plane */
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE CPLANE          %08u", hdr.plane_len + 24);
-	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
-	job->datalen += sizeof(bmp_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
-	job->datalen += hdr.plane_len;
-	j += hdr.plane_len;
-	memset(job->databuf + job->datalen, 0, 10);
-	job->datalen += 10;
-
-	/* Start */
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PCNTRL START                   ");
-
-	/* We're done */
-	free(buf);
-
-	return CUPS_BACKEND_OK;
+	return legacy_spool_helper(job, data_fd, read_data,
+				   sizeof(hdr), plane_len, 0);
 }
 
 struct rx1_spool_hdr {
 	uint8_t  type; /* equals MULTICUT_?? - 1 */
 	uint8_t  null0;
-	uint8_t  copies; /* number of copies */
+	uint8_t  copies; /* number of copies, always fixed at 01.. */
 	uint8_t  null1;
 	uint32_t plane_len; /* LE */
         uint8_t  flags; /* combination of FLAG_?? */
 	uint8_t  null2[3];
 };
 
-#define FLAG_MATTE 0x02
-#define FLAG_NORETRY 0x08
-#define FLAG_2INCH 0x10
+#define FLAG_MATTE     0x02
+#define FLAG_NORETRY   0x08
+#define FLAG_2INCH     0x10
 
 static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
 {
 	struct rx1_spool_hdr hdr;
-	int i, remain;
-	uint32_t j;
-	uint8_t *buf;
-	uint8_t bmp_hdr[14];
+	uint32_t plane_len;
 
 	/* get original header out of structure */
 	memcpy(&hdr, job->databuf + job->datalen, sizeof(hdr));
 
 	/* Early parsing and sanity checking */
-	hdr.plane_len = le32_to_cpu(hdr.plane_len);
+	plane_len = le32_to_cpu(hdr.plane_len);
 
 	if (hdr.type >= MULTICUT_A4x5X2 ||
 	    hdr.null2[0] || hdr.null2[1] || hdr.null2[2]) {
@@ -3257,102 +3285,57 @@ static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int 
 	job->matte = (hdr.flags & FLAG_MATTE) ? 1 : 0;
 	job->cutter = (hdr.flags & FLAG_2INCH) ? 120 : 0;
 
-	/* Allocate a temp processing buffer */
-	remain = hdr.plane_len * 3;
-	buf = malloc(remain);
-	if (!buf) {
-		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_RETRY_CURRENT;
-	}
+	return legacy_spool_helper(job, data_fd, read_data,
+				   sizeof(hdr), plane_len, 1);
+}
 
-	/* Copy over the post-jobhdr crap into our processing buffer */
-	j = read_data - sizeof(hdr);
-	memcpy(buf, job->databuf + job->datalen + sizeof(hdr), j);
-	remain -= j;
+struct ds620_spool_hdr {
+	uint8_t  type; /* MULTICUT_?? -1, but >0x90 is a flag for rewind */
+	uint8_t  copies; /* Always fixed at 01..*/
+	uint8_t  null0;
+	uint8_t  quality;  /* 0x02 is HQ, 0x00 is HS.  Ignored, I think. */
+	uint8_t  unk[4];   /* Always 00 00 01 00 */
+	uint32_t plane_len; /* LE */
+	uint8_t  flags; /* FLAG_?? */
+	uint8_t  null1[3];
+};
+#define FLAG_LUSTER    0x04
+#define FLAG_FINEMATTE 0x06
 
-	/* Read in the remaining spool data */
-	while (remain) {
-		i = read(data_fd, buf + j, remain);
+static int legacy_dnp620_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data)
+{
+	struct ds620_spool_hdr hdr;
+	uint32_t plane_len;
 
-		if (i < 0) {
-			free(buf);
-			return i;
-		}
+	/* get original header out of structure */
+	memcpy(&hdr, job->databuf + job->datalen, sizeof(hdr));
 
-		remain -= i;
-		j += i;
-	}
+	/* Early parsing and sanity checking */
+	plane_len = le32_to_cpu(hdr.plane_len);
 
-	/* Parse out Y DPI */
-	memcpy(&j, buf + 28, sizeof(j));
-	j = le32_to_cpu(j);
-	switch(j) {
-	case 11808:
-		job->dpi = 300;
-		break;
-	case 23615:
-	case 23616:
-		job->dpi = 600;
-		break;
-	default:
-		ERROR("Unrecognized printjob resolution (%u ppm)\n", j);
-		free(buf);
+	/* Used to signify rewind request.  Backend handles automatically. */
+	if (hdr.type > 0x90)
+		hdr.type -= 0x90;
+
+	if (hdr.type > MULTICUT_A4x5X2 ||
+	    hdr.null1[0] || hdr.null1[1] || hdr.null1[2]) {
+		ERROR("Unrecognized header data format @%d!\n", job->datalen);
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	/* Generate bitmap file header (same for all planes) */
-	j = cpu_to_le32(hdr.plane_len + 24);
-	memset(bmp_hdr, 0, sizeof(bmp_hdr));
-	bmp_hdr[0] = 0x42;
-	bmp_hdr[1] = 0x4d;
-	memcpy(bmp_hdr + 2, &j, sizeof(j));
-	bmp_hdr[10] = 0x40;
-	bmp_hdr[11] = 0x04;
+	/* Don't bother with FW version checks for legacy stuff */
+	job->multicut = hdr.type + 1;
+	if ((hdr.flags & FLAG_FINEMATTE) == FLAG_FINEMATTE)
+		job->matte = 21;
+	else if (hdr.flags & FLAG_LUSTER)
+		job->matte = 22;
+	else if (hdr.flags & FLAG_MATTE)
+		job->matte = 1;
 
-	/* Set up planes */
-	j = 0;
+	job->cutter = (hdr.flags & FLAG_2INCH) ? 120 : 0;
 
-	/* Y plane */
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE YPLANE          %08u", hdr.plane_len + 24);
-	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
-	job->datalen += sizeof(bmp_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
-	job->datalen += hdr.plane_len;
-	j += hdr.plane_len;
-	memset(job->databuf + job->datalen, 0, 10);
-	job->datalen += 10;
-
-	/* M plane */
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE MPLANE          %08u", hdr.plane_len + 24);
-	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
-	job->datalen += sizeof(bmp_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
-	job->datalen += hdr.plane_len;
-	j += hdr.plane_len;
-	memset(job->databuf + job->datalen, 0, 10);
-	job->datalen += 10;
-
-	/* C plane */
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PIMAGE CPLANE          %08u", hdr.plane_len + 24);
-	memcpy(job->databuf + job->datalen, bmp_hdr, sizeof(bmp_hdr));
-	job->datalen += sizeof(bmp_hdr);
-	memcpy(job->databuf + job->datalen, buf + j, hdr.plane_len);
-	job->datalen += hdr.plane_len;
-	j += hdr.plane_len;
-	memset(job->databuf + job->datalen, 0, 10);
-	job->datalen += 10;
-
-	/* Start */
-	job->datalen += sprintf((char*)job->databuf + job->datalen,
-				"\033PCNTRL START                   ");
-
-	/* We're done */
-	free(buf);
-
-	return CUPS_BACKEND_OK;
+	return legacy_spool_helper(job, data_fd, read_data,
+				   sizeof(hdr), plane_len, 1);
 }
 
 /*
