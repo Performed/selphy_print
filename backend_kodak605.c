@@ -45,7 +45,8 @@
 #define USB_VID_KODAK       0x040A
 #define USB_PID_KODAK_605   0x402E
 #define USB_PID_KODAK_7000  0x4035
-#define USB_PID_KODAK_701X  0x4037
+#define USB_PID_KODAK_7010  0x4037
+#define USB_PID_KODAK_7015  0x4038
 
 /* List of confirmed commands */
 //#define SINFONIA_CMD_GETSTATUS  0x0001
@@ -727,14 +728,14 @@ static int kodak605_query_markers(void *vctx, struct marker **markers, int *coun
 
 static const char *kodak605_prefixes[] = {
 	"kodak605",  // Family driver, do NOT nuke.
-	"kodak-605", "kodak-7000", "kodak-7010", "kodak-7015", "kodak-701x", "kodak-7xxx",
+	"kodak-605", "kodak-7000", "kodak-7010", "kodak-7015",
 	NULL,
 };
 
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605/70xx",
-	.version = "0.42" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.43" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
@@ -747,7 +748,8 @@ struct dyesub_backend kodak605_backend = {
 	.devices = {
 		{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak", "kodak-605"},
 		{ USB_VID_KODAK, USB_PID_KODAK_7000, P_KODAK_7000, "Kodak", "kodak-7000"},
-		{ USB_VID_KODAK, USB_PID_KODAK_701X, P_KODAK_701X, "Kodak", "kodak-701x"},
+		{ USB_VID_KODAK, USB_PID_KODAK_701X, P_KODAK_7010, "Kodak", "kodak-7010"},
+		{ USB_VID_KODAK, USB_PID_KODAK_701X, P_KODAK_7015, "Kodak", "kodak-7015"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
