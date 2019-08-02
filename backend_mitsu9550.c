@@ -1980,4 +1980,8 @@ struct dyesub_backend mitsu9550_backend = {
     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 ::          70 01 01 [9550]
     00 00
 
+  [[ Unknown command, seen in driver as esc_q ]]
+
+ -> 1b 51
+
  */
