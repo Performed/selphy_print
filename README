@@ -616,8 +616,8 @@
    *** VERY IMPORTANT ***
 
      In order to generate usable output, the Sinfonia CHC-S6145 printer
-     (and its siblings) require the input data to be transformed using
-     specific image processing algorithms.
+     (and its siblings listed above) require the input data to be 
+     transformed using specific image processing algorithms.
 
      The library that implements this processing is dynamically loaded
      at runtime. There are three options:

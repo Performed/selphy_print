@@ -7,7 +7,7 @@
 
    This is intended to be a drop-in replacement for Sinfonia's proprietary
    libS6145ImageProcess library, which is necessary in order to utilize
-   their CHC-S6145 printer family.
+   their CHC-S6145 and CHC-S2245 printer families
 
    Sinfonia Inc was not involved in the creation of this library, and
    is not responsible in any way for the library or any deficiencies in
