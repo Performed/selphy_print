@@ -218,6 +218,13 @@ struct sinfonia_setparam_cmd {
 	uint32_t param;
 } __attribute__((packed));
 
+struct sinfonia_diagnostic_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t arg1;
+	uint8_t arg2;
+	uint8_t arg3;
+} __attribute__((packed));
+
 struct sinfonia_getparam_cmd {
 	struct sinfonia_cmd_hdr hdr;
 	uint8_t target;
@@ -414,18 +421,24 @@ const char *sinfonia_status_str(uint8_t v);
 #define SINFONIA_CMD_SETEEPROM  0x400F
 #define SINFONIA_CMD_SETTIME    0x4011 // 6245 only
 
+#define SINFONIA_CMD_DIAGNOSTIC 0xC001 // ??
 #define SINFONIA_CMD_FWINFO     0xC003
 #define SINFONIA_CMD_UPDATE     0xC004
 #define SINFONIA_CMD_SETUNIQUE  0xC007 // 2145 only
 
 const char *sinfonia_cmd_names(uint16_t v);
 
-/* 6R: Also seen: 101-0867, 141-9597, 659-9054, 169-6418, DNP 900-060 */
-#define KODAK6_MEDIA_6R   0x0b // 197-4096
-#define KODAK6_MEDIA_UNK  0x03
+//#define KODAK6_MEDIA_5R      // 189-9160
+#define KODAK6_MEDIA_6R   0x0b // 197-4096  [ Also: 101-0867, 141-9597, 659-9054, 169-6418, DNP-900-060 ]
+#define KODAK6_MEDIA_UNK  0x03 // ??? reported but unknown
 #define KODAK6_MEDIA_6TR2 0x2c // 396-2941
+//#define KODAK6_MEDIA_5FR2    // 6900-compatible
+//#define KODAK6_MEDIA_6FR2    // 6900-compatible, 102-5925
 #define KODAK6_MEDIA_NONE 0x00
-#define KODAK7_MEDIA_6R   0x29
+//#define KODAK7_MEDIA_5R      // 164-9011 137-0600
+#define KODAK7_MEDIA_6R   0x29 // 659-9047 166-1925 396-2966 846-2004 103-7688 DNP-900-070
+//#define KODAK7_MEDIA_6TA2
+//#define KODAK7_MEDIA_5TA2
 
 const char *kodak6_mediatypes(int type);
 void kodak6_dumpmediacommon(int type);
