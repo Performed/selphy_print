@@ -7,6 +7,7 @@
 EXEC_NAME ?= dyesub_backend
 CPUS ?= $(shell nproc)
 #NO_GUTENPRINT = 1
+REVISION ?= -g$(shell if [ -d .git ] ; then git rev-parse --short HEAD; else echo "NONE" ; fi)
 
 # Destination directories (rely on CUPS to tell us where)
 PREFIX ?=
@@ -103,14 +104,14 @@ install:
 	$(INSTALL) -o root -m 644 blacklist $(CUPS_DATA_DIR)/usb/net.sf.gimp-print.usb-quirks
 
 clean:
-	$(RM) -f $(EXEC_NAME) $(BACKENDS) $(SOURCES:.c=.o)
+	$(RM) $(EXEC_NAME) $(BACKENDS) $(SOURCES:.c=.o) lib70x/*o lib6145/*o
 
-release:
-	$(RM) -Rf selphy_print-rel
-	$(MKDIR) -p selphy_print-rel
-	cp -a *.c *.h Makefile blacklist COPYING README lib6145 D70 selphy_print-rel
-	tar -czvf selphy_print-rel.tar.gz selphy_print-rel
-	$(RM) -Rf selphy_print-rel
+release: clean
+	$(RM) -Rf selphy_print$(REVISION)
+	$(MKDIR) -p selphy_print$(REVISION)
+	cp -a *.c *.h Makefile blacklist COPYING README lib6145 lib70x selphy_print$(REVISION)
+	tar -czvf selphy_print$(REVISION).tar.gz selphy_print$(REVISION)
+	$(RM) -Rf selphy_print$(REVISION)
 
 # Backend-specific joy:
 backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
