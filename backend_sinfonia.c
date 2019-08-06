@@ -953,6 +953,8 @@ const char *sinfonia_cmd_names(uint16_t v) {
 		return "Set EEPROM Backup Parameter";
 	case SINFONIA_CMD_SETTIME:
 		return "Time Setting";
+	case SINFONIA_CMD_DIAGNOSTIC:
+		return "Diagnostic";
 	case SINFONIA_CMD_FWINFO:
 		return "Get Firmware Info";
 	case SINFONIA_CMD_UPDATE:
