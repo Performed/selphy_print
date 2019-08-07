@@ -189,6 +189,7 @@ dnprx1,0x1343,0x0005,dnp_dsrx1-4x6c.raw,400
 citizencw02,0x1343,0x0006,dnp_ds40_4x6.raw,300
 citizencw02,0x1343,0x0006,dnp_ds40_4x6.raw,310
 citizencw02,0x1343,0x0006,dnp_ds40_6x8-600.raw,400
+dnp-qw410,0x1452,0x9201,dnp_qw410_4x6.raw,150
 #
 # 'magicard
 #

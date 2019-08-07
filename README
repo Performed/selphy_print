@@ -35,6 +35,7 @@
    DNP DS-RX1 / DS-RX1HS / Citizen CY / CY-02
    DNP DS620 / DS620A / Citizen CX-02
    DNP DS820 / DS820A / Citizen CX-02W
+   DNP QW410 / Citizen CZ-01
    Fujifilm ASK-300
    HiTi P520L
    HiTi P525L
@@ -71,8 +72,6 @@
 
   Work-in-progress Printers:
 
-   Citizen CZ-01
-   DNP QW410
    DNP M4 / Q4
    DNP M8
    HiTi P110 series
@@ -1120,8 +1119,10 @@
    Model IDs recognized:
 
       dnp-ds40 dnp-ds80 dnp-ds80dx dnp-ds620 dnp-ds820 dnp-dsrx1 dnp-ds620
-      citizen-cw-01 citizen-cw-02 citizen-cx-02 citizen-cx citizen-cx-w citizen-cy
-      citizen-cy-02 citizen-op900 citizen-op900ii citicen-cx-02w
+      dnp-qw410
+      citizen-cw-01 citizen-cw-02 citizen-cx-02 citizen-cx citizen-cx-w
+      citizen-cy citizen-cy-02 citizen-op900 citizen-op900ii citicen-cx-02w
+      citizen-cz-01
 
    Model IDs for backwards compatibility with older releases:
 
@@ -1136,18 +1137,18 @@
     DNP DS620 / DS620A (aka Citizen CX-02)
     DNP DS820 / DS820A (aka Citizen CX-02W)
     DNP DS-RX1 / DNP DS-RX1HS (aka Citizen CY and CY-02)
+    DNP DS-QW410 
 
    Theoretically supported printers:  (Untested)
 
     Citizen CW-01 / OP900
     Citizen CW-02 / OP900II
     Citizen CX-02
+    Citizen CZ-01
     Mitsubishi CP-3800DW
 
    Work-in-progress printers: (USB PIDs unknown)
 
-    Citizen CZ-01
-    DNP QW410
     DNP M4 / Q4
     Olmec OP900
     ICI Imagedata OP900
@@ -1167,7 +1168,7 @@
      -p num             Set 'P' counter to 'num'                            [2]
      -s                 Query printer status
      -k num		Specify standby delay (1-99 minutes, 0 disables)    [1]
-     -K num		Keep Media Status Across Power Cycles (1 yes, 0 no) [1]
+     -K num		Keep Media Status Across Power Cycles (1 yes, 0 no) [4]
      -x num             Set USB iSerialNumber reporting (1 yes, 0 no)       [3]
      -X                 Cancel current job
      -R                 Reset printer to defaults
@@ -1176,7 +1177,8 @@ Notes:
 
      [1] Only supported by DS620 and DS820
      [2] Certain printer features may require updating the printer firmware
-     [3] Only supported by RX1HS, DS620, and DS820
+     [3] Only supported by RX1HS, DS620, DS820, and QW410
+     [4] Only supported by DS620, DS820, and QW410
 
  ***************************************************************************
   BACKEND=magicard
