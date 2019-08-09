@@ -1158,6 +1158,44 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 				break;
 			}
 			break;
+		case P_DNP_DS620:
+			switch (ctx->media) {
+			case 200: // L
+				ctx->media_count_new = 420;
+				break;
+			case 210: // 2L
+				ctx->media_count_new = 230;
+				break;
+			case 300: // PC
+				ctx->media_count_new = 400;
+				break;
+			case 310: // A5
+				ctx->media_count_new = 200;
+				break;
+			case 400: // A5W
+				ctx->media_count_new = 180;
+				break;
+			default:
+				ctx->media_count_new = 0;
+				break;
+			}
+			break;
+		case P_DNP_DS820:
+			switch (ctx->media) {
+			case 500: // 8x10
+				ctx->media_count_new = 260; // ???
+				break;
+			case 510: // 8x12
+				ctx->media_count_new = 220; // ???
+				break;
+			case 600: // A4
+				ctx->media_count_new = 220; // ???
+				break;
+			default:
+				ctx->media_count_new = 0;
+				break;
+			}
+			break;
 		default:
 			ctx->media_count_new = 0;
 			break;
