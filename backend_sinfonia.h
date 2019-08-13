@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.06"
+#define LIBSINFONIA_VER "0.07"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -156,6 +156,8 @@ const char *sinfonia_print_methods (uint8_t v);
 #define FWINFO_TARGET_MAIN_APP     0x02
 #define FWINFO_TARGET_PRINT_TABLES 0x03
 #define FWINFO_TARGET_DSP          0x04
+#define FWINFO_TARGET_USB          0x06
+#define FWINFO_TARGET_PRINT_TABLES2 0x07
 
 const char *sinfonia_fwinfo_targets (uint8_t v);
 
@@ -436,7 +438,7 @@ const char *sinfonia_cmd_names(uint16_t v);
 //#define KODAK6_MEDIA_6FR2    // 6900-compatible, 102-5925
 #define KODAK6_MEDIA_NONE 0x00
 //#define KODAK7_MEDIA_5R      // 164-9011 137-0600
-#define KODAK7_MEDIA_6R   0x29 // 659-9047 166-1925 396-2966 846-2004 103-7688 DNP-900-070
+#define KODAK7_MEDIA_6R   0x29 // 659-9047 166-1925 396-2966 846-2004 103-7688 DNP-900-070 -- ALSO FUJI R68-D2P570 16578944
 //#define KODAK7_MEDIA_6TA2
 //#define KODAK7_MEDIA_5TA2
 

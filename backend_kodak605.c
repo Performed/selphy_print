@@ -287,16 +287,21 @@ static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_li
 {
 	struct sinfonia_cmd_hdr cmd;
 
-	int ret, num = 0;
+	int i, ret, num = 0;
 
 	cmd.cmd = cpu_to_le16(SINFONIA_CMD_MEDIAINFO);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret =sinfonia_docmd(&ctx->dev,
-				 (uint8_t*)&cmd, sizeof(cmd),
-				 (uint8_t*)media, MAX_MEDIA_LEN,
-				 &num))) {
+	if ((ret = sinfonia_docmd(&ctx->dev,
+				  (uint8_t*)&cmd, sizeof(cmd),
+				  (uint8_t*)media, MAX_MEDIA_LEN,
+				  &num))) {
 		return ret;
+	}
+
+	for (i = 0 ; i < media->count; i++) {
+		media->entries[i].rows = le16_to_cpu(media->entries[i].rows);
+		media->entries[i].columns = le16_to_cpu(media->entries[i].columns);
 	}
 
 	return 0;
@@ -624,9 +629,10 @@ static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
 
 	DEBUG("Legal print sizes:\n");
 	for (i = 0 ; i < media->count ; i++) {
-		DEBUG("\t%d: %ux%u\n", i,
-		      le16_to_cpu(media->entries[i].columns),
-		      le16_to_cpu(media->entries[i].rows));
+		DEBUG("\t%d: %ux%u (%x)\n", i,
+		      media->entries[i].columns,
+		      media->entries[i].rows,
+		      media->entries[i].code);
 	}
 	DEBUG("\n");
 }
@@ -735,7 +741,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605/70xx",
-	.version = "0.43" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.44" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
