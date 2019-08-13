@@ -43,6 +43,7 @@
    Kodak 6800 Photo Printer
    Kodak 6850 Photo Printer
    Kodak 7000 Photo Printer
+   Kodak 8810 Photo Printer
    Magicard Tango 2E
    Mitsubishi CP-3800DW
    Mitsubishi CP-9550D/DW/DW-S/DZ/DZ-S
@@ -69,7 +70,6 @@
    ICI Imagedata OP900
    Kodak 6900
    Kodak 7010 / 7015
-   Kodak 8810
    Magicard Rio 2E (and other Magicard models)
    Mitsubishi CP-3020D/DE and CP-3020DA/DAE
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
@@ -710,10 +710,13 @@
 
      shinkos6245 hitip910
 
+   Verified supported printers:
+
+     Kodak 8810
+
    Work-in-process printers:
 
      HiTi P910L
-     Kodak 8810
      Shinko CHC-S6245 (aka "Sinfonia CE1")
 
    Valid commands:
