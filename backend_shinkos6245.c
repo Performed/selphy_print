@@ -817,7 +817,7 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 #else
 	if (ctx->media.ribbon_code != RIBBON_8x12 &&
 	    ctx->media.ribbon_code != RIBBON_8x12K &&
-	    job->jp.rows > 3000) {
+	    job->jp.rows > 3024) {
 		ERROR("Incorrect media loaded for print!\n");
 		return CUPS_BACKEND_HOLD;
 	}
