@@ -325,7 +325,9 @@ struct sinfonia_printcmd18_hdr {
 	uint16_t copies;
 	uint16_t columns;
 	uint16_t rows;
-	uint8_t  reserved[8]; // columns and rows repeated, then nulls
+	uint16_t columns2;
+	uint16_t rows2;
+	uint8_t  reserved[4]; // then nulls
 	uint8_t  oc_mode;
 	uint8_t  method;
 	uint8_t  media; // reserved?
