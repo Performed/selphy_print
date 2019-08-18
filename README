@@ -74,6 +74,7 @@
    Mitsubishi CP-3020D/DE and CP-3020DA/DAE
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
+   Mitsubishi CP-M1E
    Olmec OP900
    Shinko CHC-S2245 (aka Sinfonia S3)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
@@ -882,6 +883,10 @@
 
     Mitsubishi CP-D90DW
 
+   Work-in-progress printers:
+
+    Mitsubishi CP-M1E
+
    Unsupported printers (Unknown VID/PID):
 
     Mitsubishi CP-D90DW-P
@@ -891,6 +896,13 @@
    the same system.  If you wish to use more than one of these
    simultaneously, you must enable the 'iSerial' mode by using the '-x'
    command as described below.
+
+   *** VERY IMPORTANT ***
+
+     In order to generate usable output, the Mitsubishi CP-M1E printer 
+     requires the input data to be transformed using specific image 
+     processing algorithms.  These are currently only implemented within
+     Mitsubishi's proprietary drivers.
 
    Valid commands:
 
