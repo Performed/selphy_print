@@ -391,7 +391,7 @@ static int kodak6800_get_status(struct kodak6800_ctx *ctx,
 	return 0;
 }
 
-static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
+static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, char *fname)
 {
 	uint8_t cmdbuf[16];
 	uint8_t respbuf[64];
@@ -418,8 +418,8 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	cmdbuf[8] = 0x4e;
 	cmdbuf[9] = 0x45;
 	cmdbuf[10] = 0x72;
-	cmdbuf[11] = 0x01; /* 01 for user tonecurve, can be 00 or 02 */
-	cmdbuf[12] = 0x00; /* param table? */
+	cmdbuf[11] = curve;
+	cmdbuf[12] = PARAM_TABLE_NONE;
 	cmdbuf[13] = 0x00;
 	cmdbuf[14] = 0x00;
 	cmdbuf[15] = 0x00;
@@ -489,7 +489,7 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	return ret;
 }
 
-static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
+static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, char *fname)
 {
 	uint8_t cmdbuf[64];
 	uint8_t respbuf[64];
@@ -529,8 +529,8 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	cmdbuf[8] = 0x4e;
 	cmdbuf[9] = 0x45;
 	cmdbuf[10] = 0x77;
-	cmdbuf[11] = 0x01; /* User TC.  Can be 00 or 02 */
-	cmdbuf[12] = 0x00; /* param table? */
+	cmdbuf[11] = curve;
+	cmdbuf[12] = PARAM_TABLE_NONE;
 	cmdbuf[13] = 0x00;
 	cmdbuf[14] = 0x00;
 	cmdbuf[15] = 0x00;
@@ -671,8 +671,10 @@ static int kodak6850_send_unk(struct kodak6800_ctx *ctx)
 
 static void kodak6800_cmdline(void)
 {
-	DEBUG("\t\t[ -c filename ]  # Get tone curve\n");
-	DEBUG("\t\t[ -C filename ]  # Set tone curve\n");
+	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
+	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
+	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
+	DEBUG("\t\t[ -L filename ]  # Set current tone curve\n");
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -R ]           # Reset printer\n");
@@ -687,14 +689,20 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "C:c:mRsX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "C:c:L:l:mRsX:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'c':
-			j = kodak6800_get_tonecurve(ctx, optarg);
+			j = kodak6800_get_tonecurve(ctx, TONE_TABLE_USER, optarg);
 			break;
 		case 'C':
-			j = kodak6800_set_tonecurve(ctx, optarg);
+			j = kodak6800_set_tonecurve(ctx, TONE_TABLE_USER, optarg);
+			break;
+		case 'l':
+			j = kodak6800_get_tonecurve(ctx, TONE_TABLE_CURRENT, optarg);
+			break;
+		case 'L':
+			j = kodak6800_set_tonecurve(ctx, TONE_TABLE_CURRENT, optarg);
 			break;
 		case 'm':
 			kodak68x0_dump_mediainfo(ctx->sizes, ctx->media_count, ctx->media_type);
@@ -1092,7 +1100,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.73" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.74" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

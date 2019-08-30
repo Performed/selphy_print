@@ -430,6 +430,8 @@
 
      -c filename        Query tone curve [1]
      -C filename        Set tone curve   [1]
+     -l filename        Query Current tone curve from RAM [1]
+     -L filename        Store Current tone curve in RAM   [1]
      -m                 Query media information
      -s                 Query printer status
      -R                 Reset printer to factory defaults
@@ -899,8 +901,8 @@
 
    *** VERY IMPORTANT ***
 
-     In order to generate usable output, the Mitsubishi CP-M1E printer 
-     requires the input data to be transformed using specific image 
+     In order to generate usable output, the Mitsubishi CP-M1E printer
+     requires the input data to be transformed using specific image
      processing algorithms.  These are currently only implemented within
      Mitsubishi's proprietary drivers.
 

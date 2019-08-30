@@ -456,6 +456,17 @@ void kodak6_dumpmediacommon(int type);
 /* ********** Below are for the old S1145 (EK68xx) and S1245 only! */
 
 enum {
+	TONE_TABLE_STANDARD = 0,
+	TONE_TABLE_USER = 1,
+	TONE_TABLE_CURRENT = 2,
+};
+enum {
+	PARAM_TABLE_NONE = 0,
+	PARAM_TABLE_STANDARD = 1,
+	PARAM_TABLE_FINE = 2,
+};
+
+enum {
 	CMD_CODE_OK = 1,
 	CMD_CODE_BAD = 2,
 };
