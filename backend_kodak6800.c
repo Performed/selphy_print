@@ -264,7 +264,8 @@ static int kodak68x0_reset(struct kodak6800_ctx *ctx)
 	req[1] = 0x1b;
 	req[2] = 0x43;
 	req[3] = 0x48;
-	req[4] = 0xc0;
+	req[4] = 0x43;
+	req[5] = 0xc0;
 
 	/* Issue command and get response */
 	if ((ret = kodak6800_do_cmd(ctx, req, sizeof(req),
@@ -1100,7 +1101,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.74" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.75" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
