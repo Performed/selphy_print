@@ -165,6 +165,16 @@ static void kodak68x0_dump_mediainfo(struct sinfonia_mediainfo_item *sizes,
 	INFO("\n");
 }
 
+static void kodak6800_fillhdr(uint8_t *req, uint8_t cmd)
+{
+	req[0] = 0x03;  /* CMD type */
+	req[1] = 0x1b;  /* ESC */
+	req[2] = 0x43;  /* C */
+	req[3] = 0x48;  /* H */
+	req[4] = 0x43;  /* C */
+	req[5] = cmd;  /* Commmand code */
+}
+
 #define MAX_MEDIA_LEN (sizeof(struct kodak68x0_media_readback) + MAX_MEDIAS * sizeof(struct sinfonia_mediainfo_item))
 
 static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
@@ -182,13 +192,7 @@ static int kodak6800_get_mediainfo(struct kodak6800_ctx *ctx)
 
 	for (j = 0 ; j < 2 ; j ++) {
 		memset(media, 0, sizeof(*media));
-
-		req[0] = 0x03;
-		req[1] = 0x1b;
-		req[2] = 0x43;
-		req[3] = 0x48;
-		req[4] = 0x43;
-		req[5] = 0x1a;
+		kodak6800_fillhdr(req, 0x1a);
 		req[6] = j;
 
 		/* Issue command and get response */
@@ -229,13 +233,7 @@ static int kodak68x0_canceljob(struct kodak6800_ctx *ctx,
 	int ret, num;
 
 	memset(req, 0, sizeof(req));
-
-	req[0] = 0x03;
-	req[1] = 0x1b;
-	req[2] = 0x43;
-	req[3] = 0x48;
-	req[4] = 0x43;
-	req[5] = 0x13;
+	kodak6800_fillhdr(req, 0x13);
 	req[6] = id;
 
 	/* Issue command and get response */
@@ -259,13 +257,7 @@ static int kodak68x0_reset(struct kodak6800_ctx *ctx)
 	int ret, num;
 
 	memset(req, 0, sizeof(req));
-
-	req[0] = 0x03;
-	req[1] = 0x1b;
-	req[2] = 0x43;
-	req[3] = 0x48;
-	req[4] = 0x43;
-	req[5] = 0xc0;
+	kodak6800_fillhdr(req, 0xc0);
 
 	/* Issue command and get response */
 	if ((ret = kodak6800_do_cmd(ctx, req, sizeof(req),
@@ -367,12 +359,7 @@ static int kodak6800_get_status(struct kodak6800_ctx *ctx,
 	memset(req, 0, sizeof(req));
 	memset(status, 0, sizeof(*status));
 
-	req[0] = 0x03;
-	req[1] = 0x1b;
-	req[2] = 0x43;
-	req[3] = 0x48;
-	req[4] = 0x43;
-	req[5] = 0x03;
+	kodak6800_fillhdr(req, 0x03);
 
 	/* Issue command and get response */
 	if ((ret = kodak6800_do_cmd(ctx, req, sizeof(req),
@@ -408,12 +395,7 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, cha
 	INFO("Dump Tone Curve to '%s'\n", fname);
 
 	/* Initial Request */
-	cmdbuf[0] = 0x03;
-	cmdbuf[1] = 0x1b;
-	cmdbuf[2] = 0x43;
-	cmdbuf[3] = 0x48;
-	cmdbuf[4] = 0x43;
-	cmdbuf[5] = 0x0c;
+	kodak6800_fillhdr(cmdbuf, 0x0c);
 	cmdbuf[6] = 0x54;
 	cmdbuf[7] = 0x4f;
 	cmdbuf[8] = 0x4e;
@@ -439,12 +421,7 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, cha
 	}
 
 	/* Then we can poll the data */
-	cmdbuf[0] = 0x03;
-	cmdbuf[1] = 0x1b;
-	cmdbuf[2] = 0x43;
-	cmdbuf[3] = 0x48;
-	cmdbuf[4] = 0x43;
-	cmdbuf[5] = 0x0c;
+	kodak6800_fillhdr(cmdbuf, 0x0c);
 	cmdbuf[6] = 0x54;
 	cmdbuf[7] = 0x4f;
 	cmdbuf[8] = 0x4e;
@@ -519,12 +496,7 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, cha
 	}
 
 	/* Initial Request */
-	cmdbuf[0] = 0x03;
-	cmdbuf[1] = 0x1b;
-	cmdbuf[2] = 0x43;
-	cmdbuf[3] = 0x48;
-	cmdbuf[4] = 0x43;
-	cmdbuf[5] = 0x0c;
+	kodak6800_fillhdr(cmdbuf, 0x0c);
 	cmdbuf[6] = 0x54;
 	cmdbuf[7] = 0x4f;
 	cmdbuf[8] = 0x4e;
@@ -605,12 +577,7 @@ static int kodak6800_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 	memset(req, 0, sizeof(req));
 	memset(resp, 0, sizeof(resp));
 
-	req[0] = 0x03;
-	req[1] = 0x1b;
-	req[2] = 0x43;
-	req[3] = 0x48;
-	req[4] = 0x43;
-	req[5] = 0x12;
+	kodak6800_fillhdr(req, 0x12);
 
 	/* Issue command and get response */
 	if ((ret = kodak6800_do_cmd(&ctx, req, sizeof(req),
@@ -636,12 +603,7 @@ static int kodak6850_send_unk(struct kodak6800_ctx *ctx)
 	int ret = 0, num = 0;
 
 	memset(cmdbuf, 0, sizeof(cmdbuf));
-	cmdbuf[0] = 0x03;
-	cmdbuf[1] = 0x1b;
-	cmdbuf[2] = 0x43;
-	cmdbuf[3] = 0x48;
-	cmdbuf[4] = 0x43;
-	cmdbuf[5] = 0x4c;
+	kodak6800_fillhdr(cmdbuf, 0x4c);
 
 	/* Issue command and get response */
 	if ((ret = kodak6800_do_cmd(ctx, cmdbuf, sizeof(cmdbuf),
@@ -1006,12 +968,7 @@ static int kodak6800_main_loop(void *vctx, const void *vjob) {
 
 	/* Fill out printjob header */
 	struct kodak6800_hdr hdr;
-	hdr.hdr[0] = 0x03;
-	hdr.hdr[1] = 0x1b;
-	hdr.hdr[2] = 0x43;
-	hdr.hdr[3] = 0x48;
-	hdr.hdr[4] = 0x43;
-	hdr.hdr[5] = 0x0a;
+	kodak6800_fillhdr(hdr.hdr, 0x0a);
 	hdr.hdr[6] = 0x00;
 	hdr.jobid = ctx->jobid;
 	hdr.copies = uint16_to_packed_bcd(copies);
