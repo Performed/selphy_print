@@ -1002,7 +1002,6 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	uint8_t cmdbuf[CMDBUF_LEN];
 
 	int last_state = -1, state = S_IDLE;
-	uint8_t mcut;
 	int copies;
 
 	struct sinfonia_cmd_hdr *cmd = (struct sinfonia_cmd_hdr *) cmdbuf;;
@@ -1025,13 +1024,14 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	case CODE_8x4_2:
 	case CODE_8x5_2:
 	case CODE_8x6_2:
-		mcut = PRINT_METHOD_COMBO_2;
+		job->jp.method = PRINT_METHOD_COMBO_2;
 		break;
 	case CODE_8x4_3:
-		mcut = PRINT_METHOD_COMBO_3;
+		job->jp.method = PRINT_METHOD_COMBO_3;
 		break;
 	default:
-		mcut = PRINT_METHOD_STD;
+		job->jp.method = PRINT_METHOD_STD;
+		break;
 	}
 	// XXX what about mcut |= PRINT_METHOD_DISABLE_ERR;
 
@@ -1163,7 +1163,8 @@ top:
 		print->columns = print->columns2 = cpu_to_le16(job->jp.columns);
 		print->rows = print->rows2 = cpu_to_le16(job->jp.rows);
 		print->mode = job->jp.oc_mode;
-		print->method = mcut;
+		print->method = job->jp.method;
+		print->reserved2 = job->jp.media;
 
 		if ((ret = sinfonia_docmd(&ctx->dev,
 					  cmdbuf, sizeof(*print),
@@ -1179,7 +1180,7 @@ top:
 			} else if ((resp.status & 0xf0) == 0x30 || sts.hdr.status == ERROR_BUFFER_FULL) {
 				INFO("Printer busy (%s), retrying\n", sinfonia_status_str(sts.hdr.status));
 				break;
-			} else if (resp.status != ERROR_NONE)
+			} else if (resp.status != ERROR_NONE || resp.error == ERROR_INVALID_PARAM)
 				goto printer_error;
 		}
 
@@ -1298,7 +1299,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Sinfonia CHC-S6245 / Kodak 8810",
-	.version = "0.23" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.24" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,

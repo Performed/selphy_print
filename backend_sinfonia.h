@@ -421,6 +421,9 @@ const char *sinfonia_status_str(uint8_t v);
 #define SINFONIA_CMD_BUTTON     0x4006 // 2145 only
 #define SINFONIA_CMD_SETPARAM   0x4007
 
+#define SINFONIA_CMD_UNKNOWN    0x4008 // 8810 only, panorama status?
+#define SINFONIA_CMD_UNKNOWN2   0x400C // 8810 only, panorama setup?
+
 #define SINFONIA_CMD_GETUNIQUE  0x8003 // 2145 only
 
 #define SINFONIA_CMD_GETCORR    0x400D
