@@ -172,8 +172,8 @@ struct device_id {
 	uint16_t vid;
 	uint16_t pid;
 	int type;  /* P_** */
-	char *manuf_str;
-	char *prefix;
+	const char *manuf_str;
+	const char *prefix;
 };
 
 struct marker {
@@ -190,7 +190,7 @@ struct dyesub_backend {
 	const char *name;
 	const char *version;
 	const char **uri_prefixes;
-	uint32_t flags;
+	const uint32_t flags;
 	void (*cmdline_usage)(void);  /* Optional */
 	void *(*init)(void);
 	int  (*attach)(void *ctx, struct libusb_device_handle *dev, int type,
@@ -209,7 +209,7 @@ struct dyesub_backend {
 
 struct dyesub_joblist {
 	// TODO: mutex/lock
-	struct dyesub_backend *backend;
+	const struct dyesub_backend *backend;
 	void *ctx;
 	int num_entries;
 	int copies;
@@ -222,16 +222,16 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 int read_data(struct libusb_device_handle *dev, uint8_t endp,
 	      uint8_t *buf, int buflen, int *readlen);
 
-void dump_markers(struct marker *markers, int marker_count, int full);
+void dump_markers(const struct marker *markers, int marker_count, int full);
 
 void print_license_blurb(void);
-void print_help(char *argv0, struct dyesub_backend *backend);
+void print_help(const char *argv0, const struct dyesub_backend *backend);
 
-int dyesub_read_file(char *filename, void *databuf, int datalen,
+int dyesub_read_file(const char *filename, void *databuf, int datalen,
 		     int *actual_len);
 
 uint16_t uint16_to_packed_bcd(uint16_t val);
-uint32_t packed_bcd_to_uint32(char *in, int len);
+uint32_t packed_bcd_to_uint32(const char *in, int len);
 
 void generic_teardown(void *vctx);
 
@@ -241,7 +241,7 @@ int backend_claim_interface(struct libusb_device_handle *dev, int iface,
 			    int num_claim_attempts);
 
 /* Job list manipulation */
-struct dyesub_joblist *dyesub_joblist_create(struct dyesub_backend *backend, void *ctx);
+struct dyesub_joblist *dyesub_joblist_create(const struct dyesub_backend *backend, void *ctx);
 int dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job);
 void dyesub_joblist_cleanup(const struct dyesub_joblist *list);
 int dyesub_joblist_print(const struct dyesub_joblist *list);

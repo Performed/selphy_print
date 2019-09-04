@@ -347,8 +347,10 @@ static char from_hex(char ch) {
 	return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
 }
 /* Note -- caller must free returned pointer! */
-static char *url_encode(char *str) {
-	char *pstr = str, *buf = malloc(strlen(str) * 3 + 1), *pbuf = buf;
+static char *url_encode(const char *str) {
+	const char *pstr = str;
+	char *buf = malloc(strlen(str) * 3 + 1);
+	char *pbuf = buf;
 
 	if (!buf) {
 		ERROR("Memory allocation failure (%d bytes)\n", (int) strlen(str)*3 + 1);
@@ -397,9 +399,9 @@ static char *url_decode(char *str) {
 static int probe_device(struct libusb_device *device,
 			struct libusb_device_descriptor *desc,
 			const char *uri_prefix,
-			const char *prefix, char *manuf_override,
+			const char *prefix, const char *manuf_override,
 			int found, int num_claim_attempts,
-			int scan_only, char *match_serno,
+			int scan_only, const char *match_serno,
 			uint8_t *r_iface, uint8_t *r_altset,
 			uint8_t *r_endp_up, uint8_t *r_endp_down,
 			struct dyesub_backend *backend)
@@ -716,8 +718,8 @@ static struct dyesub_backend *backends[] = {
 
 static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
-			      struct dyesub_backend *backend,
-			      char *match_serno,
+			      const struct dyesub_backend *backend,
+			      const char *match_serno,
 			      int scan_only, int num_claim_attempts,
 			      uint8_t *r_iface, uint8_t *r_altset,
 			      uint8_t *r_endp_up, uint8_t *r_endp_down)
@@ -789,7 +791,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	return found;
 }
 
-static struct dyesub_backend *find_backend(char *uri_prefix)
+static struct dyesub_backend *find_backend(const char *uri_prefix)
 {
 	int i;
 
@@ -853,12 +855,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.\n\
 	fprintf(stderr, "%s", license);
 }
 
-void print_help(char *argv0, struct dyesub_backend *backend)
+void print_help(const char *argv0, const struct dyesub_backend *backend)
 {
 	struct libusb_context *ctx = NULL;
 	struct libusb_device **list = NULL;
 
-	char *ptr = strrchr(argv0, '/');
+	const char *ptr = strrchr(argv0, '/');
 	if (ptr)
 		ptr++;
 	else
@@ -1378,7 +1380,7 @@ done:
 	return ret;
 }
 
-void dump_markers(struct marker *markers, int marker_count, int full)
+void dump_markers(const struct marker *markers, int marker_count, int full)
 {
 	int i;
 
@@ -1466,7 +1468,7 @@ minimal:
 	}
 }
 
-int dyesub_read_file(char *filename, void *databuf, int datalen,
+int dyesub_read_file(const char *filename, void *databuf, int datalen,
 		     int *actual_len)
 {
 	int len;
@@ -1516,7 +1518,7 @@ uint16_t uint16_to_packed_bcd(uint16_t val)
         return bcd;
 }
 
-uint32_t packed_bcd_to_uint32(char *in, int len)
+uint32_t packed_bcd_to_uint32(const char *in, int len)
 {
 	uint32_t out = 0;
 
@@ -1531,7 +1533,7 @@ uint32_t packed_bcd_to_uint32(char *in, int len)
 }
 
 /* Job list manipulation */
-struct dyesub_joblist *dyesub_joblist_create(struct dyesub_backend *backend, void *ctx)
+struct dyesub_joblist *dyesub_joblist_create(const struct dyesub_backend *backend, void *ctx)
 {
 	struct dyesub_joblist *list;
 
