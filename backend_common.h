@@ -101,8 +101,10 @@
 
 #define cpu_to_le16 le16_to_cpu
 #define cpu_to_le32 le32_to_cpu
+#define cpu_to_le64 le64_to_cpu
 #define cpu_to_be16 be16_to_cpu
 #define cpu_to_be32 be32_to_cpu
+#define cpu_to_be64 be64_to_cpu
 
 /* To cheat the compiler */
 #define UNUSED(expr) do { (void)(expr); } while (0)
