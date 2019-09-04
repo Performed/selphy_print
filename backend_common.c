@@ -30,7 +30,7 @@
 #include "backend_common.h"
 #include <errno.h>
 
-#define BACKEND_VERSION "0.94"
+#define BACKEND_VERSION "0.95"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -1170,7 +1170,7 @@ int main (int argc, char **argv)
 	/* Detach the kernel driver */
 	if (libusb_kernel_driver_active(dev, iface)) {
 		ret = libusb_detach_kernel_driver(dev, iface);
-		if (ret) {
+		if (ret && (ret != LIBUSB_ERROR_NOT_SUPPORTED)) {
 			ERROR("Printer open failure (Could not detach printer from kernel) (%d)\n", ret);
 			ret = CUPS_BACKEND_RETRY_CURRENT;
 			goto done_close;
