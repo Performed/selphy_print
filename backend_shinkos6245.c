@@ -566,20 +566,12 @@ struct s6245_geteeprom_resp {
 	uint8_t data[256];
 } __attribute__((packed));
 
-struct s6245_mediainfo_resp {
-	struct sinfonia_status_hdr hdr;
-	uint8_t ribbon_code;
-	uint8_t reserved;
-	uint8_t count;
-	struct sinfonia_mediainfo_item items[10];  /* Not all necessarily used */
-} __attribute__((packed));
-
 #define RIBBON_NONE 0x00
 #define RIBBON_8x10 0x11
 #define RIBBON_8x12 0x12
 
-#define RIBBON_8x10K 0x03  /* XXX GUESS - EK8810 */
-#define RIBBON_8x12K 0x04  /* EK8810 */
+#define RIBBON_8x10K 0x03  /* XXX GUESS - EK8810 (129-4966/109-9787) */
+#define RIBBON_8x12K 0x04  /* EK8810 (127-7268/115-6413 or equiv) */
 
 static const char *ribbon_sizes (uint8_t v) {
 	switch (v) {
@@ -603,7 +595,7 @@ static int ribbon_counts (uint8_t v) {
 	case RIBBON_8x12:
 		return 100;
 	case RIBBON_8x10K:
-		return 250;
+		return 300;
 	case RIBBON_8x12K:
 		return 250;
 	default:
@@ -651,7 +643,7 @@ struct shinkos6245_ctx {
 
 	struct marker marker;
 
-	struct s6245_mediainfo_resp media;
+	struct sinfonia_6x45_mediainfo_resp media;
 };
 
 #define CMDBUF_LEN sizeof(struct s6245_print_cmd)
@@ -774,7 +766,7 @@ static int get_errorlog(struct shinkos6245_ctx *ctx)
 	return 0;
 }
 
-static void dump_mediainfo(struct s6245_mediainfo_resp *resp)
+static void dump_mediainfo(struct sinfonia_6x45_mediainfo_resp *resp)
 {
 	int i;
 
@@ -906,8 +898,6 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 {
 	struct shinkos6245_ctx *ctx = vctx;
 
-	int num;
-
 	ctx->dev.dev = dev;
 	ctx->dev.endp_up = endp_up;
 	ctx->dev.endp_down = endp_down;
@@ -925,24 +915,10 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 
 	/* Query Media */
 	if (test_mode < TEST_MODE_NOATTACH) {
-		struct sinfonia_cmd_hdr cmd;
-		cmd.cmd = cpu_to_le16(SINFONIA_CMD_MEDIAINFO);
-		cmd.len = cpu_to_le16(0);
-
-		if (sinfonia_docmd(&ctx->dev,
-				   (uint8_t*)&cmd, sizeof(cmd),
-				   (uint8_t*)&ctx->media, sizeof(ctx->media),
-				   &num)) {
-			return CUPS_BACKEND_FAILED;
-		}
-
-		/* Byteswap media descriptor.. */
-		int i;
-		for (i = 0 ; i < ctx->media.count ; i++) {
-			ctx->media.items[i].columns = le16_to_cpu(ctx->media.items[i].columns);
-			ctx->media.items[i].rows = le16_to_cpu(ctx->media.items[i].rows);
-		}
-
+		int ret = sinfonia_query_media(&ctx->dev,
+					       &ctx->media);
+		if (ret)
+			return ret;
 	} else {
 		int media_code = RIBBON_8x12;
 		if (getenv("MEDIA_CODE"))
@@ -1035,7 +1011,7 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	}
 	// XXX what about mcut |= PRINT_METHOD_DISABLE_ERR;
 
-#if 0
+#if 0  /* Doesn't work on EK8810.  Not sure about S6245 */
 	int i;
 	/* Validate print sizes */
 	for (i = 0; i < ctx->media.count ; i++) {
@@ -1164,7 +1140,7 @@ top:
 		print->rows = print->rows2 = cpu_to_le16(job->jp.rows);
 		print->mode = job->jp.oc_mode;
 		print->method = job->jp.method;
-		print->reserved2 = job->jp.media;
+//		print->reserved2 = job->jp.media;  /* Ignored */
 
 		if ((ret = sinfonia_docmd(&ctx->dev,
 					  cmdbuf, sizeof(*print),
@@ -1224,36 +1200,6 @@ fail:
 	return CUPS_BACKEND_FAILED;
 }
 
-static int shinkos6245_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
-{
-	struct sinfonia_cmd_hdr cmd;
-	struct sinfonia_getserial_resp resp;
-	int ret, num = 0;
-
-	struct sinfonia_usbdev sdev = {
-		.dev = dev,
-		.endp_up = endp_up,
-		.endp_down = endp_down,
-	};
-
-	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETSERIAL);
-	cmd.len = cpu_to_le16(0);
-
-	if ((ret = sinfonia_docmd(&sdev,
-				  (uint8_t*)&cmd, sizeof(cmd),
-				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
-		return ret;
-	}
-
-	/* Copy and Null-terminate */
-	num = (buf_len > (int)sizeof(resp.data)) ? (int)sizeof(resp.data) : (buf_len - 1);
-	memcpy(buf, resp.data, num);
-	buf[num] = 0;
-
-	return CUPS_BACKEND_OK;
-}
-
 static int shinkos6245_query_markers(void *vctx, struct marker **markers, int *count)
 {
 	struct shinkos6245_ctx *ctx = vctx;
@@ -1299,7 +1245,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Sinfonia CHC-S6245 / Kodak 8810",
-	.version = "0.24" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.25" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,
@@ -1308,7 +1254,7 @@ struct dyesub_backend shinkos6245_backend = {
 	.cleanup_job = sinfonia_cleanup_job,
 	.read_parse = shinkos6245_read_parse,
 	.main_loop = shinkos6245_main_loop,
-	.query_serno = shinkos6245_query_serno,
+	.query_serno = sinfonia_query_serno,
 	.query_markers = shinkos6245_query_markers,
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, NULL, "shinfonia-chcs6245"},

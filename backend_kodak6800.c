@@ -324,19 +324,9 @@ static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_st
 	INFO("\tCutter        : %u\n", be32_to_cpu(status->cutter));
 
 	if (ctx->type == P_KODAK_6850) {
-		int max;
+		int max = kodak6_mediamax(ctx->media_type);
 
 		INFO("\tMedia         : %u\n", be32_to_cpu(status->media));
-
-		switch(ctx->media_type) {
-		case KODAK6_MEDIA_6R:
-		case KODAK6_MEDIA_6TR2:
-			max = 375;
-			break;
-		default:
-			max = 0;
-			break;
-		}
 
 		if (max) {
 			INFO("\t  Remaining   : %u\n", max - be32_to_cpu(status->media));
@@ -1058,7 +1048,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.75" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.76" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

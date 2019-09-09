@@ -166,7 +166,7 @@ int sinfonia_raw10_read_parse(int data_fd, struct sinfonia_printjob *job)
 		return CUPS_BACKEND_CANCEL;
 	}
 	/* Validate header */
-	if (le16_to_cpu(hdr.hdr.cmd) != 0x4001 ||
+	if (le16_to_cpu(hdr.hdr.cmd) != SINFONIA_CMD_PRINTJOB ||
 	    le16_to_cpu(hdr.hdr.len) != 10) {
 		ERROR("Unrecognized data format!\n");
 		return CUPS_BACKEND_CANCEL;
@@ -683,6 +683,63 @@ done:
 	return ret;
 }
 
+int sinfonia_query_media(struct sinfonia_usbdev *dev,
+			 void *resp)
+{
+	struct sinfonia_cmd_hdr cmd;
+	int i, num;
+
+	struct sinfonia_6x45_mediainfo_resp *media = resp;
+
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_MEDIAINFO);
+	cmd.len = cpu_to_le16(0);
+
+	if (sinfonia_docmd(dev,
+			   (uint8_t*)&cmd, sizeof(cmd),
+			   (uint8_t*)media, sizeof(*media),
+			   &num)) {
+		return CUPS_BACKEND_FAILED;
+	}
+
+	/* Byteswap media descriptor.. */
+	for (i = 0 ; i < media->count ; i++) {
+		media->items[i].columns = le16_to_cpu(media->items[i].columns);
+		media->items[i].rows = le16_to_cpu(media->items[i].rows);
+	}
+
+	return CUPS_BACKEND_OK;
+}
+
+int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+{
+	struct sinfonia_cmd_hdr cmd;
+	struct sinfonia_getserial_resp resp;
+	int ret, num = 0;
+
+	struct sinfonia_usbdev sdev = {
+		.dev = dev,
+		.endp_up = endp_up,
+		.endp_down = endp_down,
+	};
+
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETSERIAL);
+	cmd.len = cpu_to_le16(0);
+
+	if ((ret = sinfonia_docmd(&sdev,
+				  (uint8_t*)&cmd, sizeof(cmd),
+				  (uint8_t*)&resp, sizeof(resp),
+				  &num)) < 0) {
+		return ret;
+	}
+
+	/* Copy and Null-terminate */
+	num = (buf_len > (int)sizeof(resp.data)) ? (int)sizeof(resp.data) : (buf_len - 1);
+	memcpy(buf, resp.data, num);
+	buf[num] = 0;
+
+	return CUPS_BACKEND_OK;
+}
+
 const char *sinfonia_update_targets (uint8_t v) {
 	switch (v) {
 	case UPDATE_TARGET_USER:
@@ -989,14 +1046,35 @@ const char *kodak6_mediatypes(int type)
 	return "Unknown";
 }
 
+int kodak6_mediamax(int type)
+{
+	switch(type) {
+	case KODAK6_MEDIA_5R:
+	case KODAK6_MEDIA_6R:
+	case KODAK6_MEDIA_6TR2:
+		return 375;
+	case KODAK7_MEDIA_5R:
+	case KODAK7_MEDIA_6R:
+		return 570;
+	default:
+		return 0;
+	}
+}
+
 void kodak6_dumpmediacommon(int type)
 {
 	switch (type) {
+	case KODAK6_MEDIA_5R:
+		INFO("Media type: 5R (Kodak 189-9160 or equivalent)\n");
+		break;
 	case KODAK6_MEDIA_6R:
 		INFO("Media type: 6R (Kodak 197-4096 or equivalent)\n");
 		break;
 	case KODAK6_MEDIA_6TR2:
 		INFO("Media type: 6R (Kodak 396-2941 or equivalent)\n");
+		break;
+	case KODAK7_MEDIA_5R:
+		INFO("Media type: 5R (Kodak 164-9011 or equivalent)\n");
 		break;
 	case KODAK7_MEDIA_6R:
 		INFO("Media type: 6R (Kodak 659-9047 or equivalent)\n");

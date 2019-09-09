@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.08"
+#define LIBSINFONIA_VER "0.09"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -89,6 +89,8 @@ int sinfonia_geterrorlog(struct sinfonia_usbdev *usbh);
 int sinfonia_resetcurve(struct sinfonia_usbdev *usbh, int target, int id);
 int sinfonia_gettonecurve(struct sinfonia_usbdev *usbh, int type, char *fname);
 int sinfonia_settonecurve(struct sinfonia_usbdev *usbh, int target, char *fname);
+
+int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len);
 
 #define BANK_STATUS_FREE  0x00
 #define BANK_STATUS_XFER  0x01
@@ -213,6 +215,19 @@ struct sinfonia_mediainfo_item {
 	uint8_t  flag;   /* EK68xx only */
 	uint8_t  reserved[2];
 } __attribute__((packed));
+
+struct sinfonia_6x45_mediainfo_resp {
+	struct sinfonia_status_hdr hdr;
+	uint8_t ribbon_code;
+	uint8_t reserved;
+	uint8_t count;
+	struct sinfonia_mediainfo_item items[10];  /* Not all necessarily used */
+} __attribute__((packed));
+
+/* resp needs to be at least sizeof(struct sinfonia_6x45_mediainfo_resp) */
+
+int sinfonia_query_media(struct sinfonia_usbdev *usbh,
+			 void *resp);
 
 struct sinfonia_setparam_cmd {
 	struct sinfonia_cmd_hdr hdr;
@@ -404,52 +419,55 @@ const char *sinfonia_status_str(uint8_t v);
 
 #define SINFONIA_CMD_GETSTATUS  0x0001
 #define SINFONIA_CMD_MEDIAINFO  0x0002
-#define SINFONIA_CMD_MODELNAME  0x0003 // 2145 only
+#define SINFONIA_CMD_MODELNAME  0x0003 // 2145
 #define SINFONIA_CMD_ERRORLOG   0x0004
 #define SINFONIA_CMD_GETPARAM   0x0005 // !2145
 #define SINFONIA_CMD_GETSERIAL  0x0006 // !2145
 #define SINFONIA_CMD_PRINTSTAT  0x0007 // !2145
 #define SINFONIA_CMD_EXTCOUNTER 0x0008 // !2145
 
-#define SINFONIA_CMD_MEMORYBANK 0x000A // Brava 21 only?
+#define SINFONIA_CMD_MEMORYBANK 0x000A // 6145
 
 #define SINFONIA_CMD_PRINTJOB   0x4001
 #define SINFONIA_CMD_CANCELJOB  0x4002
 #define SINFONIA_CMD_FLASHLED   0x4003
 #define SINFONIA_CMD_RESET      0x4004
 #define SINFONIA_CMD_READTONE   0x4005
-#define SINFONIA_CMD_BUTTON     0x4006 // 2145 only
-#define SINFONIA_CMD_SETPARAM   0x4007
+#define SINFONIA_CMD_BUTTON     0x4006 // 2145
+#define SINFONIA_CMD_SETPARAM   0x4007 // !2145
+#define SINFONIA_CMD_UNKNOWN    0x4008 // EK8810, panorama status?
 
-#define SINFONIA_CMD_UNKNOWN    0x4008 // 8810 only, panorama status?
-#define SINFONIA_CMD_UNKNOWN2   0x400C // 8810 only, panorama setup?
+#define SINFONIA_CMD_UNKNOWN2   0x400C // EK8810, panorama setup?
+#define SINFONIA_CMD_GETCORR    0x400D // 6145/2245
+#define SINFONIA_CMD_GETEEPROM  0x400E // 6x45
+#define SINFONIA_CMD_SETEEPROM  0x400F // 6x45
 
-#define SINFONIA_CMD_GETUNIQUE  0x8003 // 2145 only
+#define SINFONIA_CMD_SETTIME    0x4011 // 6245
 
-#define SINFONIA_CMD_GETCORR    0x400D
-#define SINFONIA_CMD_GETEEPROM  0x400E
-#define SINFONIA_CMD_SETEEPROM  0x400F
-#define SINFONIA_CMD_SETTIME    0x4011 // 6245 only
+#define SINFONIA_CMD_GETUNIQUE  0x8003 // 2145
 
 #define SINFONIA_CMD_DIAGNOSTIC 0xC001 // ??
+
 #define SINFONIA_CMD_FWINFO     0xC003
 #define SINFONIA_CMD_UPDATE     0xC004
-#define SINFONIA_CMD_SETUNIQUE  0xC007 // 2145 only
+
+#define SINFONIA_CMD_SETUNIQUE  0xC007 // 2145
 
 const char *sinfonia_cmd_names(uint16_t v);
 
-//#define KODAK6_MEDIA_5R      // 189-9160
+#define KODAK6_MEDIA_5R   0xff //XX 189-9160
 #define KODAK6_MEDIA_6R   0x0b // 197-4096  [ Also: 101-0867, 141-9597, 659-9054, 169-6418, DNP-900-060 ]
 #define KODAK6_MEDIA_UNK  0x03 // ??? reported but unknown
 #define KODAK6_MEDIA_6TR2 0x2c // 396-2941
 //#define KODAK6_MEDIA_5FR2    // 6900-compatible
 //#define KODAK6_MEDIA_6FR2    // 6900-compatible, 102-5925
 #define KODAK6_MEDIA_NONE 0x00
-//#define KODAK7_MEDIA_5R      // 164-9011 137-0600
+#define KODAK7_MEDIA_5R   0xfe //XX 164-9011 137-0600
 #define KODAK7_MEDIA_6R   0x29 // 659-9047 166-1925 396-2966 846-2004 103-7688 DNP-900-070 -- ALSO FUJI R68-D2P570 16578944
 //#define KODAK7_MEDIA_6TA2
 //#define KODAK7_MEDIA_5TA2
 
+int kodak6_mediamax(int type);
 const char *kodak6_mediatypes(int type);
 void kodak6_dumpmediacommon(int type);
 

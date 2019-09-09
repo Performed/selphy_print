@@ -48,12 +48,6 @@
 #define USB_PID_KODAK_7010  0x4037
 #define USB_PID_KODAK_7015  0x4038
 
-/* List of confirmed commands */
-//#define SINFONIA_CMD_GETSTATUS  0x0001
-//#define SINFONIA_CMD_MEDIAINFO  0x0002
-//#define SINFONIA_CMD_PRINTJOB   0x4001
-//#define SINFONIA_CMD_UPDATE     0xC004
-
 /* Media structure */
 struct kodak605_media_list {
 	struct sinfonia_status_hdr hdr;
@@ -63,7 +57,7 @@ struct kodak605_media_list {
 	struct sinfonia_mediainfo_item entries[];
 } __attribute__((packed));
 
-#define MAX_MEDIA_LEN 128
+#define MAX_MEDIA_LEN (sizeof(struct kodak605_media_list) + sizeof(struct sinfonia_mediainfo_item) * 10)
 
 /* Status response */
 struct kodak605_status {
@@ -289,30 +283,6 @@ static const char *error_codes(uint8_t major, uint8_t minor)
 	}
 }
 
-static int kodak605_get_media(struct kodak605_ctx *ctx, struct kodak605_media_list *media)
-{
-	struct sinfonia_cmd_hdr cmd;
-
-	int i, ret, num = 0;
-
-	cmd.cmd = cpu_to_le16(SINFONIA_CMD_MEDIAINFO);
-	cmd.len = cpu_to_le16(0);
-
-	if ((ret = sinfonia_docmd(&ctx->dev,
-				  (uint8_t*)&cmd, sizeof(cmd),
-				  (uint8_t*)media, MAX_MEDIA_LEN,
-				  &num))) {
-		return ret;
-	}
-
-	for (i = 0 ; i < media->count; i++) {
-		media->entries[i].rows = le16_to_cpu(media->entries[i].rows);
-		media->entries[i].columns = le16_to_cpu(media->entries[i].columns);
-	}
-
-	return 0;
-}
-
 static int kodak605_get_status(struct kodak605_ctx *ctx, struct kodak605_status *sts)
 {
 	struct sinfonia_cmd_hdr cmd;
@@ -363,10 +333,10 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	if (test_mode < TEST_MODE_NOATTACH) {
 		/* Query media info */
-		if (kodak605_get_media(ctx, ctx->media)) {
-			ERROR("Can't query media\n");
-			return CUPS_BACKEND_FAILED;
-		}
+		int ret = sinfonia_query_media(&ctx->dev,
+					       &ctx->media);
+		if (ret)
+			return ret;
 	} else {
 		int media_code = KODAK6_MEDIA_6TR2;
 		if (getenv("MEDIA_CODE"))
@@ -622,20 +592,7 @@ static void kodak605_dump_status(struct kodak605_ctx *ctx, struct kodak605_statu
 	INFO("Head prints       : %u\n", le32_to_cpu(sts->ctr_head));
 	INFO("Media prints      : %u\n", le32_to_cpu(sts->ctr_media));
 	{
-		int max;
-
-		switch(ctx->media->type) {
-		case KODAK6_MEDIA_6R:
-		case KODAK6_MEDIA_6TR2:
-			max = 375;
-			break;
-		case KODAK7_MEDIA_6R:
-			max = 570;
-			break;
-		default:
-			max = 0;
-			break;
-		}
+		int max = kodak6_mediamax(ctx->media->type);
 
 		if (max) {
 			INFO("\t  Remaining     : %u\n", max - le32_to_cpu(sts->ctr_media));
@@ -771,7 +728,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605/70xx",
-	.version = "0.46" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.47" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,

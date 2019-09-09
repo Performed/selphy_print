@@ -536,14 +536,6 @@ static const char *print_ribbons (uint8_t v) {
 	}
 }
 
-struct s6145_mediainfo_resp {
-	struct sinfonia_status_hdr hdr;
-	uint8_t  ribbon;
-	uint8_t  reserved;
-	uint8_t  count;
-	struct sinfonia_mediainfo_item items[10];  /* Not all necessarily used */
-} __attribute__((packed));
-
 struct s6145_imagecorr_resp {
 	struct sinfonia_status_hdr hdr;
 	uint16_t total_size;
@@ -565,7 +557,7 @@ struct shinkos6145_ctx {
 
 	struct marker marker;
 
-	struct s6145_mediainfo_resp media;
+	struct sinfonia_6x45_mediainfo_resp media;
 
 	uint8_t *eeprom;
 	size_t eepromlen;
@@ -703,11 +695,11 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	return 0;
 }
 
-static void dump_mediainfo(struct s6145_mediainfo_resp *resp)
+static void dump_mediainfo(struct sinfonia_6x45_mediainfo_resp *resp)
 {
 	int i;
 
-	INFO("Loaded Media Type:  %s\n", print_ribbons(resp->ribbon));
+	INFO("Loaded Media Type:  %s\n", print_ribbons(resp->ribbon_code));
 	INFO("Supported Print Sizes: %u entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
 		INFO(" %02d: C 0x%02x (%s), %04ux%04u, P 0x%02x (%s)\n", i,
@@ -1025,38 +1017,23 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int 
 	if (!ctx->jobid)
 		ctx->jobid++;
 
+	/* Query Media */
 	if (test_mode < TEST_MODE_NOATTACH) {
-		/* Query Media */
-		struct sinfonia_cmd_hdr cmd;
-		int num;
-
-		cmd.cmd = cpu_to_le16(SINFONIA_CMD_MEDIAINFO);
-		cmd.len = cpu_to_le16(0);
-
-		if (sinfonia_docmd(&ctx->dev,
-				   (uint8_t*)&cmd, sizeof(cmd),
-				   (uint8_t*)&ctx->media, sizeof(ctx->media),
-				   &num)) {
-			return CUPS_BACKEND_FAILED;
-		}
-
-		/* Byteswap media descriptor.. */
-		int i;
-		for (i = 0 ; i < ctx->media.count ; i++) {
-			ctx->media.items[i].columns = le16_to_cpu(ctx->media.items[i].columns);
-			ctx->media.items[i].rows = le16_to_cpu(ctx->media.items[i].rows);
-		}
+		int ret = sinfonia_query_media(&ctx->dev,
+					       &ctx->media);
+		if (ret)
+			return ret;
 	} else {
 		int media_code = RIBBON_6x8;
 		if (getenv("MEDIA_CODE"))
 			media_code = atoi(getenv("MEDIA_CODE"));
 
-		ctx->media.ribbon = media_code;
+		ctx->media.ribbon_code = media_code;
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker.name = print_ribbons(ctx->media.ribbon);
-	ctx->marker.levelmax = ribbon_sizes(ctx->media.ribbon);
+	ctx->marker.name = print_ribbons(ctx->media.ribbon_code);
+	ctx->marker.levelmax = ribbon_sizes(ctx->media.ribbon_code);
 	ctx->marker.levelnow = -2;
 
 	return CUPS_BACKEND_OK;
@@ -1496,36 +1473,6 @@ printer_error:
 	return CUPS_BACKEND_FAILED;
 }
 
-static int shinkos6145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
-{
-	struct sinfonia_cmd_hdr cmd;
-	struct sinfonia_getserial_resp resp;
-	int ret, num = 0;
-
-	struct sinfonia_usbdev sdev = {
-		.dev = dev,
-		.endp_up = endp_up,
-		.endp_down = endp_down,
-	};
-
-	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETSERIAL);
-	cmd.len = cpu_to_le16(0);
-
-	if ((ret = sinfonia_docmd(&sdev,
-				  (uint8_t*)&cmd, sizeof(cmd),
-				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
-		return ret;
-	}
-
-	/* Copy and Null-terminate */
-	num = (buf_len > (int)sizeof(resp.data)) ? (int)sizeof(resp.data) : (buf_len - 1);
-	memcpy(buf, resp.data, num);
-	buf[num] = 0;
-
-	return CUPS_BACKEND_OK;
-}
-
 static int shinkos6145_query_markers(void *vctx, struct marker **markers, int *count)
 {
 	struct shinkos6145_ctx *ctx = vctx;
@@ -1574,7 +1521,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2/S2245/S3",
-	.version = "0.40" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.41" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
@@ -1584,7 +1531,7 @@ struct dyesub_backend shinkos6145_backend = {
 	.cleanup_job = sinfonia_cleanup_job,
 	.read_parse = shinkos6145_read_parse,
 	.main_loop = shinkos6145_main_loop,
-	.query_serno = shinkos6145_query_serno,
+	.query_serno = sinfonia_query_serno,
 	.query_markers = shinkos6145_query_markers,
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL, "sinfonia-chcs6145"},
