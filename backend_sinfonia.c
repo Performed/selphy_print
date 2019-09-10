@@ -466,6 +466,7 @@ int sinfonia_getfwinfo(struct sinfonia_usbdev *usbh)
 	for (i = FWINFO_TARGET_MAIN_BOOT ; i <= FWINFO_TARGET_PRINT_TABLES2 ; i++) {
 		int ret;
 		cmd.target = i;
+		resp.major = 0;
 
 		if ((ret = sinfonia_docmd(usbh,
 					  (uint8_t*)&cmd, sizeof(cmd),
@@ -710,6 +711,13 @@ int sinfonia_query_media(struct sinfonia_usbdev *dev,
 	return CUPS_BACKEND_OK;
 }
 
+const char *dummy_error_codes(uint8_t major, uint8_t minor)
+{
+	UNUSED(major);
+	UNUSED(minor);
+	return "Unknown";
+}
+
 int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
 {
 	struct sinfonia_cmd_hdr cmd;
@@ -720,6 +728,7 @@ int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint
 		.dev = dev,
 		.endp_up = endp_up,
 		.endp_down = endp_down,
+		.error_codes = dummy_error_codes,
 	};
 
 	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETSERIAL);
