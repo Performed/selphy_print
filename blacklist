@@ -261,3 +261,6 @@
 
 # Magicard Enduro+
 0x0c1f 0x880a blacklist
+
+# HiTi P52x
+0x0d16 0x0502

@@ -1105,3 +1105,28 @@ Notes:
     * All models can report media empty, but not quantity remaining or type.
 
 ***************************************************************************
+  BACKEND=hiti
+
+   Model IDs recognized:
+
+      hiti-p520l hiti-p525l hiti-p52x
+
+   Very work-in-progress printers:
+
+    HiTi P520L
+
+   This backend supports additional commands:
+
+      hiti [command [arg] ]
+
+   Valid commands:
+
+     -i                 Query printer information
+     -s                 Query printer status
+
+  Notes:
+
+    * This backend is in very early stages of development, and is a long
+      way off from being able to print.
+
+***************************************************************************

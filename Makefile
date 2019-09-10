@@ -53,7 +53,7 @@ CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\" $(OLD_URI)
 CFLAGS += -funit-at-a-time
 
 # List of backends
-BACKENDS = sonyupd sonyupdneo kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 mitsu9550 shinkos6245 shinkos6145 canonselphyneo mitsup95d magicard mitsud90
+BACKENDS = sonyupd sonyupdneo kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 mitsu9550 shinkos6245 shinkos6145 canonselphyneo mitsup95d magicard mitsud90 hiti
 
 # For the s6145 and mitsu70x backends
 CPPFLAGS += -DUSE_DLOPEN
