@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.09"
+#define LIBSINFONIA_VER "0.10"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -50,6 +50,8 @@ struct sinfonia_job_param {
 
 	uint32_t ext_flags;
 };
+#define EXT_FLAG_PLANARYMC 0x01
+#define EXT_FLAG_BACKPRINT 0x02
 
 struct sinfonia_printjob {
 	struct sinfonia_job_param jp;
@@ -89,6 +91,7 @@ int sinfonia_geterrorlog(struct sinfonia_usbdev *usbh);
 int sinfonia_resetcurve(struct sinfonia_usbdev *usbh, int target, int id);
 int sinfonia_gettonecurve(struct sinfonia_usbdev *usbh, int type, char *fname);
 int sinfonia_settonecurve(struct sinfonia_usbdev *usbh, int target, char *fname);
+int sinfonia_button_set(struct sinfonia_usbdev *dev, int enable);
 
 int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len);
 
@@ -101,6 +104,7 @@ const char *sinfonia_bank_statuses(uint8_t v);
 
 #define UPDATE_TARGET_USER    0x03
 #define UPDATE_TARGET_CURRENT 0x04
+// XXX 0x10, 0x11 , lens 0x22e3e0 and 0x447c68/.  LAMINATE patterns?
 
 /* Update is three channels, Y, M, C;
    each is 256 entries of 11-bit data padded to 16-bits.
@@ -271,6 +275,14 @@ struct sinfonia_getprintidstatus_resp {
 #define IDSTATUS_COMPLETED 0x0200
 #define IDSTATUS_ERROR     0xFFFF
 
+struct sinfonia_button_cmd {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  enabled;
+} __attribute__((packed));
+
+#define BUTTON_ENABLED  0x01
+#define BUTTON_DISABLED 0x00
+
 struct sinfonia_reset_cmd {
 	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
@@ -361,6 +373,14 @@ struct sinfonia_printcmd28_hdr {
 	uint8_t  reserved2[11];
 } __attribute__((packed));
 
+struct kodak701x_backprint {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t unk_0;  // unknown.  maybe the line number?
+	uint8_t null[6]; // always zero.
+	uint8_t unk_1;  // length of text?  (max 40)
+	uint8_t text[42]; //
+} __attribute__((packed));
+
 #define CODE_4x6     0x00
 #define CODE_3_5x5   0x01
 #define CODE_5x7     0x03
@@ -433,25 +453,37 @@ const char *sinfonia_status_str(uint8_t v);
 #define SINFONIA_CMD_FLASHLED   0x4003
 #define SINFONIA_CMD_RESET      0x4004
 #define SINFONIA_CMD_READTONE   0x4005
-#define SINFONIA_CMD_BUTTON     0x4006 // 2145
+#define SINFONIA_CMD_BUTTON     0x4006 // 2145?
 #define SINFONIA_CMD_SETPARAM   0x4007 // !2145
-#define SINFONIA_CMD_UNKNOWN    0x4008 // EK8810, panorama status?
 
-#define SINFONIA_CMD_UNKNOWN2   0x400C // EK8810, panorama setup?
+#define SINFONIA_CMD_UNKNOWN48  0x4008 // EK8810, panorama status? (len 28)
+#define SINFONIA_CMD_SETLAMSTR  0x4008 // EK70xx
+#define SINFONIA_CMD_COMMPPA    0x4009 // EK70xx
+#define SINFONIA_CMD_SETPPAPARM 0x400A // EK70xx
+#define SINFONIA_CMD_BACKPRINT  0x400B // EK701x only! (len 50)
+#define SINFONIA_CMD_UNKNOWN4C  0x400C // EK8810, panorama setup?
+
 #define SINFONIA_CMD_GETCORR    0x400D // 6145/2245
 #define SINFONIA_CMD_GETEEPROM  0x400E // 6x45
 #define SINFONIA_CMD_SETEEPROM  0x400F // 6x45
 
 #define SINFONIA_CMD_SETTIME    0x4011 // 6245
 
+#define SINFONIA_CMD_UNIVERSAL  0x4080 // EK70xx
+
+#define SINFONIA_CMD_USBFWDL    0x8001 // EK70xx (len 5)
+#define SINFONIA_CMD_MAINTPERM  0x8002 // EK70xx
 #define SINFONIA_CMD_GETUNIQUE  0x8003 // 2145
 
-#define SINFONIA_CMD_DIAGNOSTIC 0xC001 // ??
-
+#define SINFONIA_CMD_SELFDIAG   0xC001
+#define SINFONIA_CMD_DIAGRES    0xC002
 #define SINFONIA_CMD_FWINFO     0xC003
 #define SINFONIA_CMD_UPDATE     0xC004
-
+#define SINFONIA_CMD_GETEEPROM2 0xC005 // EK70xx
+#define SINFONIA_CMD_SETEEPROM2 0xC006 // EK70xx
 #define SINFONIA_CMD_SETUNIQUE  0xC007 // 2145
+#define SINFONIA_CMD_RESETERR   0xC008
+#define SINFONIA_CMD_GETSERIAL2 0xC009 // EK70xx (len 8)
 
 const char *sinfonia_cmd_names(uint16_t v);
 

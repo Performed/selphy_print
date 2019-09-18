@@ -1192,7 +1192,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	   When bit 0 is set, this tells the backend that the data is
 	   already in planar YMC format (vs packed RGB) so we don't need
 	   to do the conversion ourselves.  Saves some processing overhead */
-	input_ymc = job->jp.ext_flags & 0x01;
+	input_ymc = job->jp.ext_flags & EXT_FLAG_PLANARYMC;
 
 	/* Convert packed RGB to planar YMC if necessary */
 	if (!input_ymc) {

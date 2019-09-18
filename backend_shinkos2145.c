@@ -115,14 +115,6 @@ struct s2145_readtone_cmd {
 	uint8_t  curveid;
 } __attribute__((packed));
 
-struct s2145_button_cmd {
-	struct sinfonia_cmd_hdr hdr;
-	uint8_t  enabled;
-} __attribute__((packed));
-
-#define BUTTON_ENABLED  0x01
-#define BUTTON_DISABLED 0x00
-
 #define FWINFO_TARGET_MAIN_BOOT 0x01
 #define FWINFO_TARGET_MAIN_APP  0x02
 #define FWINFO_TARGET_DSP_BOOT  0x03
@@ -605,26 +597,6 @@ static int reset_curve(struct shinkos2145_ctx *ctx, int target)
 	return 0;
 }
 
-static int button_set(struct shinkos2145_ctx *ctx, int enable)
-{
-	struct s2145_button_cmd cmd;
-	struct sinfonia_status_hdr resp;
-	int ret, num = 0;
-
-	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_BUTTON);
-	cmd.hdr.len = cpu_to_le16(1);
-
-	cmd.enabled = enable;
-
-	if ((ret = sinfonia_docmd(&ctx->dev,
-				(uint8_t*)&cmd, sizeof(cmd),
-				(uint8_t*)&cmd, sizeof(resp),
-				&num)) < 0) {
-		return ret;
-	}
-
-	return 0;
-}
 
 static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 {
@@ -796,9 +768,9 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 		GETOPT_PROCESS_GLOBAL
 		case 'b':
 			if (optarg[0] == '1')
-				j = button_set(ctx, BUTTON_ENABLED);
+				j = sinfonia_button_set(&ctx->dev, BUTTON_ENABLED);
 			else if (optarg[0] == '0')
-				j = button_set(ctx, BUTTON_DISABLED);
+				j = sinfonia_button_set(&ctx->dev, BUTTON_DISABLED);
 			else
 				return -1;
 			break;
@@ -1207,7 +1179,7 @@ static const char *shinkos2145_prefixes[] = {
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S2",
-	.version = "0.61" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.62" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

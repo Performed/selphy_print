@@ -470,6 +470,7 @@
 
    Valid commands:
 
+     -b [ 0 | 1 ]       Disable or Enable the printer control panel
      -c filename        Query User tone curve from flash        [1]
      -C filename        Store User tone curve in flash          [1]
      -e                 Query error log
@@ -521,7 +522,7 @@
 
    Valid commands:
 
-     -b [ 0 | 1 ]       Disable or Enable the printer control panel.
+     -b [ 0 | 1 ]       Disable or Enable the printer control panel
      -c filename        Query User tone curve from flash        [1]
      -C filename        Store User tone curve in flash          [1]
      -e                 Query Error log

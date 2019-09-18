@@ -625,6 +625,27 @@ done:
 	return ret;
 }
 
+int sinfonia_button_set(struct sinfonia_usbdev *dev, int enable)
+{
+	struct sinfonia_button_cmd cmd;
+	struct sinfonia_status_hdr resp;
+	int ret, num = 0;
+
+	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_BUTTON);
+	cmd.hdr.len = cpu_to_le16(1);
+
+	cmd.enabled = enable;
+
+	if ((ret = sinfonia_docmd(dev,
+				(uint8_t*)&cmd, sizeof(cmd),
+				(uint8_t*)&cmd, sizeof(resp),
+				&num)) < 0) {
+		return ret;
+	}
+
+	return 0;
+}
+
 int sinfonia_settonecurve(struct sinfonia_usbdev *usbh, int target, char *fname)
 {
 	struct sinfonia_update_cmd cmd;
@@ -997,11 +1018,13 @@ const char *sinfonia_cmd_names(uint16_t v) {
 	case SINFONIA_CMD_GETPARAM:
 		return "Get Parameter";
 	case SINFONIA_CMD_GETSERIAL:
+	case SINFONIA_CMD_GETSERIAL2:
 		return "Get Serial Number";
 	case SINFONIA_CMD_PRINTSTAT:
 		return "Get Print ID Status";
-	case SINFONIA_CMD_EXTCOUNTER:
-		return "Get Extended Counters";
+	case SINFONIA_CMD_MEMORYBANK:
+		return "Get Memory Bank Info";
+
 	case SINFONIA_CMD_PRINTJOB:
 		return "Print";
 	case SINFONIA_CMD_CANCELJOB:
@@ -1016,24 +1039,48 @@ const char *sinfonia_cmd_names(uint16_t v) {
 		return "Button Enable";
 	case SINFONIA_CMD_SETPARAM:
 		return "Set Parameter";
-	case SINFONIA_CMD_GETUNIQUE:
-		return "Get Unique String";
+//	case SINFONIA_CMD_UNKNOWN48:
+//		return "UKNOWN 4008"; // XXX
+	case SINFONIA_CMD_SETLAMSTR:
+		return "Set Lamination String";
+	case SINFONIA_CMD_COMMPPA:
+		return "Communication PPA";
+	case SINFONIA_CMD_SETPPAPARM:
+		return "Set PPA Parameter";
+	case SINFONIA_CMD_BACKPRINT:
+		return "Set Backprint String";
+	case SINFONIA_CMD_UNKNOWN4C:
+		return "UKNOWN 400C"; // XXX
 	case SINFONIA_CMD_GETCORR:
 		return "Get Image Correction Parameter";
 	case SINFONIA_CMD_GETEEPROM:
+	case SINFONIA_CMD_GETEEPROM2:
 		return "Get EEPROM Backup Parameter";
 	case SINFONIA_CMD_SETEEPROM:
+	case SINFONIA_CMD_SETEEPROM2:
 		return "Set EEPROM Backup Parameter";
 	case SINFONIA_CMD_SETTIME:
 		return "Time Setting";
-	case SINFONIA_CMD_DIAGNOSTIC:
-		return "Diagnostic";
+	case SINFONIA_CMD_UNIVERSAL:
+		return "Unicersal Command";
+
+	case SINFONIA_CMD_USBFWDL:
+		return "USB Firmware Download";
+	case SINFONIA_CMD_MAINTPERM:
+		return "Maintenance Permission";
+	case SINFONIA_CMD_GETUNIQUE:
+		return "Get Unique String";
+
+	case SINFONIA_CMD_SELFDIAG:
+		return "Execute Self-Diagnostic";
 	case SINFONIA_CMD_FWINFO:
 		return "Get Firmware Info";
 	case SINFONIA_CMD_UPDATE:
 		return "Update";
 	case SINFONIA_CMD_SETUNIQUE:
 		return "Set Unique String";
+	case SINFONIA_CMD_RESETERR:
+		return "Reset Error Log";
 	default:
 		return "Unknown Command";
 	}

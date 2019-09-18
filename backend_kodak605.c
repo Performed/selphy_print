@@ -626,6 +626,7 @@ static void kodak605_dump_mediainfo(struct kodak605_media_list *media)
 
 static void kodak605_cmdline(void)
 {
+	DEBUG("\t\t[ -b 0|1 ]       # Disable/Enable control panel\n");
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
 	DEBUG("\t\t[ -C filename ]  # Set tone curve\n");
 	DEBUG("\t\t[ -e ]           # Query error log\n");
@@ -648,9 +649,17 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFil:L:mrRsX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "b:c:C:eFil:L:mrRsX:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 'b':
+			if (optarg[0] == '1')
+				j = sinfonia_button_set(&ctx->dev, BUTTON_ENABLED);
+			else if (optarg[0] == '0')
+				j = sinfonia_button_set(&ctx->dev, BUTTON_DISABLED);
+			else
+				return -1;
+			break;
 		case 'c':
 			j = sinfonia_gettonecurve(&ctx->dev, TONECURVE_USER, optarg);
 			break;
@@ -728,7 +737,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605/70xx",
-	.version = "0.47" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.48" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
