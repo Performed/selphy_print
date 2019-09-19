@@ -334,7 +334,7 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	if (test_mode < TEST_MODE_NOATTACH) {
 		/* Query media info */
 		int ret = sinfonia_query_media(&ctx->dev,
-					       &ctx->media);
+					       ctx->media);
 		if (ret)
 			return ret;
 	} else {
@@ -779,7 +779,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605/70xx",
-	.version = "0.49" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.50" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,

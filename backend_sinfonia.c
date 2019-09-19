@@ -364,6 +364,7 @@ int sinfonia_docmd(struct sinfonia_usbdev *usbh,
 		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x = %s)\n",
 		     resphdr->result, resphdr->error, resphdr->printer_major,
 		     resphdr->printer_minor, usbh->error_codes(resphdr->printer_major, resphdr->printer_minor));
+		ret = CUPS_BACKEND_FAILED;
 		goto fail;
 	}
 
