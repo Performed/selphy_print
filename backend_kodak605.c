@@ -391,6 +391,7 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 	struct kodak605_status sts;
 
 	int num, ret;
+	int offset = 0;
 
 	const struct sinfonia_printjob *job = vjob;
 
@@ -469,6 +470,43 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 		sleep(1);
 	}
 
+	/* Send backprint */
+	if (job->jp.ext_flags & EXT_FLAG_BACKPRINT && offset == 0) {
+		struct kodak701x_backprint bp;
+		INFO("Sending backprint text..\n");
+		bp.hdr.cmd = cpu_to_le16(SINFONIA_CMD_BACKPRINT);
+		bp.hdr.len = cpu_to_le16(sizeof(bp) - sizeof(bp.hdr));
+
+		/* Line 1 */
+		bp.unk_0 = job->databuf[offset + 0];
+		memset(bp.null, 0, sizeof(bp.null));
+		bp.unk_1 = job->databuf[offset + 1];
+		memcpy(bp.text, &job->databuf[offset + 2], sizeof(bp.text));
+
+		if ((ret = sinfonia_docmd(&ctx->dev,
+					  (uint8_t*)&bp, sizeof(bp),
+					  (uint8_t*)&sts.hdr, sizeof(sts.hdr),
+					  &num)) < 0) {
+			return ret;
+		}
+		offset += 44;
+
+		/* Line 2 */
+		bp.unk_0 = job->databuf[offset + 0];
+		memset(bp.null, 0, sizeof(bp.null));
+		bp.unk_1 = job->databuf[offset + 1];
+		memcpy(bp.text, &job->databuf[offset + 2], sizeof(bp.text));
+
+		if ((ret = sinfonia_docmd(&ctx->dev,
+					  (uint8_t*)&bp, sizeof(bp),
+					  (uint8_t*)&sts.hdr, sizeof(sts.hdr),
+					  &num)) < 0) {
+			return ret;
+		}
+		offset += 44;
+		// XXX sanity check backpriny parameters..
+	}
+
 	/* Send print job */
 	struct sinfonia_printcmd10_hdr hdr;
 
@@ -515,7 +553,7 @@ retry_print:
 
 	INFO("Sending image data\n");
 	if ((ret = send_data(ctx->dev.dev, ctx->dev.endp_down,
-			     job->databuf, job->datalen)))
+			     job->databuf + offset, job->datalen - offset)))
 		return CUPS_BACKEND_FAILED;
 
 	INFO("Waiting for printer to acknowledge completion\n");

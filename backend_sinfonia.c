@@ -180,6 +180,14 @@ int sinfonia_raw10_read_parse(int data_fd, struct sinfonia_printjob *job)
 
 	/* Allocate buffer */
 	job->datalen = job->jp.rows * job->jp.columns * 3;
+
+	/* Hack in backprinting */
+	if (job->jp.copies & 0x8000) {
+		job->jp.copies &= ~0x8000;
+		job->datalen += (44 * 2);
+		job->jp.ext_flags = EXT_FLAG_BACKPRINT;
+	}
+
 	job->databuf = malloc(job->datalen);
 	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
