@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.10"
+#define LIBSINFONIA_VER "0.11"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -102,12 +102,11 @@ int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint
 
 const char *sinfonia_bank_statuses(uint8_t v);
 
-#define UPDATE_TARGET_USER    0x03
-#define UPDATE_TARGET_CURRENT 0x04
-#define UPDATE_TARGET_LAM1    0x10
-#define UPDATE_TARGET_LAM2    0x11
-// XXX 0x10 (len 0x22e3e0), 0x11 (len 0x447c68 on EK701x)
-// XXX 0x10, len 0x884100 on EK8810
+#define UPDATE_TARGET_TONE_USER     0x03
+#define UPDATE_TARGET_TONE_CURRENT  0x04
+#define UPDATE_TARGET_LAM_USER 0x10
+#define UPDATE_TARGET_LAM_DEF  0x11
+#define UPDATE_TARGET_LAM_CUR  0x12
 
 /* Update is three channels, Y, M, C;
    each is 256 entries of 11-bit data padded to 16-bits.
@@ -313,11 +312,11 @@ struct sinfonia_readtone_resp {
 
 struct sinfonia_update_cmd {
 	struct sinfonia_cmd_hdr hdr;
-	uint8_t  target;
-	uint8_t  curve_id;
-	uint8_t  reset; // ??
+	uint8_t  target;    // UPDATE_TARGET_TONE_*
+	uint8_t  curve_id;  // 00 for lamination, 01 for tone?
+	uint8_t  reset;     // ??
 	uint8_t  reserved[3];
-	uint32_t size;
+	uint32_t size;  // TONE_CURVE_SIZE or lamination data that is rows*cols bytes
 } __attribute__((packed));
 
 struct sinfonia_getserial_resp {

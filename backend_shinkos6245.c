@@ -826,7 +826,7 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 			j = sinfonia_gettonecurve(&ctx->dev, TONECURVE_USER, optarg);
 			break;
 		case 'C':
-			j = sinfonia_settonecurve(&ctx->dev, TONECURVE_USER, optarg);
+			j = sinfonia_settonecurve(&ctx->dev, UPDATE_TARGET_TONE_USER, optarg);
 			break;
 		case 'e':
 			if (ctx->dev.type == P_KODAK_8810) {
@@ -865,7 +865,7 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 			j = sinfonia_gettonecurve(&ctx->dev, TONECURVE_CURRENT, optarg);
 			break;
 		case 'L':
-			j = sinfonia_settonecurve(&ctx->dev, TONECURVE_CURRENT, optarg);
+			j = sinfonia_settonecurve(&ctx->dev, UPDATE_TARGET_TONE_CURRENT, optarg);
 			break;
 		case 'm':
 			dump_mediainfo(&ctx->media);
@@ -1257,7 +1257,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Sinfonia CHC-S6245 / Kodak 8810",
-	.version = "0.26" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.27" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,

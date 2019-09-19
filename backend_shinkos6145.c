@@ -896,7 +896,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 			j = sinfonia_gettonecurve(&ctx->dev, TONECURVE_USER, optarg);
 			break;
 		case 'C':
-			j = sinfonia_settonecurve(&ctx->dev, TONECURVE_USER, optarg);
+			j = sinfonia_settonecurve(&ctx->dev, UPDATE_TARGET_TONE_USER, optarg);
 			break;
 		case 'e':
 			j = sinfonia_geterrorlog(&ctx->dev);
@@ -931,7 +931,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 			j = sinfonia_gettonecurve(&ctx->dev, TONECURVE_CURRENT, optarg);
 			break;
 		case 'L':
-			j = sinfonia_settonecurve(&ctx->dev, TONECURVE_CURRENT, optarg);
+			j = sinfonia_settonecurve(&ctx->dev, UPDATE_TARGET_TONE_CURRENT, optarg);
 			break;
 		case 'm':
 			dump_mediainfo(&ctx->media);
@@ -1521,7 +1521,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2/S2245/S3",
-	.version = "0.41" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.42" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,

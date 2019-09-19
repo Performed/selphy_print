@@ -702,7 +702,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 			j = sinfonia_gettonecurve(&ctx->dev, TONECURVE_USER, optarg);
 			break;
 		case 'C':
-			j = sinfonia_settonecurve(&ctx->dev, TONECURVE_USER, optarg);
+			j = sinfonia_settonecurve(&ctx->dev, UPDATE_TARGET_TONE_USER, optarg);
 			break;
 		case 'e':
 			j = sinfonia_geterrorlog(&ctx->dev);
@@ -717,7 +717,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 			j = sinfonia_gettonecurve(&ctx->dev, TONECURVE_CURRENT, optarg);
 			break;
 		case 'L':
-			j = sinfonia_settonecurve(&ctx->dev, TONECURVE_CURRENT, optarg);
+			j = sinfonia_settonecurve(&ctx->dev, UPDATE_TARGET_TONE_CURRENT, optarg);
 			break;
 		case 'm':
 			kodak605_dump_mediainfo(ctx->media);
@@ -775,7 +775,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605/70xx",
-	.version = "0.48" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.49" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,

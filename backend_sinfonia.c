@@ -660,7 +660,7 @@ int sinfonia_settonecurve(struct sinfonia_usbdev *usbh, int target, char *fname)
 	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
-	INFO("Set %s Tone Curve from '%s'\n", sinfonia_update_targets(target), fname);
+	INFO("Set %s from '%s'\n", sinfonia_update_targets(target), fname);
 
 	uint16_t *data = malloc(TONE_CURVE_SIZE * sizeof(uint16_t));
 	if (!data) {
@@ -780,10 +780,16 @@ int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint
 
 const char *sinfonia_update_targets (uint8_t v) {
 	switch (v) {
-	case UPDATE_TARGET_USER:
-		return "User";
-	case UPDATE_TARGET_CURRENT:
-		return "Current";
+	case UPDATE_TARGET_TONE_USER:
+		return "User Tone Curve";
+	case UPDATE_TARGET_TONE_CURRENT:
+		return "Current Tone Curve";
+	case UPDATE_TARGET_LAM_USER:
+		return "User Lamination Data";
+	case UPDATE_TARGET_LAM_CUR:
+		return "Current Lamination Data";
+	case UPDATE_TARGET_LAM_DEF:
+		return "Default Lamination Data";
 	default:
 		return "Unknown";
 	}
