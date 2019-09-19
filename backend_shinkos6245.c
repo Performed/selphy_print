@@ -799,6 +799,7 @@ static void shinkos6245_cmdline(void)
 	DEBUG("\t\t[ -R ]           # Reset printer to factory defaults\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -X jobid ]     # Abort a printjob\n");
+//	DEBUG("\t\t[ -Z ]           # Dump all parameters\n");
 }
 
 int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
@@ -809,7 +810,7 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "b:c:C:eFik:l:L:mrR:sX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "b:c:C:eFik:l:L:mrR:sX:Z")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'b':
@@ -881,6 +882,9 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 'X':
 			j = sinfonia_canceljob(&ctx->dev, atoi(optarg));
+			break;
+		case 'Z':
+			j = sinfonia_dumpallparams(&ctx->dev);
 			break;
 		default:
 			break;  /* Ignore completely */

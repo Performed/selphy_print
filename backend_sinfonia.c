@@ -435,6 +435,20 @@ int sinfonia_getparam(struct sinfonia_usbdev *usbh, int target, uint32_t *param)
 	return ret;
 }
 
+int sinfonia_dumpallparams(struct sinfonia_usbdev *usbh)
+{
+	int i, ret;
+	uint32_t param = 0;
+
+	for (i = 0 ; i < 256 ; i++) {
+		ret = sinfonia_getparam(usbh, i, &param);
+		if (ret)
+			continue;
+		DEBUG("%02x: %08x\n", i, param);
+	}
+	return CUPS_BACKEND_OK;
+}
+
 int sinfonia_setparam(struct sinfonia_usbdev *usbh, int target, uint32_t param)
 {
 	struct sinfonia_setparam_cmd cmd;
