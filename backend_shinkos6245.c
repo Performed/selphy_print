@@ -785,6 +785,7 @@ static void dump_mediainfo(struct sinfonia_6x45_mediainfo_resp *resp)
 
 static void shinkos6245_cmdline(void)
 {
+	DEBUG("\t\t[ -b 0|1 ]       # Disable/Enable control panel\n");
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
 	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
 	DEBUG("\t\t[ -e ]           # Query error log\n");
@@ -808,9 +809,19 @@ int shinkos6245_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFik:l:L:mrR:sX:")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "b:c:C:eFik:l:L:mrR:sX:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 'b':
+			if (ctx->dev.type != P_KODAK_8810)
+				return -1;
+			else if (optarg[0] == '1')
+				j = sinfonia_button_set(&ctx->dev, BUTTON_ENABLED);
+			else if (optarg[0] == '0')
+				j = sinfonia_button_set(&ctx->dev, BUTTON_DISABLED);
+			else
+				return -1;
+			break;
 		case 'c':
 			j = sinfonia_gettonecurve(&ctx->dev, TONECURVE_USER, optarg);
 			break;
@@ -1010,6 +1021,7 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 		break;
 	}
 	// XXX what about mcut |= PRINT_METHOD_DISABLE_ERR;
+	// XXX set up CUTLIST for EK8810!
 
 #if 0  /* Doesn't work on EK8810.  Not sure about S6245 */
 	int i;
@@ -1245,7 +1257,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Sinfonia CHC-S6245 / Kodak 8810",
-	.version = "0.25" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.26" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,

@@ -104,7 +104,10 @@ const char *sinfonia_bank_statuses(uint8_t v);
 
 #define UPDATE_TARGET_USER    0x03
 #define UPDATE_TARGET_CURRENT 0x04
-// XXX 0x10, 0x11 , lens 0x22e3e0 and 0x447c68/.  LAMINATE patterns?
+#define UPDATE_TARGET_LAM1    0x10
+#define UPDATE_TARGET_LAM2    0x11
+// XXX 0x10 (len 0x22e3e0), 0x11 (len 0x447c68 on EK701x)
+// XXX 0x10, len 0x884100 on EK8810
 
 /* Update is three channels, Y, M, C;
    each is 256 entries of 11-bit data padded to 16-bits.
@@ -381,6 +384,12 @@ struct kodak701x_backprint {
 	uint8_t text[42]; //
 } __attribute__((packed));
 
+struct kodak8810_cutlist {
+	struct sinfonia_cmd_hdr hdr;
+	uint8_t  entries; /* max 24 */
+	uint16_t cut[36]; /* LE, each one is presumably a line number. */
+} __attribute__((packed));
+
 #define CODE_4x6     0x00
 #define CODE_3_5x5   0x01
 #define CODE_5x7     0x03
@@ -456,10 +465,11 @@ const char *sinfonia_status_str(uint8_t v);
 #define SINFONIA_CMD_BUTTON     0x4006 // 2145?
 #define SINFONIA_CMD_SETPARAM   0x4007 // !2145
 
-#define SINFONIA_CMD_UNKNOWN48  0x4008 // EK8810, panorama status? (len 28)
-#define SINFONIA_CMD_SETLAMSTR  0x4008 // EK70xx
+#define SINFONIA_CMD_SETLAMSTR  0x4008 // EK70xx, EK8810? (len 28)
 #define SINFONIA_CMD_COMMPPA    0x4009 // EK70xx
+#define SINFONIA_CMD_SETCUTLIST 0x4009 // EK8810 (len 73, count + 36 entries, 16bit LE)
 #define SINFONIA_CMD_SETPPAPARM 0x400A // EK70xx
+#define SINFONIA_CMD_WAKEUPSDBY 0x400A // EK8810 (len 1)
 #define SINFONIA_CMD_BACKPRINT  0x400B // EK701x only! (len 50)
 #define SINFONIA_CMD_UNKNOWN4C  0x400C // EK8810, panorama setup?
 
@@ -475,7 +485,7 @@ const char *sinfonia_status_str(uint8_t v);
 #define SINFONIA_CMD_MAINTPERM  0x8002 // EK70xx
 #define SINFONIA_CMD_GETUNIQUE  0x8003 // 2145
 
-#define SINFONIA_CMD_SELFDIAG   0xC001
+#define SINFONIA_CMD_SELFDIAG   0xC001 // (len 3)
 #define SINFONIA_CMD_DIAGRES    0xC002
 #define SINFONIA_CMD_FWINFO     0xC003
 #define SINFONIA_CMD_UPDATE     0xC004

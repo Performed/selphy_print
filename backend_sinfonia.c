@@ -1047,14 +1047,14 @@ const char *sinfonia_cmd_names(uint16_t v) {
 		return "Button Enable";
 	case SINFONIA_CMD_SETPARAM:
 		return "Set Parameter";
-//	case SINFONIA_CMD_UNKNOWN48:
-//		return "UKNOWN 4008"; // XXX
 	case SINFONIA_CMD_SETLAMSTR:
 		return "Set Lamination String";
 	case SINFONIA_CMD_COMMPPA:
-		return "Communication PPA";
+//	case SINFONIA_CMD_SETCUTLIST:
+		return "Communication PPA / Set Cut List";
 	case SINFONIA_CMD_SETPPAPARM:
-		return "Set PPA Parameter";
+//	case SINFONIA_CMD_WAKEUPSTBY::
+		return "Set PPA Parameter / Set Wakeup Standby";
 	case SINFONIA_CMD_BACKPRINT:
 		return "Set Backprint String";
 	case SINFONIA_CMD_UNKNOWN4C:

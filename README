@@ -725,6 +725,7 @@
 
    Valid commands:
 
+     -b [ 0 | 1 ]       Disable or Enable the printer control panel [4]
      -c filename        Query User tone curve from flash        [1]
      -C filename        Store User tone curve in flash          [1]
      -e                 Query Error log
@@ -742,6 +743,8 @@
   Notes:
 
     * Work-in-progress, has not been tested on an actual printer yet.
+
+    [4] Kodak 8810 only
 
     [1] Format of curvedata file:
 
