@@ -94,7 +94,22 @@ struct kodak605_status {
 /*@76*/	uint8_t  null_3[1]; /* EK7000 only */
 } __attribute__((packed));
 
-#define CMDBUF_LEN 4
+/* Parameter IDs recognized on EK7000:
+
+   No idea what any of these are yet!
+
+   01
+   11 12 13 14
+   21 22 23 24 25
+   2f
+   41 42 43 44 45 46 47 48
+   81 82 83 84
+   91 92 93 94
+   a0 a1 a2 a3 a4 a5 a6 a7 a8 a9
+   c1 c2 c3 c4
+   f1 f2 f3 f4
+
+*/
 
 /* Private data structure */
 struct kodak605_ctx {

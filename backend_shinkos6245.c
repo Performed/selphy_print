@@ -67,6 +67,26 @@ struct s6245_print_cmd {
 	uint8_t  reserved2;
 } __attribute__((packed));
 
+
+/* Parameter IDs recognized on EK8810
+
+   No idea what any of these are yet!
+
+   01
+   11 12 13 14
+   21 22 23 24 25
+   2f
+   41 42 43 44 45 46 47 48
+   61 62 63 64
+   81 82 83 84
+   8a 8b 8c 8d
+   91 92 93
+   a0 a1 a2 a3 a4 a5 a6 a7 a8 a9
+   c1 c2 c3 c4
+   f1 f2 f3 f4
+
+*/
+
 #define PARAM_DRIVER_MODE  0x3e
 #define PARAM_PAPER_MODE   0x3f
 #define PARAM_SLEEP_TIME   0x54
