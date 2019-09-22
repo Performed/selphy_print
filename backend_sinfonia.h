@@ -398,7 +398,7 @@ struct kodak701x_backprint {
 struct kodak8810_cutlist {
 	struct sinfonia_cmd_hdr hdr;
 	uint8_t  entries; /* max 24 */
-	uint16_t cut[36]; /* LE, each one is presumably a line number. */
+	uint16_t cut[36]; /* LE, row number to cut at. Deltas must be >= 12. */
 } __attribute__((packed));
 
 #define CODE_4x6     0x00

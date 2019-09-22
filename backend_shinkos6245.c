@@ -1063,6 +1063,33 @@ static int shinkos6245_read_parse(void *vctx, const void **vjob, int data_fd, in
 	return CUPS_BACKEND_OK;
 }
 
+/* XXX Single cut; for double cut use a gap of 22 */
+static struct kodak8810_cutlist cutlist_8x4x2 = {
+	.entries = 3,
+	.cut[0] = cpu_to_le32(12),
+	.cut[1] = cpu_to_le32(2408/2),
+	.cut[2] = cpu_to_le32(2408-12),
+};
+static struct kodak8810_cutlist cutlist_8x5x2 = {
+	.entries = 3,
+	.cut[0] = cpu_to_le32(12),
+	.cut[1] = cpu_to_le32(3024/2),
+	.cut[2] = cpu_to_le32(3024-12),
+};
+static struct kodak8810_cutlist cutlist_8x6x2 = {
+	.entries = 3,
+	.cut[0] = cpu_to_le32(12),
+	.cut[1] = cpu_to_le32(3624/2),
+	.cut[2] = cpu_to_le32(3624-12),
+};
+static struct kodak8810_cutlist cutlist_8x4x3 = {
+	.entries = 4,
+	.cut[0] = cpu_to_le32(12),
+	.cut[1] = cpu_to_le32(3624/3),
+	.cut[2] = cpu_to_le32(3624/3 + 3624/3),
+	.cut[3] = 3624,
+};
+
 static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	struct shinkos6245_ctx *ctx = vctx;
 
@@ -1078,6 +1105,7 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	struct sinfonia_status_hdr resp;
 
 	struct sinfonia_printjob *job = (struct sinfonia_printjob*) vjob;
+	struct kodak8810_cutlist *cutlist = NULL;
 
 	copies = job->copies;
 
@@ -1102,7 +1130,26 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 		break;
 	}
 	// XXX what about mcut |= PRINT_METHOD_DISABLE_ERR;
-	// XXX set up CUTLIST for EK8810!
+
+	/* EK8810 uses special "cutlist" */
+	if (ctx->dev.type == P_KODAK_8810) {
+		switch (job->jp.media) {
+		case CODE_8x4_2:
+			cutlist = &cutlist_8x4x2;
+			break;
+		case CODE_8x5_2:
+			cutlist = &cutlist_8x5x2;
+			break;
+		case CODE_8x6_2:
+			cutlist = &cutlist_8x6x2;
+			break;
+		case CODE_8x4_3:
+			cutlist = &cutlist_8x4x3;
+			break;
+		default:
+			break;
+		}
+	}
 
 #if 0  /* Doesn't work on EK8810.  Not sure about S6245 */
 	int i;
@@ -1222,6 +1269,21 @@ top:
 	case S_PRINTER_READY_CMD:
 		// XXX send "get eeprom backup command"
 
+		if (ctx->dev.type == P_KODAK_8810 && cutlist) {
+			cutlist->hdr.cmd = cpu_to_le16(SINFONIA_CMD_SETCUTLIST);
+			cutlist->hdr.len = cpu_to_le16(sizeof(*cutlist) - sizeof(cutlist->hdr));
+
+			if ((ret = sinfonia_docmd(&ctx->dev,
+						  (uint8_t*)cutlist, sizeof(*cutlist),
+						  (uint8_t*)&resp, sizeof(resp),
+						  &num))) {
+				return CUPS_BACKEND_FAILED;
+			}
+			if (resp.result != RESULT_SUCCESS) {
+				goto printer_error;
+			}
+		}
+
 		INFO("Sending print job (internal id %u)\n", ctx->jobid);
 
 		memset(cmdbuf, 0, CMDBUF_LEN);
@@ -1338,7 +1400,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Sinfonia CHC-S6245 / Kodak 8810",
-	.version = "0.28" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.29" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,
