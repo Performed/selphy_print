@@ -244,6 +244,18 @@ struct s6145_print_cmd {
 #define PARAM_REGION_CODE  0x53 // Brava 21 only?
 #define PARAM_SLEEP_TIME   0x54
 
+static const struct sinfonia_param s6145_params[] =
+{
+	{ PARAM_OC_PRINT, "Overcoat Mode" },
+	{ PARAM_PAPER_PRESV, "Paper Preserve Mode" },
+	{ PARAM_DRIVER_MODE, "Driver Mode/Wizard" },
+	{ PARAM_PAPER_MODE, "Paper Load Mode" },
+	{ PARAM_SLEEP_TIME, "Sleep Time" },
+	{ PARAM_REGION_CODE, "Region Code" },
+};
+#define s6145_params_num (sizeof(s6145_params) / sizeof(struct sinfonia_param))
+
+
 
 #define PARAM_OC_PRINT_OFF   0x00000001
 #define PARAM_OC_PRINT_GLOSS 0x00000002
@@ -634,7 +646,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp2, sizeof(resp2),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 	if (le16_to_cpu(resp2.hdr.payload_len) != (sizeof(struct sinfonia_getextcounter_resp) - sizeof(struct sinfonia_status_hdr)))
@@ -692,7 +704,7 @@ static int get_status(struct shinkos6145_ctx *ctx)
 
 	INFO("Sleep delay:         %u minutes\n", val);
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void dump_mediainfo(struct sinfonia_6x45_mediainfo_resp *resp)
@@ -790,7 +802,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		goto done;
 	}
 
@@ -845,7 +857,7 @@ static int shinkos6145_get_eeprom(struct shinkos6145_ctx *ctx)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		goto done;
 	}
 
@@ -965,7 +977,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void *shinkos6145_init(void)
@@ -992,6 +1004,12 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int 
 	ctx->dev.endp_down = endp_down;
 	ctx->dev.type = type;
 	ctx->dev.error_codes = &error_codes;
+
+	if (type == P_SHINKO_S6145 ||
+	    type == P_SHINKO_S6145D) {
+		ctx->dev.params = s6145_params;
+		ctx->dev.params_count = s6145_params_num;
+	}
 
 	/* Attempt to open the library */
 #if defined(WITH_DYNAMIC)
@@ -1285,7 +1303,7 @@ top:
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&sts, sizeof(sts),
-				  &num)) < 0) {
+				  &num))) {
 		return CUPS_BACKEND_FAILED;
 	}
 
@@ -1420,7 +1438,7 @@ top:
 		if ((ret = sinfonia_docmd(&ctx->dev,
 					  (uint8_t*)&print, sizeof(print),
 					  (uint8_t*)&sts, sizeof(sts),
-					  &num)) < 0) {
+					  &num))) {
 			return ret;
 		}
 
@@ -1525,7 +1543,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2/S2245/S3",
-	.version = "0.42" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.43" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,

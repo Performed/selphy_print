@@ -368,7 +368,7 @@ int sinfonia_docmd(struct sinfonia_usbdev *usbh,
 		goto fail;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 fail:
 	ERROR("Failed to execute %s command\n", sinfonia_cmd_names(cmdhdr->cmd));
 	return ret;
@@ -386,11 +386,11 @@ int sinfonia_flashled(struct sinfonia_usbdev *usbh)
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 int sinfonia_canceljob(struct sinfonia_usbdev *usbh, int id)
@@ -407,11 +407,11 @@ int sinfonia_canceljob(struct sinfonia_usbdev *usbh, int id)
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 int sinfonia_getparam(struct sinfonia_usbdev *usbh, int target, uint32_t *param)
@@ -429,11 +429,26 @@ int sinfonia_getparam(struct sinfonia_usbdev *usbh, int target, uint32_t *param)
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
+//		ERROR("Unable to query param id %02x: %s\n",
+//		      target, sinfonia_paramname(usbh, target));
+		return ret;
 	}
 	*param = le32_to_cpu(resp.param);
 
-	return ret;
+	return CUPS_BACKEND_OK;
+}
+
+const char *sinfonia_paramname(struct sinfonia_usbdev *usbh,
+			       int id)
+{
+	int i;
+	for (i = 0 ; i < usbh->params_count ; i++) {
+		if (usbh->params[i].id == id)
+			return usbh->params[i].descr;
+
+	}
+	return "Unknown/Not Found!";
 }
 
 int sinfonia_dumpallparams(struct sinfonia_usbdev *usbh)
@@ -445,7 +460,7 @@ int sinfonia_dumpallparams(struct sinfonia_usbdev *usbh)
 		ret = sinfonia_getparam(usbh, i, &param);
 		if (ret)
 			continue;
-		DEBUG("%02x: %08x\n", i, param);
+		DEBUG("%02x (%s): %08x\n", i, sinfonia_paramname(usbh, i), param);
 	}
 	return CUPS_BACKEND_OK;
 }
@@ -466,10 +481,12 @@ int sinfonia_setparam(struct sinfonia_usbdev *usbh, int target, uint32_t param)
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
+//		ERROR("Unable to query param id %02x: %s\n",
+//		      target, sinfonia_paramname(usbh, target));
 	}
 
-	return ret;
+	return CUPS_BACKEND_OK;
 }
 
 int sinfonia_getfwinfo(struct sinfonia_usbdev *usbh)
@@ -494,7 +511,7 @@ int sinfonia_getfwinfo(struct sinfonia_usbdev *usbh)
 		if ((ret = sinfonia_docmd(usbh,
 					  (uint8_t*)&cmd, sizeof(cmd),
 					  (uint8_t*)&resp, sizeof(resp),
-					  &num)) < 0) {
+					  &num))) {
 			continue;
 		}
 
@@ -514,7 +531,7 @@ int sinfonia_getfwinfo(struct sinfonia_usbdev *usbh)
 		     le16_to_cpu(resp.checksum));
 #endif
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 int sinfonia_geterrorlog(struct sinfonia_usbdev *usbh)
@@ -532,7 +549,7 @@ int sinfonia_geterrorlog(struct sinfonia_usbdev *usbh)
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 
@@ -546,7 +563,7 @@ int sinfonia_geterrorlog(struct sinfonia_usbdev *usbh)
 		     resp.items[i].major, resp.items[i].minor,
 		     usbh->error_codes(resp.items[i].major, resp.items[i].minor));
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 int sinfonia_resetcurve(struct sinfonia_usbdev *usbh, int target, int id)
@@ -563,11 +580,11 @@ int sinfonia_resetcurve(struct sinfonia_usbdev *usbh, int target, int id)
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 int sinfonia_gettonecurve(struct sinfonia_usbdev *usbh, int type, char *fname)
@@ -594,7 +611,7 @@ int sinfonia_gettonecurve(struct sinfonia_usbdev *usbh, int type, char *fname)
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 
@@ -662,11 +679,11 @@ int sinfonia_button_set(struct sinfonia_usbdev *dev, int enable)
 	if ((ret = sinfonia_docmd(dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				(uint8_t*)&cmd, sizeof(resp),
-				&num)) < 0) {
+				&num))) {
 		return ret;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 int sinfonia_settonecurve(struct sinfonia_usbdev *usbh, int target, char *fname)
@@ -712,7 +729,7 @@ int sinfonia_settonecurve(struct sinfonia_usbdev *usbh, int target, char *fname)
 	if ((ret = sinfonia_docmd(usbh,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 
@@ -781,7 +798,7 @@ int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint
 	if ((ret = sinfonia_docmd(&sdev,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 

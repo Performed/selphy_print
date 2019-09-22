@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.11"
+#define LIBSINFONIA_VER "0.12"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -69,12 +69,22 @@ int sinfonia_raw18_read_parse(int data_fd, struct sinfonia_printjob *job);
 int sinfonia_raw28_read_parse(int data_fd, struct sinfonia_printjob *job);
 void sinfonia_cleanup_job(const void *vjob);
 
+
+/* mapping param IDs to names */
+struct sinfonia_param {
+	const uint8_t id;
+	const char *descr;
+};
+
 /* Common usb functions */
 struct sinfonia_usbdev {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
 	int type;
+
+	const struct sinfonia_param *params;
+	int params_count;
 
 	char const *(*error_codes)(uint8_t major, uint8_t minor);
 };
@@ -95,6 +105,7 @@ int sinfonia_button_set(struct sinfonia_usbdev *dev, int enable);
 
 int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len);
 int sinfonia_dumpallparams(struct sinfonia_usbdev *usbh);
+const char *sinfonia_paramname(struct sinfonia_usbdev *usbh, int id);
 
 #define BANK_STATUS_FREE  0x00
 #define BANK_STATUS_XFER  0x01

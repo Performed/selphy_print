@@ -422,7 +422,7 @@ static int get_status(struct shinkos2145_ctx *ctx)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				(uint8_t*)&resp, sizeof(resp),
-				&num)) < 0) {
+				&num))) {
 		return ret;
 	}
 
@@ -438,7 +438,7 @@ static int get_status(struct shinkos2145_ctx *ctx)
 		     resp.hdr.printer_minor, error_codes(resp.hdr.printer_major, resp.hdr.printer_minor));
 	}
 	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct sinfonia_status_hdr)))
-		return 0;
+		return CUPS_BACKEND_OK;
 
 	INFO(" Print Counts:\n");
 	INFO("\tSince Paper Changed:\t%08u\n", le32_to_cpu(resp.count_paper));
@@ -463,7 +463,7 @@ static int get_status(struct shinkos2145_ctx *ctx)
 
 	INFO("Tonecurve Status: 0x%02x (%s)\n", resp.tonecurve_status, sinfonia_tonecurve_statuses(resp.tonecurve_status));
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int get_fwinfo(struct shinkos2145_ctx *ctx)
@@ -485,7 +485,7 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 		if ((ret = sinfonia_docmd(&ctx->dev,
 					(uint8_t*)&cmd, sizeof(cmd),
 					(uint8_t*)&resp, sizeof(resp),
-					&num)) < 0) {
+					&num))) {
 			continue;
 		}
 
@@ -502,7 +502,7 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 		     le16_to_cpu(resp.checksum));
 #endif
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void dump_mediainfo(struct s2145_mediainfo_resp *resp)
@@ -533,7 +533,7 @@ static int get_user_string(struct shinkos2145_ctx *ctx)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				(uint8_t*)&resp, sizeof(resp),
-				&num)) < 0) {
+				&num))) {
 		return ret;
 	}
 
@@ -543,7 +543,7 @@ static int get_user_string(struct shinkos2145_ctx *ctx)
 		resp.hdr.payload_len = 23;
 	resp.data[resp.hdr.payload_len] = 0;
 	INFO("Unique String: '%s'\n", resp.data);
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int set_user_string(struct shinkos2145_ctx *ctx, char *str)
@@ -568,11 +568,11 @@ static int set_user_string(struct shinkos2145_ctx *ctx, char *str)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, cmd.len + 1 + sizeof(cmd.hdr),
 				(uint8_t*)&resp, sizeof(resp),
-				&num)) < 0) {
+				&num))) {
 		return ret;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int reset_curve(struct shinkos2145_ctx *ctx, int target)
@@ -590,11 +590,11 @@ static int reset_curve(struct shinkos2145_ctx *ctx, int target)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				(uint8_t*)&resp, sizeof(resp),
-				&num)) < 0) {
+				&num))) {
 		return ret;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 
@@ -619,7 +619,7 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				(uint8_t*)&resp, sizeof(resp),
-				&num)) < 0) {
+				&num))) {
 		return ret;
 	}
 
@@ -720,7 +720,7 @@ static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				(uint8_t*)&resp, sizeof(resp),
-				&num)) < 0) {
+				&num))) {
 		goto done;
 	}
 
@@ -823,7 +823,7 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void *shinkos2145_init(void)
@@ -974,7 +974,7 @@ top:
 	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
 				(uint8_t*)&sts, sizeof(sts),
-				&num)) < 0) {
+				&num))) {
 		return CUPS_BACKEND_FAILED;
 	}
 
@@ -1041,7 +1041,7 @@ top:
 		if ((ret = sinfonia_docmd(&ctx->dev,
 					(uint8_t*)&print, sizeof(print),
 					(uint8_t*)&sts, sizeof(sts),
-					&num)) < 0) {
+					&num))) {
 			return ret;
 		}
 
@@ -1126,7 +1126,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 	if ((ret = sinfonia_docmd(&sdev,
 				  (uint8_t*)&cmd, sizeof(cmd),
 				  (uint8_t*)&resp, sizeof(resp),
-				  &num)) < 0) {
+				  &num))) {
 		return ret;
 	}
 
@@ -1179,7 +1179,7 @@ static const char *shinkos2145_prefixes[] = {
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S2",
-	.version = "0.62" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.63" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
