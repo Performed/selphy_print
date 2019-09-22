@@ -451,16 +451,26 @@ const char *sinfonia_paramname(struct sinfonia_usbdev *usbh,
 	return "Unknown/Not Found!";
 }
 
-int sinfonia_dumpallparams(struct sinfonia_usbdev *usbh)
+int sinfonia_dumpallparams(struct sinfonia_usbdev *usbh, int known)
 {
 	int i, ret;
 	uint32_t param = 0;
 
-	for (i = 0 ; i < 256 ; i++) {
-		ret = sinfonia_getparam(usbh, i, &param);
-		if (ret)
-			continue;
-		DEBUG("%02x (%s): %08x\n", i, sinfonia_paramname(usbh, i), param);
+	if (known) {
+		for (i = 0 ; i < usbh->params_count ; i++) {
+			ret = sinfonia_getparam(usbh, usbh->params[i].id, &param);
+			if (ret)
+				continue;
+			DEBUG("%02x (%s): %08x\n", usbh->params[i].id,
+			      usbh->params[i].descr, param);
+		}
+	} else {
+		for (i = 0 ; i < 256 ; i++) {
+			ret = sinfonia_getparam(usbh, i, &param);
+			if (ret)
+				continue;
+			DEBUG("%02x (%s): %08x\n", i, sinfonia_paramname(usbh, i), param);
+		}
 	}
 	return CUPS_BACKEND_OK;
 }

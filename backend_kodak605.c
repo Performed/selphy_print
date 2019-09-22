@@ -734,7 +734,7 @@ static void kodak605_cmdline(void)
 	DEBUG("\t\t[ -R ]           # Reset printer to factory defaults\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
 	DEBUG("\t\t[ -X jobid ]     # Cancel job\n");
-//	DEBUG("\t\t[ -Z ]           # Dump all parameters\n");
+//	DEBUG("\t\t[ -Z 0|1 ]       # Dump all parameters\n");
 }
 
 static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
@@ -745,7 +745,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "b:c:C:eFil:L:mrRsX:Z")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "b:c:C:eFil:L:mrRsX:Z:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'b':
@@ -798,7 +798,7 @@ static int kodak605_cmdline_arg(void *vctx, int argc, char **argv)
 			j = sinfonia_canceljob(&ctx->dev, atoi(optarg));
 			break;
 		case 'Z':
-			j = sinfonia_dumpallparams(&ctx->dev);
+			j = sinfonia_dumpallparams(&ctx->dev, atoi(optarg));
 			break;
 		default:
 			break;  /* Ignore completely */

@@ -104,7 +104,7 @@ int sinfonia_settonecurve(struct sinfonia_usbdev *usbh, int target, char *fname)
 int sinfonia_button_set(struct sinfonia_usbdev *dev, int enable);
 
 int sinfonia_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len);
-int sinfonia_dumpallparams(struct sinfonia_usbdev *usbh);
+int sinfonia_dumpallparams(struct sinfonia_usbdev *usbh, int known);
 const char *sinfonia_paramname(struct sinfonia_usbdev *usbh, int id);
 
 #define BANK_STATUS_FREE  0x00

@@ -902,7 +902,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFik:l:L:mr:Q:q:rR:sX:Z")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "c:C:eFik:l:L:mr:Q:q:rR:sX:Z:")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'c':
@@ -968,7 +968,7 @@ int shinkos6145_cmdline_arg(void *vctx, int argc, char **argv)
 			j = sinfonia_canceljob(&ctx->dev, atoi(optarg));
 			break;
 		case 'Z':
-			j = sinfonia_dumpallparams(&ctx->dev);
+			j = sinfonia_dumpallparams(&ctx->dev, atoi(optarg));
 			break;
 		default:
 			break;  /* Ignore completely */
