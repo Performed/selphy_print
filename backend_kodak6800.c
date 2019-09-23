@@ -376,7 +376,7 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, cha
 	int ret, num = 0;
 	int i;
 
-	uint16_t *data = malloc(TONE_CURVE_SIZE);
+	uint16_t *data = malloc(TONE_CURVE_SIZE * sizeof(uint16_t));
 	if (!data) {
 		ERROR("Memory Allocation Failure\n");
 		return -1;
@@ -442,7 +442,7 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, cha
 			goto done;
 		}
 
-		for (i = 0 ; i < 768; i++) {
+		for (i = 0 ; i < TONE_CURVE_SIZE; i++) {
 			/* Byteswap appropriately */
 			data[i] = cpu_to_be16(le16_to_cpu(data[i]));
 			ret = write(tc_fd, &data[i], sizeof(uint16_t));
@@ -464,7 +464,7 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, cha
 	int ret, num = 0;
 	int remain;
 
-	uint16_t *data = malloc(TONE_CURVE_SIZE);
+	uint16_t *data = malloc(TONE_CURVE_SIZE * sizeof(uint16_t));
 	uint8_t *ptr;
 
 	if (!data) {
@@ -475,13 +475,13 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, cha
 	INFO("Set Tone Curve from '%s'\n", fname);
 
 	/* Read in file */
-	if ((ret = dyesub_read_file(fname, data, TONE_CURVE_SIZE, NULL))) {
+	if ((ret = dyesub_read_file(fname, data, TONE_CURVE_SIZE * sizeof(uint16_t), NULL))) {
 		ERROR("Failed to read Tone Curve file\n");
 		goto done;
 	}
 
 	/* Byteswap data to printer's format */
-	for (ret = 0; ret < (TONE_CURVE_SIZE)/2 ; ret++) {
+	for (ret = 0; ret < TONE_CURVE_SIZE ; ret++) {
 		data[ret] = cpu_to_le16(be16_to_cpu(data[ret]));
 	}
 
@@ -517,7 +517,7 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, cha
 	}
 
 	ptr = (uint8_t*) data;
-	remain = TONE_CURVE_SIZE;
+	remain = TONE_CURVE_SIZE * sizeof(uint16_t);
 	while (remain > 0) {
 		int count = remain > 63 ? 63 : remain;
 
@@ -1048,7 +1048,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.76" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.77" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

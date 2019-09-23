@@ -612,7 +612,7 @@ int sinfonia_gettonecurve(struct sinfonia_usbdev *usbh, int type, char *fname)
 	cmd.curveid = TONE_CURVE_ID;
 
 	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_READTONE);
-	cmd.hdr.len = cpu_to_le16(1);
+	cmd.hdr.len = cpu_to_le16(2);
 
 	resp.hdr.payload_len = 0;
 

@@ -27,7 +27,7 @@
  *
  */
 
-#define LIBSINFONIA_VER "0.12"
+#define LIBSINFONIA_VER "0.13"
 
 #define SINFONIA_HDR1_LEN 0x10
 #define SINFONIA_HDR2_LEN 0x64
@@ -124,7 +124,7 @@ const char *sinfonia_bank_statuses(uint8_t v);
    each is 256 entries of 11-bit data padded to 16-bits.
    Printer expects LE data.  We use BE data on disk.
 */
-#define TONE_CURVE_SIZE 0x600
+#define TONE_CURVE_SIZE (256*3)
 const char *sinfonia_update_targets (uint8_t v);
 
 #define TONECURVE_INIT    0x00
