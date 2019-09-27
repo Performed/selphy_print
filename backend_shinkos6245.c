@@ -1063,12 +1063,18 @@ static int shinkos6245_read_parse(void *vctx, const void **vjob, int data_fd, in
 	return CUPS_BACKEND_OK;
 }
 
-/* XXX Single cut; for double cut use a gap of 22 */
 static struct kodak8810_cutlist cutlist_8x4x2 = {
 	.entries = 3,
 	.cut[0] = cpu_to_le32(12),
 	.cut[1] = cpu_to_le32(2408/2),
 	.cut[2] = cpu_to_le32(2408-12),
+};
+static struct kodak8810_cutlist cutlist_8x4x2_d = {
+	.entries = 4,
+	.cut[0] = cpu_to_le32(12),
+	.cut[1] = cpu_to_le32(2408/2 - 38/2),
+	.cut[2] = cpu_to_le32(2408/2 + 38/2),
+	.cut[3] = cpu_to_le32(2408-12),
 };
 static struct kodak8810_cutlist cutlist_8x5x2 = {
 	.entries = 3,
@@ -1076,11 +1082,25 @@ static struct kodak8810_cutlist cutlist_8x5x2 = {
 	.cut[1] = cpu_to_le32(3024/2),
 	.cut[2] = cpu_to_le32(3024-12),
 };
+static struct kodak8810_cutlist cutlist_8x5x2_d = {
+	.entries = 4,
+	.cut[0] = cpu_to_le32(12),
+	.cut[1] = cpu_to_le32(3024/2 - 38/2),
+	.cut[2] = cpu_to_le32(3024/2 + 38/2),
+	.cut[3] = cpu_to_le32(3024-12),
+};
 static struct kodak8810_cutlist cutlist_8x6x2 = {
 	.entries = 3,
 	.cut[0] = cpu_to_le32(12),
 	.cut[1] = cpu_to_le32(3624/2),
 	.cut[2] = cpu_to_le32(3624-12),
+};
+static struct kodak8810_cutlist cutlist_8x6x2_d = {
+	.entries = 4,
+	.cut[0] = cpu_to_le32(12),
+	.cut[1] = cpu_to_le32(3624/2 - 38/2),
+	.cut[2] = cpu_to_le32(3624/2 + 38/2),
+	.cut[3] = cpu_to_le32(3624-12),
 };
 static struct kodak8810_cutlist cutlist_8x4x3 = {
 	.entries = 4,
@@ -1088,6 +1108,15 @@ static struct kodak8810_cutlist cutlist_8x4x3 = {
 	.cut[1] = cpu_to_le32(3624/3),
 	.cut[2] = cpu_to_le32(3624/3 + 3624/3),
 	.cut[3] = 3624,
+};
+static struct kodak8810_cutlist cutlist_8x4x3_d = {
+	.entries = 6,
+	.cut[0] = cpu_to_le32(12),
+	.cut[1] = cpu_to_le32(3624/3 - 38/2),
+	.cut[2] = cpu_to_le32(3624/3 + 38/2),
+	.cut[3] = cpu_to_le32(3624/3 + 3624/3 - 38/2),
+	.cut[4] = cpu_to_le32(3624/3 + 3624/3 + 38/2),
+	.cut[5] = 3624,
 };
 
 static int shinkos6245_main_loop(void *vctx, const void *vjob) {
@@ -1135,16 +1164,28 @@ static int shinkos6245_main_loop(void *vctx, const void *vjob) {
 	if (ctx->dev.type == P_KODAK_8810) {
 		switch (job->jp.media) {
 		case CODE_8x4_2:
-			cutlist = &cutlist_8x4x2;
+			if (job->jp.ext_flags & EXT_FLAG_DOUBLESLUG)
+				cutlist = &cutlist_8x4x2_d;
+			else
+				cutlist = &cutlist_8x4x2;
 			break;
 		case CODE_8x5_2:
-			cutlist = &cutlist_8x5x2;
+			if (job->jp.ext_flags & EXT_FLAG_DOUBLESLUG)
+				cutlist = &cutlist_8x5x2_d;
+			else
+				cutlist = &cutlist_8x5x2;
 			break;
 		case CODE_8x6_2:
-			cutlist = &cutlist_8x6x2;
+			if (job->jp.ext_flags & EXT_FLAG_DOUBLESLUG)
+				cutlist = &cutlist_8x6x2_d;
+			else
+				cutlist = &cutlist_8x6x2;
 			break;
 		case CODE_8x4_3:
-			cutlist = &cutlist_8x4x3;
+			if (job->jp.ext_flags & EXT_FLAG_DOUBLESLUG)
+				cutlist = &cutlist_8x4x3_d;
+			else
+				cutlist = &cutlist_8x4x3;
 			break;
 		default:
 			break;
@@ -1400,7 +1441,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Sinfonia CHC-S6245 / Kodak 8810",
-	.version = "0.29" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.30" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,

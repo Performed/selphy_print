@@ -50,8 +50,9 @@ struct sinfonia_job_param {
 
 	uint32_t ext_flags;
 };
-#define EXT_FLAG_PLANARYMC 0x01
-#define EXT_FLAG_BACKPRINT 0x02
+#define EXT_FLAG_PLANARYMC  0x01
+#define EXT_FLAG_BACKPRINT  0x02
+#define EXT_FLAG_DOUBLESLUG 0x04
 
 struct sinfonia_printjob {
 	struct sinfonia_job_param jp;
