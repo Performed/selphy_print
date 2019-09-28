@@ -154,6 +154,7 @@ static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev, int ty
 
 	ctx->marker.color = "#000000";  /* Ie black! */
 	ctx->marker.name = "Unknown";
+	ctx->marker.numtype = -1;
 	ctx->marker.levelmax = -1;
 	ctx->marker.levelnow = -2;
 

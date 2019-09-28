@@ -819,6 +819,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	/* Set up markers */
 	ctx->marker[0].color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker[0].name = mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type);
+	ctx->marker[0].numtype = resp.lower.media_type;
 	ctx->marker[0].levelmax = be16_to_cpu(resp.lower.capacity);
 	ctx->marker[0].levelnow = be16_to_cpu(resp.lower.remain);
 	ctx->medias[0] = resp.lower.media_type & 0xf;
@@ -826,6 +827,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	if (ctx->num_decks == 2) {
 		ctx->marker[1].color = "#00FFFF#FF00FF#FFFF00";
 		ctx->marker[1].name = mitsu70x_media_types(resp.upper.media_brand, resp.upper.media_type);
+		ctx->marker[1].numtype = resp.upper.media_type;
 		ctx->marker[1].levelmax = be16_to_cpu(resp.upper.capacity);
 		ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
 		ctx->medias[1] = resp.upper.media_type & 0xf;

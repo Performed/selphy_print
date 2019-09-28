@@ -460,6 +460,7 @@ static int magicard_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";  // XXX YMCK too!
 	ctx->marker.name = "Unknown"; // LC1/LC3/LC6/LC8
+	ctx->marker.numtype = -1;
 	ctx->marker.levelmax = -1;
 	ctx->marker.levelnow = -2;
 

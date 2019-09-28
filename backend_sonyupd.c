@@ -129,6 +129,7 @@ static int upd_attach(void *vctx, struct libusb_device_handle *dev, int type,
 	}
 
 	ctx->marker.name = "Unknown";
+	ctx->marker.numtype = -1;
 	ctx->marker.levelmax = -1;
 	ctx->marker.levelnow = -2;
 

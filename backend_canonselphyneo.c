@@ -233,6 +233,7 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev, int ty
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = selphynew_pgcodes(rdback.data[6]);
+	ctx->marker.numtype = rdback.data[6];
 	ctx->marker.levelmax = -1;
 	if (rdback.data[2]) {
 		ctx->marker.levelnow = 0;

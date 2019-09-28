@@ -30,7 +30,7 @@
 #include "backend_common.h"
 #include <errno.h>
 
-#define BACKEND_VERSION "0.95"
+#define BACKEND_VERSION "0.96"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -1467,6 +1467,12 @@ minimal:
 				DEBUG2(",");
 		}
 		DEBUG2("\n");
+	}
+
+	if (full) {
+		for (i = 0 ; i < marker_count ; i++) {
+			PPD("stpMediaID=%d\n", markers[i].numtype);
+		}
 	}
 }
 

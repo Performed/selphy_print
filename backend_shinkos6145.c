@@ -1055,6 +1055,7 @@ static int shinkos6145_attach(void *vctx, struct libusb_device_handle *dev, int 
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = print_ribbons(ctx->media.ribbon_code);
+	ctx->marker.numtype = ctx->media.ribbon_code;
 	ctx->marker.levelmax = ribbon_sizes(ctx->media.ribbon_code);
 	ctx->marker.levelnow = -2;
 

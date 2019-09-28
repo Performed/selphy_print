@@ -509,6 +509,7 @@ skip:
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = mitsu9550_media_types(media.type, ctx->is_s);
+	ctx->marker.numtype = media.type;
 	ctx->marker.levelmax = be16_to_cpu(media.max);
 	ctx->marker.levelnow = be16_to_cpu(media.remain);
 

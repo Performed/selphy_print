@@ -1230,6 +1230,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	/* Fill out marker structure */
 	ctx->marker[0].color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker[0].name = dnpds40_media_types(ctx->media);
+	ctx->marker[0].numtype = ctx->media;
 	ctx->marker[0].levelmax = ctx->media_count_new;
 	ctx->marker[0].levelnow = -2;
 	ctx->marker_count = 1;
@@ -1237,6 +1238,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	if (ctx->type == P_DNP_DS80D) {
 		ctx->marker[1].color = "#00FFFF#FF00FF#FFFF00";
 		ctx->marker[1].name = dnpds80_duplex_media_types(ctx->duplex_media);
+		ctx->marker[1].numtype = ctx->duplex_media;
 		ctx->marker[1].levelmax = ctx->marker[0].levelmax/2;
 		ctx->marker[1].levelnow = -2;
 		ctx->marker_count++;

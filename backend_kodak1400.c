@@ -309,6 +309,7 @@ static int kodak1400_attach(void *vctx, struct libusb_device_handle *dev, int ty
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = "Unknown";
+	ctx->marker.numtype = -1;
 	ctx->marker.levelmax = -1;
 	ctx->marker.levelnow = -2;
 

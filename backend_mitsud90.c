@@ -543,6 +543,7 @@ static int mitsud90_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	}
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.numtype = resp.media.type;
 	ctx->marker.name = mitsu70x_media_types(resp.media.brand, resp.media.type);
 	ctx->marker.levelmax = be16_to_cpu(resp.media.capacity);
 	ctx->marker.levelnow = be16_to_cpu(resp.media.remain);

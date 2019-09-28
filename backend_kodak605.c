@@ -404,6 +404,7 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = kodak6_mediatypes(ctx->media->type);
+	ctx->marker.numtype = ctx->media->type;
 	ctx->marker.levelmax = 100; /* Ie percentage */
 	ctx->marker.levelnow = -2;
 

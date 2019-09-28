@@ -683,6 +683,7 @@ static int hiti_attach(void *vctx, struct libusb_device_handle *dev, int type,
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = hiti_ribbontypes(ctx->supplies[2]);
+	ctx->marker.numtype = ctx->supplies[2];
 	ctx->marker.levelmax = hiti_ribboncounts(ctx->supplies[2]);
 	ctx->marker.levelnow = 0;
 

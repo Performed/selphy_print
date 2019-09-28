@@ -46,7 +46,7 @@ struct updneo_printjob {
 	uint8_t *databuf;
 	int datalen;
 
-	int copies_offset;
+//	int copies_offset;  // XXX eventually implement
 	int payload_offset;
 
 	int copies;
@@ -99,6 +99,7 @@ static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 	}
 
 	ctx->marker.name = "Unknown";
+	ctx->marker.numtype = -1;
 	ctx->marker.levelmax = -1;
 	ctx->marker.levelnow = -2;
 

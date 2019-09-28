@@ -52,6 +52,7 @@
 #define INFO( ... )  do { if (!quiet) fprintf(stderr, "INFO: " __VA_ARGS__ ); } while(0)
 #define WARNING( ... )  do { fprintf(stderr, "WARNING: " __VA_ARGS__ ); } while(0)
 #define ERROR( ... ) do { fprintf(stderr, "ERROR: " __VA_ARGS__ ); sleep(1); } while (0)
+#define PPD( ... ) do { fprintf(stderr, "PPD: " __VA_ARGS__ ); sleep(1); } while (0)
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le64_to_cpu(__x) __x
@@ -184,6 +185,7 @@ struct marker {
 	const char *name;   /* Eg "CK9015 (4x6)" */
 	int levelmax; /* Max media count, eg '600', or '-1' */
 	int levelnow; /* Remaining media, -3, -2, -1, 0..N.  See CUPS. */
+	int numtype; /* Numerical type, (-1 for unknown) */
 };
 
 #define BACKEND_FLAG_JOBLIST 0x00000001

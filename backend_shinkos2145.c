@@ -897,6 +897,7 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int 
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = sinfonia_print_codes(ctx->media_code, 0);
+	ctx->marker.numtype = ctx->media_code;
 	ctx->marker.levelmax = media_prints;
 	ctx->marker.levelnow = -2;
 
