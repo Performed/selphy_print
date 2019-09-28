@@ -741,7 +741,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		return found;
 	}
 
-	STATE("+org.gutenprint-searching-for-device\n");
+	STATE("+org.gutenprint.searching-for-device\n");
 
 	/* Enumerate and find suitable device */
 	num = libusb_get_device_list(ctx, list);
@@ -790,7 +790,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			break;
 	}
 
-	STATE("-org.gutenprint-searching-for-device\n");
+	STATE("-org.gutenprint.searching-for-device\n");
 	return found;
 }
 
@@ -1233,7 +1233,7 @@ bypass:
 		goto done_close;
 	}
 
-//	STATE("+org.gutenprint-attached-to-device\n");
+//	STATE("+org.gutenprint.attached-to-device\n");
 
 	if (!uri) {
 		if (backend->cmdline_arg(backend_ctx, argc, argv) < 0)
@@ -1372,7 +1372,7 @@ done:
 			backend->teardown(backend_ctx);
 		else
 			generic_teardown(backend_ctx);
-//		STATE("-org.gutenprint-attached-to-device");
+//		STATE("-org.gutenprint.attached-to-device");
 	}
 
 	if (list)
@@ -1472,7 +1472,7 @@ minimal:
 
 	if (full) {
 		for (i = 0 ; i < marker_count ; i++) {
-			PPD("stpMediaID=%d\n", markers[i].numtype);
+			PPD("StpMediaID=%d\n", markers[i].numtype);
 		}
 	}
 }
