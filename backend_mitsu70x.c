@@ -27,15 +27,9 @@
  *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#define BACKEND mitsu70x_backend
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <signal.h>
+#include "backend_common.h"
 
 /* For Integration into gutenprint */
 #if defined(HAVE_CONFIG_H)
@@ -64,10 +58,6 @@
 #define DL_EXIT()     do {} while(0)
 #warning "No dynamic loading support!"
 #endif
-
-#define BACKEND mitsu70x_backend
-
-#include "backend_common.h"
 
 // #include "lib70x/libMitsuD70ImageReProcess.h"
 

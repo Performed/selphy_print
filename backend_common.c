@@ -29,6 +29,7 @@
 
 #include "backend_common.h"
 #include <errno.h>
+#include <signal.h>
 
 #define BACKEND_VERSION "0.96"
 #ifndef URI_PREFIX

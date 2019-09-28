@@ -27,21 +27,11 @@
  *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <time.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <string.h>
-
 #define BACKEND magicard_backend
 
 #include "backend_common.h"
+
+#include <time.h>
 
 /* Exported */
 #define USB_VID_MAGICARD     0x0C1F
