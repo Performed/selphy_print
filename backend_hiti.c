@@ -69,8 +69,8 @@ struct hiti_cmd {
 #define CMD_RDS_RSUS   0x040C /* Request Supplies Status */
 
 /* Job Control */
-#define CMD_JC_SJ      0x0500 /* Start Job (2 arg) XX */
-#define CMD_JC_EJ      0x0501 /* End Job (2 arg) XX */
+#define CMD_JC_SJ      0x0500 /* Start Job (2 arg) */
+#define CMD_JC_EJ      0x0501 /* End Job (2 arg) */
 #define CMD_JC_QJC     0x0502 /* Query Job Completed (3 arg) XX */
 #define CMD_JC_QQA     0x0503 /* Query Jobs Queued or Active (2 arg) XX */
 #define CMD_JC_RSJ     0x0510 /* Resume Suspended Job (2 arg) XX */
@@ -78,7 +78,7 @@ struct hiti_cmd {
 /* Extended Read Device Characteristics */
 #define CMD_ERDC_RS    0x8000 /* Request Summary */
 #define CMD_ERDC_RCC   0x8001 /* Read Calibration Charcteristics */
-#define CMD_ERDC_RPC   0x8005 /* Request Print Count (1 arg) XX */
+#define CMD_ERDC_RPC   0x8005 /* Request Print Count (1 arg, 4 resp) */
 #define CMD_ERDC_RLC   0x8006 /* Request LED calibration */
 #define CMD_ERDC_RSN   0x8007 /* Read Serial Number (1 arg) */
 #define CMD_ERDC_RPIDM 0x8009 /* Request PID and Model Code */
@@ -302,7 +302,7 @@ static int hiti_query_led_calibration(struct hiti_ctx *ctx);
 static int hiti_query_ribbonvendor(struct hiti_ctx *ctx);
 static int hiti_query_summary(struct hiti_ctx *ctx, struct hiti_erdc_rs *rds);
 static int hiti_query_rpidm(struct hiti_ctx *ctx);
-
+static int hiti_query_counter(struct hiti_ctx *ctx, uint8_t arg, uint32_t *resp);
 static int hiti_query_markers(void *vctx, struct marker **markers, int *count);
 
 static int hiti_docmd(struct hiti_ctx *ctx, uint16_t cmdid, uint8_t *buf, uint16_t buf_len, uint16_t *rsplen)
@@ -566,6 +566,22 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 	ret = hiti_query_matrix(ctx);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
+
+	uint32_t buf;
+	ret = hiti_query_counter(ctx, 1, &buf);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
+	INFO("6x4 Total prints?: %u\n", buf);
+
+	ret = hiti_query_counter(ctx, 2, &buf);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
+	INFO("6x4 APC prints?: %u\n", buf);
+
+	ret = hiti_query_counter(ctx, 4, &buf);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
+	INFO("6x8 APC prints?: %u\n", buf);
 
 	int i;
 
@@ -1203,7 +1219,11 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	// CMD_JC_SJ   // start job (w/ jobid)
+	/* XXX startjob returns actual jobid */
+	uint16_t jobid = cpu_to_be16(ctx->jobid);
+	resplen = sizeof(jobid);
+	ret = hiti_docmd_resp(ctx, CMD_JC_SJ, (uint8_t*) &jobid, sizeof(jobid),
+			      (uint8_t*) &jobid, &resplen);
 
 	uint8_t chs[2] = { 0, 1 }; /* Fixed..? */
 	ret = hiti_docmd(ctx, CMD_EFD_CHS, chs, sizeof(chs), &resplen);
@@ -1253,7 +1273,9 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	// CMD_JC_EJ // end job
+	ret = hiti_docmd(ctx, CMD_JC_EJ, (uint8_t*)&jobid, sizeof(jobid), &resplen);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
 
 	INFO("Waiting for printer acknowledgement\n");
 	do {
@@ -1520,6 +1542,21 @@ static int hiti_query_matrix(struct hiti_ctx *ctx)
 			return ret;
 	}
 
+
+	return CUPS_BACKEND_OK;
+}
+
+static int hiti_query_counter(struct hiti_ctx *ctx, uint8_t arg, uint32_t *resp)
+{
+	int ret;
+	uint16_t len = sizeof(*resp);
+
+	ret = hiti_docmd_resp(ctx, CMD_ERDC_RPC, &arg, sizeof(arg),
+			      (uint8_t*) resp, &len);
+	if (ret)
+		return ret;
+
+	*resp = be32_to_cpu(*resp);
 
 	return CUPS_BACKEND_OK;
 }
