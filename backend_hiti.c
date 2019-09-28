@@ -93,8 +93,8 @@ struct hiti_cmd {
 // 801c seen in Windows comm @ 3293 (6 len response, all zero..?)
 
 /* Extended Format Data */
-#define CMD_EFD_SF     0x8100 /* Sublimation Format XX */
-#define CMD_EFD_CHS    0x8101 /* Color & Heating Setting (2 arg) XX */
+#define CMD_EFD_SF     0x8100 /* Sublimation Format */
+#define CMD_EFD_CHS    0x8101 /* Color & Heating Setting (2 arg) */
 
 /* Extended Page Control */
 #define CMD_EPC_SP     0x8200 /* Start Page */
@@ -106,7 +106,7 @@ struct hiti_cmd {
 /* Extended Send Data */
 #define CMD_ESD_SEHT2  0x8303 /* Send Ext Heating Table (2 arg) XX */
 #define CMD_ESD_SEHT   0x8304 /* Send Ext Heating Table XX */
-#define CMD_ESD_SEPD   0x8309 /* Send Ext Print Data (2 arg) + struct XX */
+#define CMD_ESD_SEPD   0x8309 /* Send Ext Print Data (2 arg) + struct */
 #define CMD_ESD_SHPTC  0x830B /* Send Heating Parameters & Tone Curve XX (n arg) */
 #define CMD_ESD_C_SHPTC  0x830C /* Send Heating Parameters & Tone Curve XX (n arg) */
 
@@ -149,20 +149,20 @@ struct hiti_erdc_rs {      /* All are BIG endian */
 #define PRINT_TYPE_5x3_5 8
 #define PRINT_TYPE_6x4_2UP 9
 #define PRINT_TYPE_6x2  10
-#define PRIT_TYPE_5x7_2UP 11
+#define PRINT_TYPE_5x7_2UP 11
 
 /* CMD_EFD_SF */
 struct hiti_efd_sf {
 /*@0 */	uint8_t  mediaType; /* PRINT_TYPE_?? */
 /*@1 */	uint16_t cols_res;  /* BE, always 300dpi */
 /*@3 */	uint16_t rows_res;  /* BE, always 300dpi */
-/*@5 */	uint16_t cols;  /* BE */
-/*@7 */	uint16_t rows;  /* BE */
+/*@5 */	uint16_t cols;      /* BE */
+/*@7 */	uint16_t rows;      /* BE */
 /*@9 */	 int8_t  rows_offset; /* Has to do with H_Offset calibration */
 /*@10*/	 int8_t  cols_offset; /* Has to do wiwth V_Offset calibration */
-/*@11*/	uint8_t  colorSeq; /* always 0x87, | 0xc0 for matte. */
+/*@11*/	uint8_t  colorSeq;  /* always 0x87, but |= 0xc0 for matte. */
 /*@12*/	uint8_t  copies;
-/*@13*/	uint8_t  printMode; /* 0x08 on P52x/P72x, 0x01 on P750.  | 0x2 for fine mode */
+/*@13*/	uint8_t  printMode; /* 0x08 baseline, |= 0x02 fine mode */
 } __attribute__((packed));
 
 /* CMD_ESD_SEPD -- Note it's different from the usual command flow */
@@ -222,7 +222,7 @@ struct hiti_matrix {
 /* @100 */
 } __attribute__((packed));
 
-struct hiti_jobhdr { /* based on p525l, others shoudl be similar */
+struct hiti_jobhdr { /* based on p525l, others should be similar */
 	uint8_t queuename[32];
 	uint8_t octname[32];
 
@@ -285,10 +285,10 @@ struct hiti_ctx {
 	uint8_t  supplies2[4]; /* Paper */  // XXX convert to struct
 	struct hiti_calibration calibration;
 	uint8_t  led_calibration[10]; // XXX convert to struct
-	uint8_t  erdc_rs[29];  /* XXX convert to struct edrc_rs */
+	struct hiti_erdc_rs erdc_rs;
 	uint8_t  rtlv[2];      /* XXX figure out conversion/math? */
 	struct hiti_rpidm rpidm;
-	uint16_t ribbonvendor;  // XXX struct?
+	uint16_t ribbonvendor; // low byte = media subtype, high byte = type.
 	uint32_t media_remain; // XXX could be array?
 };
 
@@ -302,7 +302,7 @@ static int hiti_query_statistics(struct hiti_ctx *ctx);
 static int hiti_query_calibration(struct hiti_ctx *ctx);
 static int hiti_query_led_calibration(struct hiti_ctx *ctx);
 static int hiti_query_ribbonvendor(struct hiti_ctx *ctx);
-static int hiti_query_summary(struct hiti_ctx *ctx, uint8_t *rds);
+static int hiti_query_summary(struct hiti_ctx *ctx, struct hiti_erdc_rs *rds);
 static int hiti_query_rpidm(struct hiti_ctx *ctx);
 
 static int hiti_query_markers(void *vctx, struct marker **markers, int *count);
@@ -557,24 +557,22 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 	     hiti_regions(ctx->rpidm.region),
 		ctx->rpidm.region);
 
-	ret = hiti_query_summary(ctx, ctx->erdc_rs);
+	ret = hiti_query_summary(ctx, &ctx->erdc_rs);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
+
+	INFO("Status Summary: %d %dx%d %dx%d\n",
+	     ctx->erdc_rs.stride,
+	     ctx->erdc_rs.cols,
+	     ctx->erdc_rs.rows,
+	     ctx->erdc_rs.dpi_cols,
+	     ctx->erdc_rs.dpi_rows);
+
 	ret = hiti_query_matrix(ctx);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
 	int i;
-
-	DEBUG("RS ");
-	for (i = 0 ; i < 29 ; i++) {
-		if (i != 0 && (i % 16 == 0)) {
-			DEBUG2("\n");
-			DEBUG("    ");
-		}
-		DEBUG2("%02x ", ctx->erdc_rs[i]);
-	}
-	DEBUG2("\n");
 
 	DEBUG("MAT ");
 	for (i = 0 ; i < 256 ; i++) {
@@ -708,15 +706,72 @@ static const uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx)
 	uint8_t *buf;
 	int ret, len;
 
-	/* XXX add in P72x and its media type/subtype distinction */
+	int mode = 0; // XXX 0 = standard, 1 = fine
+	int mediaver = ctx->ribbonvendor & 0x3f;
+	int mediatype = ((ctx->ribbonvendor & 0xf000) == 0x1000);
+
 	switch (ctx->type)
 	{
-	case P_HITI_52X: // XXX don't forget PREFIXES
+	case P_HITI_52X:
 		fname = "P52x_CCPPri.bin";
+		break;
+	case P_HITI_72X:
+		if (!mediatype) {
+			if (mode) {
+				fname = "P72x_CMQPrd.bin";
+				break;
+			} else {
+				fname = "P72x_CMPPrd.bin";
+				break;
+			}
+		} else {
+			if (mode) {
+				switch(mediaver) {
+				case 0:
+					fname = "P72x_CCQPrd.bin";
+					break;
+				case 1:
+					fname = "P72x_CCQP1rd.bin";
+					break;
+				case 2:
+					fname = "P72x_CCQP2rd.bin";
+					break;
+				case 3:
+					fname = "P72x_CCQP3rd.bin";
+					break;
+				case 4:
+				default:
+					fname = "P72x_CCQP4rd.bin";
+				break;
+				}
+			} else {
+				switch(mediaver) {
+				case 0:
+					fname = "P72x_CCPPrd.bin";
+					break;
+				case 1:
+					fname = "P72x_CCPP1rd.bin";
+					break;
+				case 2:
+					fname = "P72x_CCPP2rd.bin";
+					break;
+				case 3:
+					fname = "P72x_CCPP3rd.bin";
+					break;
+				case 4:
+				default:
+					fname = "P72x_CCPP4rd.bin";
+					break;
+				}
+			}
+		}
+		break;
 	case P_HITI_75X:
 		fname = "P75x_CCPPri.bin";
+		break;
 	default:
 		fname = NULL;
+		break;
 	}
 	if (!fname)
 		return NULL;
@@ -863,12 +918,6 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	/* Load up correction data */
 	const uint8_t *corrdata = hiti_get_correction_data(ctx);
 
-	// P52x and P750 has only one blob each
-	// P72x has ten blobs, one each for two media types and
-	//   four each for the other two.
-	// P110 has two blobs
-	// P51x has many
-
 	/* Convert input packed BGR data into YMC planar */
 	{
 		int rowlen = ((job->hdr.rows * 4) + 3) / 4;
@@ -911,7 +960,21 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	return CUPS_BACKEND_OK;
 }
 
-static int hiti_main_loop(void *vctx, const void *vjob) {
+static int calc_offset(int val, int mid, int max, int step)
+{
+	if (val > max)
+		val = max;
+	else if (val < 0)
+		val = 0;
+
+	val -= mid;
+	val *= step;
+
+	return step;
+}
+
+static int hiti_main_loop(void *vctx, const void *vjob)
+{
 	struct hiti_ctx *ctx = vctx;
 
 	int ret;
@@ -956,14 +1019,32 @@ top:
 	uint16_t startLine = 0;
 	uint16_t numLines = rows;
 
-	uint32_t sent = 0; // XXX initialize properly
+	uint32_t sent = 0;
 
-	// CMD_EFD_SF  // sublimation format  (ie width, height, etc etc)
+	/* Set up and send over Sublimation Format */
+	struct hiti_efd_sf sf;
+	sf.mediaType = 0; // XXX PRINT_TYPE_??
+	sf.cols_res = sf.rows_res = cpu_to_be16(300);
+	sf.cols = cpu_to_be16(job->hdr.cols);
+	sf.rows = cpu_to_be16(rows);
+	sf.rows_offset = calc_offset(ctx->calibration.vert, 5, 8, 4);
+	sf.cols_offset = calc_offset(ctx->calibration.horiz, 6, 11, 4);
+	sf.colorSeq = 0x87 + (job->hdr.matte ? 0xc0 : 0);
+	sf.printMode = 0x08; // fine |= 0x02
+	ret = hiti_docmd(ctx, CMD_EFD_SF, (uint8_t*) &sf, sizeof(sf), &resplen);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
+
 	// CMD_JC_SJ   // start job (w/ jobid)
-	// CMD_EFC_CHS // color & heater setting (2 arg), always [ 0, 1 ]
+
+	uint8_t chs[2] = { 0, 1 }; /* Fixed..? */
+	ret = hiti_docmd(ctx, CMD_EFD_CHS, chs, sizeof(chs), &resplen);
+	if (ret)
+		return CUPS_BACKEND_CANCEL;
 	ret = hiti_docmd(ctx, CMD_EPC_SP, NULL, 0, &resplen);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
+
 	// CMD_ESD_SHPTC // Heating Parameters & Tone Curve (~7Kb, seen on windows..)
 	INFO("Sending yellow plane\n");
 	ret = hiti_docmd(ctx, CMD_EPC_SYP, NULL, 0, &resplen);
@@ -1139,12 +1220,12 @@ static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint16_t *err)
 	return CUPS_BACKEND_OK;
 }
 
-static int hiti_query_summary(struct hiti_ctx *ctx, uint8_t *rds)
+static int hiti_query_summary(struct hiti_ctx *ctx, struct hiti_erdc_rs *rds)
 {
 	int ret;
-	uint16_t len = 29;
+	uint16_t len = sizeof(*rds);
 
-	ret = hiti_docmd_resp(ctx, CMD_ERDC_RS, NULL, 0, rds, &len);
+	ret = hiti_docmd_resp(ctx, CMD_ERDC_RS, NULL, 0, (uint8_t*)rds, &len);
 	if (ret)
 		return ret;
 
@@ -1323,7 +1404,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.01WIP",
+	.version = "0.02WIP",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
