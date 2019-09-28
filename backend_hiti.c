@@ -38,7 +38,7 @@ struct hiti_cmd {
 	uint8_t unk;    /* 0x50 */
 	uint16_t cmd;   /* CMD_*  (BE) */
 	uint8_t payload[];  /* 0-3 items */
-};
+} __attribute__((packed));
 
 /* Request Device Characteristics */
 #define CMD_RDC_RS     0x0100 /* Request Summary */
@@ -299,21 +299,19 @@ static int hiti_query_markers(void *vctx, struct marker **markers, int *count);
 
 static int hiti_docmd(struct hiti_ctx *ctx, uint16_t cmdid, uint8_t *buf, uint16_t buf_len, uint16_t *rsplen)
 {
-	uint8_t cmdbuf[sizeof(struct hiti_cmd)];
+	uint8_t cmdbuf[2048];
 	struct hiti_cmd *cmd = (struct hiti_cmd *)cmdbuf;
 	int ret, num = 0;
 
-	buf_len += 3;
-
 	cmd->hdr = 0xa5;
-	cmd->len = cpu_to_be16(buf_len);
+	cmd->len = cpu_to_be16(buf_len + 3);
 	cmd->unk = 0x50;
 	cmd->cmd = cpu_to_be16(cmdid);
 	if (buf && buf_len)
 		memcpy(cmd->payload, buf, buf_len);
 
 	/* Send over command */
-	if ((ret = send_data(ctx->dev, ctx->endp_down, (uint8_t*) cmd, 3 + cmd->len))) {
+	if ((ret = send_data(ctx->dev, ctx->endp_down, (uint8_t*) cmd, buf_len + 3 + 3))) {
 		return ret;
 	}
 
@@ -328,7 +326,7 @@ static int hiti_docmd(struct hiti_ctx *ctx, uint16_t cmdid, uint8_t *buf, uint16
 	}
 
 	/* Compensate for hdr len */
-	*rsplen = cmd->len - 3;
+	*rsplen = be16_to_cpu(cmd->len) - 3;
 
 	return CUPS_BACKEND_OK;
 }
@@ -343,7 +341,6 @@ static int hiti_docmd_resp(struct hiti_ctx *ctx, uint16_t cmdid,
 	ret = hiti_docmd(ctx, cmdid, buf, buf_len, &cmd_resp_len);
 	if (ret)
 		return ret;
-
 
 	if (cmd_resp_len > *resplen) {
 		ERROR("Response too long! (%d vs %d)\n", cmd_resp_len, *resplen);
@@ -1220,6 +1217,12 @@ static int hiti_query_summary(struct hiti_ctx *ctx, struct hiti_erdc_rs *rds)
 	if (ret)
 		return ret;
 
+	rds->stride = be16_to_cpu(rds->stride);
+	rds->dpi_cols = be16_to_cpu(rds->dpi_cols);
+	rds->dpi_rows = be16_to_cpu(rds->dpi_rows);
+	rds->cols = be16_to_cpu(rds->cols);
+	rds->rows = be16_to_cpu(rds->rows);
+
 	return CUPS_BACKEND_OK;
 }
 
@@ -1395,7 +1398,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.02WIP",
+	.version = "0.03WIP",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
