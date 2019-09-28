@@ -31,6 +31,14 @@
 
 #include "backend_common.h"
 
+#ifndef CORRTABLE_PATH
+#ifdef PACKAGE_DATA_DIR
+#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
+#else
+#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
+#endif
+#endif
+
 /* Private structures */
 struct hiti_cmd {
 	uint8_t hdr;    /* 0xa5 */
@@ -701,61 +709,61 @@ static const uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx)
 	switch (ctx->type)
 	{
 	case P_HITI_52X:
-		fname = "P52x_CCPPri.bin";
+		fname = CORRTABLE_PATH "/P52x_CCPPri.bin";
 		break;
 	case P_HITI_72X:
 		if (!mediatype) {
 			if (mode) {
-				fname = "P72x_CMQPrd.bin";
+				fname = CORRTABLE_PATH "/P72x_CMQPrd.bin";
 				break;
 			} else {
-				fname = "P72x_CMPPrd.bin";
+				fname = CORRTABLE_PATH "/P72x_CMPPrd.bin";
 				break;
 			}
 		} else {
 			if (mode) {
 				switch(mediaver) {
 				case 0:
-					fname = "P72x_CCQPrd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCQPrd.bin";
 					break;
 				case 1:
-					fname = "P72x_CCQP1rd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCQP1rd.bin";
 					break;
 				case 2:
-					fname = "P72x_CCQP2rd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCQP2rd.bin";
 					break;
 				case 3:
-					fname = "P72x_CCQP3rd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCQP3rd.bin";
 					break;
 				case 4:
 				default:
-					fname = "P72x_CCQP4rd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCQP4rd.bin";
 				break;
 				}
 			} else {
 				switch(mediaver) {
 				case 0:
-					fname = "P72x_CCPPrd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCPPrd.bin";
 					break;
 				case 1:
-					fname = "P72x_CCPP1rd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCPP1rd.bin";
 					break;
 				case 2:
-					fname = "P72x_CCPP2rd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCPP2rd.bin";
 					break;
 				case 3:
-					fname = "P72x_CCPP3rd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCPP3rd.bin";
 					break;
 				case 4:
 				default:
-					fname = "P72x_CCPP4rd.bin";
+					fname = CORRTABLE_PATH "/P72x_CCPP4rd.bin";
 					break;
 				}
 			}
 		}
 		break;
 	case P_HITI_75X:
-		fname = "P75x_CCPPri.bin";
+		fname = CORRTABLE_PATH "/P75x_CCPPri.bin";
 		break;
 	default:
 		fname = NULL;
@@ -782,6 +790,174 @@ static const uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx)
 	}
 
 	return buf;
+}
+
+/* HiTi's funky interpolation table processing */
+struct rgb {
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+};
+
+static uint32_t interp1089[33];
+static uint32_t interp33[33];
+static uint16_t interp256[256*9];
+
+static void hiti_interp_init(void)
+{
+	int i;
+	uint16_t *pre, *cur;
+
+	for (i = 0 ; i < 33 ; i++) {
+		interp1089[i] = i * 1089;
+		interp33[i] = i * 33;
+	}
+	memset(interp256, 0, sizeof(interp256));
+	pre = &interp256[0];
+	cur = &interp256[256];
+
+	for (i = 1 ; i < 9 ; i++) {
+		int j;
+		for (j = 0 ; i < 256 ; j++) {
+			cur[j] = pre[j] + j;
+		};
+		pre += 256;
+		cur += 256;
+	}
+}
+
+static void hiti_interp33_256(uint8_t *dst, uint8_t *src, const uint8_t *pTable)
+{
+	struct rgb p1_pos, p2_pos, p3_pos, p4_pos;
+	struct rgb p1_val, p2_val, p3_val, p4_val;
+	uint8_t r_weight, g_weight, b_weight;
+	uint16_t w1, w2, w3, w4;
+	uint16_t *pw1, *pw2, *pw3, *pw4;
+	uint32_t pos;
+
+	/* Get Grid position */
+	p1_pos.r = src[0] >> 3;
+	p1_pos.g = src[1] >> 3;
+	p1_pos.b = src[2] >> 3;
+
+	p4_pos.r = p1_pos.r + 1;
+	p4_pos.g = p1_pos.g + 1;
+	p4_pos.b = p1_pos.b + 1;
+
+	/* Weights */
+	r_weight = src[0] & 0x7;
+	g_weight = src[1] & 0x7;
+	b_weight = src[2] & 0x7;
+	if (src[0] == 255) r_weight = 8;
+	if (src[1] == 255) g_weight = 8;
+	if (src[2] == 255) b_weight = 8;
+
+	/* Work out relative weights and offsets */
+	if (r_weight >= g_weight) {
+		if (g_weight >= b_weight) { /* R > G > B */
+			w1 = 8 - r_weight;
+			w2 = r_weight - g_weight;
+			w3 = g_weight - b_weight;
+			w4 = b_weight;
+			p2_pos.r = p1_pos.r + 1;
+			p2_pos.g = p1_pos.g;
+			p2_pos.b = p1_pos.b;
+			p3_pos.r = p1_pos.r + 1;
+			p3_pos.g = p1_pos.g + 1;
+			p3_pos.b = p1_pos.b;
+		} else {
+			if (r_weight >= b_weight) { /* R > B > G */
+				w1 = 8 - r_weight;
+				w2 = r_weight - b_weight;
+				w3 = b_weight - g_weight;
+				w4 = g_weight;
+				p2_pos.r = p1_pos.r + 1;
+				p2_pos.g = p1_pos.g;
+				p2_pos.b = p1_pos.b;
+				p3_pos.r = p1_pos.r + 1;
+				p3_pos.g = p1_pos.g;
+				p3_pos.b = p1_pos.b + 1;
+			} else { /* B > R > G */
+				w1 = 8 - b_weight;
+				w2 = b_weight - r_weight;
+				w3 = r_weight - g_weight;
+				w4 = g_weight;
+				p2_pos.r = p1_pos.r;
+				p2_pos.g = p1_pos.g;
+				p2_pos.b = p1_pos.b + 1;
+				p3_pos.r = p1_pos.r + 1;
+				p3_pos.g = p1_pos.g;
+				p3_pos.b = p1_pos.b + 1;
+			}
+		}
+	} else {
+		if (r_weight >= b_weight) { /* G > R > B */
+			w1 = 8 - g_weight;
+			w2 = g_weight - r_weight;
+			w3 = r_weight - b_weight;
+			w4 = b_weight;
+			p2_pos.r = p1_pos.r;
+			p2_pos.g = p1_pos.g + 1;
+			p2_pos.b = p1_pos.b;
+			p3_pos.r = p1_pos.r + 1;
+			p3_pos.g = p1_pos.g + 1;
+			p3_pos.b = p1_pos.b;
+		} else {
+			if (g_weight >= b_weight) { /* G > B > R */
+				w1 = 8 - g_weight;
+				w2 = g_weight - b_weight;
+				w3 = b_weight - r_weight;
+				w4 = r_weight;
+				p2_pos.r = p1_pos.r;
+				p2_pos.g = p1_pos.g + 1;
+				p2_pos.b = p1_pos.b;
+				p3_pos.r = p1_pos.r;
+				p3_pos.g = p1_pos.g + 1;
+				p3_pos.b = p1_pos.b + 1;
+			} else { /* B > G > R */
+				w1 = 8 - b_weight;
+				w2 = b_weight - g_weight;
+				w3 = g_weight - r_weight;
+				w4 = r_weight;
+				p2_pos.r = p1_pos.r;
+				p2_pos.g = p1_pos.g;
+				p2_pos.b = p1_pos.b + 1;
+				p3_pos.r = p1_pos.r;
+				p3_pos.g = p1_pos.g + 1;
+				p3_pos.b = p1_pos.b + 1;
+			}
+		}
+	}
+
+	/* Work out values */
+	pos = (interp1089[p1_pos.b] + interp33[p1_pos.g] + p1_pos.r) * 3;
+	p1_val.r = pTable[pos];
+	p1_val.g = pTable[pos + 1];
+	p1_val.b = pTable[pos + 2];
+	pos = (interp1089[p2_pos.b] + interp33[p2_pos.g] + p2_pos.r) * 3;
+	p2_val.r = pTable[pos];
+	p2_val.g = pTable[pos + 1];
+	p2_val.b = pTable[pos + 2];
+	pos = (interp1089[p3_pos.b] + interp33[p3_pos.g] + p3_pos.r) * 3;
+	p3_val.r = pTable[pos];
+	p3_val.g = pTable[pos + 1];
+	p3_val.b = pTable[pos + 2];
+	pos = (interp1089[p4_pos.b] + interp33[p4_pos.g] + p4_pos.r) * 3;
+	p4_val.r = pTable[pos];
+	p4_val.g = pTable[pos + 1];
+	p4_val.b = pTable[pos + 2];
+
+	/* Final offsets into interpolation table */
+	pw1 = &interp256[w1 << 8];
+	pw2 = &interp256[w2 << 8];
+	pw3 = &interp256[w3 << 8];
+	pw4 = &interp256[w4 << 8];
+
+	/* And at long last.. final values */
+	dst[0] = (pw1[p1_val.r] + pw2[p2_val.r] + pw3[p3_val.r] + pw4[p4_val.r]) >> 3;
+	dst[1] = (pw1[p1_val.g] + pw2[p2_val.g] + pw3[p3_val.g] + pw4[p4_val.g]) >> 3;
+	dst[0] = (pw1[p1_val.b] + pw2[p2_val.b] + pw3[p3_val.b] + pw4[p4_val.b]) >> 3;
+
 }
 
 #define MAX_JOB_LEN (1844*2730*3+10480)
@@ -905,6 +1081,8 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 
 	/* Load up correction data */
 	const uint8_t *corrdata = hiti_get_correction_data(ctx);
+	if (corrdata)
+		hiti_interp_init();
 
 	/* Convert input packed BGR data into YMC planar */
 	{
@@ -921,21 +1099,23 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 		uint32_t i;
 
 		for (i = 0 ; i < job->datalen ; i+= 3) {
-			uint8_t B, G, R;
+			uint8_t rgb[3];
 
-			B = job->databuf[i];
-			G = job->databuf[i+1];
-			R = job->databuf[i+2];
+			/* Input data is BGR */
+			rgb[2] = job->databuf[i];
+			rgb[1] = job->databuf[i+1];
+			rgb[0] = job->databuf[i+2];
 
 			if (corrdata) {
-				// XXX if we have a mapping table,
-				// run it through conversion here.
+				// XXX optimize?  No need to repeat
+				// calculation if input repeats.
+				hiti_interp33_256(rgb, rgb, corrdata);
 			}
 
 			/* Finally convert to YMC */
-			*dstY++ = 255 - B;
-			*dstM++ = 255 - G;
-			*dstC++ = 255 - R;
+			*dstY++ = 255 - rgb[2];
+			*dstM++ = 255 - rgb[1];
+			*dstC++ = 255 - rgb[0];
 		}
 		/* Nuke the old BGR buffer and replace it with YMC */
 		free(job->databuf);

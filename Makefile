@@ -102,6 +102,8 @@ install:
 	$(INSTALL) -o root -m 700 $(EXEC_NAME) $(CUPS_BACKEND_DIR)/$(BACKEND_NAME)
 	$(MKDIR) -p $(CUPS_DATA_DIR)/usb
 	$(INSTALL) -o root -m 644 blacklist $(CUPS_DATA_DIR)/usb/net.sf.gimp-print.usb-quirks
+	$(MKDIR) -p $(BACKEND_DATA_DIR)
+	$(INSTALL) -o root -m 644 hiti_data/*bin $(BACKEND_DATA_DIR)
 
 clean:
 	$(RM) $(EXEC_NAME) $(BACKENDS) $(SOURCES:.c=.o) lib70x/*o lib6145/*o
@@ -116,4 +118,4 @@ release: clean
 # Backend-specific joy:
 backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
 backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
-#backend_shinko%.o: backend_shinko.h
+backend_hiti.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
