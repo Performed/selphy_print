@@ -431,7 +431,7 @@ static const char *dnpds40_media_types(int media)
 		break;
 	}
 
-	return "Unknown type";
+	return "Unknown";
 }
 
 static const char *dnpds620_media_extension_code(int media)
@@ -444,7 +444,7 @@ static const char *dnpds620_media_extension_code(int media)
 		break;
 	}
 
-	return "Unknown type";
+	return "Unknown";
 }
 
 static const char *dnpds820_media_subtypes(int media)
@@ -456,7 +456,7 @@ static const char *dnpds820_media_subtypes(int media)
 		break;
 	}
 
-	return "Unknown type";
+	return "Unknown";
 }
 
 static const char *dnpds80_duplex_media_types(int media)
@@ -468,7 +468,7 @@ static const char *dnpds80_duplex_media_types(int media)
 		break;
 	}
 
-	return "Unknown type";
+	return "Unknown";
 }
 
 #define DUPLEX_UNIT_PAPER_NONE 0
@@ -1219,7 +1219,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	}
 	/* Fill out marker structure */
 	ctx->marker[0].color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker[0].name = dnpds40_media_types(ctx->media);
+	ctx->marker[0].name = ctx->media_text;
 	ctx->marker[0].numtype = ctx->media;
 	ctx->marker[0].levelmax = ctx->media_count_new;
 	ctx->marker[0].levelnow = -2;
@@ -3117,7 +3117,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.118",
+	.version = "0.119",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
