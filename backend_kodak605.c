@@ -511,7 +511,7 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 			banks_free++;
 
 		/* Do we have enough free buffers? */
-		if (banks_free < banks_needed) {
+		if (banks_free >= banks_needed) {
 			break;
 		}
 
@@ -827,7 +827,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605/70xx",
-	.version = "0.51" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.52" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
