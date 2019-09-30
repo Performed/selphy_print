@@ -1470,9 +1470,10 @@ minimal:
 		DEBUG2("\n");
 	}
 
-	if (full) {
+	/* If we're running as a CUPS backend, report the media type */
+	if (full && getenv("DEVICE_URI") {
 		for (i = 0 ; i < marker_count ; i++) {
-			PPD("StpMediaID=%d\n", markers[i].numtype);
+			PPD("StpMediaID%d=%d\n", i, markers[i].numtype);
 		}
 	}
 }
