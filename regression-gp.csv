@@ -652,4 +652,10 @@ dnp-ds80dx,0x1343,0x0008,510,PageSize=w576h864;Resolution=300x600dpi;StpLaminate
 dnp-ds80dx,0x1343,0x0008,510,PageSize=w576h864;Resolution=300x600dpi;MediaType=Sheet;Duplex=DuplexNoTumble
 dnp-ds80dx,0x1343,0x0008,510,PageSize=w576h864;Resolution=300x600dpi;MediaType=Sheet;Duplex=DuplexTumble
 #
+hiti-p520l,0x0d16,0x0502,1,PageSize=w288h432
+hiti-p520l,0x0d16,0x0502,2,PageSize=w360h504
+hiti-p520l,0x0d16,0x0502,4,PageSize=w432h576
+hiti-p520l,0x0d16,0x0502,3,PageSize=w432h648
+#
 #magicard-tango-2e,0x0c1f,0x1800
+#

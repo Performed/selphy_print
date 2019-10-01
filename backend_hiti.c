@@ -782,9 +782,14 @@ static int hiti_attach(void *vctx, struct libusb_device_handle *dev, int type,
 		// Query Serial Number (?)
 		// do real stuff
 	} else {
+		ctx->supplies2[0] = PAPER_TYPE_6INCH;
+		ctx->supplies[2] = RIBBON_TYPE_4x6;
+
 		if (getenv("MEDIA_CODE")) {
 			// set fake fw version?
-			ctx->supplies[2] = RIBBON_TYPE_4x6;
+			ctx->supplies[2] = atoi(getenv("MEDIA_CODE"));
+			if (ctx->supplies[2] ==  RIBBON_TYPE_5x7)
+				ctx->supplies2[0] = PAPER_TYPE_5INCH;
 		}
 	}
 
@@ -808,7 +813,7 @@ static void hiti_cleanup_job(const void *vjob) {
 
 #define CORRECTION_FILE_SIZE (33*33*33*3 + 2)
 
-static const uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx)
+static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx)
 {
 	char *fname;
 	uint8_t *buf;
@@ -1377,10 +1382,9 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	}
 
 	/* Load up correction data, if requested */
-	const uint8_t *corrdata = NULL;
+	uint8_t *corrdata = NULL;
 	if (!(job->hdr.payload_type & PAYLOAD_TYPE_FLAG_NOCORRECT))
 		corrdata = hiti_get_correction_data(ctx);
-
 	if (corrdata) {
 		INFO("Running input data through correction tables\n");
 		hiti_interp_init();
@@ -1389,7 +1393,7 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	/* Convert input packed BGR data into YMC planar */
 	{
 		int stride = ((job->hdr.cols * 4) + 3) / 4;
-		uint8_t *ymcbuf = malloc(job->hdr.cols * stride * 3);
+		uint8_t *ymcbuf = malloc(job->hdr.rows * stride * 3);
 		uint32_t i, j;
 
 		if (!ymcbuf) {
