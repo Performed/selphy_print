@@ -162,7 +162,7 @@ struct hiti_erdc_rs {      /* All are BIG endian */
 
 /* All fields are LE */
 struct hiti_gpjobhdr {
-	uint32_t cookie;     /* "GPHT" */
+	uint32_t cookie;  /* "GPHT" */
 	uint32_t hdr_len; /* Including the whole thing */
 	uint32_t model;   /* in BCD..? */
 	uint32_t cols;
@@ -176,6 +176,8 @@ struct hiti_gpjobhdr {
 	uint32_t payload_type; // 0 for bgr packed. what about rgb, planar?
 	uint32_t payload_len;
 } __attribute__((packed));
+
+#define PAYLOAD_TYPE_FLAG_NOCORRECT 0x02
 
 #define HDR_COOKIE 0x54485047
 
@@ -1374,8 +1376,11 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	/* Load up correction data */
-	const uint8_t *corrdata = hiti_get_correction_data(ctx);
+	/* Load up correction data, if requested */
+	const uint8_t *corrdata = NULL;
+	if (!(job->hdr.payload_type & PAYLOAD_TYPE_FLAG_NOCORRECT))
+		corrdata = hiti_get_correction_data(ctx);
+
 	if (corrdata) {
 		INFO("Running input data through correction tables\n");
 		hiti_interp_init();
@@ -1743,7 +1748,7 @@ static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint32_t *err)
 			WARNING("Multiple Alerts detected, only returning the first!\n");
 		} else if (len > 8) {
 			// XXX means we have ASCIIHEX in positions [5:8], convert to number..
-			// eg "30 31 00 00" == Code 0100
+			// eg "30 31 30 30" == Code 0100
 		}
 
 		memcpy(err, &respbuf[1], sizeof(*err));
