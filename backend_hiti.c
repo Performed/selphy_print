@@ -139,15 +139,45 @@ struct hiti_erdc_rs {      /* All are BIG endian */
 	uint8_t  unk2[18];  // ff ff 4b 4b 4b 4b af 3c  4f 7b 19 08 5c 0a b4 64  af af
 } __attribute__((packed));
 
-#define PRINT_TYPE_4x6  0
-#define PRINT_TYPE_5x7  2
-#define PRINT_TYPE_6x8  3
-#define PRINT_TYPE_6x9  6
-#define PRINT_TYPE_6x9_2UP 7
-#define PRINT_TYPE_5x3_5 8
-#define PRINT_TYPE_6x4_2UP 9
-#define PRINT_TYPE_6x2  10
+//. 5x3.5 1547 1072
+//. 6x4   1844 1240
+//. 6x9   1844 2740
+// 6x8/2 1844 2492
+//. 6x8   1844 2434
+//. 5x7   1548 2140
+// 5x7/2 1548 2152
+// 6x4/2 1844 1248
+// 6x2   1844 ????
+
+
+#define PRINT_TYPE_6x4      0
+#define PRINT_TYPE_5x7      2
+#define PRINT_TYPE_6x8      3
+#define PRINT_TYPE_6x9      6
+#define PRINT_TYPE_6x9_2UP  7
+#define PRINT_TYPE_5x3_5    8
+#define PRINT_TYPE_6x4_2UP  9
+#define PRINT_TYPE_6x2     10
 #define PRINT_TYPE_5x7_2UP 11
+
+/* All fields are LE */
+struct hiti_gpjobhdr {
+	uint32_t cookie;     /* "GPHT" */
+	uint32_t hdr_len; /* Including the whole thing */
+	uint32_t model;   /* in BCD..? */
+	uint32_t cols;
+	uint32_t rows;
+	uint32_t col_dpi;
+	uint32_t row_dpi;
+	uint32_t copies;
+	uint32_t quality;  // 0 for std, 1 for matte
+	uint32_t code;     // PRINT_TYPE_* ..?
+	uint32_t overcoat; // 1 for matte, 0 for glossy
+	uint32_t payload_type; // 0 for bgr packed. what about rgb, planar?
+	uint32_t payload_len;
+} __attribute__((packed));
+
+#define HDR_COOKIE 0x54485047
 
 /* CMD_EFD_SF */
 struct hiti_efd_sf {
@@ -220,48 +250,12 @@ struct hiti_matrix {
 /* @100 */
 } __attribute__((packed));
 
-struct hiti_jobhdr { /* based on p525l, others should be similar */
-	uint8_t queuename[32];
-	uint8_t octname[32];
-
-	uint8_t zero_a[11];
-	uint8_t unk_a[2]; // 6c 1b for 6x6, 6c 00 for others
-	uint8_t zero_b[7];
-	uint8_t unk_b[4]; // 06 00 05 00
-	uint8_t zero_c[8];
-
-	uint8_t unk_c[8]; // 64 00 00 00 00 00 64 00
-	uint8_t matte;    // 01 for enabled, 00 for disabled.
-	uint8_t unk_d[11]; // 00 06 00 05 00 06 00 05 00 01 00
-	uint8_t zero_d[4];
-	uint8_t unk_e[2]; // 05 00
-
-	uint8_t zero_e[114];
-
-	uint8_t unk_f[2]; // 32 00 for 6", 00 00 for 5"
-	uint8_t unk_g[2]; // 64 00
-	uint8_t zero_g[24];
-
-	uint8_t unk_h[8]; // 02 00 03 00 01 01 00 05
-	uint8_t unk_i[2]; // 00 00 on 6", 02 00 on 5"  (ribbon code?)
-	uint8_t zero_i[136];
-
-	uint8_t printsize; // 00 = 6x4, 09 = 6x9, 0b = 5x7, 0d = 6x4-cut2, 14 = 6x6
-	uint8_t unk_k[5]; // 02 01 00 01 00
-	uint8_t copies;
-	uint8_t unk_l[5]; // 00 00 00 03 01
-	uint16_t rows;  // LE!
-	uint16_t cols;  // LE!
-/* 0x1a2 */
-	uint8_t unk_m[10]; // 2d 01 01 00 00 00 00 00 01 00
-} __attribute__((packed)); // 436 bytes
-
 /* Private data structure */
 struct hiti_printjob {
 	uint8_t *databuf;
 	uint32_t datalen;
 
-	struct hiti_jobhdr hdr;
+	struct hiti_gpjobhdr hdr;
 
 	int blocks;
 
@@ -334,7 +328,15 @@ static int hiti_docmd(struct hiti_ctx *ctx, uint16_t cmdid, uint8_t *buf, uint16
 	}
 
 	/* Compensate for hdr len */
-	*rsplen = be16_to_cpu(cmd->len) - 3;
+	num = be16_to_cpu(cmd->len) - 3;
+
+	if (num != *rsplen) {
+		ERROR("Length mismatch (%d vs %d)!\n", num, *rsplen);
+		*rsplen = 0;
+		return CUPS_BACKEND_FAILED;
+	}
+
+	*rsplen = num;
 
 	return CUPS_BACKEND_OK;
 }
@@ -344,7 +346,7 @@ static int hiti_docmd_resp(struct hiti_ctx *ctx, uint16_t cmdid,
 			   uint8_t *respbuf, uint16_t *resplen)
 {
 	int ret, num = 0;
-	uint16_t cmd_resp_len = 0;
+	uint16_t cmd_resp_len = *resplen;
 
 	ret = hiti_docmd(ctx, cmdid, buf, buf_len, &cmd_resp_len);
 	if (ret)
@@ -409,6 +411,7 @@ static int hiti_sepd(struct hiti_ctx *ctx, uint32_t buf_len,
 }
 
 #define STATUS_IDLE          0x00
+#define STATUS_INITIALIZED   0x80
 #define STATUS0_RESEND_DATA  0x04
 #define STATUS0_BUSY         0x08
 #define STATUS1_SUPPLIES     0x01
@@ -436,6 +439,8 @@ static const char *hiti_status(uint8_t *sts)
 		return "Resend Data";
 	else if (sts[0] & STATUS0_BUSY)
 		return "Busy";
+	else if (sts[0] == STATUS_INITIALIZED)
+		return "Initialized";
 	else if (sts[0] == STATUS_IDLE)
 		return "Idle";
 	else
@@ -607,6 +612,7 @@ static int hiti_get_status(struct hiti_ctx *ctx)
 	uint16_t err = 0;
 	int ret;
 
+	hiti_query_markers(ctx, NULL, NULL);
 	ret = hiti_query_status(ctx, sts, &err);
 	if (ret)
 		return ret;
@@ -620,8 +626,8 @@ static int hiti_get_status(struct hiti_ctx *ctx)
 	     ctx->ribbonvendor,
 	     ctx->media_remain, hiti_ribboncounts(ctx->supplies[2]));
 	INFO("Paper: %s (%02x)\n",
-	     hiti_papers(ctx->supplies2[1]),
-	     ctx->supplies2[1]);
+	     hiti_papers(ctx->supplies2[0]),
+	     ctx->supplies2[0]);
 
 	// XXX other shit..
 	// Jobs Queued Active
@@ -834,7 +840,7 @@ static void hiti_interp_init(void)
 
 	for (i = 1 ; i < 9 ; i++) {
 		int j;
-		for (j = 0 ; i < 256 ; j++) {
+		for (j = 0 ; j < 256 ; j++) {
 			cur[j] = pre[j] + j;
 		};
 		pre += 256;
@@ -976,12 +982,50 @@ static void hiti_interp33_256(uint8_t *dst, uint8_t *src, const uint8_t *pTable)
 
 }
 
+#if 0
+struct hiti_jobhdr { /* based on p525l, others should be similar */
+	uint8_t queuename[32];
+	uint8_t octname[32];
+
+	uint8_t zero_a[11];
+	uint8_t unk_a[2]; // 6c 1b for 6x6, 6c 00 for others
+	uint8_t zero_b[7];
+	uint8_t unk_b[4]; // 06 00 05 00
+	uint8_t zero_c[8];
+
+	uint8_t unk_c[8]; // 64 00 00 00 00 00 64 00
+	uint8_t matte;    // 01 for enabled, 00 for disabled.
+	uint8_t unk_d[11]; // 00 06 00 05 00 06 00 05 00 01 00
+	uint8_t zero_d[4];
+	uint8_t unk_e[2]; // 05 00
+
+	uint8_t zero_e[114];
+
+	uint8_t unk_f[2]; // 32 00 for 6", 00 00 for 5"
+	uint8_t unk_g[2]; // 64 00
+	uint8_t zero_g[24];
+
+	uint8_t unk_h[8]; // 02 00 03 00 01 01 00 05
+	uint8_t unk_i[2]; // 00 00 on 6", 02 00 on 5"  (ribbon code?)
+	uint8_t zero_i[136];
+
+	uint8_t printsize; // 00 = 6x4, 09 = 6x9, 0b = 5x7, 0d = 6x4-cut2, 14 = 6x6
+	uint8_t unk_k[5]; // 02 01 00 01 00
+	uint8_t copies;
+	uint8_t unk_l[5]; // 00 00 00 03 01
+	uint16_t rows;  // LE!
+	uint16_t cols;  // LE!
+/* 0x1a2 */
+	uint8_t unk_m[10]; // 2d 01 01 00 00 00 00 00 01 00
+} __attribute__((packed)); // 436 bytes
+
 #define MAX_JOB_LEN (1844*2730*3+10480)
 
-static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copies)
+int hiti_read_parse_legacy(void *vctx, const void **vjob, int data_fd, int copies)
 {
 	struct hiti_ctx *ctx = vctx;
 	struct hiti_printjob *job = NULL;
+	int i;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -992,18 +1036,11 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
+
 	job->copies = copies;
 
-	/* Allocate a buffer */
-	job->datalen = 0;
-	job->databuf = malloc(MAX_JOB_LEN);
-	if (!job->databuf) {
-		ERROR("Memory allocation failure!\n");
-		hiti_cleanup_job(job);
-		return CUPS_BACKEND_RETRY_CURRENT;
-	}
-
 	uint32_t job_size = 0;
+	struct hiti_jobhdr hdr;
 
 	/* Read in data */
 	while (1) {
@@ -1066,12 +1103,12 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 
 		switch (blocktype) {
 		case 0x40a1: /* Job header */
-			if (blocklen != sizeof(job->hdr)) {
-				ERROR("Header mismatch (%d vs %ld)\n", blocklen, sizeof(job->hdr));
+			if (blocklen != sizeof(hdr)) {
+				ERROR("Header mismatch (%d vs %ld)\n", blocklen, sizeof(hdr));
 				hiti_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
-			memcpy(&job->hdr, job->databuf + job->datalen - blocklen, blocklen);
+			memcpy(&hdr, job->databuf + job->datalen - blocklen, blocklen);
 			job->datalen -= (blocklen + 3 + 5);  /* Rewind the entire block */
 			break;
 		case 0x40a2: /* Page header/footer?  (subtype 00/01 respectively) */
@@ -1084,21 +1121,171 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	DEBUG("Job data blocks: %d (%d)\n", job->blocks, job_size);
 
 	/* Byteswap header fields! */
-	job->hdr.rows = le16_to_cpu(job->hdr.rows);
-	job->hdr.cols = le16_to_cpu(job->hdr.cols);
+	hdr.rows = le16_to_cpu(hdr.rows);
+	hdr.cols = le16_to_cpu(hdr.cols);
+}
 
-	// By the time we get here, job->databuf/datalen is
-	// just the BGR image data!
-	// XXX We are nowhere near ready yet!
+#endif
 
-	exit(CUPS_BACKEND_OK);
+static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copies)
+{
+	struct hiti_ctx *ctx = vctx;
+	struct hiti_printjob *job = NULL;
+	int i;
+
+	if (!ctx)
+		return CUPS_BACKEND_FAILED;
+
+	job = malloc(sizeof(*job));
+	if (!job) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+	memset(job, 0, sizeof(*job));
+
+	job->copies = copies;
+
+	/* Read in header */
+	i = read(data_fd, &job->hdr, sizeof(job->hdr));
+	if (i < 0 || i != sizeof(job->hdr)) {
+		hiti_cleanup_job(job);
+		if (i == 0)
+			return CUPS_BACKEND_CANCEL;
+
+		ERROR("Read failed (%d/%d)\n",
+		      i, (int)sizeof(job->hdr));
+		perror("ERROR: Read failed");
+		return i;
+	}
+
+	/* Byteswap everything */
+	{
+		uint32_t *ptr = (uint32_t*) &job->hdr;
+		for (i = 0 ; i < (int)(sizeof(job->hdr) / sizeof(uint32_t)) ; i++)
+			ptr[i] = le32_to_cpu(ptr[i]);
+	}
+
+	/* Sanity check header */
+	if (job->hdr.hdr_len != sizeof(job->hdr)) {
+		ERROR("Header length mismatch (%d/%d)!\n", job->hdr.hdr_len, (int)sizeof(job->hdr));
+		hiti_cleanup_job(job);
+		return CUPS_BACKEND_CANCEL;
+	}
+	if (job->hdr.cookie != HDR_COOKIE) {
+		ERROR("Unrecognized header!\n");
+		hiti_cleanup_job(job);
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	// XXX check hdr.model
+	// XXX check hdr.format
+
+	/* Allocate a buffer */
+	job->datalen = 0;
+	job->databuf = malloc(job->hdr.payload_len);
+	if (!job->databuf) {
+		ERROR("Memory allocation failure!\n");
+		hiti_cleanup_job(job);
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+
+	/* Read in data */
+	uint32_t remain = job->hdr.payload_len;
+	while (remain) {
+		i = read(data_fd, job->databuf + job->datalen, remain);
+		if (i < 0) {
+			ERROR("Read failed (%d/%u/%d)\n",
+			      i, remain, job->datalen);
+			perror("ERROR: Read failed");
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		job->datalen += i;
+		remain -= i;
+	}
+
+	/* Sanity check against paper */
+	switch (ctx->supplies2[0]) {
+	case PAPER_TYPE_5INCH:
+		if (job->hdr.cols != 1548) {
+			ERROR("Illegal job on 5-inch paper!\n");
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		break;
+	case PAPER_TYPE_6INCH:
+		if (job->hdr.cols != 1844) {
+			ERROR("Illegal job on 6-inch paper!\n");
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		break;
+	default:
+		ERROR("Unknown paper type (%d)!\n", ctx->supplies2[0]);
+		hiti_cleanup_job(job);
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* Sanity check against ribbon type */
+	switch (ctx->supplies[2]) {
+	case RIBBON_TYPE_4x6:
+		if (job->hdr.code != PRINT_TYPE_6x4 &&
+		    job->hdr.code != PRINT_TYPE_6x4_2UP &&
+		    job->hdr.code != PRINT_TYPE_6x2) {
+			ERROR("Invalid ribbon type vs job (%02x/%02x)\n",
+			      ctx->supplies[2], job->hdr.code);
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		break;
+	case RIBBON_TYPE_5x7:
+		if (job->hdr.code != PRINT_TYPE_5x7 &&
+		    job->hdr.code != PRINT_TYPE_5x3_5 &&
+		    job->hdr.code != PRINT_TYPE_5x7_2UP) {
+			ERROR("Invalid ribbon type vs job (%02x/%02x)\n",
+			      ctx->supplies[2], job->hdr.code);
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		break;
+	case RIBBON_TYPE_6x8:
+		if (job->hdr.code != PRINT_TYPE_6x4 &&
+		    job->hdr.code != PRINT_TYPE_6x4_2UP &&
+		    job->hdr.code != PRINT_TYPE_6x8 &&
+		    job->hdr.code != PRINT_TYPE_6x2) {
+			ERROR("Invalid ribbon type vs job (%02x/%02x)\n",
+			      ctx->supplies[2], job->hdr.code);
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		break;
+	case RIBBON_TYPE_6x9:
+		if (job->hdr.code != PRINT_TYPE_6x4 &&
+		    job->hdr.code != PRINT_TYPE_6x4_2UP &&
+		    job->hdr.code != PRINT_TYPE_6x8 &&
+		    job->hdr.code != PRINT_TYPE_6x2 &&
+		    job->hdr.code != PRINT_TYPE_6x9 &&
+		    job->hdr.code != PRINT_TYPE_6x9_2UP) {
+			ERROR("Invalid ribbon type vs job (%02x/%02x)\n",
+			      ctx->supplies[2], job->hdr.code);
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		break;
+	default:
+		ERROR("Unknown ribbon type!\n");
+		hiti_cleanup_job(job);
+		return CUPS_BACKEND_CANCEL;
+	}
 
 	// XXX sanity check job against ribbon and paper
 
 	/* Load up correction data */
 	const uint8_t *corrdata = hiti_get_correction_data(ctx);
-	if (corrdata)
+	if (corrdata) {
+		INFO("Running input data through correction tables\n");
 		hiti_interp_init();
+	}
 
 	/* Convert input packed BGR data into YMC planar */
 	{
@@ -1163,6 +1350,8 @@ static int hiti_main_loop(void *vctx, const void *vjob)
 
 	int ret;
 	int copies;
+	uint16_t err = 0;
+	uint8_t sts[3];
 
 	const struct hiti_printjob *job = vjob;
 
@@ -1177,9 +1366,6 @@ top:
 	INFO("Waiting for printer idle\n");
 
 	do {
-		uint8_t sts[3];
-		uint16_t err = 0;
-
 		ret = hiti_query_status(ctx, sts, &err);
 		if (ret)
 			return ret;
@@ -1207,28 +1393,40 @@ top:
 
 	/* Set up and send over Sublimation Format */
 	struct hiti_efd_sf sf;
-	sf.mediaType = 0; // XXX PRINT_TYPE_??
-	sf.cols_res = sf.rows_res = cpu_to_be16(300);
+	sf.mediaType = job->hdr.code;
+	sf.cols_res = cpu_to_be16(job->hdr.col_dpi);
+	sf.rows_res = cpu_to_be16(job->hdr.row_dpi);
 	sf.cols = cpu_to_be16(job->hdr.cols);
 	sf.rows = cpu_to_be16(rows);
 	sf.rows_offset = calc_offset(ctx->calibration.vert, 5, 8, 4);
 	sf.cols_offset = calc_offset(ctx->calibration.horiz, 6, 11, 4);
-	sf.colorSeq = 0x87 + (job->hdr.matte ? 0xc0 : 0);
-	sf.printMode = 0x08; // fine |= 0x02
+	sf.colorSeq = 0x87 + (job->hdr.overcoat ? 0xc0 : 0);
+	sf.copies = copies;
+	sf.printMode = 0x08 + (job->hdr.quality ? 0x02 : 0);
 	ret = hiti_docmd(ctx, CMD_EFD_SF, (uint8_t*) &sf, sizeof(sf), &resplen);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
 	/* XXX startjob returns actual jobid */
 	uint16_t jobid = cpu_to_be16(ctx->jobid);
-	resplen = sizeof(jobid);
+	uint8_t jobresp[3];
+
+	resplen = sizeof(jobresp);
 	ret = hiti_docmd_resp(ctx, CMD_JC_SJ, (uint8_t*) &jobid, sizeof(jobid),
-			      (uint8_t*) &jobid, &resplen);
+			      jobresp, &resplen);
+	if (ret)
+		return CUPS_BACKEND_FAILED;
+
+	memcpy(&jobid, &jobresp[1], sizeof(jobid));
+	jobid = be16_to_cpu(jobid);
 
 	uint8_t chs[2] = { 0, 1 }; /* Fixed..? */
+
+	resplen = 0;
 	ret = hiti_docmd(ctx, CMD_EFD_CHS, chs, sizeof(chs), &resplen);
 	if (ret)
-		return CUPS_BACKEND_CANCEL;
+		return CUPS_BACKEND_FAILED;
+
 	ret = hiti_docmd(ctx, CMD_EPC_SP, NULL, 0, &resplen);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
@@ -1245,6 +1443,9 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 	sent += rows * cols;
+	ret = hiti_query_status(ctx, sts, &err);
+	if (ret)
+		return ret;
 
 	INFO("Sending magenta plane\n");
 	ret = hiti_docmd(ctx, CMD_EPC_SMP, NULL, 0, &resplen);
@@ -1257,6 +1458,9 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 	sent += rows * cols;
+	ret = hiti_query_status(ctx, sts, &err);
+	if (ret)
+		return ret;
 
 	INFO("Sending cyan plane\n");
 	ret = hiti_docmd(ctx, CMD_EPC_SCP, NULL, 0, &resplen);
@@ -1269,19 +1473,23 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 	sent += rows * cols;
+	ret = hiti_query_status(ctx, sts, &err);
+	if (ret)
+		return ret;
+
+	INFO("Sending Print start\n");
 	ret = hiti_docmd(ctx, CMD_EPC_EP, NULL, 0, &resplen);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	ret = hiti_docmd(ctx, CMD_JC_EJ, (uint8_t*)&jobid, sizeof(jobid), &resplen);
+	jobid = cpu_to_be16(jobid);
+	resplen = 3;
+	ret = hiti_docmd_resp(ctx, CMD_JC_EJ, (uint8_t*)&jobid, sizeof(jobid), jobresp, &resplen);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
 	INFO("Waiting for printer acknowledgement\n");
 	do {
-		uint8_t sts[3];
-		uint16_t err = 0;
-
 		sleep(1);
 
 		ret = hiti_query_status(ctx, sts, &err);
@@ -1391,16 +1599,18 @@ static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint16_t *err)
 
 	/* Query extended status, if needed */
 	if (cmd) {
-		uint8_t respbuf[16];
+//		uint8_t respbuf[16];
+		uint8_t respbuf[5];
 		len = sizeof(respbuf);
 
-		ret = hiti_docmd_resp(ctx, CMD_RDS_RSS, NULL, 0, respbuf, &len);
+		ret = hiti_docmd_resp(ctx, cmd, NULL, 0, respbuf, &len);
 		if (ret)
 			return ret;
 
 		if (respbuf[0]) { // error count
 			memcpy(err, &respbuf[1], sizeof(*err)); // error code, BE
 			*err = be16_to_cpu(*err);
+			ERROR("... %02x\n", *err);
 			if (len > 8) { // OPTIONAL
 				// 5-8 is ERRSTATE in ASCII HEX!
 			}
@@ -1615,7 +1825,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.03WIP",
+	.version = "0.04WIP",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
@@ -1632,7 +1842,7 @@ struct dyesub_backend hiti_backend = {
 	}
 };
 
-/* HiTi spool file format
+/* HiTi windows spool file format
 
  File is organized into a series of blocks.  Each has this header:
 
