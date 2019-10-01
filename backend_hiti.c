@@ -70,7 +70,7 @@ struct hiti_cmd {
 
 /* Job Control */
 #define CMD_JC_SJ      0x0500 /* Start Job (2 arg) */
-#define CMD_JC_EJ      0x0501 /* End Job (2 arg) */
+#define CMD_JC_EJ      0x0501 /* End Job (3 arg) */
 #define CMD_JC_QJC     0x0502 /* Query Job Completed (3 arg) XX */
 #define CMD_JC_QQA     0x0503 /* Query Jobs Queued or Active (2 arg) XX */
 #define CMD_JC_RSJ     0x0510 /* Resume Suspended Job (2 arg) XX */
@@ -285,7 +285,7 @@ struct hiti_ctx {
 };
 
 /* Prototypes */
-static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint16_t *err);
+static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint32_t *err);
 static int hiti_query_version(struct hiti_ctx *ctx);
 static int hiti_query_matrix(struct hiti_ctx *ctx);
 static int hiti_query_supplies(struct hiti_ctx *ctx);
@@ -330,8 +330,8 @@ static int hiti_docmd(struct hiti_ctx *ctx, uint16_t cmdid, uint8_t *buf, uint16
 	/* Compensate for hdr len */
 	num = be16_to_cpu(cmd->len) - 3;
 
-	if (num != *rsplen) {
-		ERROR("Length mismatch (%d vs %d)!\n", num, *rsplen);
+	if (num > *rsplen) {
+		ERROR("Response too long for buffer (%d vs %d)!\n", num, *rsplen);
 		*rsplen = 0;
 		return CUPS_BACKEND_FAILED;
 	}
@@ -364,8 +364,8 @@ static int hiti_docmd_resp(struct hiti_ctx *ctx, uint16_t cmdid,
 		return ret;
 
 	/* Sanity check */
-	if (num != *resplen) {
-		ERROR("Length mismatch (%d vs %d)!\n", num, *resplen);
+	if (num > *resplen) {
+		ERROR("Response too long for buffer (%d vs %d)!\n", num, *resplen);
 		*resplen = 0;
 		return CUPS_BACKEND_FAILED;
 	}
@@ -505,35 +505,121 @@ static const char* hiti_regions(uint8_t code)
 }
 
 /* Supposedly correct for P720, P728, and P520 */
-static const char *hiti_errors(uint8_t code)
+static const char *hiti_errors(uint32_t code)
 {
 	switch(code) {
-	case 0x10: return "Cover open";
-	case 0x11: return "Cover open failure";
-	case 0x20: return "Ribbon IC missing";
-	case 0x21: return "Ribbon missing";
-	case 0x22: return "Ribbon mismatch 01";
-	case 0x23: return "Security Check Fail";
-	case 0x24: return "Ribbon mismatch 02";
-	case 0x25: return "Ribbon mismatch 03";
-	case 0x30: return "Ribbon out 01";
-	case 0x31: return "Ribbon out 02";
-	case 0x40: return "Paper out 01";
-	case 0x41: return "Paper out 02";
-	case 0x42: return "Paper not ready";
-	case 0x50: return "Paper jam 01";
-	case 0x51: return "Paper jam 02";
-	case 0x52: return "Paper jam 03";
-	case 0x53: return "Paper jam 04";
-	case 0x54: return "Paper jam 05";
-	case 0x60: return "Paper mismatch";
-	case 0x70: return "Cam error 01";
-	case 0x80: return "Cam error 02";
-	case 0x90: return "NVRAM error";
-	case 0xA0: return "IC error";
-	case 0xC0: return "ADC error";
-	case 0xD0: return "FW Check Error";
-	case 0xF0: return "Cutter error";
+	case 0x00000000: return "None";
+		/* Warning Alerts */
+	case 0x000100FE: return "Paper roll mismatch";
+	case 0x000300FE: return "Buffer underrun when printing";
+	case 0x000301FE: return "Command sequence error";
+	case 0x000302FE: return "NAND flash unformatted";
+	case 0x000303FE: return "NAND flash space insufficient";
+	case 0x000304FE: return "Heating parameter table incompatible";
+	case 0x000502FE: return "Dust box needs cleaning";
+		/* Device Service Required Alerts */
+	case 0x00030001: return "SRAM error";
+	case 0x00030101: return "Cutter error";
+	case 0x00030201: return "ADC error";
+	case 0x00030301: return "NVRAM R/W error";
+	case 0x00030302: return "SDRAM checksum error";
+	case 0x00030402: return "DSP code checksum error";
+	case 0x00030501: return "Cam TPH error";
+	case 0x00030502: return "NVRAM checksom error";
+	case 0x00030601: return "Cam pinch error";
+	case 0x00030602: return "SRAM checksum error";
+	case 0x00030701: return "Firmware write error";
+	case 0x00030702: return "Flash checksum error";
+	case 0x00030802: return "Wrong firmware checksum error";
+	case 0x00030901: return "ADC error in slave printer";
+	case 0x00030A01: return "Cam Platen error in slave printer";
+	case 0x00030B01: return "NVRAM R/W error in slave printer";
+	case 0x00030C02: return "NVRAM CRC error in slave printer";
+	case 0x00030D02: return "SDRAM checksum error in slave printer";
+	case 0x00030E02: return "SRAM checksum error in slave printer";
+	case 0x00030F02: return "FLASH checksum error in slave printer";
+	case 0x00031002: return "Wrong firmware checksum error in slave printer";
+	case 0x00031101: return "Communication error with slave printer";
+	case 0x00031201: return "NAND flash error";
+	case 0x00031302: return "Cutter error";
+		/* Operator Intervention Required Alerts */
+	case 0x00050001: return "Cover open";
+	case 0x00050101: return "Cover open";
+		/* Supplies Alerts */
+	case 0x00080004: return "Ribbon missing";
+	case 0x00080007: return "Ribbon newly inserted";
+	case 0x00080103: return "Ribbon exhausted";
+	case 0x00080104: return "Ribbon exhausted";
+	case 0x00080105: return "Ribbon malfunction";
+	case 0x00080204: return "Ribbon missing in slave printer";
+	case 0x00080207: return "Ribbon newly inserted in slave printer";
+	case 0x000802FE: return "Ribbon IC error";
+	case 0x00080303: return "Ribbon exhausted in slave printer";
+	case 0x000803FE: return "Ribbon not authenticated";
+	case 0x000804FE: return "Ribbon IC read/write error";
+	case 0x000805FE: return "Ribbon IC read/write error in slave printer";
+	case 0x000806FE: return "Unsupported ribbon";
+	case 0x000807FE: return "Unsupported ribbon in slave printer";
+	case 0x000808FE: return "Unknown ribbon";
+	case 0x000809FE: return "Unknown ribbon in slave printer";
+		/* Jam Alerts */
+	case 0x00030000: return "Paper jam";
+	case 0x0003000F: return "Paper jam";
+	case 0x00030200: return "Paper jam in paper path 01";
+	case 0x00030300: return "Paper jam in paper path 02";
+	case 0x00030400: return "Paper jam in paper path 03";
+	case 0x00030500: return "Paper jam in paper path 04";
+	case 0x00030600: return "Paper jam in paper path 05";
+	case 0x00030700: return "Paper jam in paper path 06";
+	case 0x00030800: return "Paper jam in paper path 07";
+	case 0x00030900: return "Paper jam in paper path 08";
+	case 0x00030A00: return "Paper jam in paper path 09";
+		/* Input Alerts */
+	case 0x00000008: return "Paper box missing";
+	case 0x00000100: return "Cover open";
+	case 0x00000101: return "Cover open failure";
+	case 0x00000200: return "Ribbon IC missing";
+	case 0x00000201: return "Ribbon missing";
+	case 0x00000202: return "Ribbon mismatch 01";
+	case 0x00000203: return "Security check fail";
+	case 0x00000204: return "Ribbon mismatch 02";
+	case 0x00000205: return "Ribbon mismatch 03";
+	case 0x00000300: return "Ribbon exhausted 01";
+	case 0x00000301: return "Ribbon exhausted 02";
+	case 0x00000302: return "Printing failure (jam?)";
+	case 0x00000400: return "Paper exhausted 01";
+	case 0x00000401: return "Paper exhausted 02";
+	case 0x00000402: return "Paper not ready";
+	case 0x00000500: return "Paper jam 01";
+	case 0x00000501: return "Paper jam 02";
+	case 0x00000502: return "Paper jam 03";
+	case 0x00000503: return "Paper jam 04";
+	case 0x00000504: return "Paper jam 05";
+	case 0x00000600: return "Paper mismatch";
+	case 0x00000700: return "Cam error 01";
+	case 0x00000800: return "Cam error 02";
+	case 0x00000900: return "NVRAM error";
+	case 0x00001000: return "IC error";
+	case 0x00001200: return "ADC error";
+	case 0x00001300: return "FW Check Error";
+	case 0x00001500: return "Cutter error";
+
+#if 0  // XXX these seem inappropriate
+	case 0x00007538: return "Device attached to printer";
+	case 0x00007539: return "Printer is in mobile mode";
+	case 0x00007540: return "Printer is in standalone mode";
+	case 0x00007542: return "Firmware too old for Fine mode";
+	case 0x00007543: return "Firmware too old for 2x6 mode";
+	case 0x00007544: return "Firmware too old for Matte mode";
+	case 0x00007545: return "Firmware too old";
+	case 0x00007546: return "Firmware too old";
+#endif
+	case 0x00008000: return "Paper out or feeding error";
+	case 0x00008008: return "Paper box missing";
+	case 0x00008010: return "Paper roll mismatch";
+	case 0x00080200: return "Ribbon type mismatch";
+//	case 0x10008000: return "Paper out or paper low";  /* XXX this won't work, high byte is cleared */
+
 	default: return "Unknown";
 	}
 }
@@ -609,7 +695,7 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 static int hiti_get_status(struct hiti_ctx *ctx)
 {
 	uint8_t sts[3];
-	uint16_t err = 0;
+	uint32_t err = 0;
 	int ret;
 
 	hiti_query_markers(ctx, NULL, NULL);
@@ -617,8 +703,10 @@ static int hiti_get_status(struct hiti_ctx *ctx)
 	if (ret)
 		return ret;
 
-	INFO("Printer Status: %s %s (%02x %02x %02x %04x)\n",
-	     hiti_status(sts), hiti_errors(err), sts[0], sts[1], sts[2], err);
+	INFO("Printer Status: %s (%02x %02x %02x)\n",
+	     hiti_status(sts), sts[0], sts[1], sts[2]);
+	INFO("Printer Error: %s (%08x)\n",
+	     hiti_errors(err), err);
 
 	INFO("Media: %s (%02x / %04x) : %03d/%03d\n",
 	     hiti_ribbontypes(ctx->supplies[2]),
@@ -848,6 +936,7 @@ static void hiti_interp_init(void)
 	}
 }
 
+/* src and dst are RGB tuples */
 static void hiti_interp33_256(uint8_t *dst, uint8_t *src, const uint8_t *pTable)
 {
 	struct rgb p1_pos, p2_pos, p3_pos, p4_pos;
@@ -867,12 +956,19 @@ static void hiti_interp33_256(uint8_t *dst, uint8_t *src, const uint8_t *pTable)
 	p4_pos.b = p1_pos.b + 1;
 
 	/* Weights */
-	r_weight = src[0] & 0x7;
-	g_weight = src[1] & 0x7;
-	b_weight = src[2] & 0x7;
-	if (src[0] == 255) r_weight = 8;
-	if (src[1] == 255) g_weight = 8;
-	if (src[2] == 255) b_weight = 8;
+	if (src[0] == 255)
+		r_weight = 8;
+	else
+		r_weight = src[0] & 0x7;
+	if (src[1] == 255)
+		g_weight = 8;
+	else
+		g_weight = src[1] & 0x7;
+
+	if (src[2] == 255)
+		b_weight = 8;
+	else
+		b_weight = src[2] & 0x7;
 
 	/* Work out relative weights and offsets */
 	if (r_weight >= g_weight) {
@@ -978,7 +1074,7 @@ static void hiti_interp33_256(uint8_t *dst, uint8_t *src, const uint8_t *pTable)
 	/* And at long last.. final values */
 	dst[0] = (pw1[p1_val.r] + pw2[p2_val.r] + pw3[p3_val.r] + pw4[p4_val.r]) >> 3;
 	dst[1] = (pw1[p1_val.g] + pw2[p2_val.g] + pw3[p3_val.g] + pw4[p4_val.g]) >> 3;
-	dst[0] = (pw1[p1_val.b] + pw2[p2_val.b] + pw3[p3_val.b] + pw4[p4_val.b]) >> 3;
+	dst[2] = (pw1[p1_val.b] + pw2[p2_val.b] + pw3[p3_val.b] + pw4[p4_val.b]) >> 3;
 
 }
 
@@ -1278,8 +1374,6 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	// XXX sanity check job against ribbon and paper
-
 	/* Load up correction data */
 	const uint8_t *corrdata = hiti_get_correction_data(ctx);
 	if (corrdata) {
@@ -1289,41 +1383,49 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 
 	/* Convert input packed BGR data into YMC planar */
 	{
-		int rowlen = ((job->hdr.rows * 4) + 3) / 4;
-		uint8_t *ymcbuf = malloc(job->hdr.cols * rowlen * 3);
+		int stride = ((job->hdr.cols * 4) + 3) / 4;
+		uint8_t *ymcbuf = malloc(job->hdr.cols * stride * 3);
+		uint32_t i, j;
+
 		if (!ymcbuf) {
 			hiti_cleanup_job(job);
 			ERROR("Memory Allocation Failure!\n");
 			return CUPS_BACKEND_FAILED;
 		}
-		uint8_t *dstY = ymcbuf;
-		uint8_t *dstM = ymcbuf + (rowlen * job->hdr.cols);
-		uint8_t *dstC = ymcbuf + (rowlen * job->hdr.cols * 2);
-		uint32_t i;
 
-		for (i = 0 ; i < job->datalen ; i+= 3) {
-			uint8_t rgb[3];
+		for (i = 0 ; i < job->hdr.rows ; i++) {
+			uint8_t *rowY = ymcbuf + stride * i;
+			uint8_t *rowM = ymcbuf + stride * (job->hdr.rows + i);
+			uint8_t *rowC = ymcbuf + stride * (job->hdr.rows * 2 + i);
 
-			/* Input data is BGR */
-			rgb[2] = job->databuf[i];
-			rgb[1] = job->databuf[i+1];
-			rgb[0] = job->databuf[i+2];
+			for (j = 0 ; j < job->hdr.cols ; j++) {
+				uint8_t rgb[3];
+				uint32_t base = (job->hdr.cols * i + j) * 3;
 
-			if (corrdata) {
-				// XXX optimize?  No need to repeat
-				// calculation if input repeats.
-				hiti_interp33_256(rgb, rgb, corrdata);
+				/* Input data is BGR */
+				rgb[2] = job->databuf[base];
+				rgb[1] = job->databuf[base + 1];
+				rgb[0] = job->databuf[base + 2];
+
+				if (corrdata) {
+					// XXX optimize?  No need to repeat
+					// calculation if input repeats.
+					hiti_interp33_256(rgb, rgb, corrdata);
+				}
+
+				/* Finally convert to YMC */
+				rowY[j] = 255 - rgb[2];
+				rowM[j] = 255 - rgb[1];
+				rowC[j] = 255 - rgb[0];
 			}
-
-			/* Finally convert to YMC */
-			*dstY++ = 255 - rgb[2];
-			*dstM++ = 255 - rgb[1];
-			*dstC++ = 255 - rgb[0];
 		}
 		/* Nuke the old BGR buffer and replace it with YMC */
 		free(job->databuf);
 		job->databuf = ymcbuf;
-		job->datalen = rowlen * 3 * job->hdr.cols;
+		job->datalen = stride * 3 * job->hdr.cols;
+
+		if (corrdata)
+			free(corrdata);
 	}
 
 	*vjob = job;
@@ -1350,7 +1452,7 @@ static int hiti_main_loop(void *vctx, const void *vjob)
 
 	int ret;
 	int copies;
-	uint16_t err = 0;
+	uint32_t err = 0;
 	uint8_t sts[3];
 
 	const struct hiti_printjob *job = vjob;
@@ -1376,6 +1478,12 @@ top:
 				break;
 			// query active jobs, make sure we're not colliding?
 		}
+		if (err) {
+			ERROR("Printer reported alert: %08x (%s)\n",
+			      err, hiti_errors(err));
+			return CUPS_BACKEND_FAILED;
+		}
+
 		sleep(1);
 	} while(1);
 
@@ -1419,6 +1527,7 @@ top:
 
 	memcpy(&jobid, &jobresp[1], sizeof(jobid));
 	jobid = be16_to_cpu(jobid);
+	INFO("Printer returned Job ID %04x\n", jobid);
 
 	uint8_t chs[2] = { 0, 1 }; /* Fixed..? */
 
@@ -1446,6 +1555,11 @@ top:
 	ret = hiti_query_status(ctx, sts, &err);
 	if (ret)
 		return ret;
+	if (err) {
+		ERROR("Printer reported alert: %08x (%s)\n",
+		      err, hiti_errors(err));
+		return CUPS_BACKEND_FAILED;
+	}
 
 	INFO("Sending magenta plane\n");
 	ret = hiti_docmd(ctx, CMD_EPC_SMP, NULL, 0, &resplen);
@@ -1461,6 +1575,11 @@ top:
 	ret = hiti_query_status(ctx, sts, &err);
 	if (ret)
 		return ret;
+	if (err) {
+		ERROR("Printer reported alert: %08x (%s)\n",
+		      err, hiti_errors(err));
+		return CUPS_BACKEND_FAILED;
+	}
 
 	INFO("Sending cyan plane\n");
 	ret = hiti_docmd(ctx, CMD_EPC_SCP, NULL, 0, &resplen);
@@ -1476,15 +1595,19 @@ top:
 	ret = hiti_query_status(ctx, sts, &err);
 	if (ret)
 		return ret;
+	if (err) {
+		ERROR("Printer reported alert: %08x (%s)\n",
+		      err, hiti_errors(err));
+		return CUPS_BACKEND_FAILED;
+	}
 
 	INFO("Sending Print start\n");
 	ret = hiti_docmd(ctx, CMD_EPC_EP, NULL, 0, &resplen);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
-	jobid = cpu_to_be16(jobid);
 	resplen = 3;
-	ret = hiti_docmd_resp(ctx, CMD_JC_EJ, (uint8_t*)&jobid, sizeof(jobid), jobresp, &resplen);
+	ret = hiti_docmd_resp(ctx, CMD_JC_EJ, jobresp, sizeof(jobresp), jobresp, &resplen);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 
@@ -1499,6 +1622,11 @@ top:
 		/* If we're idle, we're done. */
 		if (!sts[2] && !sts[1] && !sts[0]) {
 			break;
+		}
+		if (err) {
+			ERROR("Printer reported alert: %08x (%s)\n",
+			      err, hiti_errors(err));
+			return CUPS_BACKEND_FAILED;
 		}
 
 		// XXX query job ID?
@@ -1572,11 +1700,13 @@ static int hiti_query_version(struct hiti_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
-static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint16_t *err)
+static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint32_t *err)
 {
 	int ret;
 	uint16_t len = 3;
 	uint16_t cmd;
+
+	*err = 0;
 
 	ret = hiti_docmd_resp(ctx, CMD_RDS_RSS, NULL, 0, sts, &len);
 	if (ret)
@@ -1599,22 +1729,26 @@ static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint16_t *err)
 
 	/* Query extended status, if needed */
 	if (cmd) {
-//		uint8_t respbuf[16];
-		uint8_t respbuf[5];
+		uint8_t respbuf[17];  /* Enough for four errors */
 		len = sizeof(respbuf);
 
 		ret = hiti_docmd_resp(ctx, cmd, NULL, 0, respbuf, &len);
 		if (ret)
 			return ret;
 
-		if (respbuf[0]) { // error count
-			memcpy(err, &respbuf[1], sizeof(*err)); // error code, BE
-			*err = be16_to_cpu(*err);
-			ERROR("... %02x\n", *err);
-			if (len > 8) { // OPTIONAL
-				// 5-8 is ERRSTATE in ASCII HEX!
-			}
+		if (!respbuf[0])
+			return CUPS_BACKEND_OK;
+
+		if (respbuf[0] > 1) {
+			WARNING("Multiple Alerts detected, only returning the first!\n");
+		} else if (len > 8) {
+			// XXX means we have ASCIIHEX in positions [5:8], convert to number..
+			// eg "30 31 00 00" == Code 0100
 		}
+
+		memcpy(err, &respbuf[1], sizeof(*err));
+		*err = be32_to_cpu(*err);
+		*err >>= 8;
 	}
 
 	return CUPS_BACKEND_OK;
@@ -1825,7 +1959,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.04WIP",
+	.version = "0.05",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,

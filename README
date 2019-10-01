@@ -1111,7 +1111,7 @@ Notes:
 
       hiti-p520l hiti-p525l hiti-p52x
 
-   Very work-in-progress printers:
+   Verified supported printers:
 
     HiTi P520L
 
@@ -1123,10 +1123,5 @@ Notes:
 
      -i                 Query printer information
      -s                 Query printer status
-
-  Notes:
-
-    * This backend is in very early stages of development, and is a long
-      way off from being able to print.
 
 ***************************************************************************
