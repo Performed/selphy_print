@@ -359,6 +359,8 @@ static int hiti_docmd(struct hiti_ctx *ctx, uint16_t cmdid, uint8_t *buf, uint16
 		return ret;
 	}
 
+	usleep(10*1000);
+
 	/* Read back command */
 	ret = read_data(ctx->dev, ctx->endp_up, cmdbuf, 6, &num);
 	if (ret)
@@ -400,6 +402,8 @@ static int hiti_docmd_resp(struct hiti_ctx *ctx, uint16_t cmdid,
 		return CUPS_BACKEND_FAILED;
 	}
 
+	usleep(10*1000);
+
 	/* Read back the data*/
 	ret = read_data(ctx->dev, ctx->endp_up, respbuf, *resplen, &num);
 	if (ret)
@@ -439,6 +443,8 @@ static int hiti_sepd(struct hiti_ctx *ctx, uint32_t buf_len,
 		return ret;
 	}
 
+	usleep(10*1000);
+
 	/* Read back command */
 	ret = read_data(ctx->dev, ctx->endp_up, cmdbuf, 6, &num);
 	if (ret)
@@ -448,7 +454,6 @@ static int hiti_sepd(struct hiti_ctx *ctx, uint32_t buf_len,
 		ERROR("CMD Readback length mismatch (%d vs %d)!\n", num, 6);
 		return CUPS_BACKEND_FAILED;
 	}
-
 	return CUPS_BACKEND_OK;
 }
 
@@ -1499,6 +1504,8 @@ top:
 		return CUPS_BACKEND_FAILED;
 
 	// CMD_ESD_SHPTC // Heating Parameters & Tone Curve (~7Kb, seen on windows..)
+
+resend_y:
 	INFO("Sending yellow plane\n");
 	ret = hiti_docmd(ctx, CMD_EPC_SYP, NULL, 0, &resplen);
 	if (ret)
@@ -1509,6 +1516,7 @@ top:
 	ret = send_data(ctx->dev, ctx->endp_down, job->databuf + sent, rows * cols);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
+	usleep(200*1000);
 	sent += rows * cols;
 	ret = hiti_query_status(ctx, sts, &err);
 	if (ret)
@@ -1518,7 +1526,12 @@ top:
 		      err, hiti_errors(err));
 		return CUPS_BACKEND_FAILED;
 	}
+	if (sts[0] & STATUS0_RESEND_DATA) {
+		WARNING("Printer requested resend\n");
+		goto resend_y;
+	}
 
+resend_m:
 	INFO("Sending magenta plane\n");
 	ret = hiti_docmd(ctx, CMD_EPC_SMP, NULL, 0, &resplen);
 	if (ret)
@@ -1530,6 +1543,7 @@ top:
 	if (ret)
 		return CUPS_BACKEND_FAILED;
 	sent += rows * cols;
+	usleep(200*1000);
 	ret = hiti_query_status(ctx, sts, &err);
 	if (ret)
 		return ret;
@@ -1538,7 +1552,12 @@ top:
 		      err, hiti_errors(err));
 		return CUPS_BACKEND_FAILED;
 	}
+	if (sts[0] & STATUS0_RESEND_DATA) {
+		WARNING("Printer requested resend\n");
+		goto resend_m;
+	}
 
+resend_c:
 	INFO("Sending cyan plane\n");
 	ret = hiti_docmd(ctx, CMD_EPC_SCP, NULL, 0, &resplen);
 	if (ret)
@@ -1549,6 +1568,7 @@ top:
 	ret = send_data(ctx->dev, ctx->endp_down, job->databuf + sent, rows * cols);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
+	usleep(200*1000);
 	sent += rows * cols;
 	ret = hiti_query_status(ctx, sts, &err);
 	if (ret)
@@ -1557,6 +1577,10 @@ top:
 		ERROR("Printer reported alert: %08x (%s)\n",
 		      err, hiti_errors(err));
 		return CUPS_BACKEND_FAILED;
+	}
+	if (sts[0] & STATUS0_RESEND_DATA) {
+		WARNING("Printer requested resend\n");
+		goto resend_c;
 	}
 
 	INFO("Sending Print start\n");
@@ -1961,7 +1985,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.09",
+	.version = "0.10",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
