@@ -1115,6 +1115,14 @@ Notes:
 
     HiTi P520L
 
+   Unsupported printers (Unknown VID/PID)
+
+     HiTi P110S
+     HiTi P510 series
+     HiTi P525L
+     HiTi P720L
+     HiTi P750L
+
    This backend supports additional commands:
 
       hiti [command [arg] ]
@@ -1122,6 +1130,8 @@ Notes:
    Valid commands:
 
      -i                 Query printer information
+     -r                 Soft reset printer
+     -R                 Reset printer to factory defaults
      -s                 Query printer status
 
 ***************************************************************************
