@@ -36,6 +36,7 @@
    DNP DS620 / DS620A / Citizen CX-02
    DNP DS820 / DS820A
    Fujifilm ASK-300
+   HiTi P520L
    Kodak Professional 1400
    Kodak 305 Photo Printer
    Kodak 605 Photo Printer
@@ -66,6 +67,9 @@
   Work-in-progress Printers:
 
    HiTi M610 (not X610!)
+   HiTi P525L
+   HiTi P720L
+   HiTi P750L
    HiTi P910L
    ICI Imagedata OP900
    Kodak 6900
@@ -622,7 +626,7 @@
    *** VERY IMPORTANT ***
 
      In order to generate usable output, the Sinfonia CHC-S6145 printer
-     (and its siblings listed above) require the input data to be 
+     (and its siblings listed above) require the input data to be
      transformed using specific image processing algorithms.
 
      The library that implements this processing is dynamically loaded
@@ -1115,10 +1119,8 @@ Notes:
 
     HiTi P520L
 
-   Unsupported printers (Unknown VID/PID)
+   Theoretically supported printers (Untested)
 
-     HiTi P110S
-     HiTi P510 series
      HiTi P525L
      HiTi P720L
      HiTi P750L

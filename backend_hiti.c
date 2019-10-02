@@ -893,7 +893,7 @@ static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx, uint8_t mode)
 	case P_HITI_52X:
 		fname = CORRTABLE_PATH "/P52x_CCPPri.bin";
 		break;
-	case P_HITI_72X:
+	case P_HITI_720:
 		if (!mediatype) {
 			if (mode) {
 				fname = CORRTABLE_PATH "/P72x_CMQPrd.bin";
@@ -944,7 +944,7 @@ static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx, uint8_t mode)
 			}
 		}
 		break;
-	case P_HITI_75X:
+	case P_HITI_750:
 		fname = CORRTABLE_PATH "/P75x_CCPPri.bin";
 		break;
 	default:
@@ -1916,17 +1916,23 @@ static int hiti_query_markers(void *vctx, struct marker **markers, int *count)
 
 static const char *hiti_prefixes[] = {
 	"hiti", // Family name
-	"hiti-p52x", "hiti-p520l", "hiti-p525l",
+	"hiti-p52x",
+	"hiti-p520l", "hiti-p525l", "hiti-p720l", "hiti-p750l",
 	NULL
 };
 
 /* Exported */
 #define USB_VID_HITI         0x0d16
+#define USB_PID_HITI_P310    0x050A
 #define USB_PID_HITI_P52X    0x0502
+#define USB_PID_HITI_P530    0x000F
+#define USB_PID_HITI_P720    0x0009
+#define USB_PID_HITI_P750    0x0501
+#define USB_PID_HITI_X610    0x0800
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.08",
+	.version = "0.09",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
@@ -1938,7 +1944,9 @@ struct dyesub_backend hiti_backend = {
 	.query_serno = hiti_query_serno,
 	.query_markers = hiti_query_markers,
 	.devices = {
-		{ USB_VID_HITI, USB_PID_HITI_P52X, P_HITI_52X, NULL, "hiti-p52x"},
+		{ USB_VID_HITI, USB_PID_HITI_P52X, P_HITI_52X, NULL, "hiti-p520l"},
+		{ USB_VID_HITI, USB_PID_HITI_P720, P_HITI_720, NULL, "hiti-p720l"},
+		{ USB_VID_HITI, USB_PID_HITI_P750, P_HITI_750, NULL, "hiti-p750l"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
