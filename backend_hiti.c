@@ -77,7 +77,7 @@ struct hiti_cmd {
 #define CMD_JC_SJ      0x0500 /* Start Job (3 arg) */
 #define CMD_JC_EJ      0x0501 /* End Job (3 arg) */
 #define CMD_JC_QJC     0x0502 /* Query Job Completed (5 arg) XX */
-#define CMD_JC_QQA     0x0503 /* Query Jobs Queued or Active (3 arg) XX */
+#define CMD_JC_QQA     0x0503 /* Query Jobs Queued or Active (3 arg) */
 #define CMD_JC_RSJ     0x0510 /* Resume Suspended Job (3 arg) XX */
 
 /* Extended Read Device Characteristics */
@@ -314,6 +314,7 @@ struct hiti_ctx {
 
 /* Prototypes */
 static int hiti_doreset(struct hiti_ctx *ctx, uint8_t type);
+static int hiti_query_job_qa(struct hiti_ctx *ctx, struct hiti_job *jobid);
 static int hiti_query_status(struct hiti_ctx *ctx, uint8_t *sts, uint32_t *err);
 static int hiti_query_version(struct hiti_ctx *ctx);
 static int hiti_query_matrix(struct hiti_ctx *ctx);
@@ -440,9 +441,9 @@ static int hiti_sepd(struct hiti_ctx *ctx, uint32_t buf_len,
 }
 
 #define STATUS_IDLE          0x00
-#define STATUS_INITIALIZED   0x80
+#define STATUS0_POWERON      0x01
 #define STATUS0_RESEND_DATA  0x04
-#define STATUS0_BUSY         0x08
+#define STATUS0_BUSY         0x80
 #define STATUS1_SUPPLIES     0x01
 #define STATUS1_PAPERJAM     0x02
 #define STATUS1_INPUT        0x08
@@ -468,8 +469,6 @@ static const char *hiti_status(uint8_t *sts)
 		return "Resend Data";
 	else if (sts[0] & STATUS0_BUSY)
 		return "Busy";
-	else if (sts[0] == STATUS_INITIALIZED)
-		return "Initialized";
 	else if (sts[0] == STATUS_IDLE)
 		return "Idle";
 	else
@@ -728,6 +727,42 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
+/* Use jobid of 0 for "any" */
+static int hiti_query_job_qa(struct hiti_ctx *ctx, struct hiti_job *jobid)
+{
+	int ret;
+	uint16_t len = 16;
+	uint8_t buf[17];  /* Enough for four jobs */
+	int i;
+
+	buf[0] = 0;
+	ret = hiti_docmd_resp(ctx, CMD_JC_QQA,
+			      (uint8_t*) jobid, sizeof(*jobid),
+			      buf, &len);
+	if (ret)
+		return ret;
+
+	/* Clear job ID.. */
+	jobid->jobid = 0;
+
+	for (i = 0 ; i < buf[0] ; i++) {
+		// is jobid + status
+		// status of 3 is suspended.
+		// status of 0 is active.
+
+		if (buf[4*i + 4] == 0)
+			memcpy(jobid, &buf[4*i+1], sizeof(*jobid));
+
+#if 0
+		INFO("Job %02x %02x %02x => %02x\n",
+		     buf[4*i + 1], buf[4*i + 2],
+		     buf[4*i + 3], buf[4*i + 4]);
+#endif
+	}
+
+	return CUPS_BACKEND_OK;
+}
+
 static int hiti_get_status(struct hiti_ctx *ctx)
 {
 	uint8_t sts[3];
@@ -753,8 +788,11 @@ static int hiti_get_status(struct hiti_ctx *ctx)
 	     hiti_papers(ctx->supplies2[0]),
 	     ctx->supplies2[0]);
 
-	// XXX other shit..
-	// Jobs Queued Active
+	/* Find out if we have any jobs outstanding */
+	struct hiti_job job = { 0 };
+	hiti_query_job_qa(ctx, &job);
+
+	// XXX other shit.../
 
 	return CUPS_BACKEND_OK;
 }
@@ -1490,6 +1528,7 @@ static int hiti_main_loop(void *vctx, const void *vjob)
 	int copies;
 	uint32_t err = 0;
 	uint8_t sts[3];
+	struct hiti_job jobid;
 
 	const struct hiti_printjob *job = vjob;
 
@@ -1508,17 +1547,26 @@ top:
 		if (ret)
 			return ret;
 
-		/* If we're idle, proceed */
-		if (!sts[2] && !sts[1]) {
-			if (!sts[0])
-				break;
-			// query active jobs, make sure we're not colliding?
-		}
+		/* If we have an error state, bail! */
 		if (err) {
 			ERROR("Printer reported alert: %08x (%s)\n",
 			      err, hiti_errors(err));
 			return CUPS_BACKEND_FAILED;
 		}
+
+		/* If we're idle, proceed */
+		if (!(sts[0] & (STATUS0_POWERON|STATUS0_BUSY)))
+			break;
+
+		jobid.lun = 0;
+		jobid.jobid = 0;
+		ret = hiti_query_job_qa(ctx, &jobid);
+		if (ret)
+			return ret;
+
+		/* If we have no active job.. proceed! */
+		if (jobid.jobid == 0)
+		    break;
 
 		sleep(1);
 	} while(1);
@@ -1528,7 +1576,6 @@ top:
 	uint16_t resplen = 0;
 	uint16_t rows = job->hdr.rows;
 	uint16_t cols = ((4*job->hdr.cols) + 3) / 4;
-	struct hiti_job jobid;
 
 	// XXX these two only need to change if rows > 3000
 	uint16_t startLine = 0;
@@ -1658,18 +1705,23 @@ top:
 		if (ret)
 			return ret;
 
-		/* If we're idle, we're done. */
-		if (!sts[2] && !sts[1] && !sts[0]) {
-			break;
-		}
 		if (err) {
 			ERROR("Printer reported alert: %08x (%s)\n",
 			      err, hiti_errors(err));
 			return CUPS_BACKEND_FAILED;
 		}
 
-		// XXX query job ID?
-		// if job completed, break;
+		/* If we're idle, proceed! */
+		if (!(sts[0] & (STATUS0_POWERON|STATUS0_BUSY)))
+			break;
+
+		ret = hiti_query_job_qa(ctx, &jobid);
+		if (ret)
+			return ret;
+
+		/* If our job is complete.. */
+		if (jobid.jobid == 0)
+			break;
 
 		if (fast_return) {
 			INFO("Fast return mode enabled.\n");
@@ -1927,6 +1979,7 @@ static int hiti_doreset(struct hiti_ctx *ctx, uint8_t type)
 		return ret;
 
 	// response seems to be: 01 03 00 00 01 47
+	sleep(5);
 
 	return CUPS_BACKEND_OK;
 }
@@ -2018,7 +2071,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.07",
+	.version = "0.08",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
