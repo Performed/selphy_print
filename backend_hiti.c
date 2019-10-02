@@ -841,13 +841,12 @@ static void hiti_cleanup_job(const void *vjob) {
 
 #define CORRECTION_FILE_SIZE (33*33*33*3 + 2)
 
-static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx)
+static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx, uint8_t mode)
 {
 	char *fname;
 	uint8_t *buf;
 	int ret, len;
 
-	int mode = 0; // XXX 0 = standard, 1 = fine
 	int mediaver = ctx->ribbonvendor & 0x3f;
 	int mediatype = ((ctx->ribbonvendor & 0xf000) == 0x1000);
 
@@ -1412,7 +1411,7 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	/* Load up correction data, if requested */
 	uint8_t *corrdata = NULL;
 	if (!(job->hdr.payload_type & PAYLOAD_TYPE_FLAG_NOCORRECT))
-		corrdata = hiti_get_correction_data(ctx);
+		corrdata = hiti_get_correction_data(ctx, job->hdr.quality);
 	if (corrdata) {
 		INFO("Running input data through correction tables\n");
 		hiti_interp_init();
