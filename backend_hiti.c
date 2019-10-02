@@ -657,6 +657,13 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 {
 	int ret;
 
+	ret = hiti_query_tphv(ctx);
+	if (ret)
+		return ret;
+	ret = hiti_query_led_calibration(ctx);
+	if (ret)
+		return ret;
+
 	INFO("Printer ID: %s\n",
 	     ctx->id);
 	INFO("Printer Version: %s\n",
@@ -793,16 +800,10 @@ static int hiti_attach(void *vctx, struct libusb_device_handle *dev, int type,
 		ret = hiti_query_calibration(ctx);
 		if (ret)
 			return ret;
-		ret = hiti_query_led_calibration(ctx);
-		if (ret)
-			return ret;
 		ret = hiti_query_ribbonvendor(ctx);
 		if (ret)
 			return ret;
 		ret = hiti_query_rpidm(ctx);
-		if (ret)
-			return ret;
-		ret = hiti_query_tphv(ctx);
 		if (ret)
 			return ret;
 
@@ -1878,8 +1879,6 @@ static int hiti_query_tphv(struct hiti_ctx *ctx)
 	ret = hiti_docmd_resp(ctx, CMD_ERDC_RTLV, NULL, 0, (uint8_t*) &ctx->rtlv, &len);
 	if (ret)
 		return ret;
-
-	ctx->ribbonvendor = cpu_to_le32(ctx->ribbonvendor);
 
 	return CUPS_BACKEND_OK;
 }
