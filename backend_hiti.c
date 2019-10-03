@@ -89,11 +89,11 @@ struct hiti_cmd {
 #define CMD_ERDC_RPIDM 0x8009 /* Request PID and Model Code */
 #define CMD_ERDC_RTLV  0x800E /* Request T/L Voltage */
 #define CMD_ERDC_RRVC  0x800F /* Read Ribbon Vendor Code */
+#define CMD_ERDC_RHA   0x801C /* Read Highlight Adjustment (6 resp) RE */
 
 // 8008 seen in Windows Comm @ 3211  (0 len response)
 // 8010 seen in Windows Comm @ 84 (0 len req, 14 len response)
 // 8011 seen in Windows Comm @ 3369 (1 arg req (always 00), 4 len response)
-// 801c seen in Windows comm @ 3293 (6 len response, all zero..?)
 
 /* Extended Format Data */
 #define CMD_EFD_SF     0x8100 /* Sublimation Format */
@@ -116,6 +116,7 @@ struct hiti_cmd {
 /* Extended Flash/NVram */
 #define CMD_EFM_RNV    0x8405 /* Read NVRam (1 arg) XX */
 #define CMD_EFM_RD     0x8408 /* Read single location (2 arg) -- XXX RE */
+#define CMD_EFM_SHA    0x840E /* Set Highlight Adjustment (5 arg) -- XXX RE */
 
 /* Extended ??? */
 #define CMD_EDM_CVD    0xE002 /* Common Voltage Drop Values (n arg) XX */
@@ -124,6 +125,14 @@ struct hiti_cmd {
 /* CMD_PCC_RP */
 #define RESET_PRINTER 0x01
 #define RESET_SOFT    0x02
+
+/* 801C --> 0 args
+        <-- 6 bytes: 00 YY MM CC 00 00  (YMC is +- 31d)
+
+   040E --> 5 args:  YY MM CC 00 00 (YMC is +- 31d)
+        <-- 1 arg:   00 (success, presumably)
+
+*/
 
 /* CMD_ERDC_RCC */
 struct hiti_calibration {
@@ -306,6 +315,7 @@ struct hiti_ctx {
 	struct hiti_calibration calibration;
 	uint8_t  led_calibration[10]; // XXX convert to struct
 	struct hiti_erdc_rs erdc_rs;
+	uint8_t  hilight_adj[6]; // XXX convert to struct
 	uint8_t  rtlv[2];      /* XXX figure out conversion/math? */
 	struct hiti_rpidm rpidm;
 	uint16_t ribbonvendor; // low byte = media subtype, high byte = type.
@@ -326,6 +336,8 @@ static int hiti_query_led_calibration(struct hiti_ctx *ctx);
 static int hiti_query_ribbonvendor(struct hiti_ctx *ctx);
 static int hiti_query_summary(struct hiti_ctx *ctx, struct hiti_erdc_rs *rds);
 static int hiti_query_rpidm(struct hiti_ctx *ctx);
+static int hiti_query_hilightadj(struct hiti_ctx *ctx);
+
 static int hiti_query_counter(struct hiti_ctx *ctx, uint8_t arg, uint32_t *resp);
 static int hiti_query_markers(void *vctx, struct marker **markers, int *count);
 
@@ -677,6 +689,8 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 	INFO("Region: %s (%02x)\n",
 	     hiti_regions(ctx->rpidm.region),
 		ctx->rpidm.region);
+	INFO("Highlight Adjustment (Y M C): %d %d %d\n",
+	     ctx->hilight_adj[1], ctx->hilight_adj[2], ctx->hilight_adj[3]);
 
 	ret = hiti_query_summary(ctx, &ctx->erdc_rs);
 	if (ret)
@@ -842,6 +856,9 @@ static int hiti_attach(void *vctx, struct libusb_device_handle *dev, int type,
 		if (ret)
 			return ret;
 		ret = hiti_query_rpidm(ctx);
+		if (ret)
+			return ret;
+		ret = hiti_query_hilightadj(ctx);
 		if (ret)
 			return ret;
 
@@ -1739,6 +1756,18 @@ static int hiti_query_rpidm(struct hiti_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
+static int hiti_query_hilightadj(struct hiti_ctx *ctx)
+{
+	int ret;
+	uint16_t len = sizeof(ctx->hilight_adj);
+
+	ret = hiti_docmd_resp(ctx, CMD_ERDC_RHA, NULL, 0, (uint8_t*)&ctx->hilight_adj, &len);
+	if (ret)
+		return ret;
+
+	return CUPS_BACKEND_OK;
+}
+
 static int hiti_query_calibration(struct hiti_ctx *ctx)
 {
 	int ret;
@@ -1950,3 +1979,21 @@ struct dyesub_backend hiti_backend = {
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
+
+/* TODO:
+
+   - Set Highight Adjustment  (And does it do anything in the driver?)
+   - Figure out 5x6, 6x5, 6x6, and 2x6 prints
+   - Job status & control (QJC, RSJ, QQA)
+   - Figure out occasional data transfer hang
+   - Set hilight adjustment & H/V alignment  (need to research the latter)
+   - Figure out Windows spool format (probably never)
+   - Add sanity checks in spool parsing
+   - Optimizations in color conversion code
+   - Commands 8008, 8010, 8011, EST_SEHT, ESD_SHTPC, RDC_ROC, PCC_STP, CMD_EDM_*
+   - Test with P525, P720, P750
+   - Further investigation into P110S & P510 series
+   - Start research into P530D, X610
+   - More Matrix decoding work
+
+*/
