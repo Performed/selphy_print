@@ -61,7 +61,7 @@ static void* updneo_init(void)
 {
 	struct updneo_ctx *ctx = malloc(sizeof(struct updneo_ctx));
 	if (!ctx) {
-		ERROR("Memory Allocation Failure!");
+		ERROR("Memory Allocation Failure!\n");
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct updneo_ctx));

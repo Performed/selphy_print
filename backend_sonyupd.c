@@ -91,7 +91,7 @@ static void* upd_init(void)
 {
 	struct upd_ctx *ctx = malloc(sizeof(struct upd_ctx));
 	if (!ctx) {
-		ERROR("Memory Allocation Failure!");
+		ERROR("Memory Allocation Failure!\n");
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct upd_ctx));

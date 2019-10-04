@@ -1813,7 +1813,7 @@ skip_multicut:
 				return CUPS_BACKEND_CANCEL;
 			}
 		} else {
-			ERROR("Printer only supports legacy 2-inch cuts on 4x6 or 8x6 jobs!");
+			ERROR("Printer only supports legacy 2-inch cuts on 4x6 or 8x6 jobs!\n");
 			dnpds40_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
@@ -2019,7 +2019,7 @@ top:
 #if 0  // XXX Fix 600dpi support on CW01
 			// have to read the last DPI, and send the correct CWD over?
 			if (ctx->dpi == 600 && strcmp("RV0334", *char*)resp) {
-				ERROR("600DPI prints not yet supported, need 600DPI CWD load");
+				ERROR("600DPI prints not yet supported, need 600DPI CWD load\n");
 				return CUPS_BACKEND_CANCEL;
 			}
 #endif
@@ -2974,7 +2974,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 				break;
 			}
 			if (sleeptime < 0 || sleeptime > 99) {
-				ERROR("Value out of range (0-99)");
+				ERROR("Value out of range (0-99)\n");
 				j = -1;
 				break;
 			}
@@ -2989,7 +2989,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 				break;
 			}
 			if (keep < 0 || keep > 1) {
-				ERROR("Value out of range (0-1)");
+				ERROR("Value out of range (0-1)\n");
 				j = -1;
 				break;
 			}
@@ -3033,7 +3033,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 				break;
 			}
 			if (enable < 0 || enable > 1) {
-				ERROR("Value out of range (0-1)");
+				ERROR("Value out of range (0-1)\n");
 				j = -1;
 				break;
 			}

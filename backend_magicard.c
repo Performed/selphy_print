@@ -429,7 +429,7 @@ static void* magicard_init(void)
 {
 	struct magicard_ctx *ctx = malloc(sizeof(struct magicard_ctx));
 	if (!ctx) {
-		ERROR("Memory Allocation Failure!");
+		ERROR("Memory Allocation Failure!\n");
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct magicard_ctx));

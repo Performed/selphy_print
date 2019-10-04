@@ -1969,7 +1969,7 @@ top:
 
 		/* Hold job if we have no legal decks for it, but printer is online. */
 		if (!legal) {
-			ERROR("Legal deck for printjob has errors, aborting job");
+			ERROR("Legal deck for printjob has errors, aborting job\n");
 			return CUPS_BACKEND_HOLD;
 		}
 
