@@ -89,10 +89,10 @@ struct hiti_cmd {
 #define CMD_ERDC_RPIDM 0x8009 /* Request PID and Model Code */
 #define CMD_ERDC_RTLV  0x800E /* Request T/L Voltage */
 #define CMD_ERDC_RRVC  0x800F /* Read Ribbon Vendor Code */
+#define CMD_ERDC_UNK   0x8010 /* Unknown Query RE */
 #define CMD_ERDC_RHA   0x801C /* Read Highlight Adjustment (6 resp) RE */
 
 // 8008 seen in Windows Comm @ 3211  (0 len response)
-// 8010 seen in Windows Comm @ 84 (0 len req, 14 len response)
 // 8011 seen in Windows Comm @ 3369 (1 arg req (always 00), 4 len response)
 
 /* Extended Format Data */
@@ -314,6 +314,7 @@ struct hiti_ctx {
 	uint8_t  supplies2[4]; /* Paper */  // XXX convert to struct
 	struct hiti_calibration calibration;
 	uint8_t  led_calibration[10]; // XXX convert to struct
+	uint8_t  unk_8010[15]; // XXX
 	struct hiti_erdc_rs erdc_rs;
 	uint8_t  hilight_adj[6]; // XXX convert to struct
 	uint8_t  rtlv[2];      /* XXX figure out conversion/math? */
@@ -337,7 +338,7 @@ static int hiti_query_ribbonvendor(struct hiti_ctx *ctx);
 static int hiti_query_summary(struct hiti_ctx *ctx, struct hiti_erdc_rs *rds);
 static int hiti_query_rpidm(struct hiti_ctx *ctx);
 static int hiti_query_hilightadj(struct hiti_ctx *ctx);
-
+static int hiti_query_unk8010(struct hiti_ctx *ctx);
 static int hiti_query_counter(struct hiti_ctx *ctx, uint8_t arg, uint32_t *resp);
 static int hiti_query_markers(void *vctx, struct marker **markers, int *count);
 
@@ -848,6 +849,9 @@ static int hiti_attach(void *vctx, struct libusb_device_handle *dev, int type,
 		ctx->jobid++;
 
 	if (test_mode < TEST_MODE_NOATTACH) {
+		ret = hiti_query_unk8010(ctx);
+		if (ret)
+			return ret;
 		ret = hiti_query_version(ctx);
 		if (ret)
 			return ret;
@@ -1785,7 +1789,19 @@ static int hiti_query_hilightadj(struct hiti_ctx *ctx)
 	int ret;
 	uint16_t len = sizeof(ctx->hilight_adj);
 
-	ret = hiti_docmd_resp(ctx, CMD_ERDC_RHA, NULL, 0, (uint8_t*)&ctx->hilight_adj, &len);
+	ret = hiti_docmd_resp(ctx, CMD_ERDC_RHA, NULL, 0, ctx->hilight_adj, &len);
+	if (ret)
+		return ret;
+
+	return CUPS_BACKEND_OK;
+}
+
+static int hiti_query_unk8010(struct hiti_ctx *ctx)
+{
+	int ret;
+	uint16_t len = sizeof(ctx->unk_8010);
+
+	ret = hiti_docmd_resp(ctx, CMD_ERDC_UNK, NULL, 0, ctx->unk_8010, &len);
 	if (ret)
 		return ret;
 
@@ -2014,7 +2030,7 @@ struct dyesub_backend hiti_backend = {
    - Figure out Windows spool format (probably never)
    - Add sanity checks in spool parsing
    - Optimizations in color conversion code
-   - Commands 8008, 8010, 8011, EST_SEHT, ESD_SHTPC, RDC_ROC, PCC_STP, CMD_EDM_*
+   - Commands 8008, 8011, EST_SEHT, ESD_SHTPC, RDC_ROC, PCC_STP, CMD_EDM_*
    - Test with P525, P720, P750
    - Further investigation into P110S & P510 series
    - Start research into P530D, X610
