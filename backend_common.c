@@ -427,7 +427,26 @@ static int probe_device(struct libusb_device *device,
 		goto abort;
 	}
 
-	/* XXX FIXME:  Iterate through possible configurations? */
+
+#if 0
+	/* XXX FIXME: Iterate through bNumConfigurations */
+
+	/* Force reset of device configuration */
+	{
+		int cfgnum = -1;
+		if (libusb_get_configuration(dev, &cfgnum)) {
+			ERROR("Can't get config!");
+		}
+		INFO("Config %d\n", config);
+		if (config < 1)
+			cfgnum = 1;
+		if (libusb_set_configuration(dev, cfgnum)) {
+			ERROR("Can't set config\n");
+		}
+	}
+#endif
+
+	/* Get descriptor for active configuration */
 	if (libusb_get_active_config_descriptor(device, &config)) {
 		found  = -1;
 		goto abort_close;
