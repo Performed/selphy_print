@@ -2036,4 +2036,9 @@ struct dyesub_backend hiti_backend = {
    - Start research into P530D, X610
    - More Matrix decoding work
 
+WANRING:  P52x FIRMWARE
+
+	v1.19.0.X  FAILS to work on Linux; USB timeout problems!
+	v1.18.0.B  Functions properly.
+
 */
