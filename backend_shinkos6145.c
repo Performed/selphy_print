@@ -1405,33 +1405,58 @@ top:
 		job->databuf = (uint8_t*) databuf2;
 		job->datalen = newlen;
 
-		struct s6145_print_cmd print;
 
 		INFO("Sending print job (internal id %u)\n", ctx->jobid);
 
-		memset(&print, 0, sizeof(print));
-		print.hdr.cmd = cpu_to_le16(SINFONIA_CMD_PRINTJOB);
-		print.hdr.len = cpu_to_le16(sizeof (print) - sizeof(cmd));
+		if (ctx->dev.type != P_SHINKO_S2245) {
+			struct s6145_print_cmd print;
+			memset(&print, 0, sizeof(print));
+			print.hdr.cmd = cpu_to_le16(SINFONIA_CMD_PRINTJOB);
+			print.hdr.len = cpu_to_le16(sizeof (print) - sizeof(cmd));
 
-		print.id = ctx->jobid;
-		print.count = cpu_to_le16(job->copies);
-		print.columns = cpu_to_le16(job->jp.columns);
-		print.rows = cpu_to_le16(job->jp.rows);
-		print.image_avg = ctx->image_avg[2]; /* Cyan level */
-		print.method = cpu_to_le32(job->jp.method);
-		print.combo_wait = 0;
+			print.id = ctx->jobid;
+			print.count = cpu_to_le16(job->copies);
+			print.columns = cpu_to_le16(job->jp.columns);
+			print.rows = cpu_to_le16(job->jp.rows);
+			print.image_avg = ctx->image_avg[2]; /* Cyan level */
+			print.method = cpu_to_le32(job->jp.method);
+			print.combo_wait = 0;
 
-		/* Brava21 header has a few quirks */
-		if(ctx->dev.type == P_SHINKO_S6145D) {
+			/* Brava21 header has a few quirks */
+			if(ctx->dev.type == P_SHINKO_S6145D) {
+				print.media = job->jp.media;
+				print.unk_1 = 0x01;
+			}
+			if ((ret = sinfonia_docmd(&ctx->dev,
+						  (uint8_t*)&print, sizeof(print),
+						  (uint8_t*)&sts, sizeof(sts),
+						  &num))) {
+				return ret;
+			}
+		} else {
+			/* XXX this is totally a guess */
+			struct sinfonia_printcmd28_hdr print;
+			memset(&print, 0, sizeof(print));
+			print.hdr.cmd = cpu_to_le16(SINFONIA_CMD_PRINTJOB);
+			print.hdr.len = cpu_to_le16(sizeof (print) - sizeof(cmd));
+			print.jobid = ctx->jobid;
+			print.copies = cpu_to_le16(job->copies);
+			print.columns = cpu_to_le16(job->jp.columns);
+			print.rows = cpu_to_le16(job->jp.rows);
+			print.options = job->jp.oc_mode & 0x3;
+			if (job->jp.quality)
+				print.options |= 0x08;
 			print.media = job->jp.media;
-			print.unk_1 = 0x01;
-		}
 
-		if ((ret = sinfonia_docmd(&ctx->dev,
-					  (uint8_t*)&print, sizeof(print),
-					  (uint8_t*)&sts, sizeof(sts),
-					  &num))) {
-			return ret;
+			//XXX print.image_avg = ctx->image_avg[2]; /* Cyan level */
+			print.method = cpu_to_le32(job->jp.method);
+
+			if ((ret = sinfonia_docmd(&ctx->dev,
+						  (uint8_t*)&print, sizeof(print),
+						  (uint8_t*)&sts, sizeof(sts),
+						  &num))) {
+				return ret;
+			}
 		}
 
 		if (sts.hdr.result != RESULT_SUCCESS) {
@@ -1535,7 +1560,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2/S2245/S3",
-	.version = "0.43" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.44" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
