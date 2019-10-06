@@ -86,6 +86,7 @@ struct hiti_cmd {
 #define CMD_ERDC_RPC   0x8005 /* Request Print Count (1 arg, 4 resp) */
 #define CMD_ERDC_RLC   0x8006 /* Request LED calibration */
 #define CMD_ERDC_RSN   0x8007 /* Read Serial Number (1 arg) */
+#define CMD_ERDC_C_RPCS 0x8008 /* CS Request Printer Correction Status */
 #define CMD_ERDC_RPIDM 0x8009 /* Request PID and Model Code */
 #define CMD_ERDC_RTLV  0x800E /* Request T/L Voltage */
 #define CMD_ERDC_RRVC  0x800F /* Read Ribbon Vendor Code */
@@ -98,6 +99,8 @@ struct hiti_cmd {
 /* Extended Format Data */
 #define CMD_EFD_SF     0x8100 /* Sublimation Format */
 #define CMD_EFD_CHS    0x8101 /* Color & Heating Setting (2 arg) */
+#define CMD_EFD_C_CHS  0x8102 /* CS Color Heating Setting (3 arg) */
+#define CMD_EFD_C_SIID 0x8103 /* CS Set Input ID (1 arg) */
 
 /* Extended Page Control */
 #define CMD_EPC_SP     0x8200 /* Start Page */
@@ -106,21 +109,45 @@ struct hiti_cmd {
 #define CMD_EPC_SMP    0x8204 /* Start Magenta Plane */
 #define CMD_EPC_SCP    0x8206 /* Start Cyan Plane */
 
+#define CMD_EPC_C_SYP  0x8202 /* CS Start Yellow Page */
+#define CMD_EPC_C_SMP  0x8203 /* CS Start Magenta Page */
+#define CMD_EPC_C_SCP  0x8204 /* CS Start Cyan Page */
+#define CMD_EPC_C_SBP  0x8205 /* CS Start Black Page */
+#define CMD_EPC_C_SKP  0x8206 /* CS Start K Resin Page */
+#define CMD_EPC_C_SLP  0x8207 /* CS Start Lamination Page */
+#define CMD_EPC_C_SOP  0x8208 /* CS Start Overcoat Page */
+#define CMD_EPC_C_SY2P 0x8209 /* CS Start Yellow2 Page */
+#define CMD_EPC_C_SM2P 0x820A /* CS Start Magenta2 Page */
+#define CMD_EPC_C_SC2P 0x820B /* CS Start Cyan2 Page */
+#define CMD_EPC_C_SB2P 0x820C /* CS Start Black2 Page */
+#define CMD_EPC_C_SK2P 0x820D /* CS Start K Resin2 Page */
+#define CMD_EPC_C_SL2P 0x820E /* CS Start Lamination2 Page */
+#define CMD_EPC_C_SO2P 0x820F /* CS Start Overcoat2 Page */
+
 /* Extended Send Data */
 #define CMD_ESD_SEHT2  0x8303 /* Send Ext Heating Table (2 arg) XX */
 #define CMD_ESD_SEHT   0x8304 /* Send Ext Heating Table XX */
 #define CMD_ESD_SEPD   0x8309 /* Send Ext Print Data (2 arg) + struct */
 #define CMD_ESD_SHPTC  0x830B /* Send Heating Parameters & Tone Curve XX (n arg) */
-#define CMD_ESD_C_SHPTC  0x830C /* Send Heating Parameters & Tone Curve XX (n arg) */
+#define CMD_ESD_C_SHPTC  0x830C /* CS Send Heating Parameters & Tone Curve XX (n arg) */
 
 /* Extended Flash/NVram */
 #define CMD_EFM_RNV    0x8405 /* Read NVRam (1 arg) XX */
 #define CMD_EFM_RD     0x8408 /* Read single location (2 arg) -- XXX RE */
 #define CMD_EFM_SHA    0x840E /* Set Highlight Adjustment (5 arg) -- XXX RE */
 
-/* Extended ??? */
+/* Extended Security Control */
+#define CMD_ESC_SP     0x8900 /* Set Password */
+#define CMD_ESC_SSM    0x8901 /* Set Security Mode */
+
+/* Extended Debug Mode */
 #define CMD_EDM_CVD    0xE002 /* Common Voltage Drop Values (n arg) XX */
 #define CMD_EDM_CPP    0xE023 /* Clean Paper Path (1 arg) XX */
+#define CMD_EDM_C_MC2CES 0xE02E /* CS Move card to Contact Encoder Station */
+#define CMD_EDM_C_MC2MES 0xE02F /* CS Move card to Mag Encoder Station */
+#define CMD_EDM_C_MC2CLES 0xE030 /* CS Move card to ContactLess Encoder Station */
+#define CMD_EDM_C_MC2EB 0xE031 /* CS Move card to Eject Box */
+#define CMD_EDM_C_MC2H 0xE037 /* CS Move card to Hopper */
 
 /* CMD_PCC_RP */
 #define RESET_PRINTER 0x01
@@ -216,7 +243,7 @@ struct hiti_gpjobhdr {
 
 #define HDR_COOKIE 0x54485047
 
-/* CMD_EFD_SF */
+/* CMD_EFD_SF for non-CS systems */
 struct hiti_efd_sf {
 /*@0 */	uint8_t  mediaType; /* PRINT_TYPE_?? */
 /*@1 */	uint16_t cols_res;  /* BE, always 300dpi */
@@ -1992,10 +2019,13 @@ static const char *hiti_prefixes[] = {
 
 /* Exported */
 #define USB_VID_HITI         0x0d16
+#define USB_PID_HITI_CS200   0x0309
+#define USB_PID_HITI_CS220   0x030A
 #define USB_PID_HITI_P310    0x050A
 #define USB_PID_HITI_P52X    0x0502
 #define USB_PID_HITI_P530    0x000F
 #define USB_PID_HITI_P720    0x0009
+#define USB_PID_HITI_P728    0x000A
 #define USB_PID_HITI_P750    0x0501
 #define USB_PID_HITI_X610    0x0800
 

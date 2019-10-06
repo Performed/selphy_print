@@ -71,6 +71,8 @@
    HiTi P720L
    HiTi P750L
    HiTi P910L
+   HiTi CS-200e
+   HiTi CS-220e
    ICI Imagedata OP900
    Kodak 6900
    Kodak 7010 / 7015
@@ -1140,7 +1142,7 @@ Notes:
  ***NOTE***
 
 	Firmware v1.19 for the P520L and P525L has a major issue that
-	results in bulk data transfers not functioning under Linux.  
+	results in bulk data transfers not functioning under Linux.
 	This problem also affects HiTi's semi-official Linux drivers.
 	Firmware v1.18 does not exhibit this problem.
 
