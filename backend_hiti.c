@@ -2019,14 +2019,23 @@ static const char *hiti_prefixes[] = {
 
 /* Exported */
 #define USB_VID_HITI         0x0d16
-#define USB_PID_HITI_CS200   0x0309
-#define USB_PID_HITI_CS220   0x030A
-#define USB_PID_HITI_P310    0x050A
-#define USB_PID_HITI_P52X    0x0502
-#define USB_PID_HITI_P530    0x000F
+
+#define USB_PID_HITI_P510K   0x0007
 #define USB_PID_HITI_P720    0x0009
 #define USB_PID_HITI_P728    0x000A
+#define USB_PID_HITI_P510L   0x000B
+#define USB_PID_HITI_P518A   0x000D
+#define USB_PID_HITI_P530    0x000F
+#define USB_PID_HITI_P510S   0x010E
+#define USB_PID_HITI_P110S   0x0110
+#define USB_PID_HITI_P510SI  0x0111
+#define USB_PID_HITI_P518S   0x0112
+#define USB_PID_HITI_CS200   0x0309
+#define USB_PID_HITI_CS220   0x030A
 #define USB_PID_HITI_P750    0x0501
+#define USB_PID_HITI_P52X    0x0502
+#define USB_PID_HITI_P310L   0x0503
+#define USB_PID_HITI_P310W   0x050A
 #define USB_PID_HITI_X610    0x0800
 
 struct dyesub_backend hiti_backend = {
