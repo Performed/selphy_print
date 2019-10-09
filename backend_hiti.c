@@ -2061,19 +2061,26 @@ struct dyesub_backend hiti_backend = {
 
 /* TODO:
 
-   - Set Highight Adjustment  (And does it do anything in the driver?)
    - Figure out 5x6, 6x5, 6x6, and 2x6 prints
+   - Figure out stats/counters for non-4x6 sizes
    - Job status & control (QJC, RSJ, QQA)
-   - Figure out occasional data transfer hang
-   - Set hilight adjustment & H/V alignment  (need to research the latter)
+   - Figure out occasional data transfer hang (related to FW bug?)
+   - Set hilight adjustment & H/V alignment
+     (need to research the former; does driver or fw consume it?)
    - Figure out Windows spool format (probably never)
-   - Add sanity checks in spool parsing
-   - Optimizations in color conversion code
+   - Spool parsing
+      * Add sanity checks
+      * Add additional 'reserved' fields for future use
+      * Have GP report proper modelid
+   - Performance optimizations in color conversion code
+      * Cache last calculation and re-use if possible
+      * Pre-compute then cache entire map
    - Commands 8008, 8011, EST_SEHT, ESD_SHTPC, RDC_ROC, PCC_STP, CMD_EDM_*
    - Test with P525, P720, P750
    - Further investigation into P110S & P510 series
    - Start research into P530D, X610
-   - More Matrix decoding work
+   - Incorporate changes for CS-series card printers
+   - More "Matrix table" decoding work
 
 WANRING:  P52x FIRMWARE
 
