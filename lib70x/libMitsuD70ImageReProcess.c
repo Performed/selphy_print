@@ -48,7 +48,7 @@
 
 */
 
-#define LIB_VERSION "0.7"
+#define LIB_VERSION "0.7.1"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -159,14 +159,14 @@ struct CPCData {
 	double   KM[11];         // @40528 // weights for line buffer!
 	/* Used for HTD */
 	double   HK[4];          // @40616
-	
+
 	uint32_t Speed[3];       // @40648 -- Unused!
 	double   FH[5];          // @40660
 	/* Used for sharpening */
 	double   SHK[72];        // @40700 // sharpening coefficients, actually double[9][8]
 	/* Used for YMC6 */
 	double   UH[101];        // @41276
-	
+
 	/* Used by roller mark correction (K60/D80/EK305) -- Unused! */
 	uint32_t ROLK[13];       // @42084
 	/* Used by reverse/skip logic (K60/D80/EK305) */
@@ -186,6 +186,7 @@ int lib70x_getapiversion(void)
 int CColorConv3D_Get3DColorTable(uint8_t *buf, const char *filename)
 {
 	FILE *stream;
+	int rval;
 
 	if (!filename)
 		return 1;
@@ -204,10 +205,10 @@ int CColorConv3D_Get3DColorTable(uint8_t *buf, const char *filename)
 		return 5;
 	}
 	fseek(stream, 0, SEEK_SET);
-	fread(buf, 1, LUT_LEN, stream);
+	rval = fread(buf, 1, LUT_LEN, stream);
 	fclose(stream);
 
-	return 0;
+	return (rval != 1);
 }
 
 /* Parse the on-disk LUT data into the structure.... */
@@ -256,12 +257,12 @@ static void CColorConv3D_DoColorConvPixel(struct CColorConv3D *this, uint8_t *re
 	uint8_t *tab4;       // @ 14755
 	uint8_t *tab5;       // @ 14758
 	uint8_t *tab6;       // @ 14761
-	uint8_t *tab7;       // @ 14764	
-  
+	uint8_t *tab7;       // @ 14764
+
 	red_h = *redp >> 4;
 	red_l = *redp & 0xF;
 	red_li = 16 - red_l;
-  
+
 	grn_h = *grnp >> 4;
 	grn_l = *grnp & 0xF;
 	grn_li = 16 - grn_l;
@@ -312,7 +313,7 @@ static void CColorConv3D_DoColorConvPixel(struct CColorConv3D *this, uint8_t *re
 		 * (grn_li * (red_li * tab4[2] + red_l * tab5[2])
 		    + grn_l * (red_li * tab6[2] + red_l * tab7[2]))
 		 + 2048) >> 12;
-  
+
 //	printf("=> %d %d %d\n", *redp, *grnp, *blup);
 }
 
@@ -350,7 +351,7 @@ struct CPCData *get_CPCData(const char *filename)
 	int line;
 	char *ptr;
 
-	const char *delim = " ,\t\n";	
+	const char *delim = " ,\t\n";
 
 	if (!filename)
 		return NULL;
@@ -486,7 +487,7 @@ struct CPCData *get_CPCData(const char *filename)
 
 	fclose(f);
 	return data;
-		
+
 abort:
 	fclose(f);
 done_free:
@@ -504,7 +505,7 @@ static struct CImageEffect70 *CImageEffect70_Create(struct CPCData *cpc)
 	struct CImageEffect70 *data = malloc(sizeof (struct CImageEffect70));
 	if (!data)
 		return NULL;
-	
+
 	memset(data, 0, sizeof(*data));
 	data->sharpen = -1;
 	data->fhdiv_up = 1.0;
@@ -539,7 +540,7 @@ static void CImageEffect70_InitMidData(struct CImageEffect70 *data)
 static void CImageEffect70_CreateMidData(struct CImageEffect70 *data)
 {
 	int i;
-	
+
 	data->ttd_htd_scratch = malloc(sizeof(double) * 3 * (data->columns + 6));
 	memset(data->ttd_htd_scratch, 0, (sizeof(double) * 3 * (data->columns + 6)));
 	data->ttd_htd_first = data->ttd_htd_scratch + 9;
@@ -569,7 +570,7 @@ static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 	if (data->ttd_htd_scratch) {
 		free(data->ttd_htd_scratch);
 		data->ttd_htd_scratch = NULL;
-		data->ttd_htd_first = NULL;		
+		data->ttd_htd_first = NULL;
 	}
 	if (data->htd_ttdnext) {
 		free(data->htd_ttdnext);
@@ -590,7 +591,7 @@ static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 	memset(data->linebuf_row, 0, sizeof(data->linebuf_row));
 	memset(data->linebuf_line, 0, sizeof(data->linebuf_line));
 	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch));
-	memset(data->fcc_ymc_scratch, 0, sizeof(data->fcc_ymc_scratch));	
+	memset(data->fcc_ymc_scratch, 0, sizeof(data->fcc_ymc_scratch));
 }
 
 static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
@@ -602,7 +603,7 @@ static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
 	v5 = src + 3 * (data->columns - 1);
 
 	memcpy(src, row -(a4 * data->pixel_count), 2 * data->band_pixels);
-	
+
 	memcpy(src - 3, src, 6);
 	memcpy(v5 + 3, v5, 6);
 }
@@ -611,7 +612,7 @@ static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
 					     const uint16_t *row)
 {
 	uint32_t i;
-	
+
 	CImageEffect70_Sharp_CopyLine(data, 0, row, 0);
 	for (i = 0 ; i < 5 ; i++) {
 		memcpy(data->linebuf_line[i], data->linebuf_line[5], 2 * data->linebuf_stride);
@@ -648,7 +649,7 @@ static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data,
 				    const double *in, uint16_t *imgdata)
 {
 	uint16_t i, j;
-	uint32_t offset;	
+	uint32_t offset;
 	double uh_val;
 
 	/* Work out the UH value we need based on our row count */
@@ -757,7 +758,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 
    Also populates htd_ttdnext, which informs the NEXT CalcTTD run what to do.
 */
-   
+
 static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in, double *out)
 {
 	int cur_row, offset;
@@ -923,7 +924,7 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 	}
 }
 
-/* Work out the number of times the density of a given color in 
+/* Work out the number of times the density of a given color in
    a given area exceeds a threshold */
 static void CImageEffect70_CalcSA(struct BandImage *img,
 				  int invert, int32_t *in,
@@ -969,7 +970,7 @@ static void CImageEffect70_CalcSA(struct BandImage *img,
 	out[2] = 0;
 	out[1] = 0;
 	out[0] = 0;
-  
+
 	row = start_row;
 
 	ptr = buf - start_row * stride;
@@ -1039,7 +1040,7 @@ static int CImageEffect70_JudgeReverseSkipRibbon_int(struct BandImage *img,
 }
 
 // called twice, once with param1 == 1, once with param1 == 2.
-static int CImageEffect70_JudgeReverseSkipRibbon(struct CPCData *cpc,						 
+static int CImageEffect70_JudgeReverseSkipRibbon(struct CPCData *cpc,
 						 struct BandImage *img,
 						 int is_6inch,
 						 int param1)
@@ -1062,7 +1063,7 @@ static int CImageEffect70_JudgeReverseSkipRibbon(struct CPCData *cpc,
 	if (offset != -1) {
 		return CImageEffect70_JudgeReverseSkipRibbon_int(img, &cpc->REV[offset], 1);
 	}
-	
+
 	return 0;
 }
 
@@ -1081,13 +1082,13 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 	int outstride;
 	uint16_t *outptr;
 	uint16_t *inptr;
-	
+
 	CImageEffect70_InitMidData(data);
 
 	if (sharpen > 8)
 		sharpen = 8;
 	data->sharpen = sharpen;
-	
+
 	data->fhdiv_up = cpc->FH[0];
 	data->fhdiv_dn = cpc->FH[1];
 	data->fh_cur   = cpc->FH[2];
@@ -1115,13 +1116,13 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 		inptr = in->imgbuf;
 		outptr = out->imgbuf;
 	}
-	
+
 	CImageEffect70_CreateMidData(data);
 
 	v10 = malloc(data->band_pixels * sizeof(double));
 	memset(v10, 0, (data->band_pixels * sizeof(double)));
 	v9 = malloc(data->band_pixels * sizeof(double));
-	memset(v9, 0, (data->band_pixels * sizeof(double)));	
+	memset(v9, 0, (data->band_pixels * sizeof(double)));
 	maxval[0] = cpc->GNMby[255];
 	maxval[1] = cpc->GNMgm[255];
 	maxval[2] = cpc->GNMrc[255];
@@ -1133,7 +1134,7 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 			data->ttd_htd_scratch[offset++] = maxval[i];
 		}
 	}
-	
+
 	CImageEffect70_Sharp_PrepareLine(data, inptr);
 
 	if (data->sharpen >= 0)
@@ -1167,7 +1168,7 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 	uint32_t in_stride, out_stride;
 
 	struct CPCData *cpc = data->cpc;
-	
+
 	cols = input->cols - input->origin_cols;
 	rows = input->rows - input->origin_rows;
 
@@ -1284,7 +1285,7 @@ int do_image_effect60(struct CPCData *cpc, struct CPCData *ecpc, struct BandImag
 			is_6 = 0;
 		else if (input->cols == 0x0748 && input->rows == 0x04c2)
 			is_6 = 1;
-		
+
 		if (is_6 != -1) {
 			rew[0] = CImageEffect70_JudgeReverseSkipRibbon(cpc, output, is_6, 1);
 			rew[1] = CImageEffect70_JudgeReverseSkipRibbon(cpc, output, is_6, 2);
@@ -1312,7 +1313,7 @@ int do_image_effect70(struct CPCData *cpc, struct CPCData *ecpc, struct BandImag
 	CImageEffect70_DoGamma(data, input, output, reverse);
 	CImageEffect70_DoConv(data, cpc, output, output, sharpen);
 	CImageEffect70_Destroy(data);
-	
+
 	return 0;
 }
 
@@ -1325,7 +1326,7 @@ int send_image_data(struct BandImage *out, void *context,
 	int ret = 1;
 	uint16_t *v15;
 	size_t count;
-	
+
 	cols = out->cols - out->origin_cols;
 	rows = out->rows - out->origin_rows;
 	buf = malloc(CHUNK_LEN);
@@ -1389,7 +1390,7 @@ struct PrintSetting {
 	uint32_t  cconv; // @28 // -1/0 none/Table1
 	uint32_t  unk6;  // @32 // multicut (0, 4x6*2 = 1, 2x6*2 = 5)
 	uint32_t  unk7;  // @36 // image doubled up, (0 or 1)
-	uint16_t  unk8;  // @40 // actual print cols in image doubled mode 
+	uint16_t  unk8;  // @40 // actual print cols in image doubled mode
 	uint16_t  unk9;  // @42 // actual print rows in image doubled mode
 	uint32_t  unk10; // @44 // rows to cut in doubled mode?  (38 for 4x6T2)
 	uint16_t  unk11; // @48 // 4x6 doubled mode, type 3. (0 or 1) ??
@@ -1400,8 +1401,8 @@ struct PrintSetting {
 	uint16_t  brighg; // @58
 	uint16_t  brighb; // @60
 	uint16_t  contrr; // @62
-	uint16_t  cpntrg; // @64		
-	uint16_t  contrb; // @66	
+	uint16_t  cpntrg; // @64
+	uint16_t  contrb; // @66
 };
 
 // XXX replace 'args'. buf is >= 512 bytes.
@@ -1432,13 +1433,13 @@ void create_header(uint8_t *buf, uint8_t *args, uint16_t *dim, uint16_t *dim_lam
 		*(buf + 24) = 0;
 	}
 	deck = *(uint32_t *)(args + 8); // deck
-	if ( deck == 1 ) 
+	if ( deck == 1 )
 		*(buf + 32) = 2;
 	else
 		*(buf + 32) = deck == 2;
 	*(buf + 40) = 0;
 	if ( *(uint32_t *)(args + 12) ) // laminate type
-		*(buf + 41) = 2;  
+		*(buf + 41) = 2;
 	else
 		*(buf + 41) = 0;
 
