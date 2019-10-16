@@ -4,7 +4,13 @@ LIBMITSUD70_NAME ?= MitsuD70ImageReProcess
 # Destination directories
 DESTDIR ?=
 LIBDIR ?= $(DESTDIR)/usr/local/lib
-BACKEND_DATA_DIR ?= $(PREFIX)/usr/local/share/gutenprint/backend_data
+
+GP_PREFIX ?= $(shell pkg-config --variable=prefix gutenprint)
+
+ifeq ($(GP_PREFIX),)
+GP_PREFIX=/usr/local
+endif
+BACKEND_DATA_DIR ?= $(GP_PREFIX)/share/gutenprint/backend_data
 
 # Tools
 CC ?= $(CROSS_COMPILE)gcc

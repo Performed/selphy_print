@@ -10,10 +10,15 @@ CPUS ?= $(shell nproc)
 REVISION ?= -g$(shell if [ -d .git ] ; then git rev-parse --short HEAD; else echo "NONE" ; fi)
 
 # Destination directories (rely on CUPS to tell us where)
+GP_PREFIX ?= $(shell pkg-config --variable=prefix gutenprint)
 PREFIX ?=
-CUPS_BACKEND_DIR ?= $(PREFIX)`cups-config --serverbin`/backend
-CUPS_DATA_DIR ?= $(PREFIX)`cups-config --datadir`
-BACKEND_DATA_DIR ?= $(PREFIX)/usr/local/share/gutenprint/backend_data
+CUPS_BACKEND_DIR ?= $(PREFIX)$(shell cups-config --serverbin)/backend
+CUPS_DATA_DIR ?= $(PREFIX)$(shell cups-config --datadir)
+
+ifeq ($(GP_PREFIX),)
+GP_PREFIX=/usr/local
+endif
+BACKEND_DATA_DIR ?= $(GP_PREFIX)/share/gutenprint/backend_data
 
 # Figure out what the backend name needs to be
 ifeq ($(NO_GUTENPRINT),)
@@ -42,8 +47,8 @@ RM ?= rm
 
 # Flags
 CFLAGS += -Wall -Wextra -Wformat-security -g -Og -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE -std=c99 # -Wconversion
-LDFLAGS += `pkg-config --libs libusb-1.0`
-CPPFLAGS += `pkg-config --cflags libusb-1.0`
+LDFLAGS += $(shell pkg-config --libs libusb-1.0)
+CPPFLAGS += $(shell pkg-config --cflags libusb-1.0)
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
 CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\" $(OLD_URI)
 
