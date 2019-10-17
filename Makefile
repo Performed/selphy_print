@@ -58,17 +58,21 @@ CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\" $(OLD_URI)
 CFLAGS += -funit-at-a-time
 
 # List of backends
-BACKENDS = sonyupd sonyupdneo kodak6800 kodak1400 shinkos2145 shinkos1245 canonselphy mitsu70x kodak605 dnpds40 mitsu9550 shinkos6245 shinkos6145 canonselphyneo mitsup95d magicard mitsud90 hiti
+BACKENDS = canonselphy canonselphyneo dnpds40 hiti kodak605 kodak1400 kodak6800 magicard mitsu70x mitsu9550  mitsud90 mitsup95d shinkos1245 shinkos2145 shinkos6145 shinkos6245 sonyupd sonyupdneo
 
-# For the s6145 and mitsu70x backends
+# For the s6145, mitsu70x, and mitsu9550 backends
 CPPFLAGS += -DUSE_DLOPEN
 LDFLAGS += -ldl
 #CPPFLAGS += -DUSE_LTDL
 #LDFLAGS += -lltdl
 
 # Build stuff
-DEPS += backend_common.h backend_sinfonia.h
+DEPS += backend_common.h
 SOURCES = backend_common.c backend_sinfonia.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
+
+# Dependencies for sinfonia backends..
+SINFONIA_BACKENDS = sinfonia kodak605 kodak6800 shinkos1245 shinkos2145 shinkos6145 shinkos6245
+SINFONIA_BACKENDS_O = $(addsuffix .o,$(addprefix backend_,$(SINFONIA_BACKENDS)))
 
 # And now the rules!
 .PHONY: clean all install cppcheck
@@ -121,6 +125,7 @@ release: clean
 	$(RM) -Rf selphy_print$(REVISION)
 
 # Backend-specific joy:
+$(SINFONIA_BACKENDS_O): backend_sinfonia.h
 backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
 backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
 backend_hiti.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
