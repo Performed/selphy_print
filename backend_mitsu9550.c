@@ -852,7 +852,8 @@ hdr_done:
 	/* Update printjob header to reflect number of requested copies */
 	if (job->hdr2_present) {
 		copies = 1;
-		job->hdr2.copies = cpu_to_be16(copies);
+		if (be16_to_cpu(job->hdr2.copies) < copies)
+			job->hdr2.copies = cpu_to_be16(copies);
 	}
 	job->copies = copies;
 
@@ -1133,7 +1134,7 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 
 	int ret;
 #if 0
-	int copies;
+	int copies = 1;
 #endif
 
 //	const struct mitsu9550_printjob *job = vjob;
@@ -1149,7 +1150,7 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 
 #if 0
 	/* If hdr2 is not present, we have to generate copies ourselves! */
-	if (job->hdr2_present)
+	if (!job->hdr2_present)
 		copies = job->copies;
 	// XXX..
 #endif
@@ -1704,7 +1705,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.48",
+	.version = "0.49",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

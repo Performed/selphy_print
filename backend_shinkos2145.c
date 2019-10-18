@@ -916,7 +916,8 @@ static int shinkos2145_read_parse(void *vctx, const void **vjob, int data_fd, in
 		return ret;
 	}
 
-	if (job->jp.copies > 1)
+	/* Use whicever copy count is larger */
+	if (job->jp.copies > copies)
 		job->copies = job->jp.copies;
 	else
 		job->copies = copies;
@@ -1170,7 +1171,7 @@ static const char *shinkos2145_prefixes[] = {
 
 struct dyesub_backend shinkos2145_backend = {
 	.name = "Shinko/Sinfonia CHC-S2145/S2",
-	.version = "0.63" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.64" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,

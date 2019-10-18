@@ -1253,6 +1253,10 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	/* Use whicever copy count is larger */
+	if (job->copies < (int)job->hdr.copies)
+		job->copies = job->hdr.copies;
+
 	// XXX check hdr.model
 	// XXX check hdr.format
 
@@ -2040,7 +2044,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.10",
+	.version = "0.11",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,

@@ -1045,7 +1045,8 @@ static int shinkos6245_read_parse(void *vctx, const void **vjob, int data_fd, in
 		return ret;
 	}
 
-	if (job->jp.copies > 1)
+	/* Use whicever copy count is larger */
+	if ((int)job->jp.copies > copies)
 		job->copies = job->jp.copies;
 	else
 		job->copies = copies;
@@ -1433,7 +1434,7 @@ static const char *shinkos6245_prefixes[] = {
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Sinfonia CHC-S6245 / Kodak 8810",
-	.version = "0.30" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.31" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,

@@ -424,7 +424,7 @@ static int kodak605_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		return ret;
 	}
 
-	/* Printer handles generating copies.. */
+	/* Printer handles generating copies.  Use larger of our options */
 	if (le16_to_cpu(job->jp.copies) < (uint16_t)copies)
 		job->jp.copies = cpu_to_le16(copies);
 

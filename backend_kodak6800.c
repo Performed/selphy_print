@@ -857,7 +857,7 @@ static int kodak6800_read_parse(void *vctx, const void **vjob, int data_fd, int 
 
 	hdr.copies = be16_to_cpu(hdr.copies);
 	hdr.copies = packed_bcd_to_uint32((char*)&hdr.copies, 2);
-	if (hdr.copies > 1)
+	if (hdr.copies > copies)
 		copies = hdr.copies;
 
 	/* Fill out job structure */
@@ -1039,7 +1039,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.77" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.78" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,

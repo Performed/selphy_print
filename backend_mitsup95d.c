@@ -328,7 +328,8 @@ top:
 
 		/* Update printjob header to reflect number of requested copies */
 		if (job->hdr2[13] != 0xff)
-			job->hdr2[13] = copies;
+			if (copies > job->hdr2[13])
+				job->hdr2[13] = copies;
 
 		*vjob = job;
 		return CUPS_BACKEND_OK;
@@ -591,7 +592,7 @@ static const char *mitsup95d_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsup95d_backend = {
 	.name = "Mitsubishi P93D/P95D",
-	.version = "0.12",
+	.version = "0.13",
 	.uri_prefixes = mitsup95d_prefixes,
 	.cmdline_arg = mitsup95d_cmdline_arg,
 	.cmdline_usage = mitsup95d_cmdline,
