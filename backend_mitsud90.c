@@ -152,7 +152,8 @@ struct mitsud90_job_hdr {
 	uint8_t  hdr[6]; /* 1b 53 50 30 00 33 */
 	uint16_t cols;   /* BE */
 	uint16_t rows;   /* BE */
-	uint8_t  unk[5]; /* 64 00 00 01 00 */
+	uint8_t  unk[4]; /* 64 00 00 01 */
+	uint8_t  margincut; /* 1 for enabled, 0 for disabled */
 	union {
 #if 0
 		struct {
@@ -1232,9 +1233,9 @@ struct dyesub_backend mitsud90_backend = {
 
  [[HEADER 1]]
 
-   1b 53 50 30 00 33 XX XX  YY YY 64 00 00 01 00 ??  XX XX == COLS, YY XX ROWS (BE)
+   1b 53 50 30 00 33 XX XX  YY YY 64 00 00 01 MM ??  XX XX == COLS, YY XX ROWS (BE)
    ?? ?? ?? ?? ?? ?? ?? ??  00 00 00 00 00 00 00 00  <-- cut position, see below
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  MM == 0 for no margin cut, 1 for margin cut
    QQ RR SS HH VV 00 00 00  00 00 01 00 03 II 09 7c  QQ == 02 matte, 00 glossy,
    09 4c 00 00 02 58 00 0c  00 06                    RR == 00 auto, 03 == fine, 02 == superfine.
                                                      SS == 00 colorcorr, 01 == none
