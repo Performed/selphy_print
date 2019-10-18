@@ -917,7 +917,7 @@ static int shinkos2145_read_parse(void *vctx, const void **vjob, int data_fd, in
 	}
 
 	/* Use whicever copy count is larger */
-	if (job->jp.copies > copies)
+	if ((int)job->jp.copies > copies)
 		job->copies = job->jp.copies;
 	else
 		job->copies = copies;
