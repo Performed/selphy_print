@@ -1293,7 +1293,6 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 	}
 	memset(job, 0, sizeof(*job));
 	job->printspeed = -1;
-	job->copies = copies;
 
 	/* There's no way to figure out the total job length in advance, we
 	   have to parse the stream until we get to the image plane data,
@@ -1384,8 +1383,8 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 
 		/* Check for some offsets */
 		if(!memcmp("CNTRL QTY", job->databuf + job->datalen+2, 9)) {
-			/* Ignore this.  We will insert our own later on */
-			// XXX use this instead of "copies" on cmdline?
+			memcpy(buf, job->databuf + job->datalen + 32, 8);
+			job->copies = atoi(buf);
 			continue;
 		}
 		if(!memcmp("CNTRL CUTTER", job->databuf + job->datalen+2, 12)) {
@@ -1504,6 +1503,10 @@ parsed:
 		dnpds40_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
+
+	/* Use the larger of the copy arguments */
+	if (copies > job->copies)
+		job->copies = copies;
 
 	/* Sanity check matte mode */
 	if (job->matte == 21 && !ctx->supports_finematte) {
