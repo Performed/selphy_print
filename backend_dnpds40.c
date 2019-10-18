@@ -1385,6 +1385,7 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		/* Check for some offsets */
 		if(!memcmp("CNTRL QTY", job->databuf + job->datalen+2, 9)) {
 			/* Ignore this.  We will insert our own later on */
+			// XXX use this instead of "copies" on cmdline?
 			continue;
 		}
 		if(!memcmp("CNTRL CUTTER", job->databuf + job->datalen+2, 12)) {
@@ -3117,7 +3118,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.119",
+	.version = "0.120",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
@@ -3294,6 +3295,9 @@ static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int
 	job->dpi = (hdr.res == DPI_600) ? 600 : 334;
 	job->cutter = 0;
 
+	/* Use job's copies */
+	job->copies = hdr.copies;
+
 	return legacy_spool_helper(job, data_fd, read_data,
 				   sizeof(hdr), plane_len, 0);
 }
@@ -3328,6 +3332,9 @@ static int legacy_dnp_read_parse(struct dnpds40_printjob *job, int data_fd, int 
 		ERROR("Unrecognized header data format @%d!\n", job->datalen);
 		return CUPS_BACKEND_CANCEL;
 	}
+
+	/* Use job's copies */
+	job->copies = hdr.copies;
 
 	/* Don't bother with FW version checks for legacy stuff */
 	job->multicut = hdr.type + 1;
@@ -3372,6 +3379,9 @@ static int legacy_dnp620_read_parse(struct dnpds40_printjob *job, int data_fd, i
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	/* Use job's copies */
+	job->copies = hdr.copies;
+
 	/* Don't bother with FW version checks for legacy stuff */
 	job->multicut = hdr.type + 1;
 	if ((hdr.flags & FLAG_FINEMATTE) == FLAG_FINEMATTE)
@@ -3413,6 +3423,9 @@ static int legacy_dnp820_read_parse(struct dnpds40_printjob *job, int data_fd, i
 		ERROR("Unrecognized header data format @%d!\n", job->datalen);
 		return CUPS_BACKEND_CANCEL;
 	}
+
+	/* Use job's copies */
+	job->copies = hdr.copies;
 
 	/* Don't bother with FW version checks for legacy stuff */
 	job->multicut = hdr.type + 1;
