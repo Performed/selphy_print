@@ -1505,7 +1505,9 @@ parsed:
 	}
 
 	/* Use the larger of the copy arguments */
-	if (copies > job->copies)
+	if (job->copies > copies)
+		copies = job->copies;
+	else
 		job->copies = copies;
 
 	/* Sanity check matte mode */
@@ -1832,7 +1834,7 @@ skip_checks:
 	can_combine = job->can_rewind; /* Any rewindable size can be stacked */
 
 	/* Try to combine prints */
-	if (copies > 1 && can_combine) {
+	if (job->copies > 1 && can_combine) {
 		struct dnpds40_printjob *combined;
 		combined = combine_jobs(job, job);
 		if (combined) {
@@ -3121,7 +3123,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.120",
+	.version = "0.121",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
