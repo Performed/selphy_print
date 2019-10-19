@@ -59,7 +59,7 @@ const char *mitsu70x_temperatures(uint8_t temp);
 #define D90_STATUS_TYPE_x2b    0x2b // 2,  all 0
 #define D90_STATUS_TYPE_x2c    0x2c // 2,  00 56
 #define D90_STATUS_TYPE_x65    0x65 // 50, ac 80 00 01 bb b8 fe 48 05 13 5d 9c 00 33 00 00  00 00 00 00 00 00 00 00 00 00 02 39 00 00 00 00  03 13 00 02 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
-#define D90_STATUS_TYPE_ISER   0x82 // 1,  80 (iserial disabled?)
+#define D90_STATUS_TYPE_ISER   0x82 // 1,  80 (iserial disabled)
 #define D90_STATUS_TYPE_x83    0x83 // 1,  00
 #define D90_STATUS_TYPE_x84    0x84 // 1,  00
 
@@ -165,7 +165,7 @@ struct mitsud90_job_hdr {
 	} __attribute__((packed));
 	uint8_t  zero[24];
 
-	uint8_t  overcoat;
+/*@x30*/uint8_t  overcoat;
 	uint8_t  quality;
 	uint8_t  colorcorr;
 	uint8_t  sharp_h;
