@@ -366,9 +366,13 @@ static int upd_read_parse(void *vctx, const void **vjob, int data_fd, int copies
 
 	/* Some models specify copies in the print job */
 	if (copies_offset) {
-		uint16_t tmp = copies;
-		tmp = cpu_to_be16(copies);
-		memcpy(job->databuf + copies_offset, &tmp, sizeof(tmp));
+		uint16_t tmp;
+		memcpy(&tmp, job->databuf + copies_offset, sizeof(tmp));
+		tmp = be16_to_cpu(tmp);
+		if (tmp < copies) {  /* Use whichever one is larger */
+			tmp = cpu_to_be16(copies);
+			memcpy(job->databuf + copies_offset, &tmp, sizeof(tmp));
+		}
 		job->copies = 1;
 	}
 
@@ -607,7 +611,7 @@ static const char *sonyupd_prefixes[] = {
 
 struct dyesub_backend sonyupd_backend = {
 	.name = "Sony UP-D",
-	.version = "0.37",
+	.version = "0.38",
 	.uri_prefixes = sonyupd_prefixes,
 	.cmdline_arg = upd_cmdline_arg,
 	.cmdline_usage = upd_cmdline,
