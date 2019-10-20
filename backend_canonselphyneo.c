@@ -624,6 +624,7 @@ struct dyesub_backend canonselphyneo_backend = {
 Also, the first time a readback happens after plugging in the printer:
 
 34 44 35 31  01 00 01 00  01 00 45 00      "4D51" ...??
+34 44 35 31  01 00 01 00  01 00 54 00      [also seen..]
 
 
 ** ** ** ** This is what windows sends if you print over the network:
