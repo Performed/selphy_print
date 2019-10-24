@@ -174,16 +174,18 @@ struct mitsu98xx_data {
 	/* @ 1600 */	struct {
 		/* @    0 */	double   unka[256];
 		/* @ 2048 */	double   unkb[256];
-		/* @ 4096 */	uint32_t unkc[10];
+		/* @ 4096 */	double   unkc[5];   /* Weight factors */
 		/* @ 4136 */	double   unkd[256];
 		/* @ 6184 */	double   unke[256]; // *= sharp->coef[X]
-		/* @ 8232 */	uint32_t unkf[10];
+		/* @ 8232 */	double   unkf[5];   /* Weight factors */
 		/* @ 8272 */	double   unkg[256];
 		/* @10320 */
 			} WMAM;
 	/* @11920 */	double   sharp_coef[11]; /* 0 is off, 1-10 are the levels.  Default is 5. [4 in settings] */
-	/* @12008 */	uint32_t unk_kh[3];
-	/* @12020 */	uint8_t  KH[2048];
+	/* @12008 */	uint32_t KHStart;
+	/* @12012 */	uint32_t KHEnd;
+	/* @12016 */	uint32_t KHStep;
+	/* @12020 */	double   KH[256];
 	/* @14068 */
 } __attribute__((packed));
 
@@ -649,13 +651,15 @@ hdr_done:
 		int j;
 		struct mitsu98xx_data *ptr = &ctx->m98xxdata->superfine;
 		for (j = 0 ; j < 3 ; j++) {
+			ptr->KHStart = be32_to_cpu(ptr->KHStart);
+			ptr->KHEnd = be32_to_cpu(ptr->KHEnd);
+			ptr->KHStep = be32_to_cpu(ptr->KHStep);
 			for (i = 3 ; i < 3 ; i++) {
 				ptr->GammaAdj[i] = be64_to_cpu(ptr->GammaAdj[i]);
-				ptr->unk_kh[i] = be32_to_cpu(ptr->unk_kh[i]);
 			}
-			for (i = 0 ; i < 10 ; i++) {
-				ptr->WMAM.unkc[i] = be32_to_cpu(ptr->WMAM.unkc[i]);
-				ptr->WMAM.unkf[i] = be32_to_cpu(ptr->WMAM.unkf[i]);
+			for (i = 0 ; i < 5 ; i++) {
+				ptr->WMAM.unkc[i] = be64_to_cpu(ptr->WMAM.unkc[i]);
+				ptr->WMAM.unkf[i] = be64_to_cpu(ptr->WMAM.unkf[i]);
 			}
 			for (i = 0 ; i < 11 ; i++) {
 				ptr->sharp_coef[i] = be64_to_cpu(ptr->sharp_coef[i]);
@@ -673,9 +677,8 @@ hdr_done:
 				ptr->GNMby[i] = be16_to_cpu(ptr->GNMby[i]);
 				ptr->GNMgm[i] = be16_to_cpu(ptr->GNMgm[i]);
 				ptr->GNMrc[i] = be16_to_cpu(ptr->GNMrc[i]);
-
+				ptr->KH[i] = be64_to_cpu(ptr->KH[i]);
 			}
-			// XXX TODO: KH[2048]
 			ptr++;
 		}
 #endif
