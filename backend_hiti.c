@@ -232,9 +232,9 @@ struct hiti_gpjobhdr {
 	uint32_t col_dpi;
 	uint32_t row_dpi;
 	uint32_t copies;
-	uint32_t quality;  // 0 for std, 1 for fine
-	uint32_t code;     // PRINT_TYPE_* ..?
-	uint32_t overcoat; // 1 for matte, 0 for glossy
+	uint32_t quality;  /* 0 for std, 1 for fine */
+	uint32_t code;     /* PRINT_TYPE_* */
+	uint32_t overcoat; /* 1 for matte, 0 for glossy */
 	uint32_t payload_type; // 0 for bgr packed. what about rgb, planar?
 	uint32_t payload_len;
 } __attribute__((packed));
@@ -1257,7 +1257,26 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	if (job->copies < (int)job->hdr.copies)
 		job->copies = job->hdr.copies;
 
-	// XXX check hdr.model
+	switch(ctx->type)
+	{
+	case P_HITI_52X:
+		if (job->hdr.model != 520) {
+			ERROR("Unrecognized header!\n");
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		break;
+	case P_HITI_720:
+	case P_HITI_750:
+		if (job->hdr.model != 720) {
+			ERROR("Unrecognized header!\n");
+			hiti_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		break;
+	default:
+		break;
+	}
 	// XXX check hdr.format
 
 	/* Allocate a buffer */
@@ -2044,7 +2063,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.11",
+	.version = "0.12",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
