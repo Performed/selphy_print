@@ -34,7 +34,7 @@
    DNP DS80DX
    DNP DS-RX1 / DS-RX1HS / Citizen CY / CY-02
    DNP DS620 / DS620A / Citizen CX-02
-   DNP DS820 / DS820A
+   DNP DS820 / DS820A / Citizen CX-02W
    Fujifilm ASK-300
    HiTi P520L
    Kodak Professional 1400
@@ -1016,7 +1016,7 @@
 
       dnp-ds40 dnp-ds80 dnp-ds80dx dnp-ds620 dnp-ds820 dnp-dsrx1 dnp-ds620
       citizen-cw-01 citizen-cw-02 citizen-cx-02 citizen-cx citizen-cx-w citizen-cy
-      citizen-cy-02 citizen-op900 citizen-op900ii
+      citizen-cy-02 citizen-op900 citizen-op900ii citicen-cx-02w
 
    Model IDs for backwards compatibility with older releases:
 
@@ -1028,8 +1028,8 @@
     DNP DS40 (aka Citizen CX)
     DNP DS80 (aka Citizen CX-W)
     DNP DS80DX
-    DNP DS620 / DS620A
-    DNP DS820 / DS820A
+    DNP DS620 / DS620A (aka Citizen CX-02)
+    DNP DS820 / DS820A (aka Citizen CX-02W)
     DNP DS-RX1 / DNP DS-RX1HS (aka Citizen CY and CY-02)
 
    Theoretically supported printers:  (Untested)

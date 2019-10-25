@@ -3097,6 +3097,7 @@ static const char *dnpds40_prefixes[] = {
 	"dnp_citizen", "dnpds40",  // Family names, do *not* nuke.
 	"dnp-ds40", "dnp-ds80", "dnp-ds80dx", "dnp-ds620", "dnp-ds820", "dnp-dsrx1",
 	"citizen-cw-01", "citizen-cw-02", "citizen-cx-02",
+	"citizen-cx-02w"
 	// backwards compatibility
 	"dnpds80", "dnpds80dx", "dnpds620", "dnpds820", "dnprx1",
 	"citizencw01", "citizencw02", "citizencx02",
@@ -3115,6 +3116,7 @@ static const char *dnpds40_prefixes[] = {
 #define USB_PID_CITIZEN_CW01 0x0002 // Maybe others?
 #define USB_PID_CITIZEN_CW02 0x0006 // Also OP900II
 #define USB_PID_CITIZEN_CX02 0x000A
+#define USB_PID_CITIZEN_CX02W 0x000B
 
 #define USB_VID_DNP       0x1452
 #define USB_PID_DNP_DS620 0x8b01
@@ -3123,7 +3125,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.121",
+	.version = "0.122",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
@@ -3146,6 +3148,7 @@ struct dyesub_backend dnpds40_backend = {
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, NULL, "citizen-cw-01"}, // Also OP900 ?
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL, "citizen-cw-02"}, // Also OP900II
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX02, P_DNP_DS620, NULL, "citizen-cx-02"},
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX02W, P_DNP_DS820, NULL, "citizen-cx-02w"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
