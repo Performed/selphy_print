@@ -3097,7 +3097,7 @@ static const char *dnpds40_prefixes[] = {
 	"dnp_citizen", "dnpds40",  // Family names, do *not* nuke.
 	"dnp-ds40", "dnp-ds80", "dnp-ds80dx", "dnp-ds620", "dnp-ds820", "dnp-dsrx1",
 	"citizen-cw-01", "citizen-cw-02", "citizen-cx-02",
-	"citizen-cx-02w"
+	"citizen-cx-02w",
 	// backwards compatibility
 	"dnpds80", "dnpds80dx", "dnpds620", "dnpds820", "dnprx1",
 	"citizencw01", "citizencw02", "citizencx02",
