@@ -1403,6 +1403,14 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 			uint8_t *rowM = ymcbuf + stride * (job->hdr.rows + i);
 			uint8_t *rowC = ymcbuf + stride * (job->hdr.rows * 2 + i);
 
+			/* Simple optimization */
+			uint8_t oldrgb[3] = { 255, 255, 255 };
+			uint8_t destrgb[3];
+
+			if (corrdata) {
+				hiti_interp33_256(oldrgb, destrgb, corrdata);
+			}
+
 			for (j = 0 ; j < job->hdr.cols ; j++) {
 				uint8_t rgb[3];
 				uint32_t base = (job->hdr.cols * i + j) * 3;
@@ -1413,9 +1421,15 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 				rgb[0] = job->databuf[base + 2];
 
 				if (corrdata) {
-					// XXX optimize?  No need to repeat
-					// calculation if input repeats.
-					hiti_interp33_256(rgb, rgb, corrdata);
+					if (rgb[0] == oldrgb[0] &&
+					    rgb[1] == oldrgb[1] &&
+					    rgb[2] == oldrgb[2]) {
+						rgb[0] = destrgb[0];
+						rgb[1] = destrgb[1];
+						rgb[2] = destrgb[2];
+					} else {
+						hiti_interp33_256(rgb, rgb, corrdata);
+					}
 				}
 
 				/* Finally convert to YMC */
@@ -1424,7 +1438,8 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 				rowC[j] = 255 - rgb[0];
 			}
 		}
-		/* Nuke the old BGR buffer and replace it with YMC */
+
+		/* Nuke the old BGR buffer and replace it with YMC buffer */
 		free(job->databuf);
 		job->databuf = ymcbuf;
 		job->datalen = stride * 3 * job->hdr.cols;
@@ -2063,7 +2078,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.12",
+	.version = "0.13",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
@@ -2084,20 +2099,21 @@ struct dyesub_backend hiti_backend = {
 
 /* TODO:
 
-   - Figure out 5x6, 6x5, 6x6, and 2x6 prints
+   - Figure out 5x6, 6x5, and 6x6 prints (need 6x8 or 6x9 media!)
+   - Confirm 5" media works properly
    - Figure out stats/counters for non-4x6 sizes
    - Job status & control (QJC, RSJ, QQA)
    - Figure out occasional data transfer hang (related to FW bug?)
-   - Set hilight adjustment & H/V alignment
-     (need to research the former; does driver or fw consume it?)
+   - Set highlight adjustment & H/V alignment from cmdline
+   - Figure out if driver needs to consume highlight adjustment (ie feed into gamma correction?)
    - Figure out Windows spool format (probably never)
    - Spool parsing
-      * Add sanity checks
-      * Add additional 'reserved' fields for future use
+      * Add additional 'reserved' fields for future use?
+      * Support more hdr.format variants?
       * Have GP report proper modelid
-   - Performance optimizations in color conversion code
-      * Cache last calculation and re-use if possible
-      * Pre-compute then cache entire map
+   - Job combining (4x6 -> 8x6, etc)
+   - Further performance optimizations in color conversion code
+      * Pre-compute then cache entire map on disk?
    - Commands 8008, 8011, EST_SEHT, ESD_SHTPC, RDC_ROC, PCC_STP, CMD_EDM_*
    - Test with P525, P720, P750
    - Further investigation into P110S & P510 series
