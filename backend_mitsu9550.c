@@ -1060,7 +1060,8 @@ static int validate_media(int type, int media, int cols, int rows)
 		}
 		break;
 	case P_MITSU_9800:
-	case P_MITSU_9810: // XXX and don't forget the 9820S
+	case P_MITSU_9810:
+//	case P_MITSU_9820S:
 		switch(media & 0xf) {
 		case 0x01: /* 3.5x5 */
 			if (cols != 1572 && rows != 1076)
@@ -1140,8 +1141,7 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 	int copies = 1;
 #endif
 
-//	const struct mitsu9550_printjob *job = vjob;
-	struct mitsu9550_printjob *job = (struct mitsu9550_printjob*) vjob; // XXX not good.
+	struct mitsu9550_printjob *job = (struct mitsu9550_printjob*) vjob;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1150,13 +1150,6 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 
 	/* Okay, let's do this thing */
 	ptr = job->databuf;
-
-#if 0
-	/* If hdr2 is not present, we have to generate copies ourselves! */
-	if (!job->hdr2_present)
-		copies = job->copies;
-	// XXX..
-#endif
 
 	/* Do the 98xx processing here */
 	if (!ctx->is_98xx || job->is_raw)

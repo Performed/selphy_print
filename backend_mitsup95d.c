@@ -320,7 +320,7 @@ top:
 		}
 	} else if (ptr == job->ftr) {
 
-		/* XXX Update unknown header field to match sniffs */
+		/* Update unknown header field to match sniffs */
 		if (ctx->type == P_MITSU_P95D) {
 			if (job->hdr1[18] == 0x00)
 				job->hdr1[18] = 0x01;

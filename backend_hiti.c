@@ -2100,6 +2100,7 @@ struct dyesub_backend hiti_backend = {
 /* TODO:
 
    - Figure out 5x6, 6x5, and 6x6 prints (need 6x8 or 6x9 media!)
+   - Confirm 6x2" print dimensions (windows?)
    - Confirm 5" media works properly
    - Figure out stats/counters for non-4x6 sizes
    - Job status & control (QJC, RSJ, QQA)

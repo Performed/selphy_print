@@ -229,7 +229,7 @@ static struct dnpds40_printjob *combine_jobs(const struct dnpds40_printjob *job1
 
 #if 0
 	// XXX TODO:  2x6*2 + 2x6*2 --> 8x6+cutter!
-	// problem is that 8x6" size is 4 rows smaller than 2* 4x6" prints, posing a problem.
+	// problem is that 8x6" size is 4 rows smaller than 2* 4x6" prints, posing a problem.  Maybe cut off the top and bottom 2 rows?
 
 	/* Only handle cutter if it's for 2x6" strips */
 	if (job1->cutter != 0 && job1->cutter != 120)
@@ -1960,7 +1960,6 @@ top:
 		goto top;
 	case 900:
 		INFO("Waking printer up from standby...\n");
-		// XXX do someting here?
 		break;
 	case 1000: /* Cover open */
 	case 1010: /* No Scrap Box */
@@ -2022,7 +2021,7 @@ top:
 
 			dnpds40_cleanup_string((char*)resp, len);
 
-#if 0  // XXX Fix 600dpi support on CW01
+#if 0  // TODO Fix 600dpi support on CW01
 			// have to read the last DPI, and send the correct CWD over?
 			if (ctx->dpi == 600 && strcmp("RV0334", *char*)resp) {
 				ERROR("600DPI prints not yet supported, need 600DPI CWD load\n");

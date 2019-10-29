@@ -992,8 +992,7 @@ int mitsud90_get_info(struct mitsud90_ctx *ctx)
 	INFO("TYPE_83: %02x\n", resp.x83);
 	INFO("TYPE_84: %02x\n", resp.x84);
 
-	/* XXX Dump iSerial, sleep time settings */
-	// XXX what about resume, wait time, "cut limit" ?
+	// XXX what about resume, wait time, "cut limit", sleep time ?
 
 	return CUPS_BACKEND_OK;
 }

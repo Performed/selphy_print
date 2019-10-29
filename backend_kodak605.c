@@ -79,7 +79,7 @@ struct kodak605_status {
 	uint16_t b4_complete;
 	uint16_t b4_total;
 	uint8_t  b4_sts;    /* see BANK_STATUS_* */
-/*@70*/	uint8_t  unk[4];  /* XXX EK605 has 01/00/00/00, EK7000 has 01/01/01/01 */
+/*@70*/	uint8_t  unk[4];  /* EK605 has 01/00/00/00, EK7000 has 01/01/01/01 */
 /*@74*/	uint8_t  null_2[2]; /* 00 00 */
 /*@76*/	uint8_t  null_3[1]; /* EK7000 only */
 } __attribute__((packed));
@@ -552,7 +552,7 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 			return ret;
 		}
 		offset += 44;
-		// XXX sanity check backpriny parameters..
+		// XXX sanity check backprint parameters..
 	}
 
 	/* Send print job */

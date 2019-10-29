@@ -602,13 +602,6 @@ static int kodak6850_send_unk(struct kodak6800_ctx *ctx)
 		return CUPS_BACKEND_FAILED;
 	}
 
-#if 0
-	// XXX No particular idea what this actually is
-	if (rdbuf[1] != 0x01 && rdbuf[1] != 0x00) {
-		ERROR("Unexpected status code (0x%02x)!\n", rdbuf[1]);
-		return CUPS_BACKEND_FAILED;
-	}
-#endif
 	return ret;
 }
 
