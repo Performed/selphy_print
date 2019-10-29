@@ -1428,7 +1428,13 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 						rgb[1] = destrgb[1];
 						rgb[2] = destrgb[2];
 					} else {
+						oldrgb[0] = rgb[0];
+						oldrgb[1] = rgb[1];
+						oldrgb[2] = rgb[2];
 						hiti_interp33_256(rgb, rgb, corrdata);
+						destrgb[0] = rgb[0];
+						destrgb[1] = rgb[1];
+						destrgb[2] = rgb[2];
 					}
 				}
 
