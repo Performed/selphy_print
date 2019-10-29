@@ -943,6 +943,51 @@ static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx, uint8_t mode)
 
 	switch (ctx->type)
 	{
+	case P_HITI_51X:
+		if (!mediatype) {
+			if (mode) {
+				fname = CORRTABLE_PATH "/P51x_CMQPra.bin";
+				break;
+			} else {
+				fname = CORRTABLE_PATH "/P51x_CMPPra.bin";
+				break;
+			}
+		} else {
+			if (mode) {
+				switch(mediaver) {
+				case 0:
+					fname = CORRTABLE_PATH "/P51x_CCQPra.bin";
+					break;
+				case 1:
+					fname = CORRTABLE_PATH "/P51x_CCQP1ra.bin";
+					break;
+				case 2:
+					fname = CORRTABLE_PATH "/P51x_CCQP2ra.bin";
+					break;
+				case 3:
+				default:
+					fname = CORRTABLE_PATH "/P51x_CCQP3ra.bin";
+					break;
+				}
+			} else {
+				switch(mediaver) {
+				case 0:
+					fname = CORRTABLE_PATH "/P51x_CCPPra.bin";
+					break;
+				case 1:
+					fname = CORRTABLE_PATH "/P51x_CCPP1ra.bin";
+					break;
+				case 2:
+					fname = CORRTABLE_PATH "/P51x_CCPP2ra.bin";
+					break;
+				case 3:
+				default:
+					fname = CORRTABLE_PATH "/P51x_CCPP3ra.bin";
+					break;
+				}
+			}
+		}
+		break;
 	case P_HITI_52X:
 		fname = CORRTABLE_PATH "/P52x_CCPPri.bin";
 		break;
