@@ -799,13 +799,17 @@
 
    Model IDs recognized:
 
-     sony-upcr20l sony-upd898 sony-updr80 dnp-sl20
+     sony-upcr20l sony-upd898 sony-updr80 sony-updr80md dnp-sl20
+
+  Work-in-progress printers
+
+    Sony UP-DR80
+    Sony UP-DR80MD
 
   Work-in-progress printers (Lack USB PIDs)
 
     Sony UP-D898 / UP-X898
     Sony UP-CR20L
-    Sony UP-DR80MD
     DNP DS-SL20
 
   Notes:

@@ -317,8 +317,8 @@ static const char *sonyupdneo_prefixes[] = {
 #define USB_VID_SONY         0x054C
 #define USB_PID_SONY_UPD898MD 0xabcd // 0x589a?
 #define USB_PID_SONY_UPCR20L  0xbcde
-#define USB_PID_SONY_UPDR80MD 0xcdef
-#define USB_PID_SONY_UPDR80   0x03c5  // Unknown if it behaves the same way
+#define USB_PID_SONY_UPDR80MD 0x03c3
+#define USB_PID_SONY_UPDR80   0x03c5
 #define USB_PID_SONY_UPCX1    0x02d4
 
 struct dyesub_backend sonyupdneo_backend = {
@@ -335,7 +335,9 @@ struct dyesub_backend sonyupdneo_backend = {
 	.devices = {
 		{ USB_VID_SONY, USB_PID_SONY_UPD898MD, P_SONY_UPD898, NULL, "sony-upd898"},
 		{ USB_VID_SONY, USB_PID_SONY_UPCR20L, P_SONY_UPCR20L, NULL, "sony-upcr20l"},
+		{ USB_VID_SONY, USB_PID_SONY_UPDR80, P_SONY_UPDR80, NULL, "sony-updr80"},
 		{ USB_VID_SONY, USB_PID_SONY_UPDR80MD, P_SONY_UPDR80, NULL, "sony-updr80md"},
+
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
@@ -344,25 +346,28 @@ struct dyesub_backend sonyupdneo_backend = {
 
    Covers UP-CR20L, UP-DR80/DR80MD, UP-D898/UP-X898
 
-  HP-PJL wrapper around custom Sony PDL.
+  HP-PJL wrapper around custom Sony PDL:
 
-  <ESC>%-12345X
-  @PJL COMMENT free form text here <CR><LF>
-  @PJL JOB NAME="name me" ID="someid"<CR><LF>
-  @PJL .... <CR><LF>
-  @PJL ENTER LANGUAGE=SONY-PDL-DS2<CR><LF>
-  ...
-  ...
-  ...
-  @PJL EOJ<CR><LF>
-  <ESC>%-12345X
+    JOBSIZE=PJL-H,size,arg1,arg2,etc   [null terminated, padded to 256 bytes]
+    [ size bytes of PJL header! ]
+    JOBSIZE=PDL,size,args [null terminated, padded to 256 bytes]
+    [ size bytes of PDL data! ]
+    JOBSIZE=PJL-T,size,args [null terminated, padded to 256 bytes]
+    [ size bytes of PJL trailer! ]
 
-  JOBSIZE=PJL-H,size,arg1,arg2,etc   [null terminated, padded to 256 bytes]
-  [ size bytes of data.  PJL header! ]
-  JOBSIZE=PDL,size,args [null terminated, padded to 256 bytes]
-  [ size bytes of data, PDL data! ]
-  JOBSIZE=PJL-T,size,args [null terminated, padded to 256 bytes]
-  [ size bytes of data, PJL trailer! ]
+  PJL header:
+
+   <ESC>%-12345X<CR><LF>
+   @PJL COMMENT free form text here <CR><LF>
+   @PJL JOB NAME="name me" ID="someid"<CR><LF>
+   @PJL .... <CR><LF>
+   @PJL ENTER LANGUAGE=SONY-PDL-DS2<CR><LF>
+
+  PJL footer:
+
+   @PJL EOJ<CR><LF>
+   <ESC>%-12345X<CR><LF>
+
 
 
  UP-D898MD:  17*16+2 == 274 byte header
@@ -482,11 +487,26 @@ struct dyesub_backend sonyupdneo_backend = {
 
  *****************
 
+  PRINTER COMMS:
+
+   * Strip out "JOBSIZE=" headers
+   * Send PJL header
+   * Send PDL payload
+   * Send unknown packet (tail end of PDL payload..)
+   * Send PJL footer
+
+  PJL header and footer need to be sent separately.
+  the PJL wrapper around the PDL block needs to be
+  stripped.  A footer seems to be needed at the end of the PDL block.
+  Another unknown footer seems to be sent before
+
   No idea about actual printer communications, but it's likely that
   printers use PJL "alerts" to get updates about active jobs, and
   that other stuff can be queried via standard means.
 
   Further progress will have to wait until I get access to
   one of these models.
+
+
 
  */
