@@ -120,7 +120,7 @@ clean:
 release: clean
 	$(RM) -Rf selphy_print$(REVISION)
 	$(MKDIR) -p selphy_print$(REVISION)
-	cp -a *.c *.h Makefile blacklist COPYING README lib6145 lib70x selphy_print$(REVISION)
+	cp -a *.c *.h Makefile blacklist COPYING README lib6145 lib70x hiti_data selphy_print$(REVISION)
 	tar -czvf selphy_print$(REVISION).tar.gz selphy_print$(REVISION)
 	$(RM) -Rf selphy_print$(REVISION)
 
