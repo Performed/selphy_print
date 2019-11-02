@@ -35,9 +35,12 @@
 struct updneo_printjob {
 	uint8_t *databuf;
 	int datalen;
+	uint8_t *hdrbuf;
+	int hdrlen;
+	uint8_t *ftrbuf;
+	int ftrlen;
 
 //	int copies_offset;  // XXX eventually implement
-	int payload_offset;
 
 	int copies;
 
@@ -102,6 +105,10 @@ static void updneo_cleanup_job(const void *vjob)
 
 	if (job->databuf)
 		free(job->databuf);
+	if (job->hdrbuf)
+		free(job->hdrbuf);
+	if (job->ftrbuf)
+		free(job->ftrbuf);
 
 	free((void*)job);
 }
@@ -110,35 +117,30 @@ static void updneo_cleanup_job(const void *vjob)
 
 static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct updneo_ctx *ctx = vctx;
-	int len, run = 1;
+	int run = 1;
+
+	uint8_t tmpbuf[257];
 
 	struct updneo_printjob *job = NULL;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
+	/* Allocate job */
 	job = malloc(sizeof(*job));
 	if (!job) {
 		ERROR("Memory allocation failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
-	job->copies = copies;
-
-	job->datalen = 0;
-	job->databuf = malloc(MAX_PRINTJOB_LEN);
-	if (!job->databuf) {
-		ERROR("Memory allocation failure!\n");
-		updneo_cleanup_job(job);
-		return CUPS_BACKEND_RETRY_CURRENT;
-	}
 
 	/* Read in data chunks. */
 	while(run) {
-		int i;
+		uint8_t *ptr = NULL;
+		int i, len, *lenptr;
 
 		/* Read in data block header (256 bytes) */
-		i = read(data_fd, job->databuf + job->datalen, 256);
+		i = read(data_fd, tmpbuf, 256);
 		if (i < 0) {
 			updneo_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
@@ -146,8 +148,8 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 		if (i == 0)
 			break;
 
-		/* Explicitly null terminate */
-		job->databuf[job->datalen + 255] = 0;
+		/* Explicitly null terminate just in case */
+		tmpbuf[256] = 0;
 
 		/* Parse header.  Format:
 
@@ -155,13 +157,13 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 
 		*/
 
-		if (strncmp("JOBSIZE=", (char*) job->databuf + job->datalen, 8)) {
+		if (strncmp("JOBSIZE=", (char*) tmpbuf, 8)) {
 			updneo_cleanup_job(job);
 			ERROR("Invalid spool format!\n");
 			return CUPS_BACKEND_CANCEL;
 		}
 
-		/* PDL */
+		/* PDL type */
 		char *tok = strtok((char*)job->databuf + job->datalen + 8, "\r\n,");
 		if (!tok) {
 			updneo_cleanup_job(job);
@@ -169,27 +171,57 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 			return CUPS_BACKEND_CANCEL;
 		}
 
-		/* Behavior based on the various blocks */
-		if (!strncmp("PJL-T", tok, 5))
-			run = 0;
-		else if (!strncmp("SONY-PDL-DS2", tok, 12))
-			job->payload_offset = job->datalen;
-
-//		DEBUG("Read block '%s' @ %d ...\n", tok, job->datalen);
-
 		/* Payload length */
-		tok = strtok(NULL, "\r\n,");
-		if (!tok) {
+		char *tokl = strtok(NULL, "\r\n,");
+		if (!tokl) {
 			updneo_cleanup_job(job);
 			ERROR("Invalid spool format (block length missing)!\n");
 			return CUPS_BACKEND_CANCEL;
 		}
-		len = atoi(tok);
+		len = atoi(tokl);
 		if (len == 0 || len > MAX_PRINTJOB_LEN) {
 			updneo_cleanup_job(job);
 			ERROR("Invalid spool format (block length %d)!\n", len);
 			return CUPS_BACKEND_CANCEL;
 		}
+
+		/* Behavior based on the various PDL blocks */
+		if (!strncmp("PJL-H", tok, 5)) {
+			job->hdrbuf = malloc(len);
+			if (!job->hdrbuf) {
+				ERROR("Memory allocation failure!\n");
+				updneo_cleanup_job(job);
+				return CUPS_BACKEND_RETRY_CURRENT;
+			}
+			ptr = job->hdrbuf;
+			lenptr = &job->hdrlen;
+		} else if (!strncmp("PJL-T", tok, 5)) {
+			job->ftrbuf = malloc(len);
+			if (!job->ftrbuf) {
+				ERROR("Memory allocation failure!\n");
+				updneo_cleanup_job(job);
+				return CUPS_BACKEND_RETRY_CURRENT;
+			}
+			ptr = job->ftrbuf;
+			lenptr = &job->ftrlen;
+			run = 0;
+		} else if (!strncmp("SONY-PDL-DS2", tok, 12)) {
+			job->databuf = malloc(len);
+			if (!job->databuf) {
+				ERROR("Memory allocation failure!\n");
+				updneo_cleanup_job(job);
+				return CUPS_BACKEND_RETRY_CURRENT;
+			}
+			ptr = job->databuf;
+			lenptr = &job->datalen;
+		} else {
+			ERROR("Unrecognized PDL type '%s'\n", tok);
+			updneo_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+
+//		DEBUG("Read block '%s' @ %d ...\n", tok, job->datalen);
+
 //		DEBUG("...len '%d'\n", len);
 
 		// parse the rest?
@@ -199,7 +231,7 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 
 		/* Read in the data chunk */
 		while(len > 0) {
-			i = read(data_fd, job->databuf + job->datalen, len);
+			i = read(data_fd, ptr + *lenptr, len);
 			if (i < 0) {
 				updneo_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
@@ -207,18 +239,24 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 			if (i == 0)
 				break;
 
-			job->datalen += i;
+			*lenptr += i;
 			len -= i;
 		}
 	}
 
-	if (!job->datalen) {
+	if (!job->datalen || !job->hdrlen || !job->ftrlen) {
+		ERROR("Necessary block missing!\n");
 		updneo_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* Sanity check job parameters */
 	// rows * cols lines up with imgsize, and others?
+
+	// set job copies to max(job, parameter)
+	// job->copies = copies;
+	job->copies = 1;  /* Printer makes copies */
+	UNUSED(copies);
 
 	*vjob = job;
 
@@ -245,9 +283,20 @@ top:
 	// Sanity check job parameters vs printer status
 	// Check for idle
 
-	// send over job
+
+	/* Send over header */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     job->hdrbuf, job->hdrlen)))
+		return CUPS_BACKEND_FAILED;
+
+	/* Send over data */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     job->databuf, job->datalen)))
+		return CUPS_BACKEND_FAILED;
+
+	/* Send over footer */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     job->ftrbuf, job->ftrlen)))
 		return CUPS_BACKEND_FAILED;
 
 	/* Wait for completion! */
@@ -323,7 +372,7 @@ static const char *sonyupdneo_prefixes[] = {
 
 struct dyesub_backend sonyupdneo_backend = {
 	.name = "Sony UP-D Neo",
-	.version = "0.02WIP",
+	.version = "0.03WIP",
 	.uri_prefixes = sonyupdneo_prefixes,
 	.cmdline_arg = updneo_cmdline_arg,
 	.init = updneo_init,
@@ -489,6 +538,16 @@ struct dyesub_backend sonyupdneo_backend = {
 
    [ 0xa6 of 0x00 ] ... c0 00 82 LL LL LL LL
 
+ *********
+
+   02 00 09 00 NN  <- Copy count
+   00 00 00 ZZ     <- Media type?
+
+   27 54 01 00
+
+   00 10 03 00 RR RR CC CC
+   08 00 19 00 00 00 00 00 RR RR CC CC 00 00 81 80 00 8f 00 a4
+
  *****************
 
   PRINTER COMMS:
@@ -496,7 +555,6 @@ struct dyesub_backend sonyupdneo_backend = {
    * Strip out "JOBSIZE=" headers
    * Send PJL header
    * Send PDL payload
-   * Send unknown packet (tail end of PDL payload..)
    * Send PJL footer
 
   PJL header and footer need to be sent separately.
