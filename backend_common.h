@@ -109,6 +109,16 @@
 /* To cheat the compiler */
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
+/* IEEE1284 ID processing */
+struct deviceid_dict {
+	char *key;
+	char *val;
+};
+#define MAX_DICT 32
+int parse1284_data(const char *device_id, struct deviceid_dict* dict);
+char *dict_find(const char *key, int dlen, struct deviceid_dict* dict);
+char *get_device_id(struct libusb_device_handle *dev, int iface);
+
 /* To enumerate supported devices */
 enum {
 	P_UNKNOWN = 0,

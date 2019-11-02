@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.96"
+#define BACKEND_VERSION "0.97"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -107,7 +107,7 @@ static int lookup_printer_type(struct dyesub_backend *backend, uint16_t idVendor
 
 /* Interface **MUST** already be claimed! */
 #define ID_BUF_SIZE 2048
-static char *get_device_id(struct libusb_device_handle *dev, int iface)
+char *get_device_id(struct libusb_device_handle *dev, int iface)
 {
 	int length;
 	char *buf = malloc(ID_BUF_SIZE + 1);
@@ -157,14 +157,7 @@ done:
 }
 
 /* Used with the IEEE1284 deviceid string parsing */
-struct deviceid_dict {
-	char *key;
-	char *val;
-};
-
-#define MAX_DICT 32
-
-static int parse1284_data(const char *device_id, struct deviceid_dict* dict)
+int parse1284_data(const char *device_id, struct deviceid_dict* dict)
 {
 	char *ptr;
 	char key[256];
@@ -215,7 +208,7 @@ static int parse1284_data(const char *device_id, struct deviceid_dict* dict)
 	return num;
 }
 
-static char *dict_find(const char *key, int dlen, struct deviceid_dict* dict)
+char *dict_find(const char *key, int dlen, struct deviceid_dict* dict)
 {
 	while(dlen) {
 		if (!strcmp(key, dict->key))
