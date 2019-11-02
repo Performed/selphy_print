@@ -60,6 +60,9 @@ struct updneo_ctx {
 	struct marker marker;
 };
 
+/* Forward declaration */
+static int updneo_get_status(struct updneo_ctx *ctx);
+
 /* Now for the code */
 static void* updneo_init(void)
 {
@@ -76,6 +79,7 @@ static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			 uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid)
 {
 	struct updneo_ctx *ctx = vctx;
+	int ret;
 
 	UNUSED(jobid);
 
@@ -84,6 +88,11 @@ static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 	ctx->endp_down = endp_down;
 	ctx->type = type;
 	ctx->iface = iface;
+
+	/* Query printer status */
+	if ((ret = updneo_get_status(ctx))) {
+		return ret;
+	}
 
 	if (ctx->type == P_SONY_UPD898) {
 		ctx->marker.color = "#000000";  /* Ie black! */
@@ -277,7 +286,10 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 
 	dlen = parse1284_data(ieee_id, dict);
 
+	// XXXX do something:
 	// pull out what we care about..
+	// parse out ALL fields in dict.
+	// warn if there are extras.
 
 	/* Clean up */
 	if (ieee_id) free(ieee_id);
@@ -285,6 +297,8 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 		free (dict[dlen].key);
 		free (dict[dlen].val);
 	}
+
+	return CUPS_BACKEND_OK;
 }
 
 static int updneo_main_loop(void *vctx, const void *vjob) {
@@ -303,10 +317,13 @@ static int updneo_main_loop(void *vctx, const void *vjob) {
 
 top:
 
-	// Query printer status
-	// Sanity check job parameters vs printer status
-	// Check for idle
+	/* Query printer status */
+	if ((ret = updneo_get_status(ctx))) {
+		return ret;
+	}
 
+	// XXX Sanity check job parameters vs printer status
+	// Check for idle
 
 	/* Send over header */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -327,6 +344,10 @@ top:
 retry:
 	sleep(1);
 
+	if ((ret = updneo_get_status(ctx))) {
+		return ret;
+	}
+
 	// Check for idle
 	if (fast_return /*&& ctx->stsbuf.printing > 0 */) {
 		INFO("Fast return mode enabled.\n");
@@ -338,7 +359,6 @@ retry:
 	if (terminate)
 		copies = 1;
 
-// done:
 	INFO("Print complete (%d copies remaining)\n", copies - 1);
 
 	if (copies && --copies) {
@@ -359,6 +379,9 @@ static int updneo_cmdline_arg(void *vctx, int argc, char **argv)
 	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "s")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
+		case 's':
+			j = updneo_get_status(ctx);
+			break;
 		}
 
 		if (j) return j;
@@ -370,11 +393,17 @@ static int updneo_cmdline_arg(void *vctx, int argc, char **argv)
 static int updneo_query_markers(void *vctx, struct marker **markers, int *count)
 {
 	struct updneo_ctx *ctx = vctx;
+	int ret;
 
 	*markers = &ctx->marker;
 	*count = 1;
 
-	// Do something?
+	/* Query printer status */
+	if ((ret = updneo_get_status(ctx))) {
+		return ret;
+	}
+
+	// XXX Do something with results...
 
 	return CUPS_BACKEND_OK;
 }
@@ -396,7 +425,7 @@ static const char *sonyupdneo_prefixes[] = {
 
 struct dyesub_backend sonyupdneo_backend = {
 	.name = "Sony UP-D Neo",
-	.version = "0.03WIP",
+	.version = "0.04WIP",
 	.uri_prefixes = sonyupdneo_prefixes,
 	.cmdline_arg = updneo_cmdline_arg,
 	.init = updneo_init,
@@ -589,7 +618,6 @@ struct dyesub_backend sonyupdneo_backend = {
 
   It appears that the printer status is tacked onto the IEEE1284 string:  Examples:
 
-
     MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000001000010001000100;SCMDS:00000000002C002C002C;SCPRS:0000;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0000;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000342000342;SCMNI:000342000342;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:110154
 
     MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000011000010001000000;SCMDS:00000000002C002C002C;SCPRS:0005;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0000;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000342000342;SCMNI:000342000342;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:110154
@@ -598,25 +626,33 @@ struct dyesub_backend sonyupdneo_backend = {
 
 Breakdown:
 
+  (+) means referenced by their Windows driver
+
   SCDIV
-  SCSYV
+ +SCSYV
   SCSNO  # SerialNO (?)
-  SCSYS  # some sort of state array? 22 fields.  b19 is 1 when data can be sent?, b5 is 1 when printer busy?, b20:21 are 64 sometimes
-  SCMDS  # MeDiaStatus: five 4-value hex numbers, last three decrease in unison (remaining prints). second one is 0100/0200/0300/0600, maybe Y/M/C/O?
+ +SCSYS  # some sort of state array? 22 fields.  b19 is 1 when data can be sent?, b5 is 1 when printer busy?, b20:21 is 64 sometimes, maybe paper or ribbon feed?
+ +SCMDS  # MeDiaStatus: five 4-value hex numbers, last three decrease in unison (remaining prints). second one is 0000/0100/0200/0300/0600, maybe Y/M/C/O?
   SCPRS  # PRinterStatus: (0000 = idle, 0002 = printing, 0005 = data xfer?)
-  SCSES
-  SCWTS
-  SCJBS  # some sort of job count?
+ +SCSES
+ +SCWTS
+ +SCJBS  # some sort of job count?
   SCSYE
-  SCMDE  # MeDia???
+ +SCMDE  # MeDia???
+ +SCMCE
   SCJBI
   SCSYI
-  SCSVI  # print counter(s)?  (XXXXXXYYYYYY, and X = Y so far.  SCSVI and SCMNI are identical so far)
+ +SCSVI  # print counter(s)?  (XXXXXXYYYYYY, and X = Y so far.  SCSVI and SCMNI are identical so far)
   SCMNI  # print counter(s)?  (see SCSVI)
   SCCAI
   SCGAI
   SCGSI
-  SCMDI  # MeDia???
+ +SCMDI  # MeDia???
 
+Guess:
+
+  SCxxY  SC = Sony Corp
+         xx = class (MD = media?)
+          Y = var type (S = status, I = info, E = error V = ?, O
 
  */
