@@ -166,7 +166,7 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 		}
 
 		/* PDL type */
-		char *tok = strtok((char*)job->databuf + job->datalen + 8, "\r\n,");
+		char *tok = strtok((char*)&tmpbuf[8], "\r\n,");
 		if (!tok) {
 			updneo_cleanup_job(job);
 			ERROR("Invalid spool format (PDL)!\n");
@@ -207,7 +207,7 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 			ptr = job->ftrbuf;
 			lenptr = &job->ftrlen;
 			run = 0;
-		} else if (!strncmp("SONY-PDL-DS2", tok, 12)) {
+		} else if (!strncmp("PDL", tok, 3)) {
 			job->databuf = malloc(len);
 			if (!job->databuf) {
 				ERROR("Memory allocation failure!\n");
