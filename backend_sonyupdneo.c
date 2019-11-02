@@ -368,9 +368,13 @@ struct dyesub_backend sonyupdneo_backend = {
    @PJL EOJ<CR><LF>
    <ESC>%-12345X<CR><LF>
 
+  PDL notes:
+
+   size is the length mentioned in the payload (ie rows * cols * planes)
+   plus the PDL header (varies) and PDL footer (7 bytes)
 
 
- UP-D898MD:  17*16+2 == 274 byte header
+ UP-D898MD:  18*16+2 == 290 byte header
 
   00000250                                             00 00   YY YY = rows
   00000260  01 00 00 10 0f 00 1c 00  00 00 00 00 00 00 00 00   XX XX = columns (fixed at 05 00)
@@ -393,7 +397,7 @@ struct dyesub_backend sonyupdneo_backend = {
 
    [payload of LL bytes follows]
 
- UP-CR20L:   274 byte header, 330 dpi, 1210x1728/1382x2048/1728*2380/2724*2048 (L/PC/2L/2PC)
+ UP-CR20L:   290 byte header, 330 dpi, 1210x1728/1382x2048/1728*2380/2724*2048 (L/PC/2L/2PC)
 
   00000250                                             00 00
   00000260  01 00 00 10 0f 00 1c 00  00 00 00 00 00 00 00 00
@@ -417,7 +421,7 @@ struct dyesub_backend sonyupdneo_backend = {
 
    [payload of LL bytes follows]
 
- UP-DR80MD:   (18*16+8) = 296 byte header  (A4 = 3400x2392, Letter = 3192*2464)
+ UP-DR80MD:   (19*16+8) = 312 byte header  (A4 = 3400x2392, Letter = 3192*2464)
 
   00000240                           00 00 01 00 00 10 0f 00
   00000250  1c 00 00 00 00 00 00 00  00 00 00 00 00 00 00 ZZ   ZZ = 0x00 (Letter) 0x56 (A4)
