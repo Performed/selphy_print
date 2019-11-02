@@ -66,6 +66,7 @@ struct dnpds40_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int iface;
 
 	int type;
 
@@ -776,7 +777,7 @@ static int dnpds80dx_query_paper(struct dnpds40_ctx *ctx)
 }
 
 static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type,
-			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+			  uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid)
 {
 	struct dnpds40_ctx *ctx = vctx;
 
@@ -786,6 +787,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
 	ctx->type = type;
+	ctx->iface = iface;
 
 	if (test_mode < TEST_MODE_NOATTACH) {
 		struct dnpds40_cmd cmd;

@@ -209,7 +209,7 @@ struct dyesub_backend {
 	void (*cmdline_usage)(void);  /* Optional */
 	void *(*init)(void);
 	int  (*attach)(void *ctx, struct libusb_device_handle *dev, int type,
-		       uint8_t endp_up, uint8_t endp_down, uint8_t jobid);
+		       uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid);
 	void (*teardown)(void *ctx);
 	int  (*cmdline_arg)(void *ctx, int argc, char **argv);
 	int  (*read_parse)(void *ctx, const void **job, int data_fd, int copies);

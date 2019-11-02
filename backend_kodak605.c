@@ -358,7 +358,7 @@ static void *kodak605_init(void)
 }
 
 static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int type,
-			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+			   uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid)
 {
 	struct kodak605_ctx *ctx = vctx;
 
@@ -366,6 +366,7 @@ static int kodak605_attach(void *vctx, struct libusb_device_handle *dev, int typ
 	ctx->dev.endp_up = endp_up;
 	ctx->dev.endp_down = endp_down;
 	ctx->dev.type = type;
+	ctx->dev.iface = iface;
 	ctx->dev.error_codes = &error_codes;
 
 	if (ctx->dev.type != P_KODAK_605) {

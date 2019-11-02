@@ -52,6 +52,7 @@ struct updneo_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int iface;
 	int type;
 
 	int native_bpp;
@@ -72,7 +73,7 @@ static void* updneo_init(void)
 }
 
 static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
-			  uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+			 uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid)
 {
 	struct updneo_ctx *ctx = vctx;
 
@@ -82,6 +83,7 @@ static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
 	ctx->type = type;
+	ctx->iface = iface;
 
 	if (ctx->type == P_SONY_UPD898) {
 		ctx->marker.color = "#000000";  /* Ie black! */
@@ -268,8 +270,7 @@ static struct deviceid_dict dict[MAX_DICT];
 
 static int updneo_get_status(struct updneo_ctx *ctx)
 {
-	uint8_t iface = 0; // XXX need to extract this.  FML.
-	char *ieee_id = get_device_id(ctx->dev, iface);
+	char *ieee_id = get_device_id(ctx->dev, ctx->iface);
 
 	if (!ieee_id)
 		return CUPS_BACKEND_FAILED;

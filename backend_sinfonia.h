@@ -83,6 +83,7 @@ struct sinfonia_usbdev {
 	uint8_t endp_up;
 	uint8_t endp_down;
 	int type;
+	int iface;
 
 	const struct sinfonia_param *params;
 	int params_count;

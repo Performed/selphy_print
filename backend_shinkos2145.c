@@ -831,7 +831,7 @@ static void *shinkos2145_init(void)
 }
 
 static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int type,
-			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+			      uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid)
 {
 	struct shinkos2145_ctx *ctx = vctx;
 
@@ -839,6 +839,7 @@ static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int 
 	ctx->dev.endp_up = endp_up;
 	ctx->dev.endp_down = endp_down;
 	ctx->dev.type = type;
+	ctx->dev.iface = iface;
 	ctx->dev.error_codes = &error_codes;
 
 	/* Ensure jobid is sane */

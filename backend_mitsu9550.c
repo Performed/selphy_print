@@ -424,12 +424,13 @@ static void *mitsu9550_init(void)
 }
 
 static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int type,
-			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+			    uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid)
 {
 	struct mitsu9550_ctx *ctx = vctx;
 	struct mitsu9550_media media;
 
 	UNUSED(jobid);
+	UNUSED(iface);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;

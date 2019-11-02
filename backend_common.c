@@ -1239,7 +1239,7 @@ bypass:
 	}
 
 	/* Attach backend to device */
-	if (backend->attach(backend_ctx, dev, printer_type, endp_up, endp_down, jobid)) {
+	if (backend->attach(backend_ctx, dev, printer_type, endp_up, endp_down, iface, jobid)) {
 		ERROR("Unable to attach to printer!\n");
 		ret = CUPS_BACKEND_FAILED;
 		goto done_close;

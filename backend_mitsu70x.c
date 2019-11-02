@@ -695,9 +695,11 @@ static void *mitsu70x_init(void)
 }
 
 static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int type,
-			   uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+			   uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid)
 {
 	struct mitsu70x_ctx *ctx = vctx;
+
+	UNUSED(iface);
 
 	ctx->jobid = jobid;
 	if (!ctx->jobid)
