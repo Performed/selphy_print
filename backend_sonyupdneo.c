@@ -263,6 +263,29 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 	return CUPS_BACKEND_OK;
 }
 
+static int dlen;
+static struct deviceid_dict dict[MAX_DICT];
+
+static int updneo_get_status(struct updneo_ctx *ctx)
+{
+	uint8_t iface = 0; // XXX need to extract this.  FML.
+	char *ieee_id = get_device_id(ctx->dev, iface);
+
+	if (!ieee_id)
+		return CUPS_BACKEND_FAILED;
+
+	dlen = parse1284_data(ieee_id, dict);
+
+	// pull out what we care about..
+
+	/* Clean up */
+	if (ieee_id) free(ieee_id);
+	while (dlen--) {
+		free (dict[dlen].key);
+		free (dict[dlen].val);
+	}
+}
+
 static int updneo_main_loop(void *vctx, const void *vjob) {
 	struct updneo_ctx *ctx = vctx;
 	int ret;
@@ -559,8 +582,7 @@ struct dyesub_backend sonyupdneo_backend = {
 
   PJL header and footer need to be sent separately.
   the PJL wrapper around the PDL block needs to be
-  stripped.  A footer seems to be needed at the end of the PDL block.
-  Another unknown footer seems to be sent before
+  stripped.
 
   ***********
 
