@@ -554,7 +554,7 @@ struct dyesub_backend sonyupdneo_backend = {
 
    * Strip out "JOBSIZE=" headers
    * Send PJL header
-   * Send PDL payload
+   * Send PDL payload  (every 9*256KB, do a status query..)
    * Send PJL footer
 
   PJL header and footer need to be sent separately.
@@ -562,13 +562,38 @@ struct dyesub_backend sonyupdneo_backend = {
   stripped.  A footer seems to be needed at the end of the PDL block.
   Another unknown footer seems to be sent before
 
-  No idea about actual printer communications, but it's likely that
-  printers use PJL "alerts" to get updates about active jobs, and
-  that other stuff can be queried via standard means.
+  ***********
 
-  Further progress will have to wait until I get access to
-  one of these models.
+  It appears that the printer status is tacked onto the IEEE1284 string:  Examples:
 
+
+    MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000001000010001000100;SCMDS:00000000002C002C002C;SCPRS:0000;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0000;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000342000342;SCMNI:000342000342;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:110154
+
+    MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000011000010001000000;SCMDS:00000000002C002C002C;SCPRS:0005;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0000;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000342000342;SCMNI:000342000342;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:110154
+
+    MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000001000010001000100;SCMDS:00000000002B002B002B;SCPRS:0000;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0000;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000343000343;SCMNI:000343000343;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:110154
+
+Breakdown:
+
+  SCDIV
+  SCSYV
+  SCSNO  # SerialNO (?)
+  SCSYS  # some sort of state array? 22 fields.  b19 is 1 when data can be sent?, b5 is 1 when printer busy?, b20:21 are 64 sometimes
+  SCMDS  # MeDiaStatus: five 4-value hex numbers, last three decrease in unison (remaining prints). second one is 0100/0200/0300/0600, maybe Y/M/C/O?
+  SCPRS  # PRinterStatus: (0000 = idle, 0002 = printing, 0005 = data xfer?)
+  SCSES
+  SCWTS
+  SCJBS  # some sort of job count?
+  SCSYE
+  SCMDE  # MeDia???
+  SCJBI
+  SCSYI
+  SCSVI  # print counter(s)?  (XXXXXXYYYYYY, and X = Y so far.  SCSVI and SCMNI are identical so far)
+  SCMNI  # print counter(s)?  (see SCSVI)
+  SCCAI
+  SCGAI
+  SCGSI
+  SCMDI  # MeDia???
 
 
  */
