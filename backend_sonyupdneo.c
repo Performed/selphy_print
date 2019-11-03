@@ -89,9 +89,11 @@ static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 	ctx->type = type;
 	ctx->iface = iface;
 
-	/* Query printer status */
-	if ((ret = updneo_get_status(ctx))) {
-		return ret;
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Query printer status */
+		if ((ret = updneo_get_status(ctx))) {
+			return ret;
+		}
 	}
 
 	if (ctx->type == P_SONY_UPD898) {
