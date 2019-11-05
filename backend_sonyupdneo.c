@@ -288,7 +288,7 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 
 	/* Don't forget to log! */
 	if (dyesub_debug >= 1) {
-		DEBUG("IEEE1284: %s\n", buf);
+		DEBUG("IEEE1284: %s\n", ieee_id);
 	}
 
 	dlen = parse1284_data(ieee_id, dict);
