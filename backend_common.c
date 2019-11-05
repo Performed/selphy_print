@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.98"
+#define BACKEND_VERSION "0.97"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -151,11 +151,6 @@ char *get_device_id(struct libusb_device_handle *dev, int iface)
 	/* Move, and terminate */
 	memmove(buf, buf + 2, length);
 	buf[length] = '\0';
-
-	/* Don't forget to log! */
-	if (dyesub_debug > 2) {
-		DEBUG("IEEE1284: %s\n", buf);
-	}
 
 done:
 	return buf;
