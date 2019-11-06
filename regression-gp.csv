@@ -220,7 +220,7 @@ sony-upcr20l,0x054c,0xbcde,,PageSize=B7
 sony-upcr20l,0x054c,0xbcde,,PageSize=w360h504
 sony-upcr20l,0x054c,0xbcde,,PageSize=w360h504-div2
 #
-sony-updr80md,0x054c,0x03c3,,PageSize=Letter
+sony-updr80md,0x054c,0x03c3,0x11,PageSize=Letter
 sony-updr80md,0x054c,0x03c3,,PageSize=A4
 #
 mitsubishi-p93d,0x06d3,0x0398,,PageSize=w213h284

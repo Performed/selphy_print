@@ -48,6 +48,29 @@ struct updneo_printjob {
 	uint16_t cols;
 };
 
+struct updneo_sts {
+	uint16_t scdiv;
+	uint32_t scsyv;
+	char     scsno[17]; /* 16 char string, leading 0s */
+	char     scsys[23]; /* 22 char string, mostly unknown */
+	uint16_t scmds[5];
+	uint16_t scprs;
+	uint16_t scses;
+	uint16_t scwts;
+	uint16_t scjbs;
+	uint8_t  scsye;
+	uint16_t scmde;
+	uint8_t  scmce;
+	char     scjbi[17]; /* 16 char string, unknown */
+	char     scsyi[31]; /* 30 char string, unknown */
+	uint32_t scsvi[2];  /* 2* 6char numbers */
+	uint32_t scmni[2];  /* 2* 6char numbers */
+	char     sccai[15]; /* 14 char string, unknown */
+	uint16_t scgai;
+	uint8_t  scgsi;
+	uint32_t scmdi;
+};
+
 struct updneo_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
@@ -57,6 +80,8 @@ struct updneo_ctx {
 
 	int native_bpp;
 
+	struct updneo_sts sts;
+
 	struct marker marker;
 };
 
@@ -64,6 +89,22 @@ struct updneo_ctx {
 static int updneo_get_status(struct updneo_ctx *ctx);
 
 /* Now for the code */
+static const char* updneo_decode_errors(uint16_t mde, uint8_t mce, uint8_t sye)
+{
+	if (!mde && !mce && sye)
+		return "None";
+	if (mde == 0x0800 || mce == 0x1)
+		return "Cover open";
+	if (mde == 0x0a00)
+		return "No paper loaded";
+	if (mde == 0x0002)
+		return "No ribbon loaded";
+	if (mde == 0x2000)
+		return "Job does not match installed media";
+
+	return "Unknown";
+}
+
 static void* updneo_init(void)
 {
 	struct updneo_ctx *ctx = malloc(sizeof(struct updneo_ctx));
@@ -90,7 +131,6 @@ static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 	ctx->iface = iface;
 
 	if (test_mode < TEST_MODE_NOATTACH) {
-		/* Query printer status */
 		if ((ret = updneo_get_status(ctx))) {
 			return ret;
 		}
@@ -99,15 +139,27 @@ static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 	if (ctx->type == P_SONY_UPD898) {
 		ctx->marker.color = "#000000";  /* Ie black! */
 		ctx->native_bpp = 1;
+
+		ctx->marker.name = "Unknown";
+		ctx->marker.numtype = -1;
+		ctx->marker.levelmax = -1;
+		ctx->marker.levelnow = -2;
 	} else {
 		ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 		ctx->native_bpp = 3;
-	}
+		ctx->marker.levelmax = 50;
+		ctx->marker.numtype = (ctx->sts.scmdi >> 16) & 0xff;
+		ctx->marker.levelnow = ctx->sts.scmds[4];
 
-	ctx->marker.name = "Unknown";
-	ctx->marker.numtype = -1;
-	ctx->marker.levelmax = -1;
-	ctx->marker.levelnow = -2;
+		if (test_mode >= TEST_MODE_NOATTACH && getenv("MEDIA_CODE"))
+			ctx->marker.numtype = atoi(getenv("MEDIA_CODE"));
+
+		if (ctx->marker.numtype == 0x11) { /* UP-DR80MD */
+			ctx->marker.name = "UPC-R81MD (Letter)"; // vs UPC-R80MD (A4)
+		} else {
+			ctx->marker.name = "Unknown";
+		}
+	}
 
 	return CUPS_BACKEND_OK;
 }
@@ -264,7 +316,8 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 	}
 
 	/* Sanity check job parameters */
-	// rows * cols lines up with imgsize, and others?
+	// XXX rows * cols lines up with imgsize, and others?
+	// Check vs loaded media type (ctx->marker.numtype, plus scsyi)
 
 	// set job copies to max(job, parameter)
 	// job->copies = copies;
@@ -282,6 +335,7 @@ static struct deviceid_dict dict[MAX_DICT];
 static int updneo_get_status(struct updneo_ctx *ctx)
 {
 	char *ieee_id = get_device_id(ctx->dev, ctx->iface);
+	int i;
 
 	if (!ieee_id)
 		return CUPS_BACKEND_FAILED;
@@ -293,10 +347,79 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 
 	dlen = parse1284_data(ieee_id, dict);
 
-	// XXXX do something:
-	// pull out what we care about..
-	// parse out ALL fields in dict.
-	// warn if there are extras.
+	/* Parse out data */
+	for (i = 0; i < dlen ; i++) {
+		if (strcmp("SCDIV", dict[i].key)) {
+			ctx->sts.scdiv = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCSYV", dict[i].key)) {
+			ctx->sts.scsyv = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCSNO", dict[i].key)) {
+			strncpy(ctx->sts.scsno, dict[i].val, sizeof(ctx->sts.scsno) - 1);
+		} else if (strcmp("SCSYS", dict[i].key)) {
+			strncpy(ctx->sts.scsys, dict[i].val, sizeof(ctx->sts.scsys) - 1);
+		} else if (strcmp("SCMDS", dict[i].key)) {
+			int j;
+			char buf[5];
+			buf[4] = 0;
+			for (j = 0 ; j < 5 ; j++) {
+				memcpy(buf, dict[i].val + (4*j), 4);
+				ctx->sts.scmds[j] = strtol(buf, NULL, 16);
+			}
+		} else if (strcmp("SCPRS", dict[i].key)) {
+			ctx->sts.scprs = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCSES", dict[i].key)) {
+			ctx->sts.scses = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCWTS", dict[i].key)) {
+			ctx->sts.scwts = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCJBS", dict[i].key)) {
+			ctx->sts.scjbs = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCSYE", dict[i].key)) {
+			ctx->sts.scsye = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCMDE", dict[i].key)) {
+			ctx->sts.scmde = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCMCE", dict[i].key)) {
+			ctx->sts.scmce = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCJBI", dict[i].key)) {
+			strncpy(ctx->sts.scjbi, dict[i].val, sizeof(ctx->sts.scjbi) - 1);
+		} else if (strcmp("SCSYI", dict[i].key)) {
+			strncpy(ctx->sts.scsyi, dict[i].val, sizeof(ctx->sts.scsyi) - 1);
+		} else if (strcmp("SCSVI", dict[i].key)) {
+			int j;
+			char buf[7];
+			buf[6] = 0;
+			for (j = 0 ; j < 5 ; j++) {
+				memcpy(buf, dict[i].val + (6*j), 6);
+				ctx->sts.scsvi[j] = strtol(buf, NULL, 16);
+			}
+		} else if (strcmp("SCMNI", dict[i].key)) {
+			int j;
+			char buf[7];
+			buf[6] = 0;
+			for (j = 0 ; j < 5 ; j++) {
+				memcpy(buf, dict[i].val + (6*j), 6);
+				ctx->sts.scmni[j] = strtol(buf, NULL, 16);
+			}
+		} else if (strcmp("SCCAI", dict[i].key)) {
+			strncpy(ctx->sts.sccai, dict[i].val, sizeof(ctx->sts.sccai) - 1);
+		} else if (strcmp("SCGAI", dict[i].key)) {
+			ctx->sts.scgai = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCGSI", dict[i].key)) {
+			ctx->sts.scgsi = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("SCMDI", dict[i].key)) {
+			ctx->sts.scmdi = strtol(dict[i].val, NULL, 16);
+		} else if (strcmp("MFG", dict[i].key) ||
+			   strcmp("MDL", dict[i].key) ||
+			   strcmp("DES", dict[i].key) ||
+			   strcmp("CMD", dict[i].key) ||
+			   strcmp("CLS", dict[i].key))
+		{
+			/* Ignore standard IEEE1284 attributes! */
+		} else {
+			DEBUG("Extra/Unknown IEEE1284 field '%s' = '%s'\n",
+			      dict[i].key, dict[i].val);
+		}
+
+	};
 
 	/* Clean up */
 	if (ieee_id) free(ieee_id);
@@ -306,6 +429,27 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 	}
 
 	return CUPS_BACKEND_OK;
+}
+
+static void updneo_dump_status(struct updneo_sts *sts)
+{
+	/* Dump status */
+	INFO("Serial Number: %s\n", sts->scsno);
+	INFO("Firmware Version: %02x:%02x:%02x:%02x\n",
+	     (sts->scsyv >> 24) & 0xff,
+	     (sts->scsyv >> 16) & 0xff,
+	     (sts->scsyv >> 8) & 0xff,
+	     (sts->scsyv >> 0) & 0xff);
+	INFO("Media type: %s\n", sts->scmdi == 0x110154 ? "UPC-R81MD (Letter)" : "Unknown");
+	INFO("Remaining prints: %u/50\n", sts->scmds[4]);
+	INFO("Print count: %u\n", sts->scsvi[0]);
+
+	/* If the printer reports an error, pass it on */
+	if (sts->scmde || sts->scmce || sts->scsye) {
+		ERROR("Printer error: %s (MD=%04x, MC=%02x, SY=%02x)\n",
+		      updneo_decode_errors(sts->scmde, sts->scmce, sts->scsye),
+		      sts->scmde, sts->scmce, sts->scsye);
+	}
 }
 
 static int updneo_main_loop(void *vctx, const void *vjob) {
@@ -329,8 +473,18 @@ top:
 		return ret;
 	}
 
-	// XXX Sanity check job parameters vs printer status
-	// Check for idle
+	/* If the printer reports an error, bail */
+	if (ctx->sts.scmde || ctx->sts.scmce || ctx->sts.scsye) {
+		ERROR("Printer error: %s (MD=%04x, MC=%02x, SY=%02x)\n",
+		      updneo_decode_errors(ctx->sts.scmde, ctx->sts.scmce, ctx->sts.scsye),
+		      ctx->sts.scmde, ctx->sts.scmce, ctx->sts.scsye);
+		return CUPS_BACKEND_STOP;
+	}
+	/* Wait for the printer to become idle */
+	if (ctx->sts.scprs) {
+		sleep(1);
+		goto top;
+	}
 
 	/* Send over header */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -355,8 +509,16 @@ retry:
 		return ret;
 	}
 
-	// Check for idle
-	if (fast_return /*&& ctx->stsbuf.printing > 0 */) {
+	/* If the printer reports an error, bail */
+	if (ctx->sts.scmde || ctx->sts.scmce || ctx->sts.scsye) {
+		ERROR("Printer error: %s (MD=%04x, MC=%02x, SY=%02x)\n",
+		      updneo_decode_errors(ctx->sts.scmde, ctx->sts.scmce, ctx->sts.scsye),
+		      ctx->sts.scmde, ctx->sts.scmce, ctx->sts.scsye);
+		return CUPS_BACKEND_STOP;
+	}
+
+	/* Wait for the printer to become idle */
+	if (fast_return && ctx->sts.scprs != 0) {
 		INFO("Fast return mode enabled.\n");
 	} else {
 		goto retry;
@@ -375,6 +537,11 @@ retry:
 	return CUPS_BACKEND_OK;
 }
 
+static void updneo_cmdline(void)
+{
+	DEBUG("\t\t[ -s ]           # Query status\n");
+}
+
 static int updneo_cmdline_arg(void *vctx, int argc, char **argv)
 {
 	struct updneo_ctx *ctx = vctx;
@@ -388,13 +555,38 @@ static int updneo_cmdline_arg(void *vctx, int argc, char **argv)
 		GETOPT_PROCESS_GLOBAL
 		case 's':
 			j = updneo_get_status(ctx);
+			if (!j)
+				updneo_dump_status(&ctx->sts);
 			break;
 		}
 
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
+}
+
+static int updneo_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
+{
+	int ret;
+	char *ptr;
+	struct updneo_ctx ctx = {
+		.dev = dev,
+		.endp_up = endp_up,
+		.endp_down = endp_down,
+	};
+
+	UNUSED(iface);
+
+	if ((ret = updneo_get_status(&ctx))) {
+		return ret;
+	}
+	ptr = ctx.sts.scsno;
+	while (*ptr && *ptr == 0x30) ptr++;
+	strncpy(buf, ptr, buf_len);
+	buf[buf_len-1] = 0;
+
+	return CUPS_BACKEND_OK;
 }
 
 static int updneo_query_markers(void *vctx, struct marker **markers, int *count)
@@ -410,7 +602,9 @@ static int updneo_query_markers(void *vctx, struct marker **markers, int *count)
 		return ret;
 	}
 
-	// XXX Do something with results...
+	if (ctx->type != P_SONY_UPD898) {
+		ctx->marker.levelnow = ctx->sts.scmds[4];
+	}
 
 	return CUPS_BACKEND_OK;
 }
@@ -432,15 +626,17 @@ static const char *sonyupdneo_prefixes[] = {
 
 struct dyesub_backend sonyupdneo_backend = {
 	.name = "Sony UP-D Neo",
-	.version = "0.04WIP",
+	.version = "0.05WIP",
 	.uri_prefixes = sonyupdneo_prefixes,
 	.cmdline_arg = updneo_cmdline_arg,
+	.cmdline_usage = updneo_cmdline,
 	.init = updneo_init,
 	.attach = updneo_attach,
 	.cleanup_job = updneo_cleanup_job,
 	.read_parse = updneo_read_parse,
 	.main_loop = updneo_main_loop,
 	.query_markers = updneo_query_markers,
+	.query_serno = updneo_query_serno,
 	.devices = {
 		{ USB_VID_SONY, USB_PID_SONY_UPD898MD, P_SONY_UPD898, NULL, "sony-upd898"},
 		{ USB_VID_SONY, USB_PID_SONY_UPCR20L, P_SONY_UPCR20L, NULL, "sony-upcr20l"},
@@ -625,36 +821,45 @@ struct dyesub_backend sonyupdneo_backend = {
 
   It appears that the printer status is tacked onto the IEEE1284 string:  Examples:
 
+  IDLE
     MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000001000010001000100;SCMDS:00000000002C002C002C;SCPRS:0000;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0000;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000342000342;SCMNI:000342000342;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:110154
 
+  DATA XFER:
     MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000011000010001000000;SCMDS:00000000002C002C002C;SCPRS:0005;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0000;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000342000342;SCMNI:000342000342;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:110154
 
-    MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000001000010001000100;SCMDS:00000000002B002B002B;SCPRS:0000;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0000;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000343000343;SCMNI:000343000343;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:110154
+  NO PAPER:
+    MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000003800010000000100;SCMDS:00000000000000000000;SCPRS:0000;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0A00;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E560000000000000000012D00;SCSVI:000345000345;SCMNI:000345000345;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:1100FF
+
+  NO RIBBON:
+    MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000003800010000000100;SCMDS:00000000000000000000;SCPRS:0000;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0002;SCMCE:00;SCJBI:0000000000000000;SCSYI:0A300E5609A00C7809A00C78012D00;SCSVI:000345000345;SCMNI:000345000345;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:000154
+
+  COVER OPEN:
+    MFG:SONY;MDL:UP-DR80MD;DES:Sony UP-DR80MD;CMD:SPJL-DS,SPDL-DS;CLS:PRINTER;SCDIV:0100;SCSYV:01060000;SCSNO:0000000000089864;SCSYS:0000001800010000000100;SCMDS:00000000000000000000;SCPRS:0000;SCSES:0000;SCWTS:0000;SCJBS:0000;SCSYE:00;SCMDE:0800;SCMCE:01;SCJBI:0000000000000000;SCSYI:0A300E560000000000000000012D00;SCSVI:000345000345;SCMNI:000345000345;SCCAI:00000000000000;SCGAI:0000;SCGSI:00;SCMDI:1100FF
 
 Breakdown:
 
   (+) means referenced by their Windows driver
 
   SCDIV
- +SCSYV
-  SCSNO  # SerialNO (?)
- +SCSYS  # some sort of state array? 22 fields.  b19 is 1 when data can be sent?, b5 is 1 when printer busy?, b20:21 is 64 sometimes, maybe paper or ribbon feed?
+ +SCSYV  # SYstemVersion (?) (01.06.00.00) ??
+  SCSNO  # SerialNO
+ +SCSYS  # SystemStatus (?) some sort of state array? 22 fields.  b19 is 1 when data can be sent?, b5 is 1 when printer busy?, b20:21 is 64 sometimes, maybe paper or ribbon feed.  b6:7 is 38 with no paper&|ribbon, or 18 with cover open
  +SCMDS  # MeDiaStatus: five 4-value hex numbers, last three decrease in unison (remaining prints). second one is 0000/0100/0200/0300/0600, maybe Y/M/C/O?
   SCPRS  # PRinterStatus: (0000 = idle, 0002 = printing, 0005 = data xfer?)
  +SCSES
  +SCWTS
- +SCJBS  # some sort of job count?
-  SCSYE
- +SCMDE  # MeDia???
- +SCMCE
-  SCJBI
-  SCSYI
+ +SCJBS  # JoBStatus (?)
+  SCSYE  # SYstemError (?)
+ +SCMDE  # MeDiaError: 2000 media mismatch, 0A00 no paper, 0800 cover open, 0002 no ribbon
+ +SCMCE  # MediaCoverError: 01 cover open
+  SCJBI  # JoBInfo(?)
+  SCSYI  # SYstemInfo (?) Includes legal job dimensions/parameters. (09a0 0c78 repeated twice!)
  +SCSVI  # print counter(s)?  (XXXXXXYYYYYY, and X = Y so far.  SCSVI and SCMNI are identical so far)
   SCMNI  # print counter(s)?  (see SCSVI)
   SCCAI
   SCGAI
   SCGSI
- +SCMDI  # MeDia???
+ +SCMDI  # MeDiaInfo: 110154 OK w/UPD-R81MD(Letter), 1100FF with no paper, 000154 with no ribbon
 
 Guess:
 

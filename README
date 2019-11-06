@@ -812,10 +812,9 @@
     Sony UP-CR20L
     DNP DS-SL20
 
-  Notes:
+  Valid commands:
 
-    * Work-in-progress, has not been tested on an actual printer yet.
-    * We do not know how to query media info or status at this time.
+     -s                 Query printer status
 
  ***************************************************************************
   BACKEND=mitsu70x
