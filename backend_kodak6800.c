@@ -540,7 +540,7 @@ done:
 	return ret;
 }
 
-static int kodak6800_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+static int kodak6800_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
 	struct kodak6800_ctx ctx = {
 		.dev = dev,
@@ -553,6 +553,8 @@ static int kodak6800_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 
 	uint8_t resp[33];
 	uint8_t req[16];
+
+	UNUSED(iface);
 
 	memset(req, 0, sizeof(req));
 	memset(resp, 0, sizeof(resp));

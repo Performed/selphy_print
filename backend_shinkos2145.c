@@ -1101,7 +1101,7 @@ printer_error:
 	return CUPS_BACKEND_FAILED;
 }
 
-static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
 	struct sinfonia_cmd_hdr cmd;
 	struct s2145_getunique_resp resp;
@@ -1111,6 +1111,7 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 		.dev = dev,
 		.endp_up = endp_up,
 		.endp_down = endp_down,
+		.iface = iface,
 	};
 
 	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETUNIQUE);

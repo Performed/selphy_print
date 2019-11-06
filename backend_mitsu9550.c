@@ -1566,12 +1566,14 @@ static int mitsu9550_query_status2(struct mitsu9550_ctx *ctx)
 	return ret;
 }
 
-static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
 	struct mitsu9550_cmd cmd;
 	uint8_t rdbuf[READBACK_LEN];
 	uint8_t *ptr;
 	int ret, num, i;
+
+	UNUSED(iface);
 
 	cmd.cmd[0] = 0x1b;
 	cmd.cmd[1] = 0x72;

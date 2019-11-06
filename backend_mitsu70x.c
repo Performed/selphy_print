@@ -2361,7 +2361,7 @@ static int mitsu70x_query_status(struct mitsu70x_ctx *ctx)
 	return ret;
 }
 
-static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
 	int ret, i;
 	struct mitsu70x_printerstatus_resp resp = { .hdr = { 0 } };
@@ -2371,6 +2371,7 @@ static int mitsu70x_query_serno(struct libusb_device_handle *dev, uint8_t endp_u
 		.endp_up = endp_up,
 		.endp_down = endp_down,
 	};
+	UNUSED(iface);
 
 	ret = mitsu70x_get_printerstatus(&ctx, &resp);
 

@@ -198,7 +198,8 @@ struct marker {
 	int numtype; /* Numerical type, (-1 for unknown) */
 };
 
-#define BACKEND_FLAG_JOBLIST 0x00000001
+#define BACKEND_FLAG_JOBLIST    0x00000001
+#define BACKEND_FLAG_BADISERIAL 0x00000002
 
 /* Backend Functions */
 struct dyesub_backend {
@@ -215,7 +216,7 @@ struct dyesub_backend {
 	int  (*read_parse)(void *ctx, const void **job, int data_fd, int copies);
 	void (*cleanup_job)(const void *job);
 	int  (*main_loop)(void *ctx, const void *job);
-	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len); /* Optional */
+	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len); /* Optional */
 	int  (*query_markers)(void *ctx, struct marker **markers, int *count);
 	const struct device_id devices[];
 };

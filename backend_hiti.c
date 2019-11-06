@@ -2059,11 +2059,13 @@ static int hiti_query_counter(struct hiti_ctx *ctx, uint8_t arg, uint32_t *resp)
 	return CUPS_BACKEND_OK;
 }
 
-static int hiti_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+static int hiti_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
 	int ret;
 	uint16_t rsplen = 18;
 	uint8_t rspbuf[18];
+
+	UNUSED(iface);
 
 	struct hiti_ctx ctx = {
 		.dev = dev,

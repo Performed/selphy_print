@@ -594,14 +594,15 @@ candidate:
 		serial = url_encode(serial);
 	} else if ((serial = dict_find("SERN", dlen, dict))) {
 		serial = url_encode(serial);
-	} else if (desc->iSerialNumber) {  /* Get from USB descriptor */
+	} else if (!(backend->flags & BACKEND_FLAG_BADISERIAL) &&
+		   desc->iSerialNumber) {  /* Get from USB descriptor, if we can trust it.. */
 		libusb_get_string_descriptor_ascii(dev, desc->iSerialNumber, (unsigned char*)buf, STR_LEN_MAX);
 		sanitize_string(buf);
 		serial = url_encode(buf);
 	} else if (backend->query_serno) { /* Get from backend hook */
 		buf[0] = 0;
 		/* Ignore result since a failure isn't critical here */
-		backend->query_serno(dev, endp_up, endp_down, buf, STR_LEN_MAX);
+		backend->query_serno(dev, endp_up, endp_down, iface, buf, STR_LEN_MAX);
 		serial = url_encode(buf);
 	}
 

@@ -1205,7 +1205,7 @@ printer_error2:
 	return CUPS_BACKEND_FAILED;
 }
 
-static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
 	struct shinkos1245_resp_getid resp;
 	int i;
@@ -1215,6 +1215,7 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 		.endp_up = endp_up,
 		.endp_down = endp_down,
 	};
+	UNUSED(iface);
 
 	i = shinkos1245_get_printerid(&ctx, &resp);
 	if (i < 0)

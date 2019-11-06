@@ -667,7 +667,7 @@ static uint8_t *dnpds40_resp_cmd2(struct dnpds40_ctx *ctx,
 
 #define dnpds40_resp_cmd(__ctx, __cmd, __len) dnpds40_resp_cmd2(__ctx, __cmd, __len, NULL, 0)
 
-static int dnpds40_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
+static int dnpds40_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
 	struct dnpds40_cmd cmd;
 	uint8_t *resp;
@@ -677,6 +677,7 @@ static int dnpds40_query_serno(struct libusb_device_handle *dev, uint8_t endp_up
 		.dev = dev,
 		.endp_up = endp_up,
 		.endp_down = endp_down,
+		.iface = iface,
 	};
 
 	/* Get Serial Number */
