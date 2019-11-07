@@ -387,7 +387,7 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 			int j;
 			char buf[7];
 			buf[6] = 0;
-			for (j = 0 ; j < 5 ; j++) {
+			for (j = 0 ; j < 2 ; j++) {
 				memcpy(buf, dict[i].val + (6*j), 6);
 				ctx->sts.scsvi[j] = strtol(buf, NULL, 16);
 			}
@@ -395,7 +395,7 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 			int j;
 			char buf[7];
 			buf[6] = 0;
-			for (j = 0 ; j < 5 ; j++) {
+			for (j = 0 ; j < 2 ; j++) {
 				memcpy(buf, dict[i].val + (6*j), 6);
 				ctx->sts.scmni[j] = strtol(buf, NULL, 16);
 			}
