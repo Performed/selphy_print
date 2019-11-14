@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.97"
+#define BACKEND_VERSION "0.98"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -190,8 +190,6 @@ int parse1284_data(const char *device_id, struct deviceid_dict* dict)
 		/* Next up, value */
 		for (ptr = val; *device_id && *device_id != ';'; device_id++)
 			*ptr++ = *device_id;
-		if (!*device_id)
-			break;
 		while (ptr > val && *(ptr-1) == ' ')
 			ptr--;
 		*ptr = 0;
