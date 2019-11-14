@@ -1323,7 +1323,7 @@ newpage:
 	/* Create our own joblist if necessary */
 	if (!(backend->flags & BACKEND_FLAG_JOBLIST)) {
 		struct dyesub_joblist *jlist = dyesub_joblist_create(backend, backend_ctx);
-		if (!list)
+		if (!jlist)
 			goto done_claimed;
 		dyesub_joblist_addjob(jlist, job);
 		job = jlist;
