@@ -207,6 +207,7 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 		/* Read in data block header (256 bytes) */
 		i = read(data_fd, tmpbuf, 256);
 		if (i < 0) {
+			ERROR("Read failed (%d)\n", i);
 			updneo_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
@@ -310,7 +311,9 @@ static int updneo_read_parse(void *vctx, const void **vjob, int data_fd, int cop
 	}
 
 	if (!job->datalen || !job->hdrlen || !job->ftrlen) {
-		ERROR("Necessary block missing!\n");
+		if (job->datalen + job->hdrlen + job->ftrlen) {
+			ERROR("Necessary block missing!\n");
+		}
 		updneo_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
@@ -628,7 +631,7 @@ static const char *sonyupdneo_prefixes[] = {
 
 struct dyesub_backend sonyupdneo_backend = {
 	.name = "Sony UP-D Neo",
-	.version = "0.07",
+	.version = "0.08",
 	.uri_prefixes = sonyupdneo_prefixes,
 	.cmdline_arg = updneo_cmdline_arg,
 	.cmdline_usage = updneo_cmdline,
