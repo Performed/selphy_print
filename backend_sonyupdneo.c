@@ -349,15 +349,15 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 
 	/* Parse out data */
 	for (i = 0; i < dlen ; i++) {
-		if (strcmp("SCDIV", dict[i].key)) {
+		if (!strcmp("SCDIV", dict[i].key)) {
 			ctx->sts.scdiv = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCSYV", dict[i].key)) {
+		} else if (!strcmp("SCSYV", dict[i].key)) {
 			ctx->sts.scsyv = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCSNO", dict[i].key)) {
+		} else if (!strcmp("SCSNO", dict[i].key)) {
 			strncpy(ctx->sts.scsno, dict[i].val, sizeof(ctx->sts.scsno) - 1);
-		} else if (strcmp("SCSYS", dict[i].key)) {
+		} else if (!strcmp("SCSYS", dict[i].key)) {
 			strncpy(ctx->sts.scsys, dict[i].val, sizeof(ctx->sts.scsys) - 1);
-		} else if (strcmp("SCMDS", dict[i].key)) {
+		} else if (!strcmp("SCMDS", dict[i].key)) {
 			int j;
 			char buf[5];
 			buf[4] = 0;
@@ -365,25 +365,25 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 				memcpy(buf, dict[i].val + (4*j), 4);
 				ctx->sts.scmds[j] = strtol(buf, NULL, 16);
 			}
-		} else if (strcmp("SCPRS", dict[i].key)) {
+		} else if (!strcmp("SCPRS", dict[i].key)) {
 			ctx->sts.scprs = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCSES", dict[i].key)) {
+		} else if (!strcmp("SCSES", dict[i].key)) {
 			ctx->sts.scses = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCWTS", dict[i].key)) {
+		} else if (!strcmp("SCWTS", dict[i].key)) {
 			ctx->sts.scwts = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCJBS", dict[i].key)) {
+		} else if (!strcmp("SCJBS", dict[i].key)) {
 			ctx->sts.scjbs = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCSYE", dict[i].key)) {
+		} else if (!strcmp("SCSYE", dict[i].key)) {
 			ctx->sts.scsye = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCMDE", dict[i].key)) {
+		} else if (!strcmp("SCMDE", dict[i].key)) {
 			ctx->sts.scmde = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCMCE", dict[i].key)) {
+		} else if (!strcmp("SCMCE", dict[i].key)) {
 			ctx->sts.scmce = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCJBI", dict[i].key)) {
+		} else if (!strcmp("SCJBI", dict[i].key)) {
 			strncpy(ctx->sts.scjbi, dict[i].val, sizeof(ctx->sts.scjbi) - 1);
-		} else if (strcmp("SCSYI", dict[i].key)) {
+		} else if (!strcmp("SCSYI", dict[i].key)) {
 			strncpy(ctx->sts.scsyi, dict[i].val, sizeof(ctx->sts.scsyi) - 1);
-		} else if (strcmp("SCSVI", dict[i].key)) {
+		} else if (!strcmp("SCSVI", dict[i].key)) {
 			int j;
 			char buf[7];
 			buf[6] = 0;
@@ -391,7 +391,7 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 				memcpy(buf, dict[i].val + (6*j), 6);
 				ctx->sts.scsvi[j] = strtol(buf, NULL, 16);
 			}
-		} else if (strcmp("SCMNI", dict[i].key)) {
+		} else if (!strcmp("SCMNI", dict[i].key)) {
 			int j;
 			char buf[7];
 			buf[6] = 0;
@@ -399,19 +399,19 @@ static int updneo_get_status(struct updneo_ctx *ctx)
 				memcpy(buf, dict[i].val + (6*j), 6);
 				ctx->sts.scmni[j] = strtol(buf, NULL, 16);
 			}
-		} else if (strcmp("SCCAI", dict[i].key)) {
+		} else if (!strcmp("SCCAI", dict[i].key)) {
 			strncpy(ctx->sts.sccai, dict[i].val, sizeof(ctx->sts.sccai) - 1);
-		} else if (strcmp("SCGAI", dict[i].key)) {
+		} else if (!strcmp("SCGAI", dict[i].key)) {
 			ctx->sts.scgai = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCGSI", dict[i].key)) {
+		} else if (!strcmp("SCGSI", dict[i].key)) {
 			ctx->sts.scgsi = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("SCMDI", dict[i].key)) {
+		} else if (!strcmp("SCMDI", dict[i].key)) {
 			ctx->sts.scmdi = strtol(dict[i].val, NULL, 16);
-		} else if (strcmp("MFG", dict[i].key) ||
-			   strcmp("MDL", dict[i].key) ||
-			   strcmp("DES", dict[i].key) ||
-			   strcmp("CMD", dict[i].key) ||
-			   strcmp("CLS", dict[i].key))
+		} else if (!strcmp("MFG", dict[i].key) ||
+			   !strcmp("MDL", dict[i].key) ||
+			   !strcmp("DES", dict[i].key) ||
+			   !strcmp("CMD", dict[i].key) ||
+			   !strcmp("CLS", dict[i].key))
 		{
 			/* Ignore standard IEEE1284 attributes! */
 		} else {
@@ -626,7 +626,7 @@ static const char *sonyupdneo_prefixes[] = {
 
 struct dyesub_backend sonyupdneo_backend = {
 	.name = "Sony UP-D Neo",
-	.version = "0.05WIP",
+	.version = "0.06WIP",
 	.uri_prefixes = sonyupdneo_prefixes,
 	.cmdline_arg = updneo_cmdline_arg,
 	.cmdline_usage = updneo_cmdline,
