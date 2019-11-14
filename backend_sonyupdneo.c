@@ -435,7 +435,7 @@ static void updneo_dump_status(struct updneo_sts *sts)
 {
 	/* Dump status */
 	INFO("Serial Number: %s\n", sts->scsno);
-	INFO("Firmware Version: %02x:%02x:%02x:%02x\n",
+	INFO("Firmware Version: %02x.%02x.%02x.%02x\n",
 	     (sts->scsyv >> 24) & 0xff,
 	     (sts->scsyv >> 16) & 0xff,
 	     (sts->scsyv >> 8) & 0xff,
@@ -517,11 +517,13 @@ retry:
 		return CUPS_BACKEND_STOP;
 	}
 
-	/* Wait for the printer to become idle */
-	if (fast_return && ctx->sts.scprs != 0) {
-		INFO("Fast return mode enabled.\n");
-	} else {
-		goto retry;
+	/* See if we're busy... */
+	if (ctx->sts.scprs != 0) {
+		if (fast_return) {
+			INFO("Fast return mode enabled.\n");
+		} else {
+			goto retry;
+		}
 	}
 
 	/* Clean up */
@@ -626,7 +628,7 @@ static const char *sonyupdneo_prefixes[] = {
 
 struct dyesub_backend sonyupdneo_backend = {
 	.name = "Sony UP-D Neo",
-	.version = "0.06WIP",
+	.version = "0.07",
 	.uri_prefixes = sonyupdneo_prefixes,
 	.cmdline_arg = updneo_cmdline_arg,
 	.cmdline_usage = updneo_cmdline,
