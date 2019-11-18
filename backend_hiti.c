@@ -1295,7 +1295,7 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 
 	/* Sanity check header */
 	if (job->hdr.hdr_len != sizeof(job->hdr)) {
-		ERROR("Header length mismatch (%u/%u)!\n", job->hdr.hdr_len, sizeof(job->hdr));
+		ERROR("Header length mismatch (%u/%d)!\n", job->hdr.hdr_len, (int)sizeof(job->hdr));
 		hiti_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
