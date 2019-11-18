@@ -588,7 +588,7 @@ static int updneo_query_serno(struct libusb_device_handle *dev, uint8_t endp_up,
 		return ret;
 	}
 	ptr = ctx.sts.scsno;
-	while (*ptr && *ptr == 0x30) ptr++;
+	while (*ptr == 0x30) ptr++;
 	strncpy(buf, ptr, buf_len);
 	buf[buf_len-1] = 0;
 
@@ -632,7 +632,7 @@ static const char *sonyupdneo_prefixes[] = {
 
 struct dyesub_backend sonyupdneo_backend = {
 	.name = "Sony UP-D Neo",
-	.version = "0.09",
+	.version = "0.10",
 	.uri_prefixes = sonyupdneo_prefixes,
 	.cmdline_arg = updneo_cmdline_arg,
 	.cmdline_usage = updneo_cmdline,
