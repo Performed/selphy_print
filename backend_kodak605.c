@@ -520,7 +520,7 @@ static int kodak605_main_loop(void *vctx, const void *vjob) {
 	}
 
 	/* Send backprint */
-	if (job->jp.ext_flags & EXT_FLAG_BACKPRINT && offset == 0) {
+	if ((job->jp.ext_flags & EXT_FLAG_BACKPRINT) && offset == 0) {
 		struct kodak701x_backprint bp;
 		INFO("Sending backprint text..\n");
 		bp.hdr.cmd = cpu_to_le16(SINFONIA_CMD_BACKPRINT);
@@ -828,7 +828,7 @@ static const char *kodak605_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak605_backend = {
 	.name = "Kodak 605/70xx",
-	.version = "0.52" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.53" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak605_prefixes,
 	.cmdline_usage = kodak605_cmdline,
 	.cmdline_arg = kodak605_cmdline_arg,
