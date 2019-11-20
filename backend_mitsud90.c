@@ -1271,7 +1271,7 @@ struct dyesub_backend mitsud90_backend = {
    ...
    [pad to 512b]
 
-    data, BGR packed, 8bpp.  No padding to 512b!
+    data, RGB packed, 8bpp.  No padding to 512b!
 
  [[FOOTER]]
 
