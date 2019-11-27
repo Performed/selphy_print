@@ -1277,8 +1277,8 @@ repeat:
 			mitsu70x_cleanup_job(job);
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
-		if (ctx->Get3DColorTable(buf, job->lutfname)) {
-			ERROR("Unable to open LUT file '%s'\n", job->lutfname);
+		if ((i = ctx->Get3DColorTable(buf, job->lutfname))) {
+			ERROR("Unable to open LUT file '%s' (%d)\n", job->lutfname, i);
 			mitsu70x_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
