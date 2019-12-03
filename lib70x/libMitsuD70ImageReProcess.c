@@ -48,7 +48,7 @@
 
 */
 
-#define LIB_VERSION "0.7.1"
+#define LIB_VERSION "0.7.2"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -205,7 +205,7 @@ int CColorConv3D_Get3DColorTable(uint8_t *buf, const char *filename)
 		return 5;
 	}
 	fseek(stream, 0, SEEK_SET);
-	rval = fread(buf, 1, LUT_LEN, stream);
+	rval = fread(buf, LUT_LEN, 1, stream);
 	fclose(stream);
 
 	return (rval != 1);
