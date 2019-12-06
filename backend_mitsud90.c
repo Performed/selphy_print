@@ -1280,7 +1280,7 @@ struct dyesub_backend mitsud90_backend = {
 
  ****************************************************
 
-Comms Protocol for D90:
+Comms Protocol for D90 & CP-M1E
 
  [[ ERROR STATUS ]]
 
@@ -1399,7 +1399,7 @@ Comms Protocol for D90:
    00 01 00 00 00 11 ff ff
    ff fe ff ff ff ee XX        <- XX 0x80 OFF, 0x00 ON.
 
- [[ SANITY CHECK PRINT ARGUMENTS / MEMTEST ]]
+ [[ SANITY CHECK PRINT ARGUMENTS / MEM CHECK ]]
 
 -> 1b 47 44 33 00 33 07 3c  04 ca 64 00 00 01 00 00
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
@@ -1412,8 +1412,8 @@ Comms Protocol for D90:
 <- e4 47 44 43 XX YY
 
    ... possibly the same as the D70's "memorystatus"
-       XX == size ok (non-zero if bad size)
-       YY == memory ok (non-zero or 0xff if full?)
+       XX == 00 size ok, 01 bad size, ff out of range
+       YY == 00 memory ok, 01 memory full, 02 driver setting, ff out of range
 
  [[ SEND OVER HDRs and DATA ]]
 
@@ -1437,6 +1437,5 @@ Comms Protocol for D90:
 
    ... Footer.
    ZZ == Seconds to wait for follow-up print (0x05)
-
 
  */
