@@ -1280,7 +1280,7 @@ struct dyesub_backend mitsud90_backend = {
 
  ****************************************************
 
-Comms Protocol for D90 & CP-M1E
+Comms Protocol for D90 & CP-M1
 
  [[ ERROR STATUS ]]
 

@@ -80,7 +80,7 @@
    Mitsubishi CP-3020D/DE and CP-3020DA/DAE
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
-   Mitsubishi CP-M1E
+   Mitsubishi CP-M1A / CP-M1E
    Olmec OP900
    Shinko CHC-S2245 (aka Sinfonia S3)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
@@ -898,7 +898,7 @@
 
    Work-in-progress printers:
 
-    Mitsubishi CP-M1E
+    Mitsubishi CP-M1A / CP-M1E
 
    Unsupported printers (Unknown VID/PID):
 
@@ -912,10 +912,11 @@
 
    *** VERY IMPORTANT ***
 
-     In order to generate usable output, the Mitsubishi CP-M1E printer
+     In order to generate usable output, the Mitsubishi CP-M1 family
      requires the input data to be transformed using specific image
      processing algorithms.  These are currently only implemented within
-     Mitsubishi's proprietary drivers.
+     Mitsubishi's proprietary drivers, and will require a substantial
+     amount of effort to re-implement.
 
    Valid commands:
 
