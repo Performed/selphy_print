@@ -273,26 +273,27 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 
 	while (len) {
 		int len2 = (len > max_xfer_size) ? max_xfer_size: len;
-		int ret = libusb_bulk_transfer(dev, endp,
-					       (uint8_t*) buf, len2,
-					       &num, xfer_timeout);
 
-		if ((dyesub_debug > 1 && len < 4096) ||
+		if ((dyesub_debug > 1 && len2 < 4096) ||
 		    dyesub_debug > 2) {
-			int i = num;
+			int i = len2;
 
 			DEBUG("-> ");
 			while(i > 0) {
-				if ((num-i) != 0 &&
-				    (num-i) % 16 == 0) {
+				if ((len2-i) != 0 &&
+				    (len2-i) % 16 == 0) {
 					DEBUG2("\n");
 					DEBUG("   ");
 				}
-				DEBUG2("%02x ", buf[num-i]);
+				DEBUG2("%02x ", buf[len2-i]);
 				i--;
 			}
 			DEBUG2("\n");
 		}
+
+		int ret = libusb_bulk_transfer(dev, endp,
+					       (uint8_t*) buf, len2,
+					       &num, xfer_timeout);
 
 		if (ret < 0) {
 			ERROR("Failure to send data to printer (libusb error %d: (%d/%d to 0x%02x))\n", ret, num, len2, endp);
