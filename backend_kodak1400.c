@@ -142,7 +142,7 @@ static int send_plane(struct kodak1400_ctx *ctx,
 			     cmdbuf, CMDBUF_LEN)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 #define TONE_CURVE_SIZE 1552
@@ -270,7 +270,7 @@ int kodak1400_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void *kodak1400_init(void)

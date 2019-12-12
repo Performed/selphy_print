@@ -1430,7 +1430,7 @@ static int mitsu70x_get_jobstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs
 		return 4;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 #if 0
@@ -1464,7 +1464,7 @@ static int mitsu70x_get_jobs(struct mitsu70x_ctx *ctx, struct mitsu70x_jobs *res
 		return 4;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 #endif
 
@@ -1522,7 +1522,7 @@ static int mitsu70x_get_memorystatus(struct mitsu70x_ctx *ctx, const struct mits
 		return CUPS_BACKEND_FAILED;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_printerstatus_resp *resp)
@@ -1551,7 +1551,7 @@ static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_
 		return 4;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsu70x_cancel_job(struct mitsu70x_ctx *ctx, uint16_t jobid)
@@ -1569,7 +1569,7 @@ static int mitsu70x_cancel_job(struct mitsu70x_ctx *ctx, uint16_t jobid)
 			     cmdbuf, 4)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
@@ -1592,7 +1592,7 @@ static int mitsu70x_set_sleeptime(struct mitsu70x_ctx *ctx, uint8_t time)
 			     cmdbuf, 4)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsu70x_set_iserial(struct mitsu70x_ctx *ctx, uint8_t enabled)
@@ -1616,7 +1616,7 @@ static int mitsu70x_set_iserial(struct mitsu70x_ctx *ctx, uint8_t enabled)
 			     cmdbuf, 4)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 #if 0
@@ -1645,7 +1645,7 @@ static int mitsu70x_set_printermode(struct mitsu70x_ctx *ctx, uint8_t enabled)
 			     cmdbuf, 4)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 #endif
 
@@ -2436,7 +2436,7 @@ static int mitsu70x_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsu70x_query_markers(void *vctx, struct marker **markers, int *count)

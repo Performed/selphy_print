@@ -546,7 +546,7 @@ static int mitsup95d_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsup95d_query_markers(void *vctx, struct marker **markers, int *count)

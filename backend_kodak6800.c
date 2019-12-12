@@ -131,7 +131,7 @@ static int kodak6800_do_cmd(struct kodak6800_ctx *ctx,
         if (ret < 0)
                 return ret;
 
-        return 0;
+        return CUPS_BACKEND_OK;
 }
 
 static void kodak68x0_dump_mediainfo(struct sinfonia_mediainfo_item *sizes,
@@ -238,7 +238,7 @@ static int kodak68x0_canceljob(struct kodak6800_ctx *ctx,
 		return -99;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int kodak68x0_reset(struct kodak6800_ctx *ctx)
@@ -261,7 +261,7 @@ static int kodak68x0_reset(struct kodak6800_ctx *ctx)
 		return -99;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void kodak68x0_dump_status(struct kodak6800_ctx *ctx, struct kodak68x0_status_readback *status)
@@ -356,7 +356,7 @@ static int kodak6800_get_status(struct kodak6800_ctx *ctx,
 	/* Byteswap important stuff */
 	status->status2 = be32_to_cpu(status->status2);
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, uint8_t curve, char *fname)
@@ -575,7 +575,7 @@ static int kodak6800_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 	strncpy(buf, (char*)resp+24, buf_len);
 	buf[buf_len-1] = 0;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int kodak6850_send_unk(struct kodak6800_ctx *ctx)
@@ -664,7 +664,7 @@ static int kodak6800_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void *kodak6800_init(void)

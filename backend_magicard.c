@@ -275,7 +275,7 @@ static int magicard_query_sensors(struct magicard_ctx *ctx)
 		buf[num] = 0;
 		INFO("%s\n", buf);
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int magicard_selftest_card(struct magicard_ctx *ctx)
@@ -345,7 +345,7 @@ static int magicard_query_printer(struct magicard_ctx *ctx)
 		buf[num] = 0;
 		INFO("%s\n", buf);
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int magicard_query_status(struct magicard_ctx *ctx)
@@ -916,7 +916,7 @@ static int magicard_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int magicard_query_markers(void *vctx, struct marker **markers, int *count)

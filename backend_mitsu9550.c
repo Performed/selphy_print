@@ -898,7 +898,7 @@ static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int st
 		return 4;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static char *mitsu9550_media_types(uint8_t type, uint8_t is_s)
@@ -1128,7 +1128,7 @@ static int validate_media(int type, int media, int cols, int rows)
 		WARNING("Unknown printer type %d\n", type);
 		break;
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsu9550_main_loop(void *vctx, const void *vjob) {
@@ -1667,7 +1667,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsu9550_query_markers(void *vctx, struct marker **markers, int *count)

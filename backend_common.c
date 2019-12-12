@@ -165,7 +165,7 @@ int parse1284_data(const char *device_id, struct deviceid_dict* dict)
 	int num = 0;
 
 	if (!device_id)
-		return 0;
+		return CUPS_BACKEND_OK;
 
 	//[whitespace]key[whitespace]:[whitespace]value[whitespace];
 	while (*device_id && num < MAX_DICT) {
@@ -302,7 +302,7 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 		buf += num;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 /* More stuff */
@@ -1597,7 +1597,7 @@ int dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job)
 
 	list->entries[list->num_entries++] = job;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 int dyesub_joblist_print(const struct dyesub_joblist *list)

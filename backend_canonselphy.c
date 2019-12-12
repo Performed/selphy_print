@@ -126,7 +126,7 @@ static uint8_t es1_error_detect(uint8_t *rdbuf)
 		return 1;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static uint8_t es2_error_detect(uint8_t *rdbuf)
@@ -150,7 +150,7 @@ static uint8_t es2_error_detect(uint8_t *rdbuf)
 		return 1;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static uint8_t es3_error_detect(uint8_t *rdbuf)
@@ -184,14 +184,14 @@ static uint8_t es3_error_detect(uint8_t *rdbuf)
 		return 1;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static uint8_t es40_error_detect(uint8_t *rdbuf)
 {
 	/* ES40 */
 	if (!rdbuf[3])
-		return 0;
+		return CUPS_BACKEND_OK;
 
 	if (rdbuf[3] == 0x01)
 		ERROR("Generic communication error\n");
@@ -226,7 +226,7 @@ static uint8_t cp790_error_detect(uint8_t *rdbuf)
 		return 1;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static char *cp10_pgcode_names(uint8_t *rdbuf, struct printer_data *printer, int *numtype)
@@ -241,7 +241,7 @@ static char *cp10_pgcode_names(uint8_t *rdbuf, struct printer_data *printer, int
 static uint8_t cp10_error_detect(uint8_t *rdbuf)
 {
 	if (!rdbuf[2])
-		return 0;
+		return CUPS_BACKEND_OK;
 
 	if (rdbuf[2] == 0x80)
 		ERROR("No ribbon loaded\n");
@@ -257,7 +257,7 @@ static uint8_t cp10_error_detect(uint8_t *rdbuf)
 static uint8_t cpxxx_error_detect(uint8_t *rdbuf)
 {
 	if (!rdbuf[2])
-		return 0;
+		return CUPS_BACKEND_OK;
 
 	if (rdbuf[2] == 0x01)
 		ERROR("Paper feed problem!\n");
@@ -472,7 +472,7 @@ static int fancy_memcmp(const uint8_t *buf_a, const int16_t *buf_b, uint len)
 		else if (buf_a[i] < buf_b[i])
 			return -1;
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int parse_printjob(uint8_t *buffer, uint8_t *bw_mode, uint32_t *plane_len)
@@ -1085,7 +1085,7 @@ static int canonselphy_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void canonselphy_cmdline(void)

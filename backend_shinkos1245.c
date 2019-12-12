@@ -309,7 +309,7 @@ static int shinkos1245_get_status(struct shinkos1245_ctx *ctx,
 	/* Byteswap important stuff */
         resp->state.status2 = be32_to_cpu(resp->state.status2);
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int shinkos1245_get_media(struct shinkos1245_ctx *ctx)
@@ -374,7 +374,7 @@ static int shinkos1245_get_printerid(struct shinkos1245_ctx *ctx,
 		return ret;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int shinkos1245_set_printerid(struct shinkos1245_ctx *ctx,
@@ -406,7 +406,7 @@ static int shinkos1245_set_printerid(struct shinkos1245_ctx *ctx,
 		ERROR("Bad return code on SET_PRINTERID command\n");
 		return -99;
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int shinkos1245_canceljob(struct shinkos1245_ctx *ctx,
@@ -431,7 +431,7 @@ static int shinkos1245_canceljob(struct shinkos1245_ctx *ctx,
 		ERROR("Bad return code on CANCELJOB command\n");
 		return -99;
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int shinkos1245_reset(struct shinkos1245_ctx *ctx)
@@ -454,7 +454,7 @@ static int shinkos1245_reset(struct shinkos1245_ctx *ctx)
 		ERROR("Bad return code on RESET command\n");
 		return -99;
 	}
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 
@@ -478,7 +478,7 @@ static int shinkos1245_set_matte(struct shinkos1245_ctx *ctx,
 		return ret;
 	}
 	if (sts.code == CMD_CODE_OK)
-		return 0;
+		return CUPS_BACKEND_OK;
 	if (sts.code == CMD_CODE_BAD)
 		return 1;
 
@@ -510,7 +510,7 @@ static int shinkos1245_get_matte(struct shinkos1245_ctx *ctx,
 	}
 	*intensity = sts.level;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static char* shinkos1245_tonecurves(int type, int table)
@@ -923,7 +923,7 @@ int shinkos1245_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void *shinkos1245_init(void)

@@ -2706,7 +2706,7 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	}
 	INFO("Half-Size Prints Remaining on Media: %d\n", count);
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int dnpds40_get_counters(struct dnpds40_ctx *ctx)
@@ -2846,7 +2846,7 @@ static int dnpds40_clear_counter(struct dnpds40_ctx *ctx, char counter)
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 4)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int dnpds40_cancel_job(struct dnpds40_ctx *ctx)
@@ -2860,7 +2860,7 @@ static int dnpds40_cancel_job(struct dnpds40_ctx *ctx)
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, NULL, 0)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int dnpds40_reset_printer(struct dnpds40_ctx *ctx)
@@ -2874,7 +2874,7 @@ static int dnpds40_reset_printer(struct dnpds40_ctx *ctx)
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, NULL, 0)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int dnpds620_standby_mode(struct dnpds40_ctx *ctx, int delay)
@@ -2890,7 +2890,7 @@ static int dnpds620_standby_mode(struct dnpds40_ctx *ctx, int delay)
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 8)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int dnpds620_media_keep_mode(struct dnpds40_ctx *ctx, int delay)
@@ -2906,7 +2906,7 @@ static int dnpds620_media_keep_mode(struct dnpds40_ctx *ctx, int delay)
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 4)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int dnpds620_iserial_mode(struct dnpds40_ctx *ctx, int enable)
@@ -2922,7 +2922,7 @@ static int dnpds620_iserial_mode(struct dnpds40_ctx *ctx, int enable)
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 8)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int dnpds40_set_counter_p(struct dnpds40_ctx *ctx, char *arg)
@@ -2939,7 +2939,7 @@ static int dnpds40_set_counter_p(struct dnpds40_ctx *ctx, char *arg)
 	if ((ret = dnpds40_do_cmd(ctx, &cmd, (uint8_t*)msg, 8)))
 		return ret;
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void dnpds40_cmdline(void)
@@ -3059,7 +3059,7 @@ static int dnpds40_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count)

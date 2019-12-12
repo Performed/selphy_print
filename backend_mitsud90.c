@@ -1130,7 +1130,7 @@ static int mitsud90_set_sleeptime(struct mitsud90_ctx *ctx, uint16_t time)
 
 	/* No response */
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void mitsud90_cmdline(void)
@@ -1183,7 +1183,7 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static int mitsud90_query_markers(void *vctx, struct marker **markers, int *count)

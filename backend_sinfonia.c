@@ -1160,7 +1160,7 @@ int kodak6_mediamax(int type)
 	case KODAK7_MEDIA_6R:
 		return 570;
 	default:
-		return 0;
+		return CUPS_BACKEND_OK;
 	}
 }
 

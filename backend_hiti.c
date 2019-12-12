@@ -1793,7 +1793,7 @@ static int hiti_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void hiti_cmdline(void)

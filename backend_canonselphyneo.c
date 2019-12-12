@@ -474,7 +474,7 @@ static int selphyneo_cmdline_arg(void *vctx, int argc, char **argv)
 		if (j) return j;
 	}
 
-	return 0;
+	return CUPS_BACKEND_OK;
 }
 
 static void selphyneo_cmdline(void)
