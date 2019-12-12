@@ -641,7 +641,7 @@ static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev, int 
 
 	/* Fill out marker structure */
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker.levelmax = -1; /* Unknown */
+	ctx->marker.levelmax = CUPS_MARKER_UNAVAILABLE;
 
 	if (test_mode < TEST_MODE_NOATTACH) {
 		/* Read printer status. Twice. */
@@ -656,9 +656,9 @@ static int canonselphy_attach(void *vctx, struct libusb_device_handle *dev, int 
 			return CUPS_BACKEND_FAILED;
 
 		if (ctx->printer->error_detect(rdbuf))
-			ctx->marker.levelnow = 0;  /* Out of media */
+			ctx->marker.levelnow = 0;
 		else
-			ctx->marker.levelnow = -3; /* Unknown but OK */
+			ctx->marker.levelnow = CUPS_MARKER_UNKNOWN_OK;
 
 		ctx->marker.name = ctx->printer->pgcode_names? ctx->printer->pgcode_names(rdbuf, ctx->printer, &ctx->marker.numtype) : "Unknown";
 	} else {
@@ -1115,7 +1115,7 @@ static int canonselphy_query_markers(void *vctx, struct marker **markers, int *c
 	if (ctx->printer->error_detect(rdbuf))
 		ctx->marker.levelnow = 0;
 	else
-		ctx->marker.levelnow = -3;
+		ctx->marker.levelnow = CUPS_MARKER_UNKNOWN_OK;
 
 	*markers = &ctx->marker;
 	*count = 1;

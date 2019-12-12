@@ -142,8 +142,8 @@ static int updneo_attach(void *vctx, struct libusb_device_handle *dev, int type,
 
 		ctx->marker.name = "Unknown";
 		ctx->marker.numtype = -1;
-		ctx->marker.levelmax = -1;
-		ctx->marker.levelnow = -2;
+		ctx->marker.levelmax = CUPS_MARKER_UNAVAILABLE;
+		ctx->marker.levelnow = CUPS_MARKER_UNKNOWN;
 	} else {
 		ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 		ctx->native_bpp = 3;

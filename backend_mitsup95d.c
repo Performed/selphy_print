@@ -146,8 +146,8 @@ static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	ctx->marker.color = "#000000";  /* Ie black! */
 	ctx->marker.name = "Unknown";
 	ctx->marker.numtype = -1;
-	ctx->marker.levelmax = -1;
-	ctx->marker.levelnow = -2;
+	ctx->marker.levelmax = CUPS_MARKER_UNAVAILABLE;
+	ctx->marker.levelnow = CUPS_MARKER_UNKNOWN;
 
 	return CUPS_BACKEND_OK;
 }
@@ -557,7 +557,7 @@ static int mitsup95d_query_markers(void *vctx, struct marker **markers, int *cou
 	if (mitsup95d_get_status(ctx, queryresp))
 		return CUPS_BACKEND_FAILED;
 
-	ctx->marker.levelnow = -3;
+	ctx->marker.levelnow = CUPS_MARKER_UNKNOWN_OK;
 
 	if (ctx->type == P_MITSU_P95D) {
 		if (queryresp[6] & 0x40) {
@@ -568,13 +568,6 @@ static int mitsup95d_query_markers(void *vctx, struct marker **markers, int *cou
 			ctx->marker.levelnow = 0;
 		}
 	}
-
-	/* Lot state */
-	if (ctx->marker.levelnow)
-		STATE("-media-empty\n");
-	else
-		STATE("+media-empty\n");
-
 
 	*markers = &ctx->marker;
 	*count = 1;

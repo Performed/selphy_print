@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.98"
+#define BACKEND_VERSION "0.99"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -1462,13 +1462,13 @@ minimal:
 		ATTR("marker-message=");
 		for (i = 0 ; i < marker_count; i++) {
 			switch (markers[i].levelnow) {
-			case -1:
+			case CUPS_MARKER_UNAVAILABLE:
 				DEBUG2("'\"Unable to query remaining prints on %s media\"'", markers[i].name);
 				break;
-			case -2:
+			case CUPS_MARKER_UNKNOWN:
 				DEBUG2("'\"Unknown remaining prints on %s media\"'", markers[i].name);
 				break;
-			case -3:
+			case CUPS_MARKER_UNKNOWN_OK:
 				DEBUG2("'\"One or more remaining prints on %s media\"'", markers[i].name);
 				break;
 			default:
@@ -1480,6 +1480,11 @@ minimal:
 		}
 		DEBUG2("\n");
 	}
+
+	if (markers[0].levelnow == 0)
+		STATE("+media-empty\n");
+	else if (markers[0].levelnow > 0 || markers[0].levelnow == CUPS_MARKER_UNKNOWN_OK)
+		STATE("-media-empty\n");
 
 	/* If we're running as a CUPS backend, report the media type */
 	if (full && getenv("DEVICE_URI")) {

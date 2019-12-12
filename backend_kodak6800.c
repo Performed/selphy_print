@@ -738,7 +738,7 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	ctx->marker.name = kodak6_mediatypes(ctx->media_type);
 	ctx->marker.numtype = ctx->media_type;
 	ctx->marker.levelmax = 100; /* Ie percentage */
-	ctx->marker.levelnow = -2;
+	ctx->marker.levelnow = CUPS_MARKER_UNKNOWN;
 
 	return CUPS_BACKEND_OK;
 }

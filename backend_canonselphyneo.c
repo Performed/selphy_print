@@ -225,11 +225,11 @@ static int selphyneo_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.name = selphynew_pgcodes(rdback.data[6]);
 	ctx->marker.numtype = rdback.data[6];
-	ctx->marker.levelmax = -1;
+	ctx->marker.levelmax = CUPS_MARKER_UNAVAILABLE;
 	if (rdback.data[2]) {
 		ctx->marker.levelnow = 0;
 	} else {
-		ctx->marker.levelnow = -3;
+		ctx->marker.levelnow = CUPS_MARKER_UNKNOWN_OK;
 	}
 
 	return CUPS_BACKEND_OK;
@@ -506,7 +506,7 @@ static int selphyneo_query_markers(void *vctx, struct marker **markers, int *cou
 	if (rdback.data[2])
 		ctx->marker.levelnow = 0;
 	else
-		ctx->marker.levelnow = -3;
+		ctx->marker.levelnow = CUPS_MARKER_UNKNOWN_OK;
 
 	*markers = &ctx->marker;
 	*count = 1;

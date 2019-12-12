@@ -1225,7 +1225,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	ctx->marker[0].name = ctx->media_text;
 	ctx->marker[0].numtype = ctx->media;
 	ctx->marker[0].levelmax = ctx->media_count_new;
-	ctx->marker[0].levelnow = -2;
+	ctx->marker[0].levelnow = CUPS_MARKER_UNKNOWN;
 	ctx->marker_count = 1;
 
 	if (ctx->type == P_DNP_DS80D) {
@@ -1233,7 +1233,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		ctx->marker[1].name = dnpds80_duplex_media_types(ctx->duplex_media);
 		ctx->marker[1].numtype = ctx->duplex_media;
 		ctx->marker[1].levelmax = ctx->marker[0].levelmax/2;
-		ctx->marker[1].levelnow = -2;
+		ctx->marker[1].levelnow = CUPS_MARKER_UNKNOWN;
 		ctx->marker_count++;
 	}
 
@@ -3084,10 +3084,10 @@ static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count
 			ctx->marker[1].levelnow = 0;
 			break;
 		case DUPLEX_UNIT_PAPER_PROTECTIVE:
-			ctx->marker[1].levelnow = -1;
+			ctx->marker[1].levelnow = CUPS_MARKER_UNAVAILABLE;
 			break;
 		case DUPLEX_UNIT_PAPER_PRESENT:
-			ctx->marker[1].levelnow = -3;
+			ctx->marker[1].levelnow = CUPS_MARKER_UNKNOWN_OK;
 			break;
 		}
 	}

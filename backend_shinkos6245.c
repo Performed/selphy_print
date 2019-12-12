@@ -1015,7 +1015,7 @@ static int shinkos6245_attach(void *vctx, struct libusb_device_handle *dev, int 
 	ctx->marker.name = ribbon_sizes(ctx->media.ribbon_code);
 	ctx->marker.numtype = ctx->media.ribbon_code;
 	ctx->marker.levelmax = 100;
-	ctx->marker.levelnow = -2;
+	ctx->marker.levelnow = CUPS_MARKER_UNKNOWN;
 
 	return CUPS_BACKEND_OK;
 }

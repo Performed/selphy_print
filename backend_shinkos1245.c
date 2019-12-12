@@ -977,7 +977,7 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev, int 
 	ctx->marker.name = ctx->media_8x12 ? "8x12" : "8x10";
 	ctx->marker.numtype = ctx->media_8x12;
 	ctx->marker.levelmax = ctx->media_8x12 ? 230 : 280;
-	ctx->marker.levelnow = -2;
+	ctx->marker.levelnow = CUPS_MARKER_UNKNOWN;
 
 	return CUPS_BACKEND_OK;
 }

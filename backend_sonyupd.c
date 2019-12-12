@@ -121,8 +121,8 @@ static int upd_attach(void *vctx, struct libusb_device_handle *dev, int type,
 
 	ctx->marker.name = "Unknown";
 	ctx->marker.numtype = -1;
-	ctx->marker.levelmax = -1;
-	ctx->marker.levelnow = -2;
+	ctx->marker.levelmax = CUPS_MARKER_UNAVAILABLE;
+	ctx->marker.levelnow = CUPS_MARKER_UNKNOWN;
 
 	return CUPS_BACKEND_OK;
 }
@@ -583,10 +583,8 @@ static int upd_query_markers(void *vctx, struct marker **markers, int *count)
 	if (ctx->stsbuf.sts1 == 0x40 ||
 	    ctx->stsbuf.sts1 == 0x08) {
 		ctx->marker.levelnow = 0;
-		STATE("+media-empty\n");
 	} else {
-		ctx->marker.levelnow = -3;
-		STATE("-media-empty\n");
+		ctx->marker.levelnow = CUPS_MARKER_UNKNOWN_OK;
 	}
 
 	return CUPS_BACKEND_OK;

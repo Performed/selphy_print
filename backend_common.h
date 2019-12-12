@@ -295,6 +295,10 @@ extern struct dyesub_backend BACKEND;
 #define CUPS_BACKEND_RETRY         6 /* Retry later */
 #define CUPS_BACKEND_RETRY_CURRENT 7 /* Retry immediately */
 
+#define CUPS_MARKER_UNAVAILABLE   -1
+#define CUPS_MARKER_UNKNOWN       -2
+#define CUPS_MARKER_UNKNOWN_OK    -3
+
 /* Argument processing */
 #define GETOPT_LIST_GLOBAL "d:DfGhv"
 #define GETOPT_PROCESS_GLOBAL \
