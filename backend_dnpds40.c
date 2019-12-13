@@ -3111,6 +3111,63 @@ static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count
 	return CUPS_BACKEND_OK;
 }
 
+static int dnp_query_stats(void *vctx, struct printerstats *stats)
+{
+	struct dnpds40_cmd cmd;
+	struct dnpds40_ctx *ctx = vctx;
+	uint8_t *resp;
+	int len = 0;
+
+	/* Update marker info */
+	if (dnpds40_query_markers(ctx, NULL, NULL))
+		return CUPS_BACKEND_FAILED;
+
+	switch (ctx->mfg)
+	{
+	case 0: stats->mfg = "Dai Nippon Printing"; break;
+	case 1: stats->mfg = "Citizen Systems"; break;
+	case 2: stats->mfg = "Mitsubishi" ; break;
+	default: stats->mfg = "Unknown" ; break;
+	}
+
+	stats->model = dnpds40_printer_type(ctx->type, ctx->mfg);
+	stats->serial = ctx->serno;
+	stats->fwver = ctx->version; // XXX duplexer version?
+
+	stats->decks = ctx->type == P_DNP_DS80D ? 2: 1;
+	stats->mediatype[0] = ctx->marker[0].name;
+	stats->levelmax[0] = ctx->marker[0].levelmax;
+	stats->levelnow[0] = ctx->marker[0].levelnow;
+	if (ctx->type == P_DNP_DS80D) {
+		stats->mediatype[1] = ctx->marker[1].name;
+		stats->levelmax[1] = ctx->marker[1].levelmax;
+		stats->levelnow[1] = ctx->marker[1].levelnow;
+	}
+
+	/* Query status */
+	dnpds40_build_cmd(&cmd, "STATUS", "", 0);
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+	dnpds40_cleanup_string((char*)resp, len);
+	stats->status = strdup(dnpds40_statuses(atoi((char*)resp)));
+	free(resp);
+
+	/* Query lifetime counter */
+	dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_LIFE", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return CUPS_BACKEND_FAILED;
+
+	dnpds40_cleanup_string((char*)resp, len);
+
+	stats->cnt_life = atoi((char*)resp+2);
+	free(resp);
+
+	return CUPS_BACKEND_OK;
+}
+
 static const char *dnpds40_prefixes[] = {
 	"dnp_citizen", "dnpds40",  // Family names, do *not* nuke.
 	"dnp-ds40", "dnp-ds80", "dnp-ds80dx", "dnp-ds620", "dnp-ds820", "dnp-dsrx1",
@@ -3143,7 +3200,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.124",
+	.version = "0.125",
 	.uri_prefixes = dnpds40_prefixes,
 	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
@@ -3156,6 +3213,7 @@ struct dyesub_backend dnpds40_backend = {
 	.main_loop = dnpds40_main_loop,
 	.query_serno = dnpds40_query_serno,
 	.query_markers = dnpds40_query_markers,
+	.query_stats = dnp_query_stats,
 	.devices = {
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "dnp-ds40"},  // Also Citizen CX
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "dnp-ds80"},  // Also Citizen CX-W and Mitsubishi CP-3800DW
