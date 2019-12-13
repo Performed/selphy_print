@@ -158,6 +158,9 @@ struct mitsu70x_ctx {
 	uint16_t last_u;
 	int num_decks;
 
+	char serno[7]; /* 6+null */
+	char fwver[7]; /* 6+null */
+
 	void *dl_handle;
 	lib70x_getapiversionFN GetAPIVersion;
 	Get3DColorTableFN Get3DColorTable;
@@ -824,6 +827,15 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 		ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
 		ctx->medias[1] = resp.upper.media_type & 0xf;
 	}
+
+	/* Store the FW version */
+	memcpy(ctx->fwver, resp.vers[0].ver, 6);
+	ctx->fwver[6] = 0;
+	/* Store the serial number */
+	for (int i = 0 ; i < 6 ; i++) {
+		ctx->serno[i] = le16_to_cpu(resp.serno[i]) & 0x7f;
+	}
+	ctx->serno[6] = 0;
 
 	/* FW sanity checking */
 	if (ctx->type == P_KODAK_305) {
@@ -2445,8 +2457,10 @@ static int mitsu70x_query_markers(void *vctx, struct marker **markers, int *coun
 	struct mitsu70x_printerstatus_resp resp;
 	int ret;
 
-	*markers = ctx->marker;
-	*count = ctx->num_decks;
+	if (markers)
+		*markers = ctx->marker;
+	if (count)
+		*count = ctx->num_decks;
 
 	/* Tell CUPS about the consumables we report */
 	ret = mitsu70x_get_printerstatus(ctx, &resp);
@@ -2470,6 +2484,69 @@ static int mitsu70x_query_markers(void *vctx, struct marker **markers, int *coun
 		ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
 	}
 
+	return CUPS_BACKEND_OK;
+}
+
+static int mitsu70x_query_stats(void *vctx, struct printerstats *stats)
+{
+	struct mitsu70x_ctx *ctx = vctx;
+	struct mitsu70x_printerstatus_resp resp;
+
+	if (mitsu70x_query_markers(ctx, NULL, NULL))
+		return CUPS_BACKEND_FAILED;
+
+	if (mitsu70x_get_printerstatus(ctx, &resp))
+		return CUPS_BACKEND_FAILED;
+
+	switch (ctx->type) {
+	case P_MITSU_D70X:
+		stats->mfg = "Mitsubishi";
+		if (ctx->num_decks == 2)
+			stats->model = "CP-D707DW";
+		else
+			stats->model = "CP-D70DW";
+		break;
+	case P_MITSU_K60:
+		stats->mfg = "Mitsubishi";
+		stats->model = "CP-K60DW-S";
+		break;
+	case P_MITSU_D80:
+		stats->mfg = "Mitsubishi";
+		stats->model = "CP-D80DW";
+		break;
+	case P_KODAK_305:
+		stats->mfg = "Kodak";
+		stats->model = "305";
+		break;
+	case P_FUJI_ASK300:
+		stats->mfg = "Fujifilm";
+		stats->model = "ASK-300";
+		break;
+	default:
+		stats->mfg = "Unknown";
+		stats->model = "Unknown";
+		break;
+	}
+
+	stats->serial = ctx->serno;
+	stats->fwver = ctx->fwver;
+	stats->decks = ctx->num_decks;
+
+	stats->name[0] = "Lower";
+	stats->status[0] = strdup(mitsu70x_mechastatus(resp.lower.mecha_status));
+	stats->mediatype[0] = ctx->marker[0].name;
+	stats->levelmax[0] = ctx->marker[0].levelmax;
+	stats->levelnow[0] = ctx->marker[0].levelnow;
+	stats->cnt_life[0] = packed_bcd_to_uint32((char*)resp.lower.lifetime_prints, 4);
+
+	if (stats->decks == 2) {
+		stats->name[1] = "Upper";
+		stats->status[1] = strdup(mitsu70x_mechastatus(resp.upper.mecha_status));
+		stats->mediatype[1] = ctx->marker[1].name;
+		stats->levelmax[1] = ctx->marker[1].levelmax;
+		stats->levelnow[1] = ctx->marker[1].levelnow;
+		stats->cnt_life[1] = packed_bcd_to_uint32((char*)resp.upper.lifetime_prints, 4);
+	}
 	return CUPS_BACKEND_OK;
 }
 
@@ -2499,6 +2576,7 @@ struct dyesub_backend mitsu70x_backend = {
 	.main_loop = mitsu70x_main_loop,
 	.query_serno = mitsu70x_query_serno,
 	.query_markers = mitsu70x_query_markers,
+	.query_stats = mitsu70x_query_stats,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, NULL, "mitsubishi-d70dw"},
 		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, NULL, "mitsubishi-k60dw"},
