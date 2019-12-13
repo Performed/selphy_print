@@ -330,8 +330,11 @@ struct hiti_ctx {
 	struct libusb_device_handle *dev;
 	uint8_t endp_up;
 	uint8_t endp_down;
+	int iface;
 	int type;
 	int jobid;
+
+	char serno[32];
 
 	struct marker marker;
 	char     version[256];
@@ -368,6 +371,8 @@ static int hiti_query_hilightadj(struct hiti_ctx *ctx);
 static int hiti_query_unk8010(struct hiti_ctx *ctx);
 static int hiti_query_counter(struct hiti_ctx *ctx, uint8_t arg, uint32_t *resp);
 static int hiti_query_markers(void *vctx, struct marker **markers, int *count);
+
+static int hiti_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len);
 
 static int hiti_docmd(struct hiti_ctx *ctx, uint16_t cmdid, uint8_t *buf, uint16_t buf_len, uint16_t *rsplen)
 {
@@ -708,10 +713,10 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 	if (ret)
 		return ret;
 
-	INFO("Printer ID: %s\n",
-	     ctx->id);
-	INFO("Printer Version: %s\n",
-	     ctx->version);
+	INFO("Printer ID: %s\n", ctx->id);
+	INFO("Printer Version: %s\n", ctx->version);
+	INFO("Serial Number: %s\n", ctx->serno);
+
 	INFO("Calibration:  H: %d V: %d\n", ctx->calibration.horiz, ctx->calibration.vert);
 	INFO("LED Calibration: %d %d %d / %d %d %d\n",
 	     ctx->led_calibration[4], ctx->led_calibration[5],
@@ -744,17 +749,17 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 	ret = hiti_query_counter(ctx, 1, &buf);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
-	INFO("6x4 Total prints?: %u\n", buf);
+	INFO("Total prints: %u\n", buf);
 
 	ret = hiti_query_counter(ctx, 2, &buf);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
-	INFO("6x4 APC prints?: %u\n", buf);
+	INFO("6x4 prints: %u\n", buf);
 
 	ret = hiti_query_counter(ctx, 4, &buf);
 	if (ret)
 		return CUPS_BACKEND_FAILED;
-	INFO("6x8 APC prints?: %u\n", buf);
+	INFO("6x8 prints: %u\n", buf);
 
 	int i;
 
@@ -769,7 +774,6 @@ static int hiti_get_info(struct hiti_ctx *ctx)
 	DEBUG2("\n");
 
 	// XXX other shit..
-	// Serial number?
 
 	return CUPS_BACKEND_OK;
 }
@@ -864,11 +868,10 @@ static int hiti_attach(void *vctx, struct libusb_device_handle *dev, int type,
 	struct hiti_ctx *ctx = vctx;
 	int ret;
 
-	UNUSED(iface);
-
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+	ctx->iface = iface;
 	ctx->type = type;
 
 	/* Ensure jobid is sane */
@@ -904,8 +907,10 @@ static int hiti_attach(void *vctx, struct libusb_device_handle *dev, int type,
 		ret = hiti_query_hilightadj(ctx);
 		if (ret)
 			return ret;
+		ret = hiti_query_serno(ctx->dev, ctx->endp_up, ctx->endp_down, ctx->iface, ctx->serno, sizeof(ctx->serno));
+		if (ret)
+			return ret;
 
-		// Query Serial Number (?)
 		// do real stuff
 	} else {
 		ctx->supplies2[0] = PAPER_TYPE_6INCH;
@@ -2108,6 +2113,43 @@ static int hiti_query_markers(void *vctx, struct marker **markers, int *count)
 	return CUPS_BACKEND_OK;
 }
 
+static int hiti_query_stats(void *vctx, struct printerstats *stats)
+{
+	struct hiti_ctx *ctx = vctx;
+	uint8_t sts[3];
+	uint32_t err = 0;
+	uint32_t tmp = 0;
+
+	/* Update marker info */
+	if (hiti_query_markers(ctx, NULL, NULL))
+		return CUPS_BACKEND_FAILED;
+	if (hiti_query_status(ctx, sts, &err))
+		return CUPS_BACKEND_FAILED;
+
+	stats->mfg = "HiTi";
+	stats->model = ctx->id;
+	stats->serial = ctx->serno;
+	stats->fwver = ctx->version;
+
+	stats->decks = 1;
+	stats->mediatype[0] = ctx->marker.name;
+	stats->levelmax[0] = ctx->marker.levelmax;
+	stats->levelnow[0] = ctx->marker.levelnow;
+
+	if (hiti_query_counter(ctx, 1, &tmp))
+		return CUPS_BACKEND_FAILED;
+
+	stats->cnt_life += tmp;
+
+	if (err)
+		stats->status = strdup(hiti_errors(err));
+	else
+		stats->status = strdup(hiti_status(sts));
+
+	return CUPS_BACKEND_OK;
+}
+
+
 static const char *hiti_prefixes[] = {
 	"hiti", // Family name
 	"hiti-p52x",
@@ -2138,7 +2180,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.15",
+	.version = "0.16",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
@@ -2149,6 +2191,7 @@ struct dyesub_backend hiti_backend = {
 	.main_loop = hiti_main_loop,
 	.query_serno = hiti_query_serno,
 	.query_markers = hiti_query_markers,
+	.query_stats = hiti_query_stats,
 	.devices = {
 		{ USB_VID_HITI, USB_PID_HITI_P52X, P_HITI_52X, NULL, "hiti-p520l"},
 		{ USB_VID_HITI, USB_PID_HITI_P720, P_HITI_720, NULL, "hiti-p720l"},
