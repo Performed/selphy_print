@@ -1043,7 +1043,7 @@ int main (int argc, char **argv)
 	uri = getenv("DEVICE_URI");  /* CUPS backend mode! */
 	type = getenv("FINAL_CONTENT_TYPE"); /* CUPS content type -- ie raster or command */
 
-	if (uri) {
+	if (uri && strlen(uri)) {
 		/* CUPS backend mode */
 		int base = optind; /* ie 1 */
 		if (argc < 6) {
@@ -1153,7 +1153,7 @@ int main (int argc, char **argv)
 	}
 
 	/* If we're in standalone mode, print help only if no args */
-	if (!uri) {
+	if (!uri || !strlen(uri)) {
 		if (argc < 2) {
 			print_help(argv[0], backend); // probes all devices
 			ret = CUPS_BACKEND_OK;
@@ -1247,7 +1247,7 @@ bypass:
 
 //	STATE("+org.gutenprint.attached-to-device\n");
 
-	if (!uri) {
+	if (!uri || !strlen(uri)) {
 		if (backend->cmdline_arg(backend_ctx, argc, argv) < 0)
 			goto done_claimed;
 
@@ -1256,7 +1256,7 @@ bypass:
 	}
 
 	if (!fname) {
-		if (uri)
+		if (uri && strlen(uri))
 			ERROR("ERROR: No input file specified\n");
 		goto done_claimed;
 	}
@@ -1349,7 +1349,7 @@ newpage:
 		goto done_claimed;
 
 	/* Log the completed page */
-	if (!uri)
+	if (!uri || !strlen(uri))
 		PAGE("%d %d\n", current_page, ncopies);
 
 	/* Dump a marker status update */
@@ -1366,7 +1366,7 @@ done_multiple:
 	close(data_fd);
 
 	/* Done printing, log the total number of pages */
-	if (!uri)
+	if (!uri || !strlen(uri))
 		PAGE("total %d\n", current_page * ncopies);
 	ret = CUPS_BACKEND_OK;
 
