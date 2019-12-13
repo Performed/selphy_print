@@ -1208,7 +1208,7 @@ int main (int argc, char **argv)
 		if (ret) {
 			ERROR("Printer open failure (Unable to issue altsettinginterface) (%d)\n", ret);
 			ret = CUPS_BACKEND_RETRY;
-			goto done_close;
+			goto done_claimed;
 		}
 	}
 
@@ -1235,14 +1235,14 @@ bypass:
 	if (printer_type <= P_UNKNOWN) {
 		ERROR("Unable to lookup printer type\n");
 		ret = CUPS_BACKEND_FAILED;
-		goto done_close;
+		goto done_claimed;
 	}
 
 	/* Attach backend to device */
 	if (backend->attach(backend_ctx, dev, printer_type, endp_up, endp_down, iface, jobid)) {
 		ERROR("Unable to attach to printer!\n");
 		ret = CUPS_BACKEND_FAILED;
-		goto done_close;
+		goto done_claimed;
 	}
 
 //	STATE("+org.gutenprint.attached-to-device\n");
