@@ -204,7 +204,7 @@
     scheme type generated at runtime, set the OLD_URI_SCHEME environment
     variable to either 0 or 1, as appropriate.
 
-***************************************************************************
+ ***************************************************************************
   Standalone usage:
 
     This backend is set up as a multi-call executable; that is to say
@@ -306,6 +306,55 @@
 
        Finally, BACKEND_QUIET can be set to a non-zero value to silence all
        output other than warnings and errors.
+
+ ***************************************************************************
+  Standalone status queries:
+
+    If you just want to query the printer and media status in a
+    printer-independent manner, the backend supports reporting a standard
+    set of data in either textual or JSON format.  This is used with the
+    BACKEND_STATS_ONLY environment variable:
+
+      BACKEND_STATS_ONLY=? BACKEND=backend [SERIAL=??] ./gutenprint53+usb
+      BACKEND_STATS_ONLY=? [SERIAL=??] ./backend
+
+    BACKEND_STATS_ONLY=1 will report in textual format, for example:
+
+	Backend: HiTi Photo Printers
+	Version: 0.100 / 0.16
+	Timestamp: 2019-1 2-13 14:54:28
+	Manufacturer: HiTi
+	Model: HiTi:Usb Photo Printer:HiTi P520L
+	Serial Number: 2WC4A1013968279
+	Firmware Version: 1.21.0.i
+	Printer Status: Idle
+	Lifetime Prints: 194
+	Media 0 Type: 4x6
+	Media 0 Level: 313 / 500
+
+    BACKEND_STATS_ONLY=2 will report in JSON format, for example:
+
+     {
+        "backend": "HiTi Photo Printers",
+        "version": "0.100 / 0.16",
+        "timestamp": "2019-12-13 14:57:38",
+        "manufacturer": "HiTi",
+        "model": "HiTi:Usb Photo Printer:HiTi P520L",
+        "serial": "2WC4A1013968279",
+        "firmware": "1.21.0.i",
+        "status": "Idle",
+        "counters": {
+                "lifetime": 194
+        },
+        "media": [
+                {
+                        "type": "4x6",
+                        "level": "OK",
+                        "levelnow": 313,
+                        "levelmax": 500
+                }
+        ]
+     }
 
  ***************************************************************************
   BACKEND=canonselphy

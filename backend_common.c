@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.99"
+#define BACKEND_VERSION "0.100"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -847,6 +847,94 @@ static int query_markers(struct dyesub_backend *backend, void *ctx, int full)
 	return CUPS_BACKEND_OK;
 }
 
+static void dump_stats(struct dyesub_backend *backend, struct printerstats *stats, int json)
+{
+	int i;
+	struct tm *tm;
+	char tmbuf[64];
+	tm = localtime(&stats->timestamp);
+
+	strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", tm);
+
+	if (json) {
+		fprintf(stdout, "{\n");
+		fprintf(stdout, "\t\"backend\": \"%s\",\n", backend->name);
+		fprintf(stdout, "\t\"version\": \"%s / %s\",\n", BACKEND_VERSION, backend->version);
+		fprintf(stdout, "\t\"timestamp\": \"%s\",\n", tmbuf);
+		if (stats->mfg)
+			fprintf(stdout, "\t\"manufacturer\": \"%s\",\n", stats->mfg);
+		if (stats->model)
+			fprintf(stdout, "\t\"model\": \"%s\",\n", stats->model);
+		if (stats->serial)
+			fprintf(stdout, "\t\"serial\": \"%s\",\n", stats->serial);
+		if (stats->fwver)
+			fprintf(stdout, "\t\"firmware\": \"%s\",\n", stats->fwver);
+		if (stats->status)
+			fprintf(stdout, "\t\"status\": \"%s\",\n", stats->status);
+
+		fprintf(stdout, "\t\"counters\": {\n");
+		if (stats->cnt_life >= 0)
+			fprintf(stdout, "\t\t\"lifetime\": %d\n", stats->cnt_life);
+		fprintf(stdout, "\t},\n");
+		fprintf(stdout, "\t\"media\": [\n");
+		fprintf(stdout, "\t\t{\n");
+		for (i = 0 ; i < stats->decks ; i++) {
+			fprintf(stdout, "\t\t\t\"type\": \"%s\",\n", stats->mediatype[i]);
+			switch (stats->levelnow[i]) {
+			case CUPS_MARKER_UNKNOWN:
+				fprintf(stdout, "\t\t\t\"level\": \"Unknown\"\n");
+				break;
+			case CUPS_MARKER_UNAVAILABLE:
+				fprintf(stdout, "\t\t\t\"level\": \"Unavailable\"\n");
+				break;
+			case CUPS_MARKER_UNKNOWN_OK:
+				fprintf(stdout, "\t\t\t\"level\": \"OK\"\n");
+				break;
+			default:
+				if (stats->levelnow[i] >= 0 && stats->levelmax[i] > 0) {
+					fprintf(stdout, "\t\t\t\"level\": \"OK\",\n");
+					fprintf(stdout, "\t\t\t\"levelnow\": %d,\n", stats->levelnow[i]);
+					fprintf(stdout, "\t\t\t\"levelmax\": %d\n", stats->levelmax[i]);
+				} else {
+				fprintf(stdout, "\t\t\t\"level\": \"Illegal value\"\n");
+				}
+				break;
+			}
+			fprintf(stdout, "\t\t}%c\n", (i < (stats->decks -1) ? ',': ' '));
+		}
+		fprintf(stdout, "\t]\n");
+		fprintf(stdout, "}\n");
+	} else {
+		fprintf(stdout, "Backend: %s\n", backend->name);
+		fprintf(stdout, "Version: %s / %s\n", BACKEND_VERSION, backend->version);
+		fprintf(stdout, "Timestamp: %s\n", tmbuf);
+		if (stats->mfg)
+			fprintf(stdout, "Manufacturer: %s\n", stats->mfg);
+		if (stats->model)
+			fprintf(stdout, "Model: %s\n", stats->model);
+		if (stats->serial)
+			fprintf(stdout, "Serial Number: %s\n", stats->serial);
+		if (stats->fwver)
+			fprintf(stdout, "Firmware Version: %s\n", stats->fwver);
+		if (stats->status)
+			fprintf(stdout, "Printer Status: %s\n", stats->status);
+		if (stats->cnt_life >= 0) {
+			fprintf(stdout, "Lifetime Prints: %d\n", stats->cnt_life);
+		}
+		for (i = 0 ; i < stats->decks ; i++) {
+			fprintf(stdout, "Media %d Type: %s\n", i, stats->mediatype[i]);
+			if (stats->levelnow[i] == CUPS_MARKER_UNKNOWN_OK)
+				fprintf(stdout, "Media %d Level: OK\n", i);
+			else if (stats->levelnow[i] == CUPS_MARKER_UNKNOWN)
+				fprintf(stdout, "Media %d Level: Unknown\n", i);
+			else if (stats->levelnow[i] == CUPS_MARKER_UNAVAILABLE)
+				fprintf(stdout, "Media %d Level: Unavailable\n", i);
+			else if (stats->levelnow[i] >= 0 && stats->levelmax[i] > 0)
+				fprintf(stdout, "Media %d Level: %d / %d\n", i, stats->levelnow[i], stats->levelmax[i]);
+		}
+	}
+}
+
 void print_license_blurb(void)
 {
 	const char *license = "\n\
@@ -973,6 +1061,135 @@ int parse_cmdstream(struct dyesub_backend *backend, void *backend_ctx, int fd)
 	return CUPS_BACKEND_OK;
 };
 
+static int handle_input(struct dyesub_backend *backend, void *backend_ctx,
+			char *fname, char *uri, char *type)
+{
+	int ret = CUPS_BACKEND_OK;
+	int i;
+	const void *job = NULL;
+	int data_fd = fileno(stdin);
+	int current_page = 0;
+
+	if (!fname) {
+		if (uri && strlen(uri))
+			ERROR("ERROR: No input file specified\n");
+		ret = CUPS_BACKEND_FAILED;
+		goto done;
+	}
+
+	if (ncopies < 1) {
+		ERROR("ERROR: need to have at least 1 copy!\n");
+		ret = CUPS_BACKEND_FAILED;
+		goto done;
+	}
+
+	/* Open file if not STDIN */
+	if (strcmp("-", fname)) {
+		data_fd = open(fname, O_RDONLY);
+		if (data_fd < 0) {
+			perror("ERROR:Can't open input file");
+			ret = CUPS_BACKEND_FAILED;
+			goto done;
+		}
+	}
+
+	/* Ensure we're using BLOCKING I/O */
+	i = fcntl(data_fd, F_GETFL, 0);
+	if (i < 0) {
+		perror("ERROR:Can't open input");
+		ret = CUPS_BACKEND_FAILED;
+		goto done;
+	}
+	i &= ~O_NONBLOCK;
+	i = fcntl(data_fd, F_SETFL, i);
+	if (i < 0) {
+		perror("ERROR:Can't open input");
+		ret = CUPS_BACKEND_FAILED;
+		goto done;
+	}
+
+	/* Ignore SIGPIPE */
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGTERM, sigterm_handler);
+
+	/* Time for the main processing loop */
+	INFO("Printing started (%d copies)\n", ncopies);
+
+	/* See if it's a CUPS command stream, and if yes, handle it! */
+	if (type && !strcmp("application/vnd.cups-command", type))
+	{
+		ret = parse_cmdstream(backend, backend_ctx, data_fd);
+		goto done;
+	}
+
+newpage:
+
+	/* Read in data */
+	if ((ret = backend->read_parse(backend_ctx, &job, data_fd, ncopies))) {
+		if (current_page)
+			goto done_multiple;
+		else
+			goto done;
+	}
+
+	/* The backend parser might not return a job due to job dependencies.
+	   Try and read another page. */
+	if (!job)
+		goto newpage;
+
+	/* Create our own joblist if necessary */
+	if (!(backend->flags & BACKEND_FLAG_JOBLIST)) {
+		struct dyesub_joblist *jlist = dyesub_joblist_create(backend, backend_ctx);
+		if (!jlist)
+			goto done;
+		dyesub_joblist_addjob(jlist, job);
+		job = jlist;
+	}
+
+	/* Dump the full marker dump */
+	ret = query_markers(backend, backend_ctx, !current_page);
+	if (ret)
+		goto done;
+
+	INFO("Printing page %d\n", ++current_page);
+
+	if (test_mode >= TEST_MODE_NOPRINT ) {
+		WARNING("**** TEST MODE, bypassing printing!\n");
+	} else {
+		ret = dyesub_joblist_print(job);
+	}
+
+	dyesub_joblist_cleanup(job);
+
+	if (ret)
+		goto done;
+
+	/* Log the completed page */
+	if (!uri || !strlen(uri))
+		PAGE("%d %d\n", current_page, ncopies);
+
+	/* Dump a marker status update */
+	ret = query_markers(backend, backend_ctx, !current_page);
+	if (ret)
+		goto done;
+
+	/* Since we have no way of telling if there's more data remaining
+	   to be read (without actually trying to read it), always assume
+	   multiple print jobs. */
+	goto newpage;
+
+done_multiple:
+	close(data_fd);
+
+	/* Done printing, log the total number of pages */
+	if (!uri || !strlen(uri))
+		PAGE("total %d\n", current_page * ncopies);
+	ret = CUPS_BACKEND_OK;
+
+done:
+	return ret;
+}
+
 int main (int argc, char **argv)
 {
 	struct libusb_context *ctx = NULL;
@@ -985,18 +1202,12 @@ int main (int argc, char **argv)
 	uint8_t endp_up, endp_down;
 	uint8_t iface, altset;
 
-	int data_fd = fileno(stdin);
-
-	const void *job = NULL;
-
-	int i;
-
 	int ret = CUPS_BACKEND_OK;
 
 	int found = -1;
 	int jobid = 0;
-	int current_page = 0;
 
+	int stats_only = 0;
 	char *uri;
 	char *type;
 	char *fname = NULL;
@@ -1006,6 +1217,8 @@ int main (int argc, char **argv)
 	/* Handle environment variables  */
 	if (getenv("BACKEND_QUIET"))
 		quiet = atoi(getenv("BACKEND_QUIET"));
+	if (getenv("BACKEND_STATS_ONLY"))
+		stats_only = atoi(getenv("BACKEND_STATS_ONLY"));
 	if (getenv("DYESUB_DEBUG"))
 		dyesub_debug = atoi(getenv("DYESUB_DEBUG"));
 	if (getenv("EXTRA_PID"))
@@ -1031,6 +1244,9 @@ int main (int argc, char **argv)
 		ERROR("Must specify EXTRA_VID, EXTRA_PID in test mode > 1!\n");
 		exit(1);
 	}
+
+	if (stats_only)
+		quiet = 1;
 
 	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
 	      BACKEND_VERSION);
@@ -1146,14 +1362,14 @@ int main (int argc, char **argv)
 	}
 
 	/* If we don't have a valid backend, print help and terminate */
-	if (!backend) {
+	if (!backend && !stats_only) {
 		print_help(argv[0], NULL); // probes all devices
 		ret = CUPS_BACKEND_OK;
 		goto done;
 	}
 
 	/* If we're in standalone mode, print help only if no args */
-	if (!uri || !strlen(uri)) {
+	if ((!uri || !strlen(uri)) && !stats_only) {
 		if (argc < 2) {
 			print_help(argv[0], backend); // probes all devices
 			ret = CUPS_BACKEND_OK;
@@ -1247,128 +1463,31 @@ bypass:
 
 //	STATE("+org.gutenprint.attached-to-device\n");
 
+	/* Dump stats only */
+	if (stats_only && backend->query_stats) {
+		struct printerstats stats;
+		memset(&stats, 0, sizeof(stats));
+
+		stats.timestamp = time(NULL);
+		ret = backend->query_stats(backend_ctx, &stats);
+		if (ret)
+			goto done_claimed;
+		dump_stats(backend, &stats, stats_only -1);
+		if (stats.status)
+			free(stats.status); // only dynamic member..
+		goto done_claimed;
+	}
+
 	if (!uri || !strlen(uri)) {
-		if (backend->cmdline_arg(backend_ctx, argc, argv) < 0)
+		if (backend->cmdline_arg(backend_ctx, argc, argv))
 			goto done_claimed;
 
 		/* Grab the filename */
 		fname = argv[optind]; // XXX do this a smarter way?
 	}
 
-	if (!fname) {
-		if (uri && strlen(uri))
-			ERROR("ERROR: No input file specified\n");
-		goto done_claimed;
-	}
-
-	if (ncopies < 1) {
-		ERROR("ERROR: need to have at least 1 copy!\n");
-		ret = CUPS_BACKEND_FAILED;
-		goto done_claimed;
-	}
-
-	/* Open file if not STDIN */
-	if (strcmp("-", fname)) {
-		data_fd = open(fname, O_RDONLY);
-		if (data_fd < 0) {
-			perror("ERROR:Can't open input file");
-			ret = CUPS_BACKEND_FAILED;
-			goto done_claimed;
-		}
-	}
-
-	/* Ensure we're using BLOCKING I/O */
-	i = fcntl(data_fd, F_GETFL, 0);
-	if (i < 0) {
-		perror("ERROR:Can't open input");
-		ret = CUPS_BACKEND_FAILED;
-		goto done;
-	}
-	i &= ~O_NONBLOCK;
-	i = fcntl(data_fd, F_SETFL, i);
-	if (i < 0) {
-		perror("ERROR:Can't open input");
-		ret = CUPS_BACKEND_FAILED;
-		goto done_claimed;
-	}
-
-	/* Ignore SIGPIPE */
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGTERM, sigterm_handler);
-
-	/* Time for the main processing loop */
-	INFO("Printing started (%d copies)\n", ncopies);
-
-	/* See if it's a CUPS command stream, and if yes, handle it! */
-	if (type && !strcmp("application/vnd.cups-command", type))
-	{
-		ret = parse_cmdstream(backend, backend_ctx, data_fd);
-		goto done_claimed;
-	}
-
-newpage:
-
-	/* Read in data */
-	if ((ret = backend->read_parse(backend_ctx, &job, data_fd, ncopies))) {
-		if (current_page)
-			goto done_multiple;
-		else
-			goto done_claimed;
-	}
-
-	/* The backend parser might not return a job due to job dependencies.
-	   Try and read another page. */
-	if (!job)
-		goto newpage;
-
-	/* Create our own joblist if necessary */
-	if (!(backend->flags & BACKEND_FLAG_JOBLIST)) {
-		struct dyesub_joblist *jlist = dyesub_joblist_create(backend, backend_ctx);
-		if (!jlist)
-			goto done_claimed;
-		dyesub_joblist_addjob(jlist, job);
-		job = jlist;
-	}
-
-	/* Dump the full marker dump */
-	ret = query_markers(backend, backend_ctx, !current_page);
-	if (ret)
-		goto done_claimed;
-
-	INFO("Printing page %d\n", ++current_page);
-
-	if (test_mode >= TEST_MODE_NOPRINT ) {
-		WARNING("**** TEST MODE, bypassing printing!\n");
-	} else {
-		ret = dyesub_joblist_print(job);
-	}
-
-	dyesub_joblist_cleanup(job);
-
-	if (ret)
-		goto done_claimed;
-
-	/* Log the completed page */
-	if (!uri || !strlen(uri))
-		PAGE("%d %d\n", current_page, ncopies);
-
-	/* Dump a marker status update */
-	ret = query_markers(backend, backend_ctx, !current_page);
-	if (ret)
-		goto done_claimed;
-
-	/* Since we have no way of telling if there's more data remaining
-	   to be read (without actually trying to read it), always assume
-	   multiple print jobs. */
-	goto newpage;
-
-done_multiple:
-	close(data_fd);
-
-	/* Done printing, log the total number of pages */
-	if (!uri || !strlen(uri))
-		PAGE("total %d\n", current_page * ncopies);
-	ret = CUPS_BACKEND_OK;
+	/* Parse the file passed in */
+	ret = handle_input(backend, backend_ctx, fname, uri, type);
 
 done_claimed:
 	if (test_mode < TEST_MODE_NOATTACH)
@@ -1447,7 +1566,7 @@ minimal:
 	for (i = 0 ; i < marker_count; i++) {
 		int val;
 		if (markers[i].levelmax <= 0 || markers[i].levelnow < 0)
-			val = (markers[i].levelnow <= 0) ? markers[i].levelnow : -1;
+			val = (markers[i].levelnow <= 0) ? markers[i].levelnow : CUPS_MARKER_UNAVAILABLE;
 		else if (markers[i].levelmax == 100)
 			val = markers[i].levelnow;
 		else

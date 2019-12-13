@@ -32,6 +32,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <time.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -198,6 +200,20 @@ struct marker {
 	int numtype; /* Numerical type, (-1 for unknown) */
 };
 
+struct printerstats {
+	time_t timestamp;
+	const char *mfg;      /* Manufacturer */
+	const char *model;    /* Model */
+	const char *serial;   /* Serial Number */
+	const char *fwver;    /* Firmware Version */
+	char *status;         /* Printer status */
+	uint8_t decks;        /* Number of "decks" (1 or 2) */
+	const char *mediatype[2];   /* Media Type */
+	int32_t levelmax[2];  /* Max media count (-1 if unknown) */
+	int32_t levelnow[2];  /* Remaining media count (-1 if unknown) */
+	int32_t cnt_life;     /* Lifetime prints */
+};
+
 #define BACKEND_FLAG_JOBLIST    0x00000001
 #define BACKEND_FLAG_BADISERIAL 0x00000002
 
@@ -218,6 +234,7 @@ struct dyesub_backend {
 	int  (*main_loop)(void *ctx, const void *job);
 	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len); /* Optional */
 	int  (*query_markers)(void *ctx, struct marker **markers, int *count);
+	int  (*query_stats)(void *ctx, struct printerstats *stats); /* Optional */
 	const struct device_id devices[];
 };
 
