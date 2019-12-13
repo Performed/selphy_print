@@ -3138,11 +3138,7 @@ static int dnp_query_stats(void *vctx, struct printerstats *stats)
 	stats->mediatype[0] = ctx->marker[0].name;
 	stats->levelmax[0] = ctx->marker[0].levelmax;
 	stats->levelnow[0] = ctx->marker[0].levelnow;
-	if (ctx->type == P_DNP_DS80D) {
-		stats->mediatype[1] = ctx->marker[1].name;
-		stats->levelmax[1] = ctx->marker[1].levelmax;
-		stats->levelnow[1] = ctx->marker[1].levelnow;
-	}
+	stats->name[0] = "Roll";
 
 	/* Query status */
 	dnpds40_build_cmd(&cmd, "STATUS", "", 0);
@@ -3150,7 +3146,7 @@ static int dnp_query_stats(void *vctx, struct printerstats *stats)
 	if (!resp)
 		return CUPS_BACKEND_FAILED;
 	dnpds40_cleanup_string((char*)resp, len);
-	stats->status = strdup(dnpds40_statuses(atoi((char*)resp)));
+	stats->status[0] = strdup(dnpds40_statuses(atoi((char*)resp)));
 	free(resp);
 
 	/* Query lifetime counter */
@@ -3162,7 +3158,17 @@ static int dnp_query_stats(void *vctx, struct printerstats *stats)
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	stats->cnt_life = atoi((char*)resp+2);
+	stats->cnt_life[0] = atoi((char*)resp+2);
+
+	if (ctx->type == P_DNP_DS80D) {
+		stats->name[0] = "Sheet";
+		stats->mediatype[1] = ctx->marker[1].name;
+		stats->levelmax[1] = ctx->marker[1].levelmax;
+		stats->levelnow[1] = ctx->marker[1].levelnow;
+		stats->status[1] = strdup(dnpds80_duplex_paper_status(ctx->duplex_media_status));
+		stats->cnt_life[1] = -1;
+	}
+
 	free(resp);
 
 	return CUPS_BACKEND_OK;

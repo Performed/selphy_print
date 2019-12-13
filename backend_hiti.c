@@ -2135,16 +2135,18 @@ static int hiti_query_stats(void *vctx, struct printerstats *stats)
 	stats->mediatype[0] = ctx->marker.name;
 	stats->levelmax[0] = ctx->marker.levelmax;
 	stats->levelnow[0] = ctx->marker.levelnow;
+	stats->name[0] = "Roll";
+	stats->cnt_life[0] = 0;
 
 	if (hiti_query_counter(ctx, 1, &tmp))
 		return CUPS_BACKEND_FAILED;
 
-	stats->cnt_life += tmp;
+	stats->cnt_life[0] += tmp;
 
 	if (err)
-		stats->status = strdup(hiti_errors(err));
+		stats->status[0] = strdup(hiti_errors(err));
 	else
-		stats->status = strdup(hiti_status(sts));
+		stats->status[0] = strdup(hiti_status(sts));
 
 	return CUPS_BACKEND_OK;
 }

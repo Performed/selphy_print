@@ -869,40 +869,42 @@ static void dump_stats(struct dyesub_backend *backend, struct printerstats *stat
 			fprintf(stdout, "\t\"serial\": \"%s\",\n", stats->serial);
 		if (stats->fwver)
 			fprintf(stdout, "\t\"firmware\": \"%s\",\n", stats->fwver);
-		if (stats->status)
-			fprintf(stdout, "\t\"status\": \"%s\",\n", stats->status);
 
-		fprintf(stdout, "\t\"counters\": {\n");
-		if (stats->cnt_life >= 0)
-			fprintf(stdout, "\t\t\"lifetime\": %d\n", stats->cnt_life);
-		fprintf(stdout, "\t},\n");
-		fprintf(stdout, "\t\"media\": [\n");
-		fprintf(stdout, "\t\t{\n");
+		fprintf(stdout, "\t\"decks\": {\n");
 		for (i = 0 ; i < stats->decks ; i++) {
-			fprintf(stdout, "\t\t\t\"type\": \"%s\",\n", stats->mediatype[i]);
+			fprintf(stdout, "\t\t\"%s\": {\n", stats->name[i]);
+			if (stats->status[i])
+				fprintf(stdout, "\t\t\t\"status\": \"%s\",\n", stats->status[i]);
+			fprintf(stdout, "\t\t\t\"mediatype\": \"%s\",\n", stats->mediatype[i]);
 			switch (stats->levelnow[i]) {
 			case CUPS_MARKER_UNKNOWN:
-				fprintf(stdout, "\t\t\t\"level\": \"Unknown\"\n");
+				fprintf(stdout, "\t\t\t\"medialevel\": \"Unknown\",\n");
 				break;
 			case CUPS_MARKER_UNAVAILABLE:
-				fprintf(stdout, "\t\t\t\"level\": \"Unavailable\"\n");
+				fprintf(stdout, "\t\t\t\"medialevel\": \"Unavailable\",\n");
 				break;
 			case CUPS_MARKER_UNKNOWN_OK:
-				fprintf(stdout, "\t\t\t\"level\": \"OK\"\n");
+				fprintf(stdout, "\t\t\t\"medialevel\": \"OK\",\n");
 				break;
 			default:
 				if (stats->levelnow[i] >= 0 && stats->levelmax[i] > 0) {
-					fprintf(stdout, "\t\t\t\"level\": \"OK\",\n");
-					fprintf(stdout, "\t\t\t\"levelnow\": %d,\n", stats->levelnow[i]);
-					fprintf(stdout, "\t\t\t\"levelmax\": %d\n", stats->levelmax[i]);
+					fprintf(stdout, "\t\t\t\"medialevel\": \"OK\",\n");
+					fprintf(stdout, "\t\t\t\"medialevelnow\": %d,\n", stats->levelnow[i]);
+					fprintf(stdout, "\t\t\t\"medialevelmax\": %d,\n", stats->levelmax[i]);
 				} else {
-				fprintf(stdout, "\t\t\t\"level\": \"Illegal value\"\n");
+				fprintf(stdout, "\t\t\t\"medialevel\": \"Illegal value\",\n");
 				}
 				break;
 			}
+			fprintf(stdout, "\t\t\t\"counters\": {\n");
+			if (stats->cnt_life[i] >= 0)
+				fprintf(stdout, "\t\t\t\t\"lifetime\": %d\n", stats->cnt_life[i]);
+
+			fprintf(stdout, "\t\t\t}\n");
+
 			fprintf(stdout, "\t\t}%c\n", (i < (stats->decks -1) ? ',': ' '));
 		}
-		fprintf(stdout, "\t]\n");
+		fprintf(stdout, "\t}\n");
 		fprintf(stdout, "}\n");
 	} else {
 		fprintf(stdout, "Backend: %s\n", backend->name);
@@ -916,21 +918,21 @@ static void dump_stats(struct dyesub_backend *backend, struct printerstats *stat
 			fprintf(stdout, "Serial Number: %s\n", stats->serial);
 		if (stats->fwver)
 			fprintf(stdout, "Firmware Version: %s\n", stats->fwver);
-		if (stats->status)
-			fprintf(stdout, "Printer Status: %s\n", stats->status);
-		if (stats->cnt_life >= 0) {
-			fprintf(stdout, "Lifetime Prints: %d\n", stats->cnt_life);
-		}
+
 		for (i = 0 ; i < stats->decks ; i++) {
-			fprintf(stdout, "Media %d Type: %s\n", i, stats->mediatype[i]);
+			if (stats->status[i])
+				fprintf(stdout, "%s Status: %s\n", stats->name[i], stats->status[i]);
+			if (stats->cnt_life[i] >= 0)
+				fprintf(stdout, "%s Lifetime Prints: %d\n", stats->name[i], stats->cnt_life[i]);
+			fprintf(stdout, "%s Media Type: %s\n", stats->name[i], stats->mediatype[i]);
 			if (stats->levelnow[i] == CUPS_MARKER_UNKNOWN_OK)
-				fprintf(stdout, "Media %d Level: OK\n", i);
+				fprintf(stdout, "%s Media Level: OK\n", stats->name[i]);
 			else if (stats->levelnow[i] == CUPS_MARKER_UNKNOWN)
-				fprintf(stdout, "Media %d Level: Unknown\n", i);
+				fprintf(stdout, "%s Media Level: Unknown\n", stats->name[i]);
 			else if (stats->levelnow[i] == CUPS_MARKER_UNAVAILABLE)
-				fprintf(stdout, "Media %d Level: Unavailable\n", i);
+				fprintf(stdout, "%s Media Level: Unavailable\n", stats->name[i]);
 			else if (stats->levelnow[i] >= 0 && stats->levelmax[i] > 0)
-				fprintf(stdout, "Media %d Level: %d / %d\n", i, stats->levelnow[i], stats->levelmax[i]);
+				fprintf(stdout, "%s Media Level: %d / %d\n", stats->name[i], stats->levelnow[i], stats->levelmax[i]);
 		}
 	}
 }
@@ -1473,8 +1475,10 @@ bypass:
 		if (ret)
 			goto done_claimed;
 		dump_stats(backend, &stats, stats_only -1);
-		if (stats.status)
-			free(stats.status); // only dynamic member..
+		for (int i = 0 ; i < stats.decks ; i++) {
+			if (stats.status[i])
+				free(stats.status[i]); // the only dynamic member..
+		}
 		goto done_claimed;
 	}
 

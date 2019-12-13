@@ -200,18 +200,21 @@ struct marker {
 	int numtype; /* Numerical type, (-1 for unknown) */
 };
 
+#define DECKS_MAX 2
 struct printerstats {
 	time_t timestamp;
 	const char *mfg;      /* Manufacturer */
 	const char *model;    /* Model */
 	const char *serial;   /* Serial Number */
 	const char *fwver;    /* Firmware Version */
-	char *status;         /* Printer status */
 	uint8_t decks;        /* Number of "decks" (1 or 2) */
-	const char *mediatype[2];   /* Media Type */
-	int32_t levelmax[2];  /* Max media count (-1 if unknown) */
-	int32_t levelnow[2];  /* Remaining media count (-1 if unknown) */
-	int32_t cnt_life;     /* Lifetime prints */
+
+	char *name[DECKS_MAX];        /* Name */
+	char *status[DECKS_MAX];      /* Status (dynamic) */
+	const char *mediatype[DECKS_MAX]; /* Media Type */
+	int32_t levelmax[DECKS_MAX];  /* Max media count (-1 if unknown) */
+	int32_t levelnow[DECKS_MAX];  /* Remaining media count (-1 if unknown) */
+	int32_t cnt_life[DECKS_MAX];  /* Lifetime prints */
 };
 
 #define BACKEND_FLAG_JOBLIST    0x00000001
