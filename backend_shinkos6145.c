@@ -558,6 +558,9 @@ struct shinkos6145_ctx {
 
 	uint8_t image_avg[3]; /* CMY */
 
+	char serial[32];
+	char fwver[32];
+
 	struct marker marker;
 
 	struct sinfonia_6x45_mediainfo_resp media;
@@ -1534,11 +1537,12 @@ static int shinkos6145_query_markers(void *vctx, struct marker **markers, int *c
 
 	ctx->marker.levelnow = le32_to_cpu(sts.count_ribbon_left);
 
-	*markers = &ctx->marker;
-	*count = 1;
+	if (markers) *markers = &ctx->marker;
+	if (count) *count = 1;
 
 	return CUPS_BACKEND_OK;
 }
+
 
 /* Exported */
 #define USB_VID_SHINKO        0x10CE
@@ -1549,6 +1553,108 @@ static int shinkos6145_query_markers(void *vctx, struct marker **markers, int *c
 #define USB_PID_KA_6900       0x0003 /* Aka S2245-6A */
 #define USB_VID_HITI          0x0D16
 #define USB_PID_HITI_M610     0x0010
+
+static int shinkos6145_query_stats(void *vctx,  struct printerstats *stats)
+{
+	struct shinkos6145_ctx *ctx = vctx;
+	struct sinfonia_cmd_hdr cmd;
+	struct s6145_status_resp status;
+	int num;
+	uint16_t usbID = 0xffff;
+
+	if (shinkos6145_query_markers(ctx, NULL, NULL))
+		return CUPS_BACKEND_FAILED;
+
+	/* Query Status */
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETSTATUS);
+	cmd.len = cpu_to_le16(0);
+
+	if (sinfonia_docmd(&ctx->dev,
+			   (uint8_t*)&cmd, sizeof(cmd),
+			   (uint8_t*)&status, sizeof(status),
+			   &num)) {
+		return CUPS_BACKEND_FAILED;
+	}
+
+	/* Query USB ID */
+	{
+		struct libusb_device_descriptor desc;
+		struct libusb_device *dev;
+
+		dev = libusb_get_device(ctx->dev.dev);
+		libusb_get_device_descriptor(dev, &desc);
+
+		usbID = desc.idProduct;
+	}
+
+	switch (ctx->dev.type) {
+	case P_SHINKO_S6145:
+		stats->mfg = "Sinfonia";
+		stats->model = "CS2 / S6145";
+		break;
+	case P_SHINKO_S6145D:
+		stats->mfg = "Ciaat";
+		stats->model = "Brava 21";
+		break;
+	case P_SHINKO_S2245:
+		stats->mfg = "Sinfonia";
+		stats->model = "S3 / S2245";
+		break;
+	default:
+		if (usbID == USB_PID_KA_6900) {
+			stats->mfg = "Kodak";
+			stats->model = "6900";
+		} else if (usbID == USB_PID_HITI_M610) {
+			stats->mfg = "HiTi";
+			stats->model = "M610";
+		} else {
+			stats->mfg = "Unknown";
+			stats->model = "Unknown";
+		}
+		break;
+	}
+
+	if (sinfonia_query_serno(ctx->dev.dev, ctx->dev.endp_up,
+				 ctx->dev.endp_down, ctx->dev.iface,
+				 ctx->serial, sizeof(stats->serial)))
+		return CUPS_BACKEND_FAILED;
+
+	stats->serial = ctx->serial;
+
+	{
+		struct sinfonia_fwinfo_cmd  cmd;
+		struct sinfonia_fwinfo_resp resp;
+		int num = 0;
+		cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_FWINFO);
+		cmd.hdr.len = cpu_to_le16(1);
+		cmd.target = FWINFO_TARGET_MAIN_APP;
+
+		if (sinfonia_docmd(&ctx->dev,
+				   (uint8_t*)&cmd, sizeof(cmd),
+				   (uint8_t*)&resp, sizeof(resp),
+				   &num))
+			return CUPS_BACKEND_FAILED;
+		snprintf(ctx->fwver, sizeof(ctx->fwver)-1,
+			 "%d.%d", resp.major, resp.minor);
+		stats->fwver = ctx->fwver;
+	}
+
+	stats->decks = 1;
+	stats->mediatype[0] = ctx->marker.name;
+	stats->levelmax[0] = ctx->marker.levelmax;
+	stats->levelnow[0] = ctx->marker.levelnow;
+	stats->name[0] = "Roll";
+	if (status.hdr.status == ERROR_PRINTER) {
+		if(status.hdr.error == ERROR_NONE)
+			status.hdr.error = status.hdr.status;
+		stats->status[0] = strdup(sinfonia_error_str(status.hdr.error));
+	} else {
+		stats->status[0] = strdup(sinfonia_status_str(status.hdr.status));
+	}
+	stats->cnt_life[0] = le32_to_cpu(status.count_lifetime);
+
+	return CUPS_BACKEND_OK;
+}
 
 static const char *shinkos6145_prefixes[] = {
 	"sinfonia-chcs6145", "ciaat-brava-21",
@@ -1562,7 +1668,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2/S2245/S3",
-	.version = "0.46" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.47" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
@@ -1574,6 +1680,7 @@ struct dyesub_backend shinkos6145_backend = {
 	.main_loop = shinkos6145_main_loop,
 	.query_serno = sinfonia_query_serno,
 	.query_markers = shinkos6145_query_markers,
+	.query_stats = shinkos6145_query_stats,
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL, "sinfonia-chcs6145"},
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145D, P_SHINKO_S6145D, NULL, "ciaat-brava-21"},
