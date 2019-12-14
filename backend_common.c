@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.100"
+#define BACKEND_VERSION "0.101"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
