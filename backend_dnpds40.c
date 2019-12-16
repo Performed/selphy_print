@@ -3159,6 +3159,7 @@ static int dnp_query_stats(void *vctx, struct printerstats *stats)
 	dnpds40_cleanup_string((char*)resp, len);
 
 	stats->cnt_life[0] = atoi((char*)resp+2);
+	free(resp);
 
 	if (ctx->type == P_DNP_DS80D) {
 		stats->name[0] = "Sheet";
@@ -3166,10 +3167,19 @@ static int dnp_query_stats(void *vctx, struct printerstats *stats)
 		stats->levelmax[1] = ctx->marker[1].levelmax;
 		stats->levelnow[1] = ctx->marker[1].levelnow;
 		stats->status[1] = strdup(dnpds80_duplex_paper_status(ctx->duplex_media_status));
-		stats->cnt_life[1] = -1;
-	}
 
-	free(resp);
+		dnpds40_build_cmd(&cmd, "MNT_RD", "COUNTER_DUPLEX", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		stats->cnt_life[1] = atoi((char*)resp);
+
+		free(resp);
+	}
 
 	return CUPS_BACKEND_OK;
 }
