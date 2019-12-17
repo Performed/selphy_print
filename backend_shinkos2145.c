@@ -1188,7 +1188,7 @@ static int shinkos2145_query_stats(void *vctx,  struct printerstats *stats)
 
 	if (sinfonia_query_serno(ctx->dev.dev, ctx->dev.endp_up,
 				 ctx->dev.endp_down, ctx->dev.iface,
-				 ctx->serial, sizeof(stats->serial)))
+				 ctx->serial, sizeof(ctx->serial)))
 		return CUPS_BACKEND_FAILED;
 
 	stats->serial = ctx->serial;

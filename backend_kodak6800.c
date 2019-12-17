@@ -95,6 +95,7 @@ struct kodak68x0_media_readback {
 /* Private data structure */
 struct kodak6800_ctx {
 	struct libusb_device_handle *dev;
+	int iface;
 	uint8_t endp_up;
 	uint8_t endp_down;
 
@@ -108,6 +109,9 @@ struct kodak6800_ctx {
 	uint8_t media_type;
 
 	struct kodak68x0_status_readback sts;
+
+	char serial[32];
+	char fwver[32];
 
 	struct marker marker;
 };
@@ -546,6 +550,7 @@ static int kodak6800_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 		.dev = dev,
 		.endp_up = endp_up,
 		.endp_down = endp_down,
+		.iface = iface,
 	};
 
 	int ret;
@@ -553,8 +558,6 @@ static int kodak6800_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 
 	uint8_t resp[33];
 	uint8_t req[16];
-
-	UNUSED(iface);
 
 	memset(req, 0, sizeof(req));
 	memset(resp, 0, sizeof(resp));
@@ -684,11 +687,10 @@ static int kodak6800_attach(void *vctx, struct libusb_device_handle *dev, int ty
 {
 	struct kodak6800_ctx *ctx = vctx;
 
-	UNUSED(iface);
-
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+	ctx->iface = iface;
 	ctx->type = type;
 
         /* Ensure jobid is sane */
@@ -1019,8 +1021,53 @@ static int kodak6800_query_markers(void *vctx, struct marker **markers, int *cou
 
 	ctx->marker.levelnow = ctx->sts.donor;
 
-	*markers = &ctx->marker;
-	*count = 1;
+	if (markers) *markers = &ctx->marker;
+	if (count) *count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
+static int kodak6800_query_stats(void *vctx,  struct printerstats *stats)
+{
+	struct kodak6800_ctx *ctx = vctx;
+
+	if (kodak6800_query_markers(ctx, NULL, NULL))
+		return CUPS_BACKEND_FAILED;
+
+	switch (ctx->type) {
+	case P_KODAK_6800:
+		stats->mfg = "Kodak";
+		stats->model = "6800";
+		break;
+	case P_KODAK_6850:
+		stats->mfg = "Kodak";
+		stats->model = "6850";
+		break;
+	default:
+		stats->mfg = "Unknown";
+		stats->model = "Unknown";
+		break;
+	}
+
+	if (kodak6800_query_serno(ctx->dev, ctx->endp_up,
+				  ctx->endp_down, ctx->iface,
+				  ctx->serial, sizeof(ctx->serial)))
+		return CUPS_BACKEND_FAILED;
+
+	stats->serial = ctx->serial;
+
+	snprintf(ctx->fwver, sizeof(ctx->fwver)-1,
+		 "%d / %d", be16_to_cpu(ctx->sts.main_fw),
+		 be16_to_cpu(ctx->sts.dsp_fw));
+	stats->fwver = ctx->fwver;
+
+	stats->decks = 1;
+	stats->mediatype[0] = ctx->marker.name;
+	stats->levelmax[0] = ctx->marker.levelmax;
+	stats->levelnow[0] = ctx->marker.levelnow;
+	stats->name[0] = "Roll";
+	stats->status[0] = strdup(sinfonia_1x45_status_str(ctx->sts.status1, ctx->sts.status2, ctx->sts.errcode));
+	stats->cnt_life[0] = be32_to_cpu(ctx->sts.lifetime);
 
 	return CUPS_BACKEND_OK;
 }
@@ -1036,7 +1083,7 @@ static const char *kodak6800_prefixes[] = {
 /* Exported */
 struct dyesub_backend kodak6800_backend = {
 	.name = "Kodak 6800/6850",
-	.version = "0.78" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.79" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = kodak6800_prefixes,
 	.cmdline_usage = kodak6800_cmdline,
 	.cmdline_arg = kodak6800_cmdline_arg,
@@ -1047,6 +1094,7 @@ struct dyesub_backend kodak6800_backend = {
 	.main_loop = kodak6800_main_loop,
 	.query_serno = kodak6800_query_serno,
 	.query_markers = kodak6800_query_markers,
+	.query_stats = kodak6800_query_stats,
 	.devices = {
 		{ USB_VID_KODAK, USB_PID_KODAK_6800, P_KODAK_6800, "Kodak", "kodak-6800"},
 		{ USB_VID_KODAK, USB_PID_KODAK_6850, P_KODAK_6850, "Kodak", "kodak-6850"},

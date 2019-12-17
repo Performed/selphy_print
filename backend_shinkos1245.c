@@ -229,12 +229,16 @@ struct shinkos1245_ctx {
 	uint8_t endp_up;
 	uint8_t endp_down;
 	int type;
+	int iface;
 
 	uint8_t jobid;
 
 	struct sinfonia_mediainfo_item medias[MAX_MEDIA_ITEMS];
 	int num_medias;
 	int media_8x12;
+
+	char serial[32];
+	char fwver[32];
 
 	struct marker marker;
 
@@ -945,11 +949,10 @@ static int shinkos1245_attach(void *vctx, struct libusb_device_handle *dev, int 
 {
 	struct shinkos1245_ctx *ctx = vctx;
 
-	UNUSED(iface);
-
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
+	ctx->iface = iface;
 	ctx->type = type;
 
 	/* Ensure jobid is sane */
@@ -1214,8 +1217,8 @@ static int shinkos1245_query_serno(struct libusb_device_handle *dev, uint8_t end
 		.dev = dev,
 		.endp_up = endp_up,
 		.endp_down = endp_down,
+		.iface = iface,
 	};
-	UNUSED(iface);
 
 	i = shinkos1245_get_printerid(&ctx, &resp);
 	if (i < 0)
@@ -1245,8 +1248,45 @@ static int shinkos1245_query_markers(void *vctx, struct marker **markers, int *c
 
 	ctx->marker.levelnow = ctx->marker.levelmax - be32_to_cpu(status.counters.media);
 
-	*markers = &ctx->marker;
-	*count = 1;
+	if (markers) *markers = &ctx->marker;
+	if (markers) *count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
+static int shinkos1245_query_stats(void *vctx,  struct printerstats *stats)
+{
+	struct shinkos1245_ctx *ctx = vctx;
+	struct shinkos1245_resp_status status;
+
+	if (shinkos1245_query_markers(ctx, NULL, NULL))
+		return CUPS_BACKEND_FAILED;
+
+	if (shinkos1245_get_status(ctx, &status))
+		return CUPS_BACKEND_FAILED;
+
+	stats->mfg = "Sinfonia";
+	stats->model = "E1 / S1245";
+
+	if (shinkos1245_query_serno(ctx->dev, ctx->endp_up,
+				    ctx->endp_down, ctx->iface,
+				    ctx->serial, sizeof(ctx->serial)))
+		return CUPS_BACKEND_FAILED;
+
+	stats->serial = ctx->serial;
+
+	snprintf(ctx->fwver, sizeof(ctx->fwver)-1,
+		 "%d / %d", be16_to_cpu(status.versions.main_control),
+		 be16_to_cpu(status.versions.dsp_control));
+	stats->fwver = ctx->fwver;
+
+	stats->decks = 1;
+	stats->mediatype[0] = ctx->marker.name;
+	stats->levelmax[0] = ctx->marker.levelmax;
+	stats->levelnow[0] = ctx->marker.levelnow;
+	stats->name[0] = "Roll";
+	stats->status[0] = strdup(sinfonia_1x45_status_str(status.state.status1, status.state.status2, status.state.error));
+	stats->cnt_life[0] = be32_to_cpu(status.counters.lifetime);
 
 	return CUPS_BACKEND_OK;
 }
@@ -1266,7 +1306,7 @@ static const char *shinkos1245_prefixes[] = {
 
 struct dyesub_backend shinkos1245_backend = {
 	.name = "Shinko/Sinfonia CHC-S1245/E1",
-	.version = "0.32" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.33" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos1245_prefixes,
 	.cmdline_usage = shinkos1245_cmdline,
 	.cmdline_arg = shinkos1245_cmdline_arg,
@@ -1277,6 +1317,7 @@ struct dyesub_backend shinkos1245_backend = {
 	.main_loop = shinkos1245_main_loop,
 	.query_serno = shinkos1245_query_serno,
 	.query_markers = shinkos1245_query_markers,
+	.query_stats = shinkos1245_query_stats,
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S1245, P_SHINKO_S1245, NULL, "shinko-chcs1245"},
 		{ 0, 0, 0, NULL, NULL}
