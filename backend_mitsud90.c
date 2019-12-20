@@ -1045,7 +1045,7 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 
 static int mitsud90_get_serial(struct mitsud90_ctx *ctx)
 {
-	uint8_t cmdbuf[22];
+	uint8_t cmdbuf[32];
 	int ret, num;
 
 	/* Send Parameter.. */
@@ -1075,7 +1075,7 @@ static int mitsud90_get_serial(struct mitsud90_ctx *ctx)
 	cmdbuf[21] = 0xcf;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     cmdbuf, sizeof(cmdbuf))))
+			     cmdbuf, 22)))
 		return ret;
 
 	ret = read_data(ctx->dev, ctx->endp_up,
