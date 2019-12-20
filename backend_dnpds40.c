@@ -897,6 +897,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 #endif
 #ifdef CITIZEN_ONLY   /* Only allow CITIZEN printers to work. */
 			if (ctx->mfg != 1)
+				return CUPS_BACKEND_FAILED
 #endif
 		}
 	} else {
