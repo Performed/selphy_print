@@ -52,13 +52,15 @@ const char *mitsu70x_temperatures(uint8_t temp);
 #define D90_STATUS_TYPE_MECHA  0x17 // 2  (see below)
 #define D90_STATUS_TYPE_x1e    0x1e // 1, power state or time?  (x00)
 #define D90_STATUS_TYPE_TEMP   0x1f // 1  (see below)
-#define D90_STATUS_TYPE_x22    0x22 // 2,  all 0
-#define D90_STATUS_TYPE_x28    0x28 // 2,  all 0, seen some sort of counter?
+#define D90_STATUS_TYPE_x22    0x22 // 2,  all 0  (counter?)
+#define D90_STATUS_TYPE_x28    0x28 // 2,  seen 00 00, counts up.  Power-on prints?
 #define D90_STATUS_TYPE_x29    0x29 // 8,  e0 07 00 00 21 e6 b3 22
 #define D90_STATUS_TYPE_MEDIA  0x2a // 10 (see below)
-#define D90_STATUS_TYPE_x2b    0x2b // 2,  all 0
-#define D90_STATUS_TYPE_x2c    0x2c // 2,  00 56
+#define D90_STATUS_TYPE_x2b    0x2b // 2,  all 0 (counter?)
+#define D90_STATUS_TYPE_x2c    0x2c // 2,  00 56 (counter?)
 #define D90_STATUS_TYPE_x65    0x65 // 50, ac 80 00 01 bb b8 fe 48 05 13 5d 9c 00 33 00 00  00 00 00 00 00 00 00 00 00 00 02 39 00 00 00 00  03 13 00 02 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
+                                    // 50, aa 79 00 01 bb b7 fe 47 05 13 5d 9c 01 2f 00 68  00 00 00 00 00 00 00 00 00 00 02 08 00 00 00 00  03 14 00 02 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
+
 #define D90_STATUS_TYPE_ISER   0x82 // 1,  80 (iserial disabled)
 #define D90_STATUS_TYPE_x83    0x83 // 1,  00
 #define D90_STATUS_TYPE_x84    0x84 // 1,  00
@@ -1041,6 +1043,46 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
+static int mitsud90_get_serial(struct mitsud90_ctx *ctx)
+{
+	uint8_t cmdbuf[22];
+	int ret, num;
+
+	/* Send Parameter.. */
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x61;
+	cmdbuf[2] = 0x36;
+	cmdbuf[3] = 0x36;
+	cmdbuf[4] = 0x41;
+	cmdbuf[5] = 0xbe;
+	cmdbuf[6] = 0x00;
+	cmdbuf[7] = 0x00;
+
+	cmdbuf[8] = 0x00;
+	cmdbuf[9] = 0x06;
+	cmdbuf[10] = 0x00;
+	cmdbuf[11] = 0x00;
+	cmdbuf[12] = 0x00;
+	cmdbuf[13] = 0x30;
+	cmdbuf[14] = 0xff;
+	cmdbuf[15] = 0xff;
+
+	cmdbuf[16] = 0xff;
+	cmdbuf[17] = 0xf9;
+	cmdbuf[18] = 0xff;
+	cmdbuf[19] = 0xff;
+	cmdbuf[20] = 0xff;
+	cmdbuf[21] = 0xcf;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, sizeof(cmdbuf))))
+		return ret;
+
+	ret = read_data(ctx->dev, ctx->endp_up,
+			cmdbuf, sizeof(cmdbuf), &num);
+
+	return ret;
+}
 static int mitsud90_set_iserial(struct mitsud90_ctx *ctx, uint8_t enabled)
 {
 	uint8_t cmdbuf[23];
@@ -1152,7 +1194,7 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ij:k:msx:Z")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ij:k:msXx:Z")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'i':
@@ -1169,6 +1211,9 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 's':
 			j = mitsud90_get_status(ctx);
+			break;
+		case 'X':
+			j = mitsud90_get_serial(ctx);
 			break;
 		case 'x':
 			j = mitsud90_set_iserial(ctx, atoi(optarg));
@@ -1275,7 +1320,7 @@ struct dyesub_backend mitsud90_backend = {
 
  [[FOOTER]]
 
-   1b 42 51 31 00 TT                  ## TT == secs to wait for second print
+   1b 42 51 31 00 TT                  ## TT == secs to wait for second print, 0xff also valid for something?
 
 
  ****************************************************
@@ -1309,12 +1354,12 @@ Comms Protocol for D90 & CP-M1
 
  [[ UNKNOWN QUERY ]]
 -> 1b 47 44 30 00 00 01 28
-<- e4 47 44 30 XX XX        Unknown, seems to increment.
+<- e4 47 44 30 XX XX        Unknown, seems to increment.  Lifetime counter?
 
  [[ JOB STATUS QUERY ?? ]]
 
 -> 1b 47 44 31 00 00 JJ JJ  Jobid?
-<- e4 47 44 31 XX YY ZZ ZZ  No idea.. sure.
+<- e4 47 44 31 XX YY ZZ ZZ  No idea... maybe remaining prints?
 
  [[ COMBINED STATUS QUERIES ]]
 
@@ -1342,7 +1387,7 @@ Comms Protocol for D90 & CP-M1
  [[ WAKE UP PRINTER ]]
 -> 1b 45 57 55
 
- [[ GET iSERIAL ]]
+ [[ GET iSERIAL Setting ]]
 
 -> 1b 61 36 36 41 be 00 00
    00 01 00 00 00 11 ff ff
@@ -1350,6 +1395,16 @@ Comms Protocol for D90 & CP-M1
 <- e4 61 36 36 41 be 00 00
    00 01 00 00 00 11 ff ff
    ff fe ff ff ff ee XX      <- XX is 0x80 or 0x00.  (0x80)  ISERIAL OFF
+
+ [[ GET SERIAL NUMBER ]]
+
+-> 1b 61 36 36 41 be 00 00
+   00 06 00 00 00 30 ff ff
+   ff f9 ff ff ff cf
+<- e4 61 36 36 41 00 ?? ??
+   ?? ?? ?? ?? ?? ?? ?? ??
+   XX XX XX XX XX XX ?? ??   <- XX is 6-char ASCII serial number!
+   ?? ?? ?? ??
 
  [[ GET CUT? ]]
 
@@ -1437,5 +1492,13 @@ Comms Protocol for D90 & CP-M1
 
    ... Footer.
    ZZ == Seconds to wait for follow-up print (0x05)
+
+   ALSO SEEN (in SDK)
+
+   1b 42 61 32 00 00
+
+ [[ UNKNOWN (seen in SDK) ]]
+
+   1b 44 43 41  4e 43 45 4c  00 00 00 00
 
  */

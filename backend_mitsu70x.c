@@ -359,6 +359,18 @@ struct mitsu70x_memorystatus_resp {
 
 // XXX also seen commands 0x67, 0x72, 0x54, 0x6e
 
+/*
+
+  1b 72 45 [31 32]
+  1b 5a 43 00
+  1b 54 53 90 00 0a 00 00  00 00 00 00 00 00 00 00
+  1b 54 00 [00 31 32]  <-- No resp
+  1b 45 4a [00 30 31 32] <-- No resp
+  1b 56 34 [31 32]
+  1b 45 48 [00 30 31 32] <-- No resp
+
+*/
+
 struct mitsu70x_hdr {
 	uint8_t  hdr[4]; /* 1b 5a 54 XX */  // XXX also, seen 1b 5a 43!
 	uint16_t jobid;
