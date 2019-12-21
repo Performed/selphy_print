@@ -1791,14 +1791,17 @@ struct dyesub_backend mitsu9550_backend = {
 
   ~~~~ Footer:
 
-   1b 50 57 00  (9500)
+   1b 50 41 00  (9500AM)
    1b 50 46 00  (9550)
    1b 50 47 00  (9550-S)
    1b 50 48 00  (9600)
    1b 50 4c 00  (9800/9810)
+   1b 50 4d 00  (9000)
    1b 50 4e 00  (9800-S)
+   1b 50 51 00  (CP3020DA)
+   1b 50 57 00  (9500)
 
-   Unknown: 9600-S, 9820-S
+   Unknown: 9600-S, 9820-S, 1 other..
 
   ~~~~ Lamination data follows (on 9810 only, if matte selected)
 
@@ -1852,6 +1855,11 @@ struct dyesub_backend mitsu9550_backend = {
  -> 1b 4b 01 00
  <- e4 4b 01 00 02 00 78
 
+  [[ Unknown query.. "Printer number" related? ]]
+
+ -> 1b 72 10 00
+ <- e4 82 10 00 LL [ 10 unknown bytes.  guess. ]
+
   Status Query
 
  -> 1b 56 30 00
@@ -1865,6 +1873,21 @@ struct dyesub_backend mitsu9550_backend = {
  <- 21 2e 00 80 00 22 a8 0b  00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00  00 00 00 QQ 00 00 00 00 :: QQ == Prints in job?
     00 00 00 00 00 00 00 00  00 00 NN NN 0A 00 00 01 :: NN NN = Remaining media
+
+  Status Query C (unknown)
+
+ -> 1b 56 36 00
+ <- ??? 48 bytes?
+
+  Status Query D (unknown)
+
+ -> 1b 56 20 00
+ <- ??? 48 bytes?
+
+  Status Query E (unknown)
+
+ -> 1b 56 33 00
+ <- ??? 48 bytes?
 
   [[ Job Cancel ]]
 

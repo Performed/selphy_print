@@ -368,6 +368,10 @@ struct mitsu70x_memorystatus_resp {
   1b 45 4a [00 30 31 32] <-- No resp
   1b 56 34 [31 32]
   1b 45 48 [00 30 31 32] <-- No resp
+  1b 72 67 00 00 00
+  1b 67 18 ...   (??)
+  1b 52 XX 00    <-- XX = something + 0x51
+  1b 45 53 00 10 [ ...? ] XX XX . "set printer number"..
 
 */
 
