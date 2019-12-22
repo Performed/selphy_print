@@ -426,6 +426,7 @@ struct mitsud90_ctx {
 	uint8_t endp_down;
 
 	int type;
+	char serno[7];
 
 	/* Used in parsing.. */
 	struct mitsud90_job_footer holdover;
@@ -500,6 +501,51 @@ static int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_statu
 	return CUPS_BACKEND_OK;
 }
 
+static int mitsud90_get_serno(struct mitsud90_ctx *ctx)
+{
+	uint8_t cmdbuf[32];
+	int ret, num;
+
+	/* Send Request */
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x61;
+	cmdbuf[2] = 0x36;
+	cmdbuf[3] = 0x36;
+	cmdbuf[4] = 0x41;
+	cmdbuf[5] = 0xbe;
+	cmdbuf[6] = 0x00;
+	cmdbuf[7] = 0x00;
+
+	cmdbuf[8] = 0x00;
+	cmdbuf[9] = 0x06;
+	cmdbuf[10] = 0x00;
+	cmdbuf[11] = 0x00;
+	cmdbuf[12] = 0x00;
+	cmdbuf[13] = 0x30;
+	cmdbuf[14] = 0xff;
+	cmdbuf[15] = 0xff;
+
+	cmdbuf[16] = 0xff;
+	cmdbuf[17] = 0xf9;
+	cmdbuf[18] = 0xff;
+	cmdbuf[19] = 0xff;
+	cmdbuf[20] = 0xff;
+	cmdbuf[21] = 0xcf;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, 22)))
+		return ret;
+
+	ret = read_data(ctx->dev, ctx->endp_up,
+			cmdbuf, sizeof(cmdbuf), &num);
+
+	/* Store it */
+	memcpy(ctx->serno, &cmdbuf[22], 6);
+	ctx->serno[6] = 0;
+
+	return ret;
+}
+
 /* Generic functions */
 
 static void *mitsud90_init(void)
@@ -530,6 +576,8 @@ static int mitsud90_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	if (test_mode < TEST_MODE_NOATTACH) {
 		if (mitsud90_query_media(ctx, &resp))
+			return CUPS_BACKEND_FAILED;
+		if (mitsud90_get_serno(ctx))
 			return CUPS_BACKEND_FAILED;
 	} else {
 		resp.media.brand = 0xff;
@@ -913,7 +961,7 @@ static int mitsud90_get_status(struct mitsud90_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
-int mitsud90_get_info(struct mitsud90_ctx *ctx)
+static int mitsud90_get_info(struct mitsud90_ctx *ctx)
 {
 	uint8_t cmdbuf[26];
 	int ret, num;
@@ -970,6 +1018,7 @@ int mitsud90_get_info(struct mitsud90_ctx *ctx)
 	memset(cmdbuf, 0, sizeof(cmdbuf));
 	memcpy(cmdbuf, resp.model, sizeof(resp.model));
 	INFO("Model: %s\n", (char*)cmdbuf);
+	INFO("Serial: %s\n", ctx->serno);
 	for (num = 0; num < 7 ; num++) {
 		memset(cmdbuf, 0, sizeof(cmdbuf));
 		memcpy(cmdbuf, resp.fw_vers[num].version, sizeof(resp.fw_vers[num].version));
@@ -1045,53 +1094,21 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 
 static int mitsud90_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
-	uint8_t cmdbuf[32];
-	int ret, num, i;
+	struct mitsud90_ctx ctx = {
+		.dev = dev,
+		.endp_up = endp_up,
+		.endp_down = endp_down
+	};
+
+	int ret;
 
 	UNUSED(iface);
+	UNUSED(buf_len);
 
-	if (buf_len > 6)  /* Will we ever have a buffer under 6 bytes? */
-		buf_len = 6;
+	ret = mitsud90_get_serno(&ctx);
 
-	/* Send Request */
-	cmdbuf[0] = 0x1b;
-	cmdbuf[1] = 0x61;
-	cmdbuf[2] = 0x36;
-	cmdbuf[3] = 0x36;
-	cmdbuf[4] = 0x41;
-	cmdbuf[5] = 0xbe;
-	cmdbuf[6] = 0x00;
-	cmdbuf[7] = 0x00;
-
-	cmdbuf[8] = 0x00;
-	cmdbuf[9] = 0x06;
-	cmdbuf[10] = 0x00;
-	cmdbuf[11] = 0x00;
-	cmdbuf[12] = 0x00;
-	cmdbuf[13] = 0x30;
-	cmdbuf[14] = 0xff;
-	cmdbuf[15] = 0xff;
-
-	cmdbuf[16] = 0xff;
-	cmdbuf[17] = 0xf9;
-	cmdbuf[18] = 0xff;
-	cmdbuf[19] = 0xff;
-	cmdbuf[20] = 0xff;
-	cmdbuf[21] = 0xcf;
-
-	if ((ret = send_data(dev, endp_down,
-			     cmdbuf, 22)))
-		return ret;
-
-	ret = read_data(dev, endp_up,
-			cmdbuf, sizeof(cmdbuf), &num);
-
-	if (buf_len > 6)  /* Will we ever have a buffer under 6 bytes? */
-		buf_len = 6;
-
-	for (i = 0 ; i < buf_len ; i++) {
-		*buf++ = cmdbuf[21 + i];
-	}
+	/* Copy it */
+	memcpy(buf, ctx.serno, sizeof(ctx.serno));
 
 	return ret;
 }
