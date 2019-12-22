@@ -1027,7 +1027,7 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 		ret = read_data(ctx->dev, ctx->endp_up,
 				buf, sizeof(buf), &num);
 
-		if (ret <= 0)
+		if (ret < 0)
 			continue;
 
 		if (num > 4) {
