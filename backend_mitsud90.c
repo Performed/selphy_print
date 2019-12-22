@@ -1260,13 +1260,50 @@ static int mitsud90_query_markers(void *vctx, struct marker **markers, int *coun
 	struct mitsud90_ctx *ctx = vctx;
 	struct mitsud90_media_resp resp;
 
-	*markers = &ctx->marker;
-	*count = 1;
+	if (markers) *markers = &ctx->marker;
+	if (count) *count = 1;
 
 	if (mitsud90_query_media(ctx, &resp))
 		return CUPS_BACKEND_FAILED;
 
 	ctx->marker.levelnow = be16_to_cpu(resp.media.remain);
+
+	return CUPS_BACKEND_OK;
+}
+
+static int mitsud90_query_stats(void *vctx, struct printerstats *stats)
+{
+	struct mitsud90_ctx *ctx = vctx;
+	struct mitsud90_status_resp resp;
+
+	if (mitsud90_query_markers(ctx, NULL, NULL))
+		return CUPS_BACKEND_FAILED;
+	if (mitsud90_query_status(ctx, &resp))
+		return CUPS_BACKEND_FAILED;
+
+	stats->mfg = "Mitsubishi";
+	stats->model = "CP-D90DW";
+	stats->serial = ctx->serno;
+
+	// stats->fwver = ctx->fwver; // XXX use resp.fw_vers[0] aka MAIN FW
+	stats->decks = 1;
+
+	stats->name[0] = "Roll";
+	if (resp.code[0] != D90_ERROR_STATUS_OK)
+		stats->status[0] = strdup(mitsud90_error_codes(resp.code));
+	else if (resp.code[1] & D90_ERROR_STATUS_OK_WARMING ||
+		 resp.temp & D90_ERROR_STATUS_OK_WARMING)
+		stats->status[0] = strdup("Warming up");
+	else if (resp.code[1] & D90_ERROR_STATUS_OK_COOLING ||
+		 resp.temp & D90_ERROR_STATUS_OK_COOLING)
+		stats->status[0] = strdup("Cooling down");
+	else
+		stats->status[0] = strdup(mitsud90_mecha_statuses(resp.mecha));
+
+	stats->mediatype[0] = ctx->marker.name;
+	stats->levelmax[0] = ctx->marker.levelmax;
+	stats->levelnow[0] = ctx->marker.levelnow;
+	// stats->cnt_life[0] = ??? // XXX Don't know about any counters yet.
 
 	return CUPS_BACKEND_OK;
 }
@@ -1281,7 +1318,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.16",
+	.version = "0.17",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
@@ -1290,8 +1327,9 @@ struct dyesub_backend mitsud90_backend = {
 	.cleanup_job = mitsud90_cleanup_job,
 	.read_parse = mitsud90_read_parse,
 	.main_loop = mitsud90_main_loop,
-	.query_markers = mitsud90_query_markers,
 	.query_serno = mitsud90_query_serno,
+	.query_markers = mitsud90_query_markers,
+	.query_stats = mitsud90_query_stats,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D90, P_MITSU_D90, NULL, "mitsubishi-d90dw"},
 		{ 0, 0, 0, NULL, NULL}
