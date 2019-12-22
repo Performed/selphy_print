@@ -1043,12 +1043,17 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 	return CUPS_BACKEND_OK;
 }
 
-static int mitsud90_get_serial(struct mitsud90_ctx *ctx)
+static int mitsud90_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len)
 {
 	uint8_t cmdbuf[32];
-	int ret, num;
+	int ret, num, i;
 
-	/* Send Parameter.. */
+	UNUSED(iface);
+
+	if (buf_len > 6)  /* Will we ever have a buffer under 6 bytes? */
+		buf_len = 6;
+
+	/* Send Request */
 	cmdbuf[0] = 0x1b;
 	cmdbuf[1] = 0x61;
 	cmdbuf[2] = 0x36;
@@ -1074,12 +1079,19 @@ static int mitsud90_get_serial(struct mitsud90_ctx *ctx)
 	cmdbuf[20] = 0xff;
 	cmdbuf[21] = 0xcf;
 
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
+	if ((ret = send_data(dev, endp_down,
 			     cmdbuf, 22)))
 		return ret;
 
-	ret = read_data(ctx->dev, ctx->endp_up,
+	ret = read_data(dev, endp_up,
 			cmdbuf, sizeof(cmdbuf), &num);
+
+	if (buf_len > 6)  /* Will we ever have a buffer under 6 bytes? */
+		buf_len = 6;
+
+	for (i = 0 ; i < buf_len ; i++) {
+		*buf++ = cmdbuf[21 + i];
+	}
 
 	return ret;
 }
@@ -1123,8 +1135,6 @@ static int mitsud90_set_iserial(struct mitsud90_ctx *ctx, uint8_t enabled)
 
 	ret = read_data(ctx->dev, ctx->endp_up,
 			cmdbuf, sizeof(cmdbuf), &num);
-
-	/* No response */
 
 	return ret;
 }
@@ -1194,7 +1204,7 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ij:k:msXx:Z")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ij:k:msx:Z")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'i':
@@ -1211,9 +1221,6 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 			break;
 		case 's':
 			j = mitsud90_get_status(ctx);
-			break;
-		case 'X':
-			j = mitsud90_get_serial(ctx);
 			break;
 		case 'x':
 			j = mitsud90_set_iserial(ctx, atoi(optarg));
@@ -1257,7 +1264,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.15",
+	.version = "0.16",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
@@ -1267,6 +1274,7 @@ struct dyesub_backend mitsud90_backend = {
 	.read_parse = mitsud90_read_parse,
 	.main_loop = mitsud90_main_loop,
 	.query_markers = mitsud90_query_markers,
+	.query_serno = mitsud90_query_serno,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D90, P_MITSU_D90, NULL, "mitsubishi-d90dw"},
 		{ 0, 0, 0, NULL, NULL}
