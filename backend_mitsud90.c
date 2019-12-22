@@ -1416,6 +1416,7 @@ Comms Protocol for D90 & CP-M1
 <- e4 47 44 30 HH
 
  [[ UNKNOWN QUERY ]]
+
 -> 1b 47 44 30 00 00 01 28
 <- e4 47 44 30 XX XX        Unknown, seems to increment.  Lifetime counter?
 
@@ -1464,10 +1465,10 @@ Comms Protocol for D90 & CP-M1
 -> 1b 61 36 36 41 be 00 00
    00 06 00 00 00 30 ff ff
    ff f9 ff ff ff cf
-<- e4 61 36 36 41 00 ?? ??
-   ?? ?? ?? ?? ?? ?? ?? ??
-   XX XX XX XX XX XX ?? ??   <- XX is 6-char ASCII serial number!
-   ?? ?? ?? ??
+<- e4 61 36 36 41 00 00 00
+   00 06 00 00 00 30 ff ff
+   ff f9 ff ff ff cf XX XX
+   XX XX XX XX               <- XX is 6-char ASCII serial number!
 
  [[ GET CUT? ]]
 
