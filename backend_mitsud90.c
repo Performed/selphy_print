@@ -1080,10 +1080,10 @@ static int mitsud90_dumpall(struct mitsud90_ctx *ctx)
 			continue;
 
 		if (num > 4) {
-			DEBUG("TYPE %02x LEN: %d (%d)\n", i, num, num - 4);
+			DEBUG("TYPE %02x LEN: %d\n", i, num - 4);
 			DEBUG("<--");
-			for (ret = 0; ret < num ; ret ++) {
-				DEBUG2(" %x", buf[ret]);
+			for (ret = 4; ret < num ; ret ++) {
+				DEBUG2(" %02x", buf[ret]);
 			}
 			DEBUG2("\n");
 		}
