@@ -152,7 +152,7 @@ struct mitsud90_job_hdr {
 	uint8_t  hdr[6]; /* 1b 53 50 30 00 33 */
 	uint16_t cols;   /* BE */
 	uint16_t rows;   /* BE */
-	uint8_t  unk[4]; /* 64 00 00 01 */
+	uint8_t  unk[4]; /* 64 00 00 01 */ // XXX 00 01 might be the jobid?
 	uint8_t  margincut; /* 1 for enabled, 0 for disabled */
 	union {
 #if 0
