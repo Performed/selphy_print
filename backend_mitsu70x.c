@@ -364,10 +364,10 @@ struct mitsu70x_memorystatus_resp {
   1b 72 45 [31 32]
   1b 5a 43 00
   1b 54 53 90 00 0a 00 00  00 00 00 00 00 00 00 00
-  1b 54 00 [00 31 32]  <-- No resp
-  1b 45 4a [00 30 31 32] <-- No resp
+  1b 54 00 [00 31 32]  <-- No resp [00 any, 31 lower, 32 upper???]
+  1b 45 4a [30 31 32] <-- No resp [30 any deck, 31 is lower, 32 is upper?]
   1b 56 34 [31 32]
-  1b 45 48 [00 30 31 32] <-- No resp
+  1b 45 48 [30 31 32] <-- No resp [30 any deck, 31 is lower, 32 is upper?]
   1b 72 67 00 00 00
   1b 67 18 ...   (??)
   1b 52 XX 00    <-- XX = something + 0x51

@@ -1843,6 +1843,15 @@ struct dyesub_backend mitsu9550_backend = {
      'LL' is length.  Data is returned in 16-bit unicode, LE.
      Contents are model ('9550Z'), then space, then serialnum ('A20067')
 
+  Query FW Version?
+
+ -> 1b 72 01 00
+ <- e4 82 01 00 LL 39 00 35  00 35 00 30 00 5a 00 20
+    00 41 00 32 00 30 00 30  00 36 00 37 00
+
+     'LL' is length.  Data is returned in 16-bit unicode, LE.
+     Contents are model ('9550Z'), then space, then serialnum ('A20067')
+
   Media Query
 
  -> 1b 56 24 00
@@ -1887,6 +1896,11 @@ struct dyesub_backend mitsu9550_backend = {
   Status Query E (unknown)
 
  -> 1b 56 33 00
+ <- ??? 48 bytes?
+
+  Status Query F (unknown, possibly lifetime print count?)
+
+ -> 1b 56 23 00
  <- ??? 48 bytes?
 
   [[ Job Cancel ]]
