@@ -667,12 +667,9 @@
 
    Work-in-progress printers:
 
-     Sinfonia CHC-S2245 (aka "S3")
      HiTi M610
-
-   Unsupported printers (Unknown VID/PID)
-
      Kodak 6900
+     Sinfonia CHC-S2245 (aka "S3")
 
    *** VERY IMPORTANT ***
 
@@ -908,8 +905,8 @@
 
 	 * libMitsuD70ImageReProcess -- GPL'd re-implementation of the
 	   Mitsubishi algorithms, available as source.  No guaranteees are
-	   made about its output quality as compared to Mitsubishi's
-	   proprietary drivers, but it is generally considered quite good.
+	   made about its output quality versus Mitsubishi's
+	   proprietary drivers, but is generally considerd quite good.
 
 	   DISCLAIMER:  Mitsubishi was not involved in the creation of
 	   libMitsuD70ImageReProcess and is not responsible in any way for
@@ -959,7 +956,8 @@
      requires the input data to be transformed using specific image
      processing algorithms.  These are currently only implemented within
      Mitsubishi's proprietary drivers, and will require a substantial
-     amount of effort to re-implement.
+     amount of effort to re-implement.  Some progress has been made, but
+     there is no specific roadmap or timeline.
 
    Valid commands:
 
@@ -1025,8 +1023,9 @@
     Unlike the D70 family, the data tables used are embedded into the driver
     instead of being bundled separately, further complicating the process
     of figuring out how everything works.  Some progress has been made,
-    allowing for proper gamma correction/linearization to at least generate
-    usable prints, although the quality is not considered up to par.
+    allowing for proper gamma correction/linearization that generates
+    usable prints, although the quality is still sub-par when compared to
+    Mitsubishi's proprietary drivers.
 
  ***************************************************************************
   BACKEND=mitsup9x
@@ -1095,7 +1094,7 @@
 
 	Marco Di Antonio
 	LiveLink Technology [ www.livelinktechnology.net ]
-	A generous benefactor who wishes to remain anonymous
+	Multiple generous benefactors who whish to remain anonymous
 
    This backend supports additional commands:
 
@@ -1188,9 +1187,9 @@ Notes:
 
  ***NOTE***
 
-	Firmware v1.19 and v1.20 for the P520L and P525L have a major issue
+	Firmware v1.19 and newer for the P520L and P525L have a major issue
 	that results in bulk data transfers not functioning under Linux.
-	This problem also affects HiTi's semi-official Linux drivers.
-	Firmware v1.18 does not exhibit this problem.
+	This problem also affects HiTi's semi-official Linux drivers.  A
+	A workaround has been identified and implemented.
 
 ***************************************************************************
