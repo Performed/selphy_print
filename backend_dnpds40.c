@@ -380,7 +380,6 @@ static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, u
 		snprintf(buf, sizeof(buf), "%08u", arg3_len);
 		memcpy(cmd->arg3, buf, 8);
 	}
-
 }
 
 static void dnpds40_cleanup_string(char *start, int len)
@@ -402,7 +401,6 @@ static void dnpds40_cleanup_string(char *start, int len)
 
 static const char *dnpds40_printer_type(int type, int mfg)
 {
-	// XXX handle CITIZEN CW02, CX02, CX02W (based on USB VID)
 	switch(type) {
 	case P_DNP_DS40: return mfg == 1? "CX" : "DS40";
 	case P_DNP_DS80: return mfg == 1? "CW" : (mfg == 2 ? "CP3800" : "DS80");
