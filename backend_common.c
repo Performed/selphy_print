@@ -1674,7 +1674,7 @@ uint32_t packed_bcd_to_uint32(const char *in, int len)
 
 	while (len--) {
 		out *= 10;
-		out += (*in >> 4);
+		out += ((*in >> 4) & 0xf);
 		out *= 10;
 		out += (*in & 0xf);
 		in++;
