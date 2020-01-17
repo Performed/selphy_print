@@ -33,10 +33,7 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-          [http://www.gnu.org/licenses/gpl-3.0.html]
+   along with this program; if not, see <https://www.gnu.org/licenses/>.
 
    SPDX-License-Identifier: GPL-3.0+
 
@@ -437,11 +434,11 @@ int ImageAvrCalc(uint8_t *input, uint16_t cols, uint16_t rows, uint8_t *avg)
   if ( cols <= MIN_COLS || cols > MAX_COLS )
 	  return 2;
   if ( rows <= MIN_COLS || cols > MAX_ROWS )
-	  return 3;  
-  
+	  return 3;
+
   planesize = rows * cols;
   offset = 0;
-  
+
   for ( plane = 0; plane < 3; plane++ )
   {
 	  sum = 0;
@@ -449,7 +446,7 @@ int ImageAvrCalc(uint8_t *input, uint16_t cols, uint16_t rows, uint8_t *avg)
 		  sum += input[offset++];
 	  avg[plane] = sum / planesize;
   }
-  
+
   return 0;
 }
 
@@ -458,7 +455,7 @@ int ImageProcessing(unsigned char *in, unsigned short *out, void *corrdata)
   uint8_t i;
 
   fprintf(stderr, "INFO: libS6145ImageReProcess version '%s'\n", LIB_VERSION);
-  fprintf(stderr, "INFO: Copyright (c) 2015-2016 Solomon Peachy\n");  
+  fprintf(stderr, "INFO: Copyright (c) 2015-2016 Solomon Peachy\n");
   fprintf(stderr, "INFO: This free software comes with ABSOLUTELY NO WARRANTY!\n");
   fprintf(stderr, "INFO: Licensed under the GNU GPL.\n");
   fprintf(stderr, "INFO: *** This code is NOT supported or endorsed by Sinfonia! ***\n");
@@ -472,14 +469,14 @@ int ImageProcessing(unsigned char *in, unsigned short *out, void *corrdata)
 
   g_pucInputImageBuf = in;
   g_pusOutputImageBuf = out;
-  g_pSPrintParam = (struct imageCorrParam *) corrdata;  
+  g_pSPrintParam = (struct imageCorrParam *) corrdata;
 
   i = CheckPrintParam(corrdata);
   if (i)
     return i;
 
   Global_Init();
-#ifdef S6145_UNUSED  
+#ifdef S6145_UNUSED
   SetTable();
 #endif
 
@@ -506,7 +503,7 @@ static void SetTableData(void *src, void *dest, uint16_t words)
   uint16_t *out = dest;
   while (words--) {
     out[words] = le16_to_cpu(in[words]);
-  }	
+  }
 }
 
 static void GetInfo(void)
@@ -514,7 +511,7 @@ static void GetInfo(void)
   uint32_t tmp;
 
 #ifdef S6145_UNUSED
-  g_usLastPrintSizeWidth = g_usPrintSizeWidth;  
+  g_usLastPrintSizeWidth = g_usPrintSizeWidth;
   g_usLastPrintSizeHeight = g_usPrintSizeHeight;
   g_usLastSheetSizeWidth = g_usSheetSizeWidth;
   g_usPrintOffsetWidth = 0;
@@ -529,7 +526,7 @@ static void GetInfo(void)
   if ( g_pSPrintParam->val_1 )
 	  g_sCorrectSw |= 1;
   if ( g_pSPrintParam->val_2 )
-	  g_sCorrectSw |= 2;	  
+	  g_sCorrectSw |= 2;
 
   g_usPrintOpLevel = le16_to_cpu(g_pSPrintParam->printOpLevel);
 
@@ -592,7 +589,7 @@ static void GetInfo(void)
     g_usPrintMaxPulse = le16_to_cpu(g_pSPrintParam->printMaxPulse_O);
     g_uiMtfWeightH = le16_to_cpu(g_pSPrintParam->mtfWeightH_O);
     g_uiMtfWeightV = le16_to_cpu(g_pSPrintParam->mtfWeightV_O);
-    g_uiMtfSlice = le16_to_cpu(g_pSPrintParam->mtfSlice_O);;    
+    g_uiMtfSlice = le16_to_cpu(g_pSPrintParam->mtfSlice_O);;
     g_usLineCorrect_Env_A = le16_to_cpu(g_pSPrintParam->lineCorrectEnvA_O);
     g_usLineCorrect_Env_B = le16_to_cpu(g_pSPrintParam->lineCorrectEnvB_O);
     g_usLineCorrect_Env_C = le16_to_cpu(g_pSPrintParam->lineCorrectEnvC_O);
@@ -687,7 +684,7 @@ static void Global_Init(void)
   g_iLeadEdgeCorrectPulse = 0;
 
   g_usCancelCheckLinesForPRec = 118;
-  
+
   g_pusLamiCompInLineBufTab[0] = (uint16_t*)g_pusInLineBuf0;
   g_pusLamiCompInLineBufTab[1] = (uint16_t*)g_pusInLineBuf2;
   g_pusLamiCompInLineBufTab[2] = g_pusOutLineBuf1;
@@ -701,7 +698,7 @@ static void Global_Init(void)
   g_usCenterHeadToColSen = 268;
 
   g_uiLevelAveAddtion = 0;
-  g_uiLevelAveCounter = 0;  
+  g_uiLevelAveCounter = 0;
   g_uiLevelAveCounter2 = 0;
   g_uiLevelAveAddtion2 = 0;
   g_usCancelCheckDotsForPRec = 236;
@@ -805,7 +802,7 @@ static int32_t CheckPrintParam(uint8_t *corrdataraw)
   if ( le16_to_cpu(corrdata->width) <= MIN_ROWS ||
        le16_to_cpu(corrdata->width) > MAX_ROWS )
     return 20;
-  
+
   if ( le16_to_cpu(corrdata->height) <= MIN_ROWS ||
        le16_to_cpu(corrdata->height) > MAX_ROWS )
     return 21;
@@ -820,7 +817,7 @@ static void LinePrintPreProcess(void)
   int16_t i;
 
   GetInfo();
-  
+
   if ( !(g_sCorrectSw & 1) )
   {
     g_uiMtfWeightH = 0;
@@ -868,7 +865,7 @@ static void LinePrintPreProcess(void)
   memset(g_pusOutLineBuf1, 0, sizeof(g_pusOutLineBuf1));
   g_pusOutLineBufTab[0] = g_pusOutLineBuf1;
 
-#ifdef S6145_UNUSED  
+#ifdef S6145_UNUSED
   memset(g_pusInLineBuf3, g_usPrintDummyLevel, sizeof(g_pusInLineBuf3)); // XXX redundant with memset above, printDummyLevel is always 0 anyway.
 #endif
 
@@ -881,11 +878,11 @@ static void LinePrintPreProcess(void)
   g_uiDataTransCounter -= g_usRearDeleteLine;
   g_uiDataTransCounter += g_usRearDummyPrintLine;
 
-  g_uiSendToHeadCounter += g_usPrintDummyLine;  
+  g_uiSendToHeadCounter += g_usPrintDummyLine;
   g_uiSendToHeadCounter -= g_usRearDeleteLine;
   g_uiSendToHeadCounter += g_usRearDummyPrintLine;
 
-  g_uiTudenLineCounter = g_usPrintSizeHeight;  
+  g_uiTudenLineCounter = g_usPrintSizeHeight;
   g_uiTudenLineCounter += g_usRearDummyPrintLine;
   g_uiTudenLineCounter -= g_usRearDeleteLine;
 
@@ -903,7 +900,7 @@ static void LinePrintPreProcess(void)
     g_iMaxPulseValue = g_usPrintMaxPulse;
     g_uiMaxPulseBit = LinePrintCalcBit(g_usPrintMaxPulse);
     g_pfRecieveData = RecieveDataYMC;
-#ifdef S6145_UNUSED    
+#ifdef S6145_UNUSED
     g_pfRecieveData_Post = RecieveDataYMC_Post;
 #endif
     g_pfPulseTransPreRead = PulseTransPreReadYMC;
@@ -914,7 +911,7 @@ static void LinePrintPreProcess(void)
     g_iMaxPulseValue = g_usPrintMaxPulse;
     g_uiMaxPulseBit = LinePrintCalcBit(g_usPrintMaxPulse);
     g_pfRecieveData = RecieveDataYMC;
-#ifdef S6145_UNUSED    
+#ifdef S6145_UNUSED
     g_pfRecieveData_Post = RecieveDataYMC_Post;
 #endif
     g_pfPulseTransPreRead = PulseTransPreReadYMC;
@@ -925,7 +922,7 @@ static void LinePrintPreProcess(void)
     g_iMaxPulseValue = g_usPrintMaxPulse;
     g_uiMaxPulseBit = LinePrintCalcBit(g_usPrintMaxPulse);
     g_pfRecieveData = RecieveDataYMC;
-#ifdef S6145_UNUSED    
+#ifdef S6145_UNUSED
     g_pfRecieveData_Post = RecieveDataYMC_Post;
 #endif
     g_pfPulseTransPreRead = PulseTransPreReadYMC;
@@ -937,7 +934,7 @@ static void LinePrintPreProcess(void)
     g_uiMaxPulseBit = LinePrintCalcBit(g_usPrintMaxPulse);
     if ( g_usMatteMode ) {
       g_pfRecieveData = RecieveDataOP_MATTE;
-#ifdef S6145_UNUSED      
+#ifdef S6145_UNUSED
       g_pfRecieveData_Post = RecieveDataOPMatte_Post;
 #endif
     } else {
@@ -984,7 +981,7 @@ static void LinePrintPreProcess(void)
 
   CTankResetTank();
 
-#ifdef S6145_UNUSED  
+#ifdef S6145_UNUSED
   g_uiDummyPrintCounter = 0;
 #endif
 }
@@ -1175,7 +1172,7 @@ static void RecieveDataYMC(void)
   }
 }
 
-/* this will generate one scanline (ie 16b * BUF_SIZE) worth of 
+/* this will generate one scanline (ie 16b * BUF_SIZE) worth of
    "random" data for the matte overcoat */
 static void RecieveDataOP_MATTE(void)
 {
@@ -1184,7 +1181,7 @@ static void RecieveDataOP_MATTE(void)
     uint32_t v5;
     int32_t v6;
 
-    int16_t matteCtr;	  
+    int16_t matteCtr;
     uint8_t *outPtr = g_pusPulseTransLineBufTab[3];
 
     if ( g_usMatteSize == 2 )
@@ -1203,7 +1200,7 @@ static void RecieveDataOP_MATTE(void)
       else
         v1 = g_pulRandomTable[v6 - 3];
       g_pulRandomTable[v6] += v1;
-      
+
       v5 = (uint32_t)g_pulRandomTable[v6] >> 1;
       if ( g_usMatteSize == 2 ) {
 	*outPtr++ = g_ucRandomBaseLevel[(v5 >> 1) & 3];
@@ -1215,7 +1212,7 @@ static void RecieveDataOP_MATTE(void)
         *outPtr++ = g_ucRandomBaseLevel[(v5 >> 13) & 3];
         *outPtr++ = g_ucRandomBaseLevel[(v5 >> 13) & 3];
       } else {
-	*outPtr++ = g_ucRandomBaseLevel[(v5 >> 1) & 3];	      
+	*outPtr++ = g_ucRandomBaseLevel[(v5 >> 1) & 3];
         *outPtr++ = g_ucRandomBaseLevel[(v5 >> 5) & 3];
         *outPtr++ = g_ucRandomBaseLevel[(v5 >> 9) & 3];
         *outPtr++ = g_ucRandomBaseLevel[(v5 >> 13) & 3];
@@ -1237,7 +1234,7 @@ static void SendData(void)
   }
 }
 
-/* Use the previous two rows to generate the needed impulse for 
+/* Use the previous two rows to generate the needed impulse for
    the current row. */
 static void PulseTrans(void)
 {
@@ -1247,7 +1244,7 @@ static void PulseTrans(void)
   uint8_t *prevPrevRow;
   uint8_t *prevRow;
   uint8_t *currentRow;
-  
+
   uint16_t *out;
 
   sheetSizeWidth = g_usSheetSizeWidth;
@@ -1257,7 +1254,7 @@ static void PulseTrans(void)
   prevRow = g_pusPulseTransLineBufTab[1] + overHang;
   prevPrevRow = g_pusPulseTransLineBufTab[2] + overHang;
   out = g_pusOutLineBufTab[0] + g_sPrintSideOffset + overHang;
-  
+
   if ( out >= g_pusOutLineBufTab[0] ) {
     int32_t offset = g_sPrintSideOffset
         + g_usSheetSizeWidth
@@ -1271,7 +1268,7 @@ static void PulseTrans(void)
     currentRow += offset;
     prevRow += offset;
     prevPrevRow += offset;
-    printf("WARN: PulseTrans() alt path\n");    
+    printf("WARN: PulseTrans() alt path\n");
   }
 
   while ( sheetSizeWidth-- ) {
@@ -1306,7 +1303,7 @@ static void PulseTrans(void)
     *out++ = compVal;
   }
 
-#ifdef S6145_UNUSED  
+#ifdef S6145_UNUSED
   g_uiDataTransCounter--;
 #endif
 }
@@ -1413,7 +1410,7 @@ static void CTankUpdateTankVolumeInterDot(uint8_t tank)
 
   /* This code basically takes a running average of three running
      averages, and uses that as the basis for the output */
-  
+
   tankIn[0] = tankIn[1] = tankIn[2];
   v1 = g_usSheetSizeWidth + 1;
   tankIn[v1+1] = tankIn[v1+2] = tankIn[v1];
@@ -1422,7 +1419,7 @@ static void CTankUpdateTankVolumeInterDot(uint8_t tank)
   v5 = *tankIn++;
   v8 = *tankIn++;
   v20 = *tankIn++;
-  
+
   v19 = conductivity * (v5 + v2  - 2 * v4);
   v18 = conductivity * (v8 + v4  - 2 * v5);
   v17 = conductivity * (v20 + v5 - 2 * v8);

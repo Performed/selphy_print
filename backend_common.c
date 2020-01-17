@@ -1,7 +1,7 @@
 /*
  *   CUPS Backend common code
  *
- *   Copyright (c) 2007-2019 Solomon Peachy <pizza@shaftnet.org>
+ *   Copyright (c) 2007-2020 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *
@@ -18,10 +18,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- *
- *          [http://www.gnu.org/licenses/gpl-3.0.html]
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  *   SPDX-License-Identifier: GPL-3.0+
  *
@@ -940,7 +937,7 @@ static void dump_stats(struct dyesub_backend *backend, struct printerstats *stat
 void print_license_blurb(void)
 {
 	const char *license = "\n\
-Copyright 2007-2019 Solomon Peachy <pizza AT shaftnet DOT org>\n\
+Copyright 2007-2020 Solomon Peachy <pizza AT shaftnet DOT org>\n\
 \n\
 This program is free software; you can redistribute it and/or modify it\n\
 under the terms of the GNU General Public License as published by the Free\n\
@@ -953,9 +950,7 @@ or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License\n\
 for more details.\n\
 \n\
 You should have received a copy of the GNU General Public License\n\
-along with this program; if not, write to the Free Software\n\
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.\n\
-\n          [http://www.gnu.org/licenses/gpl-3.0.html]\n\n";
+along with this program; if not, see <https://www.gnu.org/licenses/>.\n\n";
 
 	fprintf(stderr, "%s", license);
 }
