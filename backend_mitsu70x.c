@@ -1240,7 +1240,8 @@ repeat:
 	job->datalen += sizeof(mhdr);
 
 	if (job->raw_format) { /* RAW MODE */
-		DEBUG("Reading in %d bytes of 16bpp YMCL data\n", remain);
+		DEBUG("Reading in %d bytes of 16bpp YMC%sdata\n", remain,
+		      job->matte ? "L " : " ");
 
 		/* Read in the spool data */
 		while(remain) {
