@@ -114,6 +114,10 @@ typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 
 /* Private data structure */
 struct mitsu70x_printjob {
+	size_t jobsize;
+	int copies;
+	int can_combine;
+
 	uint8_t *databuf;
 	int datalen;
 
@@ -125,7 +129,6 @@ struct mitsu70x_printjob {
 	uint32_t planelen;
 	uint32_t matte;
 	int raw_format;
-	int copies;
 
 	int decks_exact[2];	 /* Media is exact match */
 	int decks_ok[2];         /* Media can be used */
@@ -920,9 +923,11 @@ static void mitsu70x_teardown(void *vctx) {
 
 #define JOB_EQUIV(__x)  if (job1->__x != job2->__x) goto done
 
-static struct mitsu70x_printjob *combine_jobs(const struct mitsu70x_printjob *job1,
-					      const struct mitsu70x_printjob *job2)
+static void *mitsu70x_combine_jobs(const void *vjob1,
+				   const void *vjob2)
 {
+	const struct mitsu70x_printjob *job1 = vjob1;
+	const struct mitsu70x_printjob *job2 = vjob2;
 	struct mitsu70x_printjob *newjob = NULL;
 	uint16_t newrows;
 	uint16_t newcols;
@@ -1059,8 +1064,6 @@ static int mitsu70x_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	struct mitsu70x_hdr mhdr;
 
 	struct mitsu70x_printjob *job = NULL;
-	struct dyesub_joblist *list;
-	int can_combine;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1071,6 +1074,7 @@ static int mitsu70x_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
+	job->jobsize = sizeof(*job);
 	job->copies = copies;
 
 repeat:
@@ -1323,8 +1327,6 @@ repeat:
 	}
 
 done:
-	list = dyesub_joblist_create(&mitsu70x_backend, ctx);
-
 	for (i = 0 ; i < ctx->num_decks ; i++) {
 		switch (ctx->medias[i]) {
 		case 0x1: // 5x3.5
@@ -1377,7 +1379,7 @@ done:
 	}
 
 	/* 6x4 can be combined, only on 6x8/6x9" media. */
-	can_combine = 0;
+	job->can_combine = 0;
 	if (job->decks_exact[0] ||
 	    job->decks_exact[1]) {
 		/* Exact media match, don't combine. */
@@ -1387,40 +1389,17 @@ done:
 		    ctx->medias[0] == 0x5 ||
 		    ctx->medias[1] == 0xf || /* Two decks possible */
 		    ctx->medias[1] == 0x5)
-			can_combine = !job->raw_format;
+			job->can_combine = !job->raw_format;
 	} else if (job->rows == 1076) {
 		if (ctx->type == P_KODAK_305 ||
 		    ctx->type == P_MITSU_K60) {
 			if (ctx->medias[0] == 0x4)  /* Only one deck */
-				can_combine = !job->raw_format;
+				job->can_combine = !job->raw_format;
 		}
 	}
 
-	if (copies > 1 && can_combine) {
-		struct mitsu70x_printjob *combined;
-                combined = combine_jobs(job, job);
-                if (combined) {
-                        combined->copies = job->copies / 2;
-			dyesub_joblist_addjob(list, combined);
-
-			if (job->copies & 1) {
-				job->copies = 1;
-			} else {
-				mitsu70x_cleanup_job(job);
-				job = NULL;
-			}
-		}
-	}
-
-	if (job) {
-		dyesub_joblist_addjob(list, job);
-	}
-
-	/* All further work is in main loop */
-	if (test_mode >= TEST_MODE_NOPRINT)
-		dyesub_joblist_print(list);
-
-	*vjob = list;
+	/* Return what we found */
+	*vjob = job;
 
 	return CUPS_BACKEND_OK;
 }
@@ -2501,6 +2480,20 @@ static int mitsu70x_query_markers(void *vctx, struct marker **markers, int *coun
 	return CUPS_BACKEND_OK;
 }
 
+static int mitsu70x_job_polarity(void *vctx)
+{
+	struct mitsu70x_ctx *ctx = vctx;
+
+	if (test_mode >= TEST_MODE_NOATTACH)
+		return 0;
+
+        if (mitsu70x_query_markers(ctx, NULL, NULL))
+                return 0;
+
+	/* Only single-deck models support rewinding! */
+	return (ctx->marker[0].levelnow & 1);
+}
+
 static int mitsu70x_query_stats(void *vctx, struct printerstats *stats)
 {
 	struct mitsu70x_ctx *ctx = vctx;
@@ -2577,9 +2570,9 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.96",
+	.version = "0.97",
+	.flags = BACKEND_FLAG_DUMMYPRINT,
 	.uri_prefixes = mitsu70x_prefixes,
-	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = mitsu70x_cmdline,
 	.cmdline_arg = mitsu70x_cmdline_arg,
 	.init = mitsu70x_init,
@@ -2591,6 +2584,8 @@ struct dyesub_backend mitsu70x_backend = {
 	.query_serno = mitsu70x_query_serno,
 	.query_markers = mitsu70x_query_markers,
 	.query_stats = mitsu70x_query_stats,
+	.combine_jobs = mitsu70x_combine_jobs,
+	.job_polarity = mitsu70x_job_polarity,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, NULL, "mitsubishi-d70dw"},
 		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, NULL, "mitsubishi-k60dw"},

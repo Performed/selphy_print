@@ -28,7 +28,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.101"
+#define BACKEND_VERSION "0.102"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -823,7 +823,7 @@ static struct dyesub_backend *find_backend(const char *uri_prefix)
 	return NULL;
 }
 
-static int query_markers(struct dyesub_backend *backend, void *ctx, int full)
+static int query_markers(const struct dyesub_backend *backend, void *ctx, int full)
 {
 	struct marker *markers = NULL;
 	int marker_count = 0;
@@ -1063,9 +1063,10 @@ static int handle_input(struct dyesub_backend *backend, void *backend_ctx,
 {
 	int ret = CUPS_BACKEND_OK;
 	int i;
-	const void *job = NULL;
+	const void *job;
 	int data_fd = fileno(stdin);
-	int current_page = 0;
+	int read_page = 0, print_page = 0;
+	struct dyesub_joblist *jlist = NULL;
 
 	if (!fname) {
 		if (uri && strlen(uri))
@@ -1119,56 +1120,53 @@ static int handle_input(struct dyesub_backend *backend, void *backend_ctx,
 		goto done;
 	}
 
-newpage:
+	/* Emit a verbose marker dump */
+	ret = query_markers(backend, backend_ctx, 1);
+	if (ret)
+		goto done;
 
+newpage:
 	/* Read in data */
+	job = NULL;
 	if ((ret = backend->read_parse(backend_ctx, &job, data_fd, ncopies))) {
-		if (current_page)
+		if (read_page)
 			goto done_multiple;
 		else
 			goto done;
 	}
 
-	/* The backend parser might not return a job due to job dependencies.
-	   Try and read another page. */
-	if (!job)
+	if (!job) {
+		WARNING("No job returned by backend read_parse?\n");
+		goto newpage;
+	}
+
+	/* Create a joblist if needed */
+	if (!jlist) {
+		jlist = dyesub_joblist_create(backend, backend_ctx);
+	}
+	if (!jlist) {
+		backend->cleanup_job(job);
+		goto done;
+	}
+
+	/* Stick it onto the end of the list */
+	dyesub_joblist_appendjob(jlist, job);
+	read_page++;
+
+	INFO("Parsed page %d (%d copies)\n", read_page, ncopies);
+
+	/* If we get here, we can wait for another combined job, do so */
+	if (dyesub_joblist_canwait(jlist))
 		goto newpage;
 
-	/* Create our own joblist if necessary */
-	if (!(backend->flags & BACKEND_FLAG_JOBLIST)) {
-		struct dyesub_joblist *jlist = dyesub_joblist_create(backend, backend_ctx);
-		if (!jlist)
-			goto done;
-		dyesub_joblist_addjob(jlist, job);
-		job = jlist;
-	}
-
-	/* Dump the full marker dump */
-	ret = query_markers(backend, backend_ctx, !current_page);
+print_list:
+	/* Print the pagelist */
+	ret = dyesub_joblist_print(jlist, &print_page);
 	if (ret)
 		goto done;
 
-	INFO("Printing page %d\n", ++current_page);
-
-	if (test_mode >= TEST_MODE_NOPRINT ) {
-		WARNING("**** TEST MODE, bypassing printing!\n");
-	} else {
-		ret = dyesub_joblist_print(job);
-	}
-
-	dyesub_joblist_cleanup(job);
-
-	if (ret)
-		goto done;
-
-	/* Log the completed page */
-	if (!uri || !strlen(uri))
-		PAGE("%d %d\n", current_page, ncopies);
-
-	/* Dump a marker status update */
-	ret = query_markers(backend, backend_ctx, !current_page);
-	if (ret)
-		goto done;
+	dyesub_joblist_cleanup(jlist);
+	jlist = NULL;
 
 	/* Since we have no way of telling if there's more data remaining
 	   to be read (without actually trying to read it), always assume
@@ -1176,14 +1174,16 @@ newpage:
 	goto newpage;
 
 done_multiple:
+	if (jlist)
+		goto print_list;
+
 	close(data_fd);
 
-	/* Done printing, log the total number of pages */
-	if (!uri || !strlen(uri))
-		PAGE("total %d\n", current_page * ncopies);
 	ret = CUPS_BACKEND_OK;
 
 done:
+	if (jlist) dyesub_joblist_cleanup(jlist);
+
 	return ret;
 }
 
@@ -1709,7 +1709,7 @@ void dyesub_joblist_cleanup(const struct dyesub_joblist *list)
 	free((void*)list);
 }
 
-int dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job)
+static int __dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job)
 {
 	if (list->num_entries >= DYESUB_MAX_JOB_ENTRIES)
 		return 1;
@@ -1717,19 +1717,172 @@ int dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job)
 	list->entries[list->num_entries++] = job;
 
 	return CUPS_BACKEND_OK;
+};
+
+static int __dyesub_append_job(struct dyesub_joblist *list, const void **vjob, int polarity)
+{
+	struct dyesub_job_common *job, *combined;
+	const struct dyesub_job_common *oldjob;
+
+	/* Create writable copy of the new job */
+	job = malloc(((const struct dyesub_job_common *)*vjob)->jobsize);
+	if (!job) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+	memcpy(job, *vjob, ((const struct dyesub_job_common *)*vjob)->jobsize);
+
+	/* If we can't combine the new job, don't bother doing anything else */
+	if (!job->can_combine) {
+		free(job);
+		return CUPS_BACKEND_OK;
+	}
+
+	/* Get the old job */
+	oldjob = dyesub_joblist_popjob(list);
+
+	/* If we can't combine with it, carry on as before */
+	if (oldjob && (oldjob->copies > 1 || !oldjob->can_combine)) {
+		__dyesub_joblist_addjob(list, oldjob);
+		oldjob = NULL;
+	}
+
+	if (oldjob) {
+		/* Try to combine first copy with old job */
+		combined = list->backend->combine_jobs(oldjob, job);
+		if (combined) {
+			/* Success, add it to the list */
+	                __dyesub_joblist_addjob(list, combined);
+			combined = NULL;
+
+			/* Clean up the old job */
+			list->backend->cleanup_job(oldjob);
+
+			/* Anything left in the new job? */
+			job->copies--;
+			if (job->copies == 0) {
+				/* Nope, we're done */
+				list->backend->cleanup_job(job);
+			} else if (job->copies == 1) {
+				/* Just one, shove it on the list */
+				__dyesub_joblist_addjob(list, job);
+			}
+
+			goto done;
+		} else {
+			/* Failed to combine, restore old job and continue */
+			__dyesub_joblist_addjob(list, oldjob);
+		}
+
+		polarity = 0;
+	}
+
+	/* If we have no work to do, just return */
+	if (job->copies == 1) {
+		free(job);
+		return CUPS_BACKEND_OK;
+	}
+
+	/* Attempt to combine multiple copies! */
+	combined = list->backend->combine_jobs(job, job);
+
+	if (!combined) {
+		/* Failed, so return */
+		free(job);
+		return CUPS_BACKEND_OK;
+	}
+
+	combined->copies = job->copies / 2;
+	job->copies = job->copies % 2;
+
+	/* Add the combined job at start if we can */
+	if (!polarity) {
+		__dyesub_joblist_addjob(list, combined);
+	}
+
+	/* Add the remainder, if any */
+	if (job->copies) {
+		__dyesub_joblist_addjob(list, job);
+	} else {
+		list->backend->cleanup_job(job);
+	}
+
+	/* Add combined job at end of we need to */
+	if (polarity) {
+		__dyesub_joblist_addjob(list, combined);
+	}
+
+done:
+	/* Clean up */
+	free((void*)*vjob);
+	*vjob = NULL;
+
+	return CUPS_BACKEND_OK;
 }
 
-int dyesub_joblist_print(const struct dyesub_joblist *list)
+int dyesub_joblist_appendjob(struct dyesub_joblist *list, const void *job)
+{
+	if (list->backend->combine_jobs) {
+		int polarity = 0;
+		if (list->backend->job_polarity)
+			polarity = list->backend->job_polarity(list->ctx);
+		__dyesub_append_job(list, &job, polarity);
+	}
+
+	if (job)
+		__dyesub_joblist_addjob(list, job);
+
+	return CUPS_BACKEND_OK;
+}
+
+const void *dyesub_joblist_popjob(struct dyesub_joblist *list)
+{
+	if (list->num_entries) {
+		return list->entries[--list->num_entries];
+	}
+
+	return NULL;
+}
+
+int dyesub_joblist_canwait(struct dyesub_joblist *list)
+{
+	if (list->num_entries == DYESUB_MAX_JOB_ENTRIES)
+		return 0;
+	if (!list->num_entries)
+		return 1;
+
+	return ((const struct dyesub_job_common *)(list->entries[list->num_entries - 1]))->can_combine;
+}
+
+int dyesub_joblist_print(const struct dyesub_joblist *list, int *pagenum)
 {
 	int i, j;
 	int ret;
+//	int pages = 0;
+
 	for (i = 0 ; i < list->copies ; i++) {
 		for (j = 0 ; j < list->num_entries ; j++) {
 			if (list->entries[j]) {
-				ret = list->backend->main_loop(list->ctx, list->entries[j]);
+				int copies = ((const struct dyesub_job_common *)(list->entries[j]))->copies;
+
+				INFO("Printing page %d (%d copies)\n", *pagenum + 1, copies);
+				if (test_mode >= TEST_MODE_NOPRINT )
+					WARNING("**** TEST MODE, bypassing printing!\n");
+
+				/* Print this page */
+				if (test_mode < TEST_MODE_NOPRINT ||
+				    list->backend->flags & BACKEND_FLAG_DUMMYPRINT) {
+					ret = list->backend->main_loop(list->ctx, list->entries[j]);
+					if (ret)
+						return ret;
+				}
+
+//				pages += copies;
+
+				/* Dump a marker status update */
+				ret = query_markers(list->backend, list->ctx, 0);
 				if (ret)
 					return ret;
-
 #if 0
 				/* Free up the job as we go along
 				   if we're on the final copy */
@@ -1741,5 +1894,8 @@ int dyesub_joblist_print(const struct dyesub_joblist *list)
 			}
 		}
 	}
+
+//	INFO("Printed %d total pages/copies\n", pages);
+
 	return CUPS_BACKEND_OK;
 }

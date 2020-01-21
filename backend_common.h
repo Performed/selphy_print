@@ -215,31 +215,7 @@ struct printerstats {
 	int32_t cnt_life[DECKS_MAX];  /* Lifetime prints */
 };
 
-#define BACKEND_FLAG_JOBLIST    0x00000001
-#define BACKEND_FLAG_BADISERIAL 0x00000002
-
-/* Backend Functions */
-struct dyesub_backend {
-	const char *name;
-	const char *version;
-	const char **uri_prefixes;
-	const uint32_t flags;
-	void (*cmdline_usage)(void);  /* Optional */
-	void *(*init)(void);
-	int  (*attach)(void *ctx, struct libusb_device_handle *dev, int type,
-		       uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid);
-	void (*teardown)(void *ctx);
-	int  (*cmdline_arg)(void *ctx, int argc, char **argv);
-	int  (*read_parse)(void *ctx, const void **job, int data_fd, int copies);
-	void (*cleanup_job)(const void *job);
-	int  (*main_loop)(void *ctx, const void *job);
-	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len); /* Optional */
-	int  (*query_markers)(void *ctx, struct marker **markers, int *count);
-	int  (*query_stats)(void *ctx, struct printerstats *stats); /* Optional */
-	const struct device_id devices[];
-};
-
-#define DYESUB_MAX_JOB_ENTRIES 2
+#define DYESUB_MAX_JOB_ENTRIES 3
 
 struct dyesub_joblist {
 	// TODO: mutex/lock
@@ -248,6 +224,13 @@ struct dyesub_joblist {
 	int num_entries;
 	int copies;
 	const void *entries[DYESUB_MAX_JOB_ENTRIES];
+};
+
+/* This should be the start of every per-printer job struct! */
+struct dyesub_job_common {
+	size_t jobsize;
+	int copies;
+	int can_combine;
 };
 
 /* Exported functions */
@@ -276,9 +259,37 @@ int backend_claim_interface(struct libusb_device_handle *dev, int iface,
 
 /* Job list manipulation */
 struct dyesub_joblist *dyesub_joblist_create(const struct dyesub_backend *backend, void *ctx);
-int dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job);
+int dyesub_joblist_appendjob(struct dyesub_joblist *list, const void *job);
 void dyesub_joblist_cleanup(const struct dyesub_joblist *list);
-int dyesub_joblist_print(const struct dyesub_joblist *list);
+int dyesub_joblist_print(const struct dyesub_joblist *list, int *pagenum);
+const void *dyesub_joblist_popjob(struct dyesub_joblist *list);
+int dyesub_joblist_canwait(struct dyesub_joblist *list);
+
+#define BACKEND_FLAG_BADISERIAL 0x00000001
+#define BACKEND_FLAG_DUMMYPRINT 0x00000002
+
+/* Backend Functions */
+struct dyesub_backend {
+	const char *name;
+	const char *version;
+	const char **uri_prefixes;
+	const uint32_t flags;
+	void (*cmdline_usage)(void);  /* Optional */
+	void *(*init)(void);
+	int  (*attach)(void *ctx, struct libusb_device_handle *dev, int type,
+		       uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid);
+	void (*teardown)(void *ctx);
+	int  (*cmdline_arg)(void *ctx, int argc, char **argv);
+	int  (*read_parse)(void *ctx, const void **job, int data_fd, int copies);
+	void (*cleanup_job)(const void *job);
+	void *(*combine_jobs)(const void *job1, const void *job2);
+	int  (*job_polarity)(void *ctx);
+	int  (*main_loop)(void *ctx, const void *job);
+	int  (*query_serno)(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, int iface, char *buf, int buf_len); /* Optional */
+	int  (*query_markers)(void *ctx, struct marker **markers, int *count);
+	int  (*query_stats)(void *ctx, struct printerstats *stats); /* Optional */
+	const struct device_id devices[];
+};
 
 /* Global data */
 extern int terminate;

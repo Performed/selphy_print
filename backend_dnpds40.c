@@ -44,10 +44,13 @@
 
 /* Private data structure */
 struct dnpds40_printjob {
+	size_t jobsize;
+	int copies;
+	int can_combine;
+
 	uint8_t *databuf;
 	int datalen;
 
-	int copies;
 	uint32_t dpi;
 	int matte;
 	int cutter;
@@ -55,6 +58,7 @@ struct dnpds40_printjob {
 	int fullcut;
 	int printspeed;
 	int can_rewind;
+
 	int buf_needed;
 	int cut_paper;
 };
@@ -201,9 +205,12 @@ static int dnpds40_query_markers(void *vctx, struct marker **markers, int *count
 
 #define JOB_EQUIV(__x)  if (job1->__x != job2->__x) goto done
 
-static struct dnpds40_printjob *combine_jobs(const struct dnpds40_printjob *job1,
-					     const struct dnpds40_printjob *job2)
+/* NOTE:  Does _not_ free the input jobs */
+static void *dnp_combine_jobs(const void *vjob1,
+			      const void *vjob2)
 {
+	const struct dnpds40_printjob *job1 = vjob1;
+	const struct dnpds40_printjob *job2 = vjob2;
 	struct dnpds40_printjob *newjob = NULL;
 	uint32_t new_multicut;
 	uint16_t new_w, new_h;
@@ -308,6 +315,8 @@ static struct dnpds40_printjob *combine_jobs(const struct dnpds40_printjob *job1
 	newjob->databuf = malloc(((new_w*new_h+1024+54+10))*3+1024);
 	newjob->datalen = 0;
 	newjob->multicut = new_multicut;
+	newjob->can_rewind = 0;
+	newjob->can_combine = 0;
 	if (!newjob->databuf) {
 		dnpds40_cleanup_job(newjob);
 		newjob = NULL;
@@ -1295,8 +1304,6 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 	char buf[9] = { 0 };
 
 	struct dnpds40_printjob *job = NULL;
-	struct dyesub_joblist *list;
-	int can_combine = 0;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1307,6 +1314,7 @@ static int dnpds40_read_parse(void *vctx, const void **vjob, int data_fd, int co
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
+	job->jobsize = sizeof(*job);
 	job->printspeed = -1;
 
 	/* There's no way to figure out the total job length in advance, we
@@ -1853,32 +1861,9 @@ skip_checks:
 	DEBUG("job->dpi %u matte %d mcut %u cutter %d/%d, bufs %d spd %d\n",
 	      job->dpi, job->matte, job->multicut, job->cutter, job->fullcut, job->buf_needed, job->printspeed);
 
-	list = dyesub_joblist_create(&dnpds40_backend, ctx);
+	job->can_combine = job->can_rewind; /* Any rewindable size can be stacked */
 
-	can_combine = job->can_rewind; /* Any rewindable size can be stacked */
-
-	/* Try to combine prints */
-	if (job->copies > 1 && can_combine) {
-		struct dnpds40_printjob *combined;
-		combined = combine_jobs(job, job);
-		if (combined) {
-			combined->copies = job->copies / 2;
-			combined->can_rewind = 0;
-			dyesub_joblist_addjob(list, combined);
-
-			if (job->copies & 1) {
-				job->copies = 1;
-			} else {
-				dnpds40_cleanup_job(job);
-				job = NULL;
-			}
-		}
-	}
-	if (job) {
-		dyesub_joblist_addjob(list, job);
-	}
-
-	*vjob = list;
+	*vjob = job;
 
 	return CUPS_BACKEND_OK;
 }
@@ -3189,6 +3174,34 @@ static int dnp_query_stats(void *vctx, struct printerstats *stats)
 	return CUPS_BACKEND_OK;
 }
 
+static int dnp_job_polarity(void *vctx)
+{
+	struct dnpds40_ctx *ctx = vctx;
+	struct dnpds40_cmd cmd;
+	uint8_t *resp;
+	int count;
+	int len = 0;
+
+	if (test_mode >= TEST_MODE_NOATTACH)
+		return 0;
+
+	if (!ctx->supports_rewind)
+		return 0;
+
+	/* Get Media remaining */
+	dnpds40_build_cmd(&cmd, "INFO", "RQTY", 0);
+
+	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	if (!resp)
+		return 0;
+
+	dnpds40_cleanup_string((char*)resp, len);
+	count = atoi((char*)resp+4);
+	free(resp);
+
+	return (count & 1);
+}
+
 static const char *dnpds40_prefixes[] = {
 	"dnp_citizen", "dnpds40",  // Family names, do *not* nuke.
 	"dnp-ds40", "dnp-ds80", "dnp-ds80dx", "dnp-ds620", "dnp-ds820", "dnp-dsrx1",
@@ -3221,9 +3234,8 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.127",
+	.version = "0.128",
 	.uri_prefixes = dnpds40_prefixes,
-	.flags = BACKEND_FLAG_JOBLIST,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
 	.init = dnpds40_init,
@@ -3235,6 +3247,8 @@ struct dyesub_backend dnpds40_backend = {
 	.query_serno = dnpds40_query_serno,
 	.query_markers = dnpds40_query_markers,
 	.query_stats = dnp_query_stats,
+	.combine_jobs = dnp_combine_jobs,
+	.job_polarity = dnp_job_polarity,
 	.devices = {
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "dnp-ds40"},  // Also Citizen CX
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "dnp-ds80"},  // Also Citizen CX-W and Mitsubishi CP-3800DW
