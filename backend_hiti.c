@@ -1274,7 +1274,7 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 {
 	struct hiti_ctx *ctx = vctx;
 	struct hiti_printjob *job = NULL;
-	int i;
+	int ret;
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
@@ -1289,21 +1289,22 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	job->copies = copies;
 
 	/* Read in header */
-	i = read(data_fd, &job->hdr, sizeof(job->hdr));
-	if (i < 0 || i != sizeof(job->hdr)) {
+	ret = read(data_fd, &job->hdr, sizeof(job->hdr));
+	if (ret < 0 || ret != sizeof(job->hdr)) {
 		hiti_cleanup_job(job);
-		if (i == 0)
+		if (ret == 0)
 			return CUPS_BACKEND_CANCEL;
 
 		ERROR("Read failed (%d/%d)\n",
-		      i, (int)sizeof(job->hdr));
+		      ret, (int)sizeof(job->hdr));
 		perror("ERROR: Read failed");
-		return i;
+		return ret;
 	}
 
 	/* Byteswap everything */
 	{
 		uint32_t *ptr = (uint32_t*) &job->hdr;
+		int i;
 		for (i = 0 ; i < (int)(sizeof(job->hdr) / sizeof(uint32_t)) ; i++)
 			ptr[i] = le32_to_cpu(ptr[i]);
 	}
@@ -1358,16 +1359,16 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	/* Read in data */
 	uint32_t remain = job->hdr.payload_len;
 	while (remain) {
-		i = read(data_fd, job->databuf + job->datalen, remain);
-		if (i < 0) {
+		ret = read(data_fd, job->databuf + job->datalen, remain);
+		if (ret < 0) {
 			ERROR("Read failed (%d/%u/%u)\n",
-			      i, remain, job->datalen);
+			      ret, remain, job->datalen);
 			perror("ERROR: Read failed");
 			hiti_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
-		job->datalen += i;
-		remain -= i;
+		job->datalen += ret;
+		remain -= ret;
 	}
 
 	/* Sanity check against paper */

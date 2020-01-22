@@ -1,7 +1,7 @@
- /*
+/*
  *   Shinko/Sinfonia CHC-S2145 CUPS backend -- libusb-1.0 version
  *
- *   (c) 2013-2019 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2013-2020 Solomon Peachy <pizza@shaftnet.org>
  *
  *   Development of this backend was sponsored by:
  *
@@ -1191,15 +1191,15 @@ static int shinkos2145_query_stats(void *vctx,  struct printerstats *stats)
 	stats->serial = ctx->serial;
 
 	{
-		struct sinfonia_fwinfo_cmd  cmd;
+		struct sinfonia_fwinfo_cmd  fcmd;
 		struct sinfonia_fwinfo_resp resp;
-		int num = 0;
-		cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_FWINFO);
-		cmd.hdr.len = cpu_to_le16(1);
-		cmd.target = FWINFO_TARGET_MAIN_APP;
+		fcmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_FWINFO);
+		fcmd.hdr.len = cpu_to_le16(1);
+		fcmd.target = FWINFO_TARGET_MAIN_APP;
 
+		num = 0;
 		if (sinfonia_docmd(&ctx->dev,
-				   (uint8_t*)&cmd, sizeof(cmd),
+				   (uint8_t*)&fcmd, sizeof(fcmd),
 				   (uint8_t*)&resp, sizeof(resp),
 				   &num))
 			return CUPS_BACKEND_FAILED;

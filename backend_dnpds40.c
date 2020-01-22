@@ -1,7 +1,7 @@
 /*
  *   Citizen / DNP Photo Printer CUPS backend -- libusb-1.0 version
  *
- *   (c) 2013-2019 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2013-2020 Solomon Peachy <pizza@shaftnet.org>
  *
  *   Development of this backend was sponsored by:
  *
@@ -876,10 +876,10 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		/* Figure out actual Manufacturer */
 		{
 			struct libusb_device_descriptor desc;
-			struct libusb_device *dev;
+			struct libusb_device *udev;
 
-			dev = libusb_get_device(ctx->dev);
-			libusb_get_device_descriptor(dev, &desc);
+			udev = libusb_get_device(ctx->dev);
+			libusb_get_device_descriptor(udev, &desc);
 
 			char buf[256];
 			buf[0] = 0;
@@ -1537,9 +1537,7 @@ parsed:
 	}
 
 	/* Use the larger of the copy arguments */
-	if (job->copies > copies)
-		copies = job->copies;
-	else
+	if (job->copies < copies)
 		job->copies = copies;
 
 	/* Sanity check matte mode */
