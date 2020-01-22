@@ -1865,7 +1865,7 @@ int dyesub_joblist_print(const struct dyesub_joblist *list, int *pagenum)
 			if (list->entries[j]) {
 				int copies = ((const struct dyesub_job_common *)(list->entries[j]))->copies;
 
-				INFO("Printing page %d (%d copies)\n", *pagenum + 1, copies);
+				INFO("Printing page %d (%d copies)\n", ++(*pagenum), copies);
 				if (test_mode >= TEST_MODE_NOPRINT )
 					WARNING("**** TEST MODE, bypassing printing!\n");
 
