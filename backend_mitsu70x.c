@@ -2490,7 +2490,12 @@ static int mitsu70x_job_polarity(void *vctx)
         if (mitsu70x_query_markers(ctx, NULL, NULL))
                 return 0;
 
-	/* Only single-deck models support rewinding! */
+	/* D70x and ASK300 don't support rewinding */
+	if (ctx->type == P_MITSU_D70X ||
+	    ctx->type == P_FUJI_ASK300)
+		return 0;
+
+	/* All others do, and only have one deck */
 	return (ctx->marker[0].levelnow & 1);
 }
 
