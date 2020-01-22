@@ -1751,6 +1751,7 @@ static int __dyesub_append_job(struct dyesub_joblist *list, const void **vjob, i
 		/* Try to combine first copy with old job */
 		combined = list->backend->combine_jobs(oldjob, job);
 		if (combined) {
+			INFO("Successfully combined two jobs\n");
 			/* Success, add it to the list */
 	                __dyesub_joblist_addjob(list, combined);
 			combined = NULL;
@@ -1792,6 +1793,7 @@ static int __dyesub_append_job(struct dyesub_joblist *list, const void **vjob, i
 		return CUPS_BACKEND_OK;
 	}
 
+	INFO("Successfully combined multiple copies\n");
 	combined->copies = job->copies / 2;
 	job->copies = job->copies % 2;
 
