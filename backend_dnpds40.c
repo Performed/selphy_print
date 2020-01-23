@@ -214,7 +214,7 @@ static void *dnp_combine_jobs(const void *vjob1,
 	struct dnpds40_printjob *newjob = NULL;
 	uint32_t new_multicut;
 	uint16_t new_w, new_h;
-	uint16_t gap_bytes;
+	int32_t gap_bytes;
 
 	/* Sanity check */
 	if (!job1 || !job2)
@@ -229,15 +229,9 @@ static void *dnp_combine_jobs(const void *vjob1,
 	JOB_EQUIV(datalen); // <-- cheating a little?
 	// JOV_EQUIV(printspeed); <-- does it matter?
 
-	/* Any cutter action (beyond no-cut-waste) means we pass */
-	if (job1->fullcut || job1->cutter > 1)
+	/* Any fancy cutter action means we pass */
+	if (job1->fullcut || job1->cutter > 120)
 		goto done;
-
-#if 0
-	// XXX TODO:  2x6*2 + 2x6*2 --> 8x6+cutter!
-	// problem is that 8x6" size is 4 rows smaller than 2* 4x6" prints, posing a problem.  Maybe cut off the top and bottom 2 rows?
-	// current algorighm doesn't allow for negative offsets though.
-#endif
 
 	/* Make sure we can combine these two prints */
 	switch (job1->multicut) {
@@ -248,19 +242,15 @@ static void *dnp_combine_jobs(const void *vjob1,
 		gap_bytes = 0;
 		break;
 	case MULTICUT_6x4:
-#if 0
 		if (job1->cutter == 120) {
 			new_multicut = MULTICUT_6x8;
 			new_h = 2436;
-			gap_bytes = -4;
+			gap_bytes = -44;  /* Chop out the middle 44 rows */
 		} else {
-#endif
 			new_multicut = MULTICUT_6x4X2;
 			new_h = 2498;
 			gap_bytes = 18;
-#if 0
 		}
-#endif
 		new_w = 1920;
 		break;
 	case MULTICUT_6x4_5:
@@ -288,7 +278,6 @@ static void *dnp_combine_jobs(const void *vjob1,
 		gap_bytes = 30;
 		break;
 	default:
-		// 2-up 8x6 prints too?
 		/* Everything else is NOT handled */
 		goto done;
 	}
@@ -309,7 +298,7 @@ static void *dnp_combine_jobs(const void *vjob1,
 	}
 	memcpy(newjob, job1, sizeof(*newjob));
 
-	newjob->databuf = malloc(((new_w*new_h+1024+54+10))*3+1024);
+	newjob->databuf = malloc(((new_w*new_h+1024+54+10))*3+1024 + abs(gap_bytes));
 	newjob->datalen = 0;
 	newjob->multicut = new_multicut;
 	newjob->can_rewind = 0;
@@ -349,15 +338,32 @@ static void *dnp_combine_jobs(const void *vjob1,
 			newlen = cpu_to_le32(new_h);
 			memcpy(newjob->databuf + newjob->datalen + 32 + 22, &newlen, 4);
 
-			/* Insert gap/padding after first image */
-			memset(newjob->databuf + newjob->datalen + i, 0, gap_bytes);
-			newjob->datalen += gap_bytes;
+			if (gap_bytes > 0) {
+				/* Insert gap/padding after first image */
+				memset(newjob->databuf + newjob->datalen + i, 0, gap_bytes);
+				newjob->datalen += gap_bytes;
+			} else {
+				uint8_t *ptrA = newjob->databuf + newjob->datalen + 1088;
+//				/* Back off by 1/2 the gap */
+//				memmove(ptrA, ptrA - (gap_bytes / 2), (i - 1088) + gap_bytes/2);
+				/* And chop the end off by half the gap */
+				newjob->datalen += gap_bytes / 2;
+			}
 
-			// locate job2's PLANE properly?  Assumption is it's in the same place.
+			/* Locate job2's PLANE -- Assume it's in the same place! */
 			ptr2 = job2->databuf + (ptr - job1->databuf);
+
 			/* Copy over job2's image data */
 			memcpy(newjob->databuf + newjob->datalen + i,
 			        ptr2 + 32 + 1088, i - 32 - 1088);
+
+			if (gap_bytes < 0) {
+				uint8_t *ptrA = newjob->databuf + newjob->datalen + i;
+				/* Back off by 1/2 the gap */
+				memmove(ptrA, ptrA - (gap_bytes / 2), (i - 1088) + gap_bytes/2);
+				/* And chop the end off by half the gap */
+				newjob->datalen += gap_bytes / 2;
+			}
 			newjob->datalen += i - 32 - 1088;  /* add in job2 length */
 		}
 
@@ -3229,7 +3235,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.128",
+	.version = "0.130",
 	.uri_prefixes = dnpds40_prefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
