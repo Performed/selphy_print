@@ -229,17 +229,14 @@ static void *dnp_combine_jobs(const void *vjob1,
 	JOB_EQUIV(datalen); // <-- cheating a little?
 	// JOV_EQUIV(printspeed); <-- does it matter?
 
-	/* Any cutter means we shouldn't bother */
-	if (job1->fullcut || job1->cutter)
+	/* Any cutter action (beyond no-cut-waste) means we pass */
+	if (job1->fullcut || job1->cutter > 1)
 		goto done;
 
 #if 0
 	// XXX TODO:  2x6*2 + 2x6*2 --> 8x6+cutter!
 	// problem is that 8x6" size is 4 rows smaller than 2* 4x6" prints, posing a problem.  Maybe cut off the top and bottom 2 rows?
-
-	/* Only handle cutter if it's for 2x6" strips */
-	if (job1->cutter != 0 && job1->cutter != 120)
-		goto done;
+	// current algorighm doesn't allow for negative offsets though.
 #endif
 
 	/* Make sure we can combine these two prints */
@@ -252,7 +249,7 @@ static void *dnp_combine_jobs(const void *vjob1,
 		break;
 	case MULTICUT_6x4:
 #if 0
-		if (job1->cutter != 120) {
+		if (job1->cutter == 120) {
 			new_multicut = MULTICUT_6x8;
 			new_h = 2436;
 			gap_bytes = -4;
