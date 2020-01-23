@@ -2,7 +2,7 @@
 
   Unified Gutenprint/CUPS backend for various Dye-Sublimation photo printers
 
-  Copyright (c) 2007-2019 Solomon Peachy <pizza@shaftnet.org>
+  Copyright (c) 2007-2020 Solomon Peachy <pizza@shaftnet.org>
 
   This free software comes with ABSOLUTELY NO WARRANTY and is licensed under
    the GNU GPL (v3 or later); see the 'COPYING' file for more details.
@@ -59,6 +59,7 @@
    Shinko CHC-S2145 (aka Sinfonia S2)
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Sony UP-CR10L (aka DNP DS-SL10)
+   Sony UP-DR80MD
    Sony UP-DR150
    Sony UP-DR200
    Sony UP-D895
@@ -87,7 +88,7 @@
    Shinko CHC-S6245 (aka Sinfonia CE1)
    Sony UP-CR20L (aka DNP DS-SL20)
    Sony UP-D898 series
-   Sony UP-DR80 series
+   Sony UP-DR80
 
  ***************************************************************************
 
@@ -161,8 +162,7 @@
        gutenprint52+usb job-id user title num-copies options [ filename ]
 
     The backend generates output for CUPS to parse, including logging
-    print counts, and if the printer supports it, reporting media type and
-    remaining media counts.
+    print counts, reporting loaded media types, and remaining media counts.
 
     Please note that this backend merely handles the low-level
     communication with the printer!  Actually generating print jobs requires
@@ -392,8 +392,8 @@
 
    Notes:
 
+     * The SELPHY ES3 and ES30 cannot report the loaded media type
      * All models can report media empty, but not quantity remaining
-     * All models except the ES3 and ES30 can report media type
 
  ***************************************************************************
   BACKEND=canonselphyneo
@@ -422,7 +422,6 @@
   Notes:
 
      * All models can report media empty, but not quantity remaining
-     * All models can report media type
 
  ***************************************************************************
   BACKEND=kodak1400
@@ -453,7 +452,8 @@
 
   Notes:
 
-    * This backend can report media empty, but not media type or remaining levels.
+    * These models cannot report media type or remaining levels,
+      but are able to report out of media conditions.
 
     [1] Format of curvedata file:
 
@@ -493,8 +493,6 @@
      -X id              Cancel print job 'id' [2]
 
   Notes:
-
-    * This backend reports media type and remaining levels.
 
     [1] Format of curvedata file:
 
@@ -540,8 +538,6 @@
      -X id              Cancel print job 'id' [2]
 
   Notes:
-
-    * This backend reports media type and remaining levels.
 
     [1] Format of curvedata file:
 
@@ -634,6 +630,8 @@
      -C filename        Store User tone curve in flash          [2]
      -l filename        Query Current tone curve from RAM       [2]
      -L filename        Store Current tone curve in RAM         [2]
+
+  Notes:
 
     [1] Job ID is the Internal Job ID (reported via status)
 	 This cancels a multi-copy print job.
@@ -794,8 +792,6 @@
 
   Notes:
 
-    [4] Kodak 8810 only
-
     [1] Format of curvedata file:
 
 	256 entries each of Yellow, Magenta, Cyan mappings:
@@ -808,6 +804,8 @@
 	 '-s' command, specifically the 'Bank' output.
 
     [3] Default printer tone curve is a linear 'val << 3'
+
+    [4] Kodak 8810 only
 
  ***************************************************************************
   BACKEND=sonyupd
@@ -838,7 +836,8 @@
 
   Notes:
 
-    * All models can report media empty, but not quantity remaining or type.
+    * These models cannot report media type or remaining levels,
+      but are able to report out of media conditions.
 
  ***************************************************************************
   BACKEND=sonyupdneo
@@ -847,10 +846,13 @@
 
      sony-upcr20l sony-upd898 sony-updr80 sony-updr80md dnp-sl20
 
+  Verified supported printers:
+
+    Sony UP-DR80MD
+
   Work-in-progress printers
 
     Sony UP-DR80
-    Sony UP-DR80MD
 
   Work-in-progress printers (Lack USB PIDs)
 
@@ -861,6 +863,11 @@
   Valid commands:
 
      -s                 Query printer status
+
+  Notes:
+
+    * The UP-D89x series is unable to report media type or levels, but
+      can report media empty conditions.
 
  ***************************************************************************
   BACKEND=mitsu70x
@@ -1053,7 +1060,8 @@
 
   Notes:
 
-    * All models can report media empty, but not quantity remaining or type.
+    * These models cannot report media type or remaining levels,
+      but are able to report out of media conditions.
 
  ***************************************************************************
   BACKEND=dnp_citizen
@@ -1154,7 +1162,8 @@ Notes:
 
   Notes:
 
-    * All models can report media empty, but not quantity remaining or type.
+    * These models cannot report media type or remaining levels,
+      but are able to report out of media conditions.
 
 ***************************************************************************
   BACKEND=hiti
@@ -1185,11 +1194,11 @@ Notes:
      -R                 Reset printer to factory defaults
      -s                 Query printer status
 
- ***NOTE***
+  Notes:
 
-	Firmware v1.19 and newer for the P520L and P525L have a major issue
-	that results in bulk data transfers not functioning under Linux.
-	This problem also affects HiTi's semi-official Linux drivers.  A
-	A workaround has been identified and implemented.
+    * Firmware v1.19-v1.21 for the P520L and P525L have a major issue
+      that results in bulk data transfers not functioning under Linux.
+      This problem also affected HiTi's semi-official Linux drivers, and
+      was finally fixed in v1.22.
 
 ***************************************************************************
