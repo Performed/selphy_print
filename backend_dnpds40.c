@@ -343,7 +343,7 @@ static void *dnp_combine_jobs(const void *vjob1,
 				memset(newjob->databuf + newjob->datalen + i, 0, gap_bytes);
 				newjob->datalen += gap_bytes;
 			} else {
-				uint8_t *ptrA = newjob->databuf + newjob->datalen + 1088;
+//				uint8_t *ptrA = newjob->databuf + newjob->datalen + 1088;
 //				/* Back off by 1/2 the gap */
 //				memmove(ptrA, ptrA - (gap_bytes / 2), (i - 1088) + gap_bytes/2);
 				/* And chop the end off by half the gap */
@@ -650,11 +650,12 @@ static uint8_t *dnpds40_resp_cmd2(struct dnpds40_ctx *ctx,
 	}
 
 	i = atoi(tmp);  /* Length of payload in bytes, possibly padded */
-	respbuf = malloc(i);
+	respbuf = malloc(i + 1);
 	if (!respbuf) {
 		ERROR("Memory allocation failure (%d bytes)!\n", i);
 		return NULL;
 	}
+	respbuf[i] = 0; /* Explicitly null-pad */
 
 	/* Read in the actual response */
 	ret = read_data(ctx->dev, ctx->endp_up,
