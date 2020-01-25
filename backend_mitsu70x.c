@@ -949,7 +949,7 @@ static void *mitsu70x_combine_jobs(const void *vjob1,
 	JOB_EQUIV(matte);
 	JOB_EQUIV(sharpen);
 
-	if (hdr1->multicut || hdr2->multicut)
+	if (hdr1->multicut || hdr2->multicut) // XXX type 5 (2x6*2) -> type4 (2x6*4), 6x9 needed, 2628 rows. use '4' in multicut field.
 		goto done;
 	if (job1->raw_format || job2->raw_format)
 		goto done;
@@ -1491,6 +1491,7 @@ static int mitsu70x_get_memorystatus(struct mitsu70x_ctx *ctx, const struct mits
 	memcpy(cmdbuf + 4, &tmp, 2);
 
 	/* We have to lie about print sizes in 4x6*2 multicut modes */
+	// XXX what about type4 (2x6*4) and type3 (3x6*3)
 	tmp = job->rows;
 	if (tmp == 2730 && mcut == 1) {
 		if (ctx->type == P_MITSU_D70X ||

@@ -109,9 +109,9 @@ static int send_plane(struct kodak1400_ctx *ctx,
 	cmdbuf[3] = planeno;
 
 	if (planedata) {
-		temp16 = htons(job->hdr.columns);
+		temp16 = be16_to_cpu(job->hdr.columns);
 		memcpy(cmdbuf+7, &temp16, 2);
-		temp16 = htons(job->hdr.rows);
+		temp16 = be16_to_cpu(job->hdr.rows);
 		memcpy(cmdbuf+9, &temp16, 2);
 	}
 

@@ -37,12 +37,6 @@
 
 #include <libusb.h>
 
-#ifdef _WIN32
-#include <winsock.h>
-#else
-#include <arpa/inet.h>
-#endif
-
 #ifndef __BACKEND_COMMON_H
 #define __BACKEND_COMMON_H
 
@@ -65,8 +59,14 @@
 #define le64_to_cpu(__x) __x
 #define le32_to_cpu(__x) __x
 #define le16_to_cpu(__x) __x
-#define be16_to_cpu(__x) ntohs(__x)
-#define be32_to_cpu(__x) ntohl(__x)
+#define be16_to_cpu(__x) ((uint16_t)(			\
+	(((uint16_t)(__x) & (uint16_t)0x00ff) <<  8) |  \
+	(((uint16_t)(__x) & (uint16_t)0xff00) >>  8) ))
+#define be32_to_cpu(__x) ((uint32_t)(			     \
+	(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
+	(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
+	(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
+	(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) ))
 #define be64_to_cpu(__x) ((uint64_t)(                         \
         (((uint64_t)(__x) & (uint64_t)0x00000000000000ffULL) << 56) |   \
         (((uint64_t)(__x) & (uint64_t)0x000000000000ff00ULL) << 40) |   \
@@ -75,8 +75,16 @@
         (((uint64_t)(__x) & (uint64_t)0x000000ff00000000ULL) >>  8) |   \
         (((uint64_t)(__x) & (uint64_t)0x0000ff0000000000ULL) >> 24) |   \
         (((uint64_t)(__x) & (uint64_t)0x00ff000000000000ULL) >> 40) |   \
-        (((uint64_t)(__x) & (uint64_t)0xff00000000000000ULL) >> 56)))
+        (((uint64_t)(__x) & (uint64_t)0xff00000000000000ULL) >> 56) ))
 #else
+#define le16_to_cpu(__x) ((uint16_t)(			\
+	(((uint16_t)(__x) & (uint16_t)0x00ff) <<  8) |  \
+	(((uint16_t)(__x) & (uint16_t)0xff00) >>  8) ))
+#define le32_to_cpu(__x) ((uint32_t)(			     \
+	(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
+	(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
+	(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
+	(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) ))
 #define le64_to_cpu(__x) ((uint64_t)(                         \
         (((uint64_t)(__x) & (uint64_t)0x00000000000000ffULL) << 56) |   \
         (((uint64_t)(__x) & (uint64_t)0x000000000000ff00ULL) << 40) |   \
@@ -86,22 +94,6 @@
         (((uint64_t)(__x) & (uint64_t)0x0000ff0000000000ULL) >> 24) |   \
         (((uint64_t)(__x) & (uint64_t)0x00ff000000000000ULL) >> 40) |   \
         (((uint64_t)(__x) & (uint64_t)0xff00000000000000ULL) >> 56)))
-#define le32_to_cpu(x)							\
-	({								\
-		uint32_t __x = (x);					\
-		((uint32_t)(						\
-			(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-			(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-			(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-			(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
-	})
-#define le16_to_cpu(x)							\
-	({								\
-		uint16_t __x = (x);					\
-		((uint16_t)(						\
-			(((uint16_t)(__x) & (uint16_t)0x00ff) <<  8) | \
-			(((uint16_t)(__x) & (uint16_t)0xff00) >>  8))); \
-	})
 #define be64_to_cpu(__x) __x
 #define be32_to_cpu(__x) __x
 #define be16_to_cpu(__x) __x
