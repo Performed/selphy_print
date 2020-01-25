@@ -36,10 +36,19 @@
 #include <fcntl.h>
 
 #include <libusb.h>
+
+#ifdef _WIN32
+#include <winsock.h>
+#else
 #include <arpa/inet.h>
+#endif
 
 #ifndef __BACKEND_COMMON_H
 #define __BACKEND_COMMON_H
+
+#ifdef ERROR
+#undef ERROR
+#endif
 
 #define STR_LEN_MAX 64
 #define STATE( ... ) do { if (!quiet) fprintf(stderr, "STATE: " __VA_ARGS__ ); } while(0)
@@ -58,25 +67,25 @@
 #define le16_to_cpu(__x) __x
 #define be16_to_cpu(__x) ntohs(__x)
 #define be32_to_cpu(__x) ntohl(__x)
-#define be64_to_cpu(__x) ((__uint64_t)(                         \
-        (((__uint64_t)(__x) & (__uint64_t)0x00000000000000ffULL) << 56) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x000000000000ff00ULL) << 40) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x0000000000ff0000ULL) << 24) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x00000000ff000000ULL) <<  8) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x000000ff00000000ULL) >>  8) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x0000ff0000000000ULL) >> 24) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x00ff000000000000ULL) >> 40) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0xff00000000000000ULL) >> 56)))
+#define be64_to_cpu(__x) ((uint64_t)(                         \
+        (((uint64_t)(__x) & (uint64_t)0x00000000000000ffULL) << 56) |   \
+        (((uint64_t)(__x) & (uint64_t)0x000000000000ff00ULL) << 40) |   \
+        (((uint64_t)(__x) & (uint64_t)0x0000000000ff0000ULL) << 24) |   \
+        (((uint64_t)(__x) & (uint64_t)0x00000000ff000000ULL) <<  8) |   \
+        (((uint64_t)(__x) & (uint64_t)0x000000ff00000000ULL) >>  8) |   \
+        (((uint64_t)(__x) & (uint64_t)0x0000ff0000000000ULL) >> 24) |   \
+        (((uint64_t)(__x) & (uint64_t)0x00ff000000000000ULL) >> 40) |   \
+        (((uint64_t)(__x) & (uint64_t)0xff00000000000000ULL) >> 56)))
 #else
-#define le64_to_cpu(__x) ((__uint64_t)(                         \
-        (((__uint64_t)(__x) & (__uint64_t)0x00000000000000ffULL) << 56) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x000000000000ff00ULL) << 40) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x0000000000ff0000ULL) << 24) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x00000000ff000000ULL) <<  8) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x000000ff00000000ULL) >>  8) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x0000ff0000000000ULL) >> 24) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0x00ff000000000000ULL) >> 40) |   \
-        (((__uint64_t)(__x) & (__uint64_t)0xff00000000000000ULL) >> 56)))
+#define le64_to_cpu(__x) ((uint64_t)(                         \
+        (((uint64_t)(__x) & (uint64_t)0x00000000000000ffULL) << 56) |   \
+        (((uint64_t)(__x) & (uint64_t)0x000000000000ff00ULL) << 40) |   \
+        (((uint64_t)(__x) & (uint64_t)0x0000000000ff0000ULL) << 24) |   \
+        (((uint64_t)(__x) & (uint64_t)0x00000000ff000000ULL) <<  8) |   \
+        (((uint64_t)(__x) & (uint64_t)0x000000ff00000000ULL) >>  8) |   \
+        (((uint64_t)(__x) & (uint64_t)0x0000ff0000000000ULL) >> 24) |   \
+        (((uint64_t)(__x) & (uint64_t)0x00ff000000000000ULL) >> 40) |   \
+        (((uint64_t)(__x) & (uint64_t)0xff00000000000000ULL) >> 56)))
 #define le32_to_cpu(x)							\
 	({								\
 		uint32_t __x = (x);					\

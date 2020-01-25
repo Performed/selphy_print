@@ -143,7 +143,7 @@ struct sinfonia_error_item {
 #define ERROR_MAIN_APP_INACTIVE 0x02
 #define ERROR_COMMS_TIMEOUT     0x03
 #define ERROR_MAINT_NEEDED      0x04
-#define ERROR_BAD_COMMAND       0x05
+#define ERROR_INAPP_COMMAND     0x05
 #define ERROR_PRINTER           0x11
 #define ERROR_BUFFER_FULL       0x21
 

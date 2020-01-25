@@ -457,9 +457,9 @@ enum {
 	S_FINISHED,
 };
 
-static int fancy_memcmp(const uint8_t *buf_a, const int16_t *buf_b, uint len)
+static int fancy_memcmp(const uint8_t *buf_a, const int16_t *buf_b, uint16_t len)
 {
-	uint i;
+	uint16_t i;
 
 	for (i = 0 ; i < len ; i++) {
 		if (buf_b[i] == -1)

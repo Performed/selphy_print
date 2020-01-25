@@ -304,12 +304,14 @@ int send_data(struct libusb_device_handle *dev, uint8_t endp,
 }
 
 /* More stuff */
+#ifndef _WIN32
 static void sigterm_handler(int signum) {
 	UNUSED(signum);
 
 	terminate = 1;
 	INFO("Job Cancelled");
 }
+#endif
 
 static char *sanitize_string(char *str) {
 	int len = strlen(str);
@@ -1062,7 +1064,9 @@ static int handle_input(struct dyesub_backend *backend, void *backend_ctx,
 			char *fname, char *uri, char *type)
 {
 	int ret = CUPS_BACKEND_OK;
+#ifndef _WIN32
 	int i;
+#endif
 	const void *job;
 	int data_fd = fileno(stdin);
 	int read_page = 0, print_page = 0;
@@ -1091,6 +1095,7 @@ static int handle_input(struct dyesub_backend *backend, void *backend_ctx,
 		}
 	}
 
+#ifndef _WIN32
 	/* Ensure we're using BLOCKING I/O */
 	i = fcntl(data_fd, F_GETFL, 0);
 	if (i < 0) {
@@ -1109,6 +1114,7 @@ static int handle_input(struct dyesub_backend *backend, void *backend_ctx,
 	/* Ignore SIGPIPE */
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGTERM, sigterm_handler);
+#endif
 
 	/* Time for the main processing loop */
 	INFO("Printing started (%d copies)\n", ncopies);

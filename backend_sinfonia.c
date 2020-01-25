@@ -867,7 +867,7 @@ const char *sinfonia_error_str(uint8_t v) {
 		return "Main Communication Timeout";
 	case ERROR_MAINT_NEEDED:
 		return "Maintenance Needed";
-	case ERROR_BAD_COMMAND:
+	case ERROR_INAPP_COMMAND:
 		return "Inappropriate Command";
 	case ERROR_PRINTER:
 		return "Printer Error";

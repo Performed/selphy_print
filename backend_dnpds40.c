@@ -192,7 +192,9 @@ struct dnpds40_cmd {
 #define MULTICUT_S_8x10_75 26
 #define MULTICUT_S_8x4X3   28  // different than roll type.
 
+#ifndef min
 #define min(__x, __y) ((__x) < (__y)) ? __x : __y
+#endif
 
 /* Legacy spool file support */
 static int legacy_cw01_read_parse(struct dnpds40_printjob *job, int data_fd, int read_data);
