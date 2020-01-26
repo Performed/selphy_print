@@ -551,7 +551,7 @@ struct shinkos6145_ctx {
 	ImageAvrCalcFN ImageAvrCalc;
 
 	struct shinkos6145_correctionparam *corrdata;
-	size_t corrdatalen;
+	uint16_t corrdatalen;
 };
 
 static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx);
@@ -761,7 +761,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 	struct sinfonia_cmd_hdr cmd;
 	struct s6145_imagecorr_resp resp;
 
-	size_t total = 0;
+	uint16_t total = 0;
 	int ret, num;
 	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETCORR);
 	cmd.len = 0;
@@ -779,7 +779,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 	}
 
 	ctx->corrdatalen = le16_to_cpu(resp.total_size);
-	INFO("Fetching %zu bytes of image correction data\n", ctx->corrdatalen);
+	INFO("Fetching %u bytes of image correction data\n", ctx->corrdatalen);
 
 	ctx->corrdata = malloc(sizeof(struct shinkos6145_correctionparam));
 	if (!ctx->corrdata) {
@@ -803,7 +803,7 @@ static int shinkos6145_get_imagecorr(struct shinkos6145_ctx *ctx)
 		total += sizeof(data.data);
 
 		if (data.remain_pkt == 0)
-			DEBUG("correction block transferred (%zu/%zu total)\n", total, ctx->corrdatalen);
+			DEBUG("correction block transferred (%u/%u total)\n", total, ctx->corrdatalen);
 
 	}
 
