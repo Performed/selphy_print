@@ -33,26 +33,7 @@
 #include <config.h>
 #endif
 
-#if defined(USE_DLOPEN)
-#define WITH_DYNAMIC
-#include <dlfcn.h>
-#define DL_INIT() do {} while(0)
-#define DL_OPEN(__x) dlopen(__x, RTLD_NOW)
-#define DL_SYM(__x, __y) dlsym(__x, __y)
-#define DL_CLOSE(__x) dlclose(__x)
-#define DL_EXIT() do {} while(0)
-#elif defined(USE_LTDL)
-#define WITH_DYNAMIC
-#include <ltdl.h>
-#define DL_INIT() lt_dlinit()
-#define DL_OPEN(__x) lt_dlopen(__x)
-#define DL_SYM(__x, __y) lt_dlsym(__x, __y)
-#define DL_CLOSE(__x) do {} while(0)
-#define DL_EXIT() lt_dlexit()
-#else
-#define DL_INIT()     do {} while(0)
-#define DL_CLOSE(__x) do {} while(0)
-#define DL_EXIT()     do {} while(0)
+#ifndef WITH_DYNAMIC
 #warning "No dynamic loading support!"
 #endif
 
