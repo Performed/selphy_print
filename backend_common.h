@@ -373,5 +373,10 @@ extern struct dyesub_backend BACKEND;
 #define DL_CLOSE(__x) do {} while(0)
 #define DL_EXIT()     do {} while(0)
 #endif
+#ifdef _WIN32
+#define DLL_SUFFIX ".dll"
+#else
+#define DLL_SUFFIX ".so"
+#endif
 
 #endif /* __BACKEND_COMMON_H */

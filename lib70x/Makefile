@@ -25,13 +25,19 @@ CFLAGS += -Wall -Wextra -g -Os -std=c99 -D_FORTIFY_SOURCE=2 -fPIC --no-strict-ov
 #CPPFLAGS +=
 CFLAGS += -funit-at-a-time
 
+ifneq (,$(findstring mingw,$(CC)))
+SUFFIX=dll
+else
+SUFFIX=so
+endif
+
 # Build stuff
 SOURCES = libMitsuD70ImageReProcess.c
 
 # And now the rules!
 .PHONY: clean all install cppcheck
 
-all: lib$(LIBMITSUD70_NAME).so
+all: lib$(LIBMITSUD70_NAME).$(SUFFIX)
 
 cppcheck:
 	$(CPPCHECK) -q -v --std=c99 --enable=all -I/usr/include $(CPPFLAGS) $(SOURCES)
@@ -46,9 +52,9 @@ install:
 	$(INSTALL) -o root -m 644 data/*dat $(BACKEND_DATA_DIR)
 
 clean:
-	$(RM) -f lib$(LIBMITSUD70_NAME).so *.o
+	$(RM) -f lib$(LIBMITSUD70_NAME).$(SUFFIX) *.o
 
-lib$(LIBMITSUD70_NAME).so:  $(SOURCES:.c=.o)
+lib$(LIBMITSUD70_NAME).$(SUFFIX):  $(SOURCES:.c=.o)
 	$(CC) $(LDFLAGS) -g -shared -o $@ $^
 
 %.o: %.c

@@ -55,8 +55,8 @@
 typedef int (*ImageProcessingFN)(unsigned char *, unsigned short *, void *);
 typedef int (*ImageAvrCalcFN)(unsigned char *, unsigned short, unsigned short, unsigned char *);
 
-#define LIB_NAME    "libS6145ImageProcess.so"    // Official library
-#define LIB_NAME_RE "libS6145ImageReProcess.so" // Reimplemented library
+#define LIB_NAME    "libS6145ImageProcess" DLL_SUFFIX    // Official library
+#define LIB_NAME_RE "libS6145ImageReProcess" DLL_SUFFIX // Reimplemented library
 
 enum {
 	S_IDLE = 0,

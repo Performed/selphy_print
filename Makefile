@@ -4,7 +4,11 @@
 #
 
 # Basic stuff
+ifneq (,$(findstring mingw,$(CC)))
+EXEC_NAME ?= dyesub_backend.exe
+else
 EXEC_NAME ?= dyesub_backend
+endif
 CPUS ?= $(shell nproc)
 #NO_GUTENPRINT = 1
 REVISION ?= -g$(shell if [ -d .git ] ; then git rev-parse --short HEAD; else echo "NONE" ; fi)
@@ -58,13 +62,16 @@ CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\" $(OLD_URI)
 CFLAGS += -funit-at-a-time
 
 # List of backends
-BACKENDS = canonselphy canonselphyneo dnpds40 hiti kodak605 kodak1400 kodak6800 magicard mitsu70x mitsu9550  mitsud90 mitsup95d shinkos1245 shinkos2145 shinkos6145 shinkos6245 sonyupd sonyupdneo
+BACKENDS = canonselphy canonselphyneo dnpds40 hiti kodak605 kodak1400 kodak6800 magicard mitsu70x mitsu9550 mitsud90 mitsup95d shinkos1245 shinkos2145 shinkos6145 shinkos6245 sonyupd sonyupdneo
 
 # For the s6145, mitsu70x, and mitsu9550 backends
+ifneq (,$(findstring mingw,$(CC)))
+CPPFLAGS += -DUSE_LTDL
+LDFLAGS += -lltdl
+else
 CPPFLAGS += -DUSE_DLOPEN
 LDFLAGS += -ldl
-#CPPFLAGS += -DUSE_LTDL
-#LDFLAGS += -lltdl
+endif
 
 # Build stuff
 DEPS += backend_common.h

@@ -57,7 +57,7 @@ struct BandImage {
 #define REQUIRED_LIB_APIVERSION 4
 
 /* Image processing library function prototypes */
-#define LIB_NAME_RE "libMitsuD70ImageReProcess.so" // Reimplemented library
+#define LIB_NAME_RE "libMitsuD70ImageReProcess" DLL_SUFFIX
 
 typedef int (*lib70x_getapiversionFN)(void);
 typedef int (*Get3DColorTableFN)(uint8_t *buf, const char *filename);
