@@ -35,6 +35,8 @@ endif
 
 ifneq (,$(findstring mingw,$(CC)))
 BACKEND_DATA_DIR ?= backend_data
+else
+BACKEND_DATA_DIR ?= $(GP_PREFIX)/share/gutenprint/backend_data
 endif
 
 # Figure out what the backend name needs to be
