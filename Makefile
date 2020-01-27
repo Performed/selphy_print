@@ -3,12 +3,14 @@
 #  SPDX-License-Identifier: GPL-3.0+
 #
 
-# Basic stuff
+# Windows stuff needs to end in .exe
 ifneq (,$(findstring mingw,$(CC)))
-EXEC_NAME ?= dyesub_backend.exe
-else
-EXEC_NAME ?= dyesub_backend
+EXEC_SUFFIX = .exe
 endif
+
+# Basic stuff
+EXEC_NAME ?= dyesub_backend$(EXEC_SUFFIX)
+
 CPUS ?= $(shell nproc)
 #NO_GUTENPRINT = 1
 REVISION ?= -g$(shell if [ -d .git ] ; then git rev-parse --short HEAD; else echo "NONE" ; fi)
