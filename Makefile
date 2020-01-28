@@ -5,6 +5,7 @@
 
 # Windows stuff needs to end in .exe
 ifneq (,$(findstring mingw,$(CC)))
+MINGW_LIBS=/usr/x86_64-w64-mingw32/sys-root/mingw/bin
 EXEC_SUFFIX=.exe
 LIB_SUFFIX=dll
 else
@@ -163,6 +164,7 @@ ifeq (,$(findstring mingw,$(CC)))
 	tar -czvf selphy_print-src$(REVISION).tar.gz selphy_print$(REVISION)
 else
 	cp -a $(EXEC_NAME) $(LIBRARIES) selphy_print$(REVISION)
+	cp -a $(MINGW_LIBS)/libltdl*.dll $(MINGW_LIBS)/libusb*.dll selphy_print$(REVISION)
 	$(MKDIR) -p selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
 	cp -a hiti_data lib70x/data/* selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
 	cp -a lib70x/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib70x
