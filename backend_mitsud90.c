@@ -50,7 +50,7 @@ const char *mitsu70x_temperatures(uint8_t temp);
 #define D90_STATUS_TYPE_x1e    0x1e // 1, power state or time?  (x00)
 #define D90_STATUS_TYPE_TEMP   0x1f // 1  (see below)
 #define D90_STATUS_TYPE_x22    0x22 // 2,  all 0  (counter?)
-#define D90_STATUS_TYPE_x28    0x28 // 2, next jobid? (starts 00 01, increments by 1 for each print)
+#define D90_STATUS_TYPE_x28    0x28 // 2, next jobid? (starts 00 01 at power cycle, increments by 1 for each print)
 #define D90_STATUS_TYPE_x29    0x29 // 8,  e0 07 00 00 21 e6 b3 22
 #define D90_STATUS_TYPE_MEDIA  0x2a // 10 (see below)
 #define D90_STATUS_TYPE_x2b    0x2b // 2,  all 0 (counter?)
@@ -1562,9 +1562,12 @@ Comms Protocol for D90 & CP-M1
 
    ac 80 00 01 bb b8 fe 48 05 13 5d 9c 00 33 00 00  00 00 00 00 00 00 00 00 00 00 02 39 00 00 00 00  03 13 00 02 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
    aa 79 00 01 bb b7 fe 47 05 13 5d 9c 01 2f 00 68  00 00 00 00 00 00 00 00 00 00 02 08 00 00 00 00  03 14 00 02 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
+
+ [ power cycle, new capture ]
    a3 5d 00 01 ba ba fe 43 04 13 5d 9c 00 00 00 00  00 00 00 00 00 00 00 00 00 00 02 0c 00 00 00 00  03 0f 00 03 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
    a3 5d 00 01 ba ba fe 42 04 13 5d 9c 01 08 00 87  00 00 00 00 00 00 00 00 00 00 01 e5 00 00 00 00  03 0f 00 03 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
    a2 5d 00 01 ba ba fe 42 06 13 5d 9c 01 08 00 87  00 00 00 00 00 00 00 00 00 00 01 d1 00 00 00 00  03 0f 00 03 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
+ [ power cycle ]
    a2 5c 00 01 ba ba fe 42 06 13 5d 9c 00 00 00 00  00 00 00 00 00 00 00 00 00 00 01 e0 00 00 00 00  03 0f 00 03 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
    a2 5d 00 01 ba ba fe 41 04 13 5d 9c 01 08 00 89  00 00 00 00 00 00 00 00 00 00 01 c9 00 00 00 00  03 0f 00 03 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
 
