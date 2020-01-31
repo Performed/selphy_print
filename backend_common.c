@@ -28,7 +28,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.102"
+#define BACKEND_VERSION "0.103"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -734,6 +734,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 			      struct libusb_device ***list,
 			      const struct dyesub_backend *backend,
 			      const char *match_serno,
+			      const char *prefix,
 			      int scan_only, int num_claim_attempts,
 			      uint8_t *r_iface, uint8_t *r_altset,
 			      uint8_t *r_endp_up, uint8_t *r_endp_down)
@@ -741,7 +742,6 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	int num;
 	int i, j = 0, k;
 	int found = -1;
-	const char *prefix = NULL;
 
 	if (test_mode >= TEST_MODE_NOATTACH) {
 		found = 1;
@@ -757,6 +757,22 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	/* Enumerate and find suitable device */
 	num = libusb_get_device_list(ctx, list);
 
+	/* See if we can actually match on the supplied prefix! */
+	if (backend && prefix) {
+		int match = 0;
+		for (j = 0 ; backend->devices[j].vid ; j++) {
+			if (!strcmp(prefix,backend->devices[j].prefix)) {
+				match = 1;
+				break;
+			}
+		}
+		/* If not, clear it */
+		if (!match)
+			prefix = NULL;
+	} else {
+		prefix = NULL; /* Explicitly clear it */
+	}
+
 	for (i = 0 ; i < num ; i++) {
 		struct libusb_device_descriptor desc;
 		libusb_get_device_descriptor((*list)[i], &desc);
@@ -764,7 +780,10 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		for (k = 0 ; backends[k] ; k++) {
 			if (backend && backend != backends[k])
 				continue;
+
 			for (j = 0 ; backends[k]->devices[j].vid ; j++) {
+				/* Try for extra pid/vid/type */
+				// XXX nuke entire extra_??? concept?
 				if (extra_pid != -1 &&
 				    extra_vid != -1 &&
 				    extra_type != -1) {
@@ -776,12 +795,14 @@ static int find_and_enumerate(struct libusb_context *ctx,
 						goto match;
 					}
 				}
+
+				/* Match based on VID/PID (and prefix, if specified) */
 				if (desc.idVendor == backends[k]->devices[j].vid &&
 				    (desc.idProduct == backends[k]->devices[j].pid ||
-				     desc.idProduct == 0xffff)) {
-					prefix = backends[k]->devices[j].prefix;
-					found = i;
-					goto match;
+				     desc.idProduct == 0xffff) &&
+				    (!prefix || !strcmp(prefix,backends[k]->devices[j].prefix))) {
+					    found = i;
+					    goto match;
 				}
 			}
 		}
@@ -962,7 +983,9 @@ void print_help(const char *argv0, const struct dyesub_backend *backend)
 	struct libusb_context *ctx = NULL;
 	struct libusb_device **list = NULL;
 
-	const char *ptr = strrchr(argv0, '/');
+	const char *ptr = getenv("BACKEND");
+	if (!ptr)
+		ptr = strrchr(argv0, '/');
 	if (ptr)
 		ptr++;
 	else
@@ -1016,7 +1039,7 @@ void print_help(const char *argv0, const struct dyesub_backend *backend)
 	}
 
 	/* Probe for printers */
-	find_and_enumerate(ctx, &list, backend, NULL, 1, 1, NULL, NULL, NULL, NULL);
+	find_and_enumerate(ctx, &list, backend, NULL, ptr, 1, 1, NULL, NULL, NULL, NULL);
 	libusb_free_device_list(list, 1);
 }
 
@@ -1214,6 +1237,7 @@ int main (int argc, char **argv)
 	char *type;
 	char *fname = NULL;
 	char *use_serno = NULL;
+	const char *backend_str = NULL;
 	int  printer_type;
 
 	/* Handle environment variables  */
@@ -1230,7 +1254,7 @@ int main (int argc, char **argv)
 	if (getenv("EXTRA_TYPE"))
 		extra_type = atoi(getenv("EXTRA_TYPE"));
 	if (getenv("BACKEND"))
-		backend = find_backend(getenv("BACKEND"));
+		backend_str = getenv("BACKEND");
 	if (getenv("FAST_RETURN"))
 		fast_return++;
 	if (getenv("MAX_XFER_SIZE"))
@@ -1261,8 +1285,7 @@ int main (int argc, char **argv)
 	uri = getenv("DEVICE_URI");  /* CUPS backend mode! */
 	type = getenv("FINAL_CONTENT_TYPE"); /* CUPS content type -- ie raster or command */
 
-	if (uri && strlen(uri)) {
-		/* CUPS backend mode */
+	if (uri && strlen(uri)) {  /* CUPS backend mode */
 		int base = optind; /* ie 1 */
 		if (argc < 6) {
 			ERROR("Insufficient arguments\n");
@@ -1279,35 +1302,30 @@ int main (int argc, char **argv)
 
 		/* Figure out backend based on URI */
 		{
-			char *ptr = strstr(uri, "backend="), *ptr2;
-			if (ptr) { /* Original format */
-				ptr += 8;
-				ptr2 = strchr(ptr, '&');
-				if (ptr2)
+			char *ptr2;
+			backend_str = strstr(uri, "backend=");
+			if (backend_str) { /* Original format */
+				backend_str += 8;
+				ptr2 = strchr(backend_str, '&');
+				if (ptr2) {
+					use_serno = strstr(ptr2, "serial=");
 					*ptr2 = 0;
-
-				backend = find_backend(ptr);
-				if (!backend) {
-					ERROR("Invalid backend (%s)\n", ptr);
-					exit(1);
 				}
-				if (ptr2)
-					*ptr2 = '&';
 
-				use_serno = strchr(uri, '=');
-				if (!use_serno || !*(use_serno+1)) {
+				if (!use_serno)
+					use_serno = strstr(uri, "serial=");
+
+				if (!use_serno || !*(use_serno+7)) {
 					ERROR("Invalid URI (%s)\n", uri);
 					exit(1);
 				}
-				use_serno++;
-				ptr = strchr(use_serno, '&');
-				if (ptr)
-					*ptr = 0;
+				use_serno += 7;
+
 			} else { /* New format */
 				// prefix://backend/serno
-				ptr = strchr(uri, '/');
-				ptr += 2;
-				use_serno = strchr(ptr, '/');
+				backend_str = strchr(uri, '/');
+				backend_str += 2;
+				use_serno = strchr(backend_str, '/');
 				if (!use_serno || !*(use_serno+1)) {
 					ERROR("Invalid URI (%s)\n", uri);
 					exit(1);
@@ -1315,35 +1333,42 @@ int main (int argc, char **argv)
 				*use_serno = 0;
 				use_serno++;
 
-				backend = find_backend(ptr);
-				if (!backend) {
-					ERROR("Invalid backend (%s)\n", ptr);
-					exit(1);
-				}
+				backend = find_backend(backend_str);
+			}
 
-				ptr = strchr(ptr, '?');
-				if (ptr)
-					*ptr = 0;
+			if (use_serno) {
+				ptr2 = strchr(use_serno, '&');
+				if (ptr2)
+					*ptr2 = 0;
 			}
 		}
 
 		/* Always enable fast return in CUPS mode */
 		fast_return++;
-	} else {
-		/* Standalone mode */
+
+	} else {  /* Standalone mode */
 
 		/* Try to guess backend from executable name */
-		if (!backend) {
-			char *ptr = strrchr(argv[0], '/');
-			if (ptr)
-				ptr++;
+		if (!backend_str) {
+			backend_str = strrchr(argv[0], '/');
+			if (backend_str)
+				backend_str++;
 			else
-				ptr = argv[0];
-			backend = find_backend(ptr);
+				backend_str = argv[0];
 		}
 
 		srand(getpid());
 		jobid = rand();
+	}
+
+	/* Finally, look up the backend */
+	backend = find_backend(backend_str);
+	if (!backend) {
+		if (uri && strlen(uri)) {
+			ERROR("Invalid backend requested (%s)\n", backend_str);
+			exit(1);
+		}
+		backend_str = NULL;
 	}
 
 #ifndef LIBUSB_PRE_1_0_10
@@ -1380,7 +1405,7 @@ int main (int argc, char **argv)
 	}
 
 	/* Enumerate devices */
-	found = find_and_enumerate(ctx, &list, backend, use_serno, 0, NUM_CLAIM_ATTEMPTS, &iface, &altset, &endp_up, &endp_down);
+	found = find_and_enumerate(ctx, &list, backend, use_serno, backend_str, 0, NUM_CLAIM_ATTEMPTS, &iface, &altset, &endp_up, &endp_down);
 
 	if (found == -1) {
 		ERROR("Printer open failure (No matching printers found!)\n");
@@ -1456,7 +1481,7 @@ bypass:
 		goto done_claimed;
 	}
 
-	/* Attach backend to device */
+	/* Attach backend to device */ // XXX pass backend_str?
 	if (backend->attach(backend_ctx, dev, printer_type, endp_up, endp_down, iface, jobid)) {
 		ERROR("Unable to attach to printer!\n");
 		ret = CUPS_BACKEND_FAILED;

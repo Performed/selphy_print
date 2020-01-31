@@ -199,9 +199,10 @@
 
      gutenprint53+usb://backendname/serialnum
 
-    And the old/legacy/classic one:
+    And the old/legacy/classic ones:
 
      gutenprint52+usb://manufacturer/model/?backend=backendname&serial=serialnum
+     gutenprint52+usb://manufacturer/model/?serial=serialnum&backend=backendname
 
     The URI scheme generated at device probing depends on the version of
     gutenprint installed.  By default, the modern scheme is used when compiled
