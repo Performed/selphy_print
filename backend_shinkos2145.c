@@ -1249,8 +1249,8 @@ struct dyesub_backend shinkos2145_backend = {
 	.query_markers = shinkos2145_query_markers,
 	.query_stats = shinkos2145_query_stats,
 	.devices = {
-		{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, NULL, "shinko-chc2145"},
-		{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, NULL, "sinfonia-chc2145"}, /* Duplicate */
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, NULL, "shinko-chcs2145"},
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, NULL, "sinfonia-chcs2145"}, /* Duplicate */
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
