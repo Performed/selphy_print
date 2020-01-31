@@ -574,7 +574,6 @@ static int mitsup95d_query_markers(void *vctx, struct marker **markers, int *cou
 
 static const char *mitsup95d_prefixes[] = {
 	"mitsup9x", // Family driver name
-	"mitsubishi-p95d", "mitsubishi-p93d",
 	// backwards compatibility
 	"mitsup95d", "mitsup93d",
 	NULL

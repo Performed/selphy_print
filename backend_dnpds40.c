@@ -3208,15 +3208,9 @@ static int dnp_job_polarity(void *vctx)
 
 static const char *dnpds40_prefixes[] = {
 	"dnp_citizen", "dnpds40",  // Family names, do *not* nuke.
-	"dnp-ds40", "dnp-ds80", "dnp-ds80dx", "dnp-ds620", "dnp-ds820", "dnp-dsrx1",
-	"citizen-cw-01", "citizen-cw-02", "citizen-cx-02",
-	"citizen-cx-02w",
 	// backwards compatibility
 	"dnpds80", "dnpds80dx", "dnpds620", "dnpds820", "dnprx1",
 	"citizencw01", "citizencw02", "citizencx02",
-	// These are all extras.
-	"citizen-cx", "citizen-cx-w", "citizen-cy", "citizen-cy-02",
-	"citizen-op900", "citizen-op900ii",
 	NULL
 };
 
@@ -3226,7 +3220,7 @@ static const char *dnpds40_prefixes[] = {
 #define USB_PID_DNP_DSRX1 0x0005 // Also Citizen CY
 #define USB_PID_DNP_DS80D 0x0008
 
-#define USB_PID_CITIZEN_CW01 0x0002 // Maybe others?
+#define USB_PID_CITIZEN_CW01 0x0002 // Also OP900
 #define USB_PID_CITIZEN_CW02 0x0006 // Also OP900II
 #define USB_PID_CITIZEN_CX02 0x000A
 #define USB_PID_CITIZEN_CX02W 0x000B
@@ -3254,14 +3248,21 @@ struct dyesub_backend dnpds40_backend = {
 	.combine_jobs = dnp_combine_jobs,
 	.job_polarity = dnp_job_polarity,
 	.devices = {
-		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "dnp-ds40"},  // Also Citizen CX
-		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "dnp-ds80"},  // Also Citizen CX-W and Mitsubishi CP-3800DW
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "dnp-ds40"},
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS40, P_DNP_DS40, NULL, "citizen-cx"}, /* Duplicate */
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "dnp-ds80"},
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "citizen-cx-w"}, /* Duplicate */
+		{ USB_VID_CITIZEN, USB_PID_DNP_DS80, P_DNP_DS80, NULL, "mitsubishi-cp3800dw"}, /* Duplicate */
 		{ USB_VID_CITIZEN, USB_PID_DNP_DS80D, P_DNP_DS80D, NULL, "dnp-ds80dx"},
-		{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL, "dnp-dsrx1"}, // Also Citizen CY
+		{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL, "dnp-dsrx1"},
+		{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL, "citizen-cy"}, /* Duplicate */
+		{ USB_VID_CITIZEN, USB_PID_DNP_DSRX1, P_DNP_DSRX1, NULL, "citizen-cy-02"}, /* Duplicate */
 		{ USB_VID_DNP, USB_PID_DNP_DS620, P_DNP_DS620, NULL, "dnp-ds620"},
 		{ USB_VID_DNP, USB_PID_DNP_DS820, P_DNP_DS820, NULL, "dnp-ds820"},
-		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, NULL, "citizen-cw-01"}, // Also OP900 ?
-		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL, "citizen-cw-02"}, // Also OP900II
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, NULL, "citizen-cw-01"},
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW01, P_CITIZEN_CW01, NULL, "citizen-op900"}, /* Duplicate */
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL, "citizen-cw-02"},
+		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CW02, P_CITIZEN_OP900II, NULL, "citizen-op900ii"}, /* Duplicate */
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX02, P_DNP_DS620, NULL, "citizen-cx-02"},
 		{ USB_VID_CITIZEN, USB_PID_CITIZEN_CX02W, P_DNP_DS820, NULL, "citizen-cx-02w"},
 		{ 0, 0, 0, NULL, NULL}

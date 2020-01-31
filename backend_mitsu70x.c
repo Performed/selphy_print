@@ -2546,9 +2546,6 @@ static int mitsu70x_query_stats(void *vctx, struct printerstats *stats)
 
 static const char *mitsu70x_prefixes[] = {
 	"mitsu70x", // Family entry, do not nuke.
-	"mitsubishi-d70dw", "mitsubishi-d80dw", "mitsubishi-k60dw", "kodak-305", "fujifilm-ask-300",
-	// Extras
-	"mitsubishi-d707dw", "mitsubishi-k60dws",
 	// backwards compatibility
 	"mitsud80", "mitsuk60", "kodak305", "fujiask300",
 	NULL,
@@ -2575,6 +2572,7 @@ struct dyesub_backend mitsu70x_backend = {
 	.job_polarity = mitsu70x_job_polarity,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, NULL, "mitsubishi-d70dw"},
+		{ USB_VID_MITSU, USB_PID_MITSU_D70X, P_MITSU_D70X, NULL, "mitsubishi-d707dw"}, /* Duplicate */
 		{ USB_VID_MITSU, USB_PID_MITSU_K60, P_MITSU_K60, NULL, "mitsubishi-k60dw"},
 		{ USB_VID_MITSU, USB_PID_MITSU_D80, P_MITSU_D80, NULL, "mitsubishi-d80dw"},
 		{ USB_VID_KODAK, USB_PID_KODAK305, P_KODAK_305, NULL, "kodak-305"},

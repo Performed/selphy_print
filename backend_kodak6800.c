@@ -1071,7 +1071,6 @@ static int kodak6800_query_stats(void *vctx,  struct printerstats *stats)
 
 static const char *kodak6800_prefixes[] = {
 	"kodak68x0", // Family driver, do not nuke.
-	"kodak-6800", "kodak-6850",
 	// Backwards-compatibility
 	"kodak6800", "kodak6850",
 	NULL

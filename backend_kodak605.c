@@ -893,7 +893,7 @@ static int kodak605_query_stats(void *vctx,  struct printerstats *stats)
 
 static const char *kodak605_prefixes[] = {
 	"kodak605",  // Family driver, do NOT nuke.
-	"kodak-605", "kodak-7000", "kodak-7010", "kodak-7015",
+	"kodak-701x", // Just in case
 	NULL,
 };
 
@@ -915,7 +915,7 @@ struct dyesub_backend kodak605_backend = {
 		{ USB_VID_KODAK, USB_PID_KODAK_605, P_KODAK_605, "Kodak", "kodak-605"},
 		{ USB_VID_KODAK, USB_PID_KODAK_7000, P_KODAK_7000, "Kodak", "kodak-7000"},
 		{ USB_VID_KODAK, USB_PID_KODAK_7010, P_KODAK_701X, "Kodak", "kodak-7010"},
-		{ USB_VID_KODAK, USB_PID_KODAK_7015, P_KODAK_701X, "Kodak", "kodak-7015"},
+		{ USB_VID_KODAK, USB_PID_KODAK_7015, P_KODAK_701X, "Kodak", "kodak-7015"}, /* Duplicate */
 		{ 0, 0, 0, NULL, NULL}
 	}
 };

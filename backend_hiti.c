@@ -2142,8 +2142,7 @@ static int hiti_query_stats(void *vctx, struct printerstats *stats)
 
 static const char *hiti_prefixes[] = {
 	"hiti", // Family name
-	"hiti-p52x",
-	"hiti-p520l", "hiti-p525l", "hiti-p720l", "hiti-p750l",
+	"hiti-p52x", /* Just in case */
 	NULL
 };
 
@@ -2184,6 +2183,7 @@ struct dyesub_backend hiti_backend = {
 	.query_stats = hiti_query_stats,
 	.devices = {
 		{ USB_VID_HITI, USB_PID_HITI_P52X, P_HITI_52X, NULL, "hiti-p520l"},
+		{ USB_VID_HITI, USB_PID_HITI_P52X, P_HITI_52X, NULL, "hiti-p525l"}, /* Duplicate */
 		{ USB_VID_HITI, USB_PID_HITI_P720, P_HITI_720, NULL, "hiti-p720l"},
 		{ USB_VID_HITI, USB_PID_HITI_P750, P_HITI_750, NULL, "hiti-p750l"},
 		{ 0, 0, 0, NULL, NULL}

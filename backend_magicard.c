@@ -928,9 +928,6 @@ static int magicard_query_markers(void *vctx, struct marker **markers, int *coun
 
 static const char *magicard_prefixes[] = {
 	"magicard", // Family name
-	"magicard-tango-2e", "magicard-enduro", "magicard-enduroplus",
-	// extras
-	"magicard-rio-2e",
 	// backwards compatibility
 	"tango2e", "enduro", "enduroplus",
 	NULL
@@ -950,6 +947,7 @@ struct dyesub_backend magicard_backend = {
 	.query_markers = magicard_query_markers,
 	.devices = {
 		{ USB_VID_MAGICARD, USB_PID_MAGICARD_TANGO2E, P_MAGICARD, NULL, "magicard-tango2e"},
+//		{ USB_VID_MAGICARD, USB_PID_MAGICARD_TANGO2E, P_MAGICARD, NULL, "magicard-rio2e"},
 		{ USB_VID_MAGICARD, USB_PID_MAGICARD_ENDURO, P_MAGICARD, NULL, "magicard-enduro"},
 		{ USB_VID_MAGICARD, USB_PID_MAGICARD_ENDUROPLUS, P_MAGICARD, NULL, "magicard-enduroplus"},
 		{ USB_VID_MAGICARD, 0xFFFF, P_MAGICARD, NULL, "magicard"},

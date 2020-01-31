@@ -1304,9 +1304,7 @@ static int mitsud90_query_stats(void *vctx, struct printerstats *stats)
 }
 
 static const char *mitsud90_prefixes[] = {
-	"mitsubishi-d90dw",
-	// backwards compatibility
-	"mitsud90",
+	"mitsud90", /* Family Name */
 	NULL
 };
 

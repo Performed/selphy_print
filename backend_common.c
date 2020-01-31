@@ -836,11 +836,17 @@ static struct dyesub_backend *find_backend(const char *uri_prefix)
 	for (i = 0; ; i++) {
 		struct dyesub_backend *backend = backends[i];
 		const char **alias;
+		int j;
 		if (!backend)
 			return NULL;
 		for (alias = backend->uri_prefixes ; alias && *alias ; alias++) {
 			if (!strcmp(uri_prefix, *alias))
 				return backend;
+		}
+		for (j = 0 ; backend->devices[j].vid ; j++) {
+			if (!strcmp(uri_prefix,backend->devices[j].prefix)) {
+				return backend;
+			}
 		}
 	}
 	return NULL;
@@ -1025,11 +1031,14 @@ void print_help(const char *argv0, const struct dyesub_backend *backend)
 		}
 	} else {
 		const char **alias;
+		int j;
 		DEBUG("Standalone %s backend version %s\n",
 		      backend->name, backend->version);
 		DEBUG("\t supporting: ");
 		for (alias = backend->uri_prefixes ; alias && *alias ; alias++)
 			DEBUG2("%s ", *alias);
+		for (j = 0 ; backend->devices[j].vid ; j++)
+			DEBUG2("%s ", backend->devices[j].prefix);
 		DEBUG2("\n");
 
 		DEBUG("\t[ -D ] [ -G ] [ -f ]\n");

@@ -1667,13 +1667,6 @@ static int mitsu9550_query_markers(void *vctx, struct marker **markers, int *cou
 
 static const char *mitsu9550_prefixes[] = {
 	"mitsu9xxx", // Family driver, do not nuke.
-	"mitsubishi-9000dw", "mitsubishi-9500dw",
-	"mitsubishi-9550dw", "mitsubishi-9550dw-s",
-	"mitsubishi-9600dw", // "mitsubishi-9600dw-s",
-	"mitsubishi-9800dw", "mitsubishi-9800dw-s",
-	"mitsubishi-9810dw",
-	// extras
-	"mitsubishi-9550d", "mitsubishi-9550dz", "mitsubishi-9800d", "mitsubishi-9800dz", "mitsubishi-9810d",
 	// Backwards compatibility
 	"mitsu9000", "mitsu9500", "mitsu9550", "mitsu9600", "mitsu9800", "mitsu9810",
 	NULL
@@ -1699,12 +1692,17 @@ struct dyesub_backend mitsu9550_backend = {
 		{ USB_VID_MITSU, USB_PID_MITSU_9000D, P_MITSU_9550, NULL, "mitsubishi-9000dw"},
 		{ USB_VID_MITSU, USB_PID_MITSU_9500D, P_MITSU_9550, NULL, "mitsubishi-9500dw"},
 		{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, NULL, "mitsubishi-9550dw"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, NULL, "mitsubishi-9550d"}, /* Duplicate */
 		{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, NULL, "mitsubishi-9550dw-s"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, NULL, "mitsubishi-9550dz"}, /* Duplicate */
 		{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, NULL, "mitsubishi-9600dw"},
 //	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600S, NULL, "mitsubishi-9600dw-s"},
 		{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, NULL, "mitsubishi-9800dw"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, NULL, "mitsubishi-9800d"}, /* Duplicate */
 		{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, NULL, "mitsubishi-9800dw-s"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, NULL, "mitsubishi-9800dz"}, /* Duplicate */
 		{ USB_VID_MITSU, USB_PID_MITSU_98__D, P_MITSU_9810, NULL, "mitsubishi-9810dw"},
+		{ USB_VID_MITSU, USB_PID_MITSU_98__D, P_MITSU_9810, NULL, "mitsubishi-9810d"}, /* Duplicate */
 //	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, NULL, "mitsubishi-9810dw"},
 //	{ USB_VID_MITSU, USB_PID_MITSU_9820DS, P_MITSU_9820S, NULL, "mitsubishi-9820dw-s"},
 		{ 0, 0, 0, NULL, NULL}

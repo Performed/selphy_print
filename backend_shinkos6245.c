@@ -1508,17 +1508,15 @@ static int shinkos6245_query_stats(void *vctx,  struct printerstats *stats)
 #define USB_PID_KODAK_8810   0x404D
 
 static const char *shinkos6245_prefixes[] = {
-	"sinfonia-chcs6245", "hiti-p910l", "kodak-8810",
-	// extras
-	"shinko-chcs6245",
+	"shinkos6245", /* Family Name */
 	// backwards compatibility
-	"shinkos6245", "hitip910",
+	"hitip910",
 	NULL
 };
 
 struct dyesub_backend shinkos6245_backend = {
 	.name = "Sinfonia CHC-S6245 / Kodak 8810",
-	.version = "0.32" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.33" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6245_prefixes,
 	.cmdline_usage = shinkos6245_cmdline,
 	.cmdline_arg = shinkos6245_cmdline_arg,
@@ -1531,7 +1529,8 @@ struct dyesub_backend shinkos6245_backend = {
 	.query_markers = shinkos6245_query_markers,
 	.query_stats = shinkos6245_query_stats,
 	.devices = {
-		{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, NULL, "shinfonia-chcs6245"},
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, NULL, "sinfonia-chcs6245"},
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S6245, P_SHINKO_S6245, NULL, "shinko-chcs6245"}, /* Duplicate */
 		{ USB_VID_HITI, USB_PID_HITI_P910L, P_HITI_910, NULL, "hiti-p910l"},
 		{ USB_VID_KODAK, USB_PID_KODAK_8810, P_KODAK_8810, NULL, "kodak-8810"},
 		{ 0, 0, 0, NULL, NULL}

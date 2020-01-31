@@ -513,7 +513,6 @@ static int selphyneo_query_markers(void *vctx, struct marker **markers, int *cou
 
 static const char *canonselphyneo_prefixes[] = {
 	"canonselphyneo", // Family name
-	"canon-cp820", "canon-cp910", "canon-cp1000", "canon-cp1200", "canon-cp1300",
 	// backwards compatibility
 	"selphycp820", "selphycp910", "selphycp1000", "selphycp1200", "selphycp1300",
 	NULL

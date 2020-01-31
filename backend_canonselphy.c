@@ -1122,14 +1122,6 @@ static int canonselphy_query_markers(void *vctx, struct marker **markers, int *c
 
 static const char *canonselphy_prefixes[] = {
 	"canonselphy", // Family name
-	"canon-cp10", "canon-cp100", "canon-cp200", "canon-cp220",
-	"canon-cp300", "canon-cp330", "canon-cp400", "canon-cp500",
-	"canon-cp510", "canon-cp520", "canon-cp530", "canon-cp600",
-	"canon-cp710", "canon-cp720", "canon-cp730", "canon-cp740",
-	"canon-cp750", "canon-cp760", "canon-cp770", "canon-cp780",
-	"canon-cp790", "canon-cp800", "canon-cp810", "canon-cp900",
-	"canon-es1", "canon-es2", "canon-es20", "canon-es3",
-	"canon-es30", "canon-es40",
 	// backwards compatibility
 	"selphycp10", "selphycp100", "selphycp200", "selphycp220",
 	"selphycp300", "selphycp330", "selphycp400", "selphycp500",
@@ -1144,7 +1136,7 @@ static const char *canonselphy_prefixes[] = {
 
 struct dyesub_backend canonselphy_backend = {
 	.name = "Canon SELPHY CP/ES (legacy)",
-	.version = "0.104",
+	.version = "0.105",
 	.uri_prefixes = canonselphy_prefixes,
 	.cmdline_usage = canonselphy_cmdline,
 	.cmdline_arg = canonselphy_cmdline_arg,
@@ -1159,7 +1151,7 @@ struct dyesub_backend canonselphy_backend = {
 		{ USB_VID_CANON, USB_PID_CANON_CP100, P_CP_XXX, NULL, "canon-cp100"},
 		{ USB_VID_CANON, USB_PID_CANON_CP200, P_CP_XXX, NULL, "canon-cp200"},
 		{ USB_VID_CANON, USB_PID_CANON_CP220, P_CP_XXX, NULL, "canon-cp220"},
-		{ USB_VID_CANON, USB_PID_CANON_CP300, P_CP_XXX, NULL, "selpyhcp300"},
+		{ USB_VID_CANON, USB_PID_CANON_CP300, P_CP_XXX, NULL, "canon-cp300"},
 		{ USB_VID_CANON, USB_PID_CANON_CP330, P_CP_XXX, NULL, "canon-cp330"},
 		{ USB_VID_CANON, USB_PID_CANON_CP400, P_CP_XXX, NULL, "canon-cp400"},
 		{ USB_VID_CANON, USB_PID_CANON_CP500, P_CP_XXX, NULL, "canon-cp500"},

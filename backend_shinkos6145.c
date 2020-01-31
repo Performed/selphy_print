@@ -534,7 +534,7 @@ struct shinkos6145_ctx {
 
 	uint8_t jobid;
 
-	uint8_t image_avg[3]; /* CMY */
+	uint8_t image_avg[3]; /* YMC */
 
 	char serial[32];
 	char fwver[32];
@@ -1636,12 +1636,9 @@ static int shinkos6145_query_stats(void *vctx,  struct printerstats *stats)
 }
 
 static const char *shinkos6145_prefixes[] = {
-	"sinfonia-chcs6145", "ciaat-brava-21",
-	"sinfonia-chcs2245", "hiti-m610", "kodak-6900",
-	// extras
-	"shinko-chcs6145",
+	"shinkos6145", /* Family Name */
 	// backwards-compatiblity
-	"shinkos6145", "brava21",
+	"brava21",
 	NULL
 };
 
@@ -1662,6 +1659,7 @@ struct dyesub_backend shinkos6145_backend = {
 	.query_stats = shinkos6145_query_stats,
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL, "sinfonia-chcs6145"},
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL, "shinko-chcs6145"}, /* Duplicate */
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145D, P_SHINKO_S6145D, NULL, "ciaat-brava-21"},
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S2245, P_SHINKO_S2245, NULL, "sinfonia-chcs2245"},
 		{ USB_VID_KODAKALARIS, USB_PID_KA_6900, P_SHINKO_S2245, NULL, "kodak-6900"},

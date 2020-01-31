@@ -613,9 +613,8 @@ static int updneo_query_markers(void *vctx, struct marker **markers, int *count)
 }
 
 static const char *sonyupdneo_prefixes[] = {
-	"sonyupdneo",
-	"sony-upd898", "sony-upcr20l", "sony-updr80", "sony-updr80md",
-	"dnp-sl20",
+	"sonyupdneo", /* Family Name */
+	"dnp-sl20", // extra, unknown if shared with CR20L
 	NULL
 };
 
