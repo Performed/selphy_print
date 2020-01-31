@@ -1167,6 +1167,7 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 	memset(job, 0, sizeof(*job));
+	job->jobsize = sizeof(*job);
 
 	/* Common read/parse code */
 	if (ctx->dev.type == P_KODAK_6900) {
@@ -1184,6 +1185,16 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 		job->copies = job->jp.copies;
 	else
 		job->copies = copies;
+
+	/* S6145 can only combine 2* 4x6 -> 8x6.
+	   2x6 strips and 3.5x5 -> 5x7 can't. */
+	if (job->jp.columns == 1844 &&
+	    job->jp.rows == 1240 &&
+	    job->jp.method == PRINT_METHOD_STD &&
+	    (ctx->media.ribbon_code == RIBBON_6x8 ||
+	     ctx->media.ribbon_code == RIBBON_6x9)) {
+		job->can_combine = 1;
+	}
 
 	/* Extended spool format to re-purpose an unused header field.
 	   When bit 0 is set, this tells the backend that the data is
@@ -1215,14 +1226,102 @@ static int shinkos6145_read_parse(void *vctx, const void **vjob, int data_fd, in
 		job->databuf = databuf3;
 	}
 
-	// if (job->copies > 1 && hdr->media == 0 && hdr->method == 0)
-	// and if printer_media == 6x8 or 6x9
-	// combine 4x6 + 4x6 -> 8x6
-	// 1844x2492 = 1844x1240.. delta = 12.
-
 	*vjob = job;
 
 	return CUPS_BACKEND_OK;
+}
+
+#define JOB_EQUIV(__x)  if (job1->__x != job2->__x) goto done
+
+// XXX this code could be "generic sinfonia?"
+// but only the S6145 and S2245 can't automatically combine
+// or rewind.  So it's really only useful here.
+static void *shinkos6145_combine_jobs(const void *vjob1,
+				      const void *vjob2)
+{
+	const struct sinfonia_printjob *job1 = vjob1;
+	const struct sinfonia_printjob *job2 = vjob2;
+	struct sinfonia_printjob *newjob = NULL;
+
+	uint16_t newrows;
+	uint16_t newpad;
+
+	if (!job1 || !job2)
+		goto done;
+
+	/* Make sure we're okay to proceed */
+	JOB_EQUIV(jp.columns);
+	JOB_EQUIV(jp.rows);
+	JOB_EQUIV(jp.oc_mode);
+	JOB_EQUIV(jp.method);
+	JOB_EQUIV(jp.media);
+	JOB_EQUIV(jp.quality);
+
+	switch (job1->jp.rows) {
+	case 1240:  /* 4x6 */
+		if (job1->jp.method != PRINT_METHOD_STD)
+			goto done;
+		newrows = 2492;
+		newpad = 12;
+		break;
+	default:
+		/* All other sizes, we can't combine */
+		goto done;
+	}
+
+        newjob = malloc(sizeof(*newjob));
+        if (!newjob) {
+                ERROR("Memory allocation failure!\n");
+                goto done;
+        }
+        memcpy(newjob, job1, sizeof(*newjob));
+
+	newjob->jp.rows = newrows;
+	newjob->jp.media = CODE_6x8;
+	newjob->jp.method = PRINT_METHOD_SPLIT;
+
+	/* Allocate new buffer */
+	newjob->databuf = malloc(newjob->jp.rows * newjob->jp.columns * 3);
+	newjob->datalen = 0;
+	if (!newjob->databuf) {
+		sinfonia_cleanup_job(newjob);
+		newjob = NULL;
+		goto done;
+	}
+
+	/* Copy Planar YMC payload into new buffer! */
+	memcpy(newjob->databuf + newjob->datalen,
+	       job1->databuf,
+	       job1->jp.rows * job1->jp.columns);
+	newjob->datalen += job1->jp.rows * job1->jp.columns;
+	memset(newjob->databuf + newjob->datalen, 0xff, newpad * newjob->jp.columns);
+	memcpy(newjob->databuf + newjob->datalen,
+	       job2->databuf,
+	       job2->jp.rows * job2->jp.columns);
+	newjob->datalen += job2->jp.rows * job2->jp.columns;
+
+	memcpy(newjob->databuf + newjob->datalen,
+	       job1->databuf + (job1->jp.rows * job1->jp.columns),
+	       job1->jp.rows * job1->jp.columns);
+	newjob->datalen += job1->jp.rows * job1->jp.columns;
+	memset(newjob->databuf + newjob->datalen, 0xff, newpad * newjob->jp.columns);
+	memcpy(newjob->databuf + newjob->datalen,
+	       job2->databuf + (job2->jp.rows * job2->jp.columns),
+	       job2->jp.rows * job2->jp.columns);
+	newjob->datalen += job2->jp.rows * job2->jp.columns;
+
+	memcpy(newjob->databuf + newjob->datalen,
+	       job1->databuf + 2*(job1->jp.rows * job1->jp.columns),
+	       job1->jp.rows * job1->jp.columns);
+	newjob->datalen += job1->jp.rows * job1->jp.columns;
+	memset(newjob->databuf + newjob->datalen, 0xff, newpad * newjob->jp.columns);
+	memcpy(newjob->databuf + newjob->datalen,
+	       job2->databuf + 2*(job2->jp.rows * job2->jp.columns),
+	       job2->jp.rows * job2->jp.columns);
+	newjob->datalen += job2->jp.rows * job2->jp.columns;
+
+done:
+	return newjob;
 }
 
 static int shinkos6145_main_loop(void *vctx, const void *vjob) {
@@ -1644,7 +1743,7 @@ static const char *shinkos6145_prefixes[] = {
 
 struct dyesub_backend shinkos6145_backend = {
 	.name = "Shinko/Sinfonia CHC-S6145/CS2/S2245/S3",
-	.version = "0.47" " (lib " LIBSINFONIA_VER ")",
+	.version = "0.48" " (lib " LIBSINFONIA_VER ")",
 	.uri_prefixes = shinkos6145_prefixes,
 	.cmdline_usage = shinkos6145_cmdline,
 	.cmdline_arg = shinkos6145_cmdline_arg,
@@ -1657,6 +1756,7 @@ struct dyesub_backend shinkos6145_backend = {
 	.query_serno = sinfonia_query_serno,
 	.query_markers = shinkos6145_query_markers,
 	.query_stats = shinkos6145_query_stats,
+	.combine_jobs = shinkos6145_combine_jobs,
 	.devices = {
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL, "sinfonia-chcs6145"},
 		{ USB_VID_SHINKO, USB_PID_SHINKO_S6145, P_SHINKO_S6145, NULL, "shinko-chcs6145"}, /* Duplicate */

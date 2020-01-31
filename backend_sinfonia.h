@@ -52,11 +52,14 @@ struct sinfonia_job_param {
 #define EXT_FLAG_DOUBLESLUG 0x04
 
 struct sinfonia_printjob {
+	size_t jobsize;
+	int copies;
+	int can_combine;
+
 	struct sinfonia_job_param jp;
 
 	uint8_t *databuf;
 	int datalen;
-	int copies;
 };
 
 int sinfonia_read_parse(int data_fd, uint32_t model,

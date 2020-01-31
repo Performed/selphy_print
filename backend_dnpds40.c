@@ -342,7 +342,7 @@ static void *dnp_combine_jobs(const void *vjob1,
 
 			if (gap_bytes > 0) {
 				/* Insert gap/padding after first image */
-				memset(newjob->databuf + newjob->datalen + i, 0, gap_bytes);
+				memset(newjob->databuf + newjob->datalen + i, 0xff, gap_bytes);
 				newjob->datalen += gap_bytes;
 			} else {
 //				uint8_t *ptrA = newjob->databuf + newjob->datalen + 1088;
