@@ -156,6 +156,8 @@ struct hiti_cmd {
    040E --> 5 args:  YY MM CC 00 00 (YMC is +- 31d)
         <-- 1 arg:   00 (success, presumably)
 
+  Highlight Correction.  Unclear if it's used by printer or by "driver"
+
 */
 
 /* CMD_ERDC_RCC */
@@ -178,7 +180,7 @@ struct hiti_erdc_rs {      /* All are BIG endian */
 	uint16_t dpi_rows; /* fixed at 300 */
 	uint16_t cols;     /* 1844 for 6" media */
 	uint16_t rows;     /* 1240 for 6x4" media */
-	uint8_t  unk2[18];  // ff ff 4b 4b 4b 4b af 3c  4f 7b 19 08 5c 0a b4 64  af af
+	uint8_t  unk2[18];  // ff ff 4b 4b 4b 4b  af 3c 4f 7b 19 08  5c 0a b4 64 af af
 } __attribute__((packed));
 
 /* CMD_JC_* */
@@ -237,7 +239,7 @@ struct hiti_jc_qjc {
 struct hiti_gpjobhdr {
 	uint32_t cookie;  /* "GPHT" */
 	uint32_t hdr_len; /* Including the whole thing */
-	uint32_t model;   /* in BCD..? */
+	uint32_t model;   /* Model family, in decimal */
 	uint32_t cols;
 	uint32_t rows;
 	uint32_t col_dpi;
@@ -246,11 +248,12 @@ struct hiti_gpjobhdr {
 	uint32_t quality;  /* 0 for std, 1 for fine */
 	uint32_t code;     /* PRINT_TYPE_* */
 	uint32_t overcoat; /* 1 for matte, 0 for glossy */
-	uint32_t payload_type; // 0 for bgr packed. what about rgb, planar?
+	uint32_t payload_flag; /* See PAYLOAD_FLAG_* */
 	uint32_t payload_len;
 } __attribute__((packed));
 
-#define PAYLOAD_TYPE_FLAG_NOCORRECT 0x02
+#define PAYLOAD_FLAG_YMCPLANAR 0x01
+#define PAYLOAD_FLAG_NOCORRECT 0x02
 
 #define HDR_COOKIE 0x54485047
 
@@ -1094,7 +1097,11 @@ static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx, uint8_t mode)
 	return buf;
 }
 
-/* HiTi's funky interpolation table processing */
+/* HiTi's funky interpolation table processing
+
+   Note this is a standard "CUBE" LUT (33x33x33) so there are options
+   for making this faster!
+*/
 struct rgb {
 	uint8_t r;
 	uint8_t g;
@@ -1152,6 +1159,7 @@ static void hiti_interp33_256(uint8_t *dst, uint8_t *src, const uint8_t *pTable)
 		r_weight = 8;
 	else
 		r_weight = src[0] & 0x7;
+
 	if (src[1] == 255)
 		g_weight = 8;
 	else
@@ -1325,6 +1333,7 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	if (job->copies < (int)job->hdr.copies)
 		job->copies = job->hdr.copies;
 
+	/* Sanity check printer type vs job type */
 	switch(ctx->type)
 	{
 	case P_HITI_52X:
@@ -1345,7 +1354,6 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 	default:
 		break;
 	}
-	// XXX check hdr.format
 
 	/* Allocate a buffer */
 	job->datalen = 0;
@@ -1445,17 +1453,18 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 		return CUPS_BACKEND_CANCEL;
 	}
 
-	/* Load up correction data, if requested */
-	uint8_t *corrdata = NULL;
-	if (!(job->hdr.payload_type & PAYLOAD_TYPE_FLAG_NOCORRECT))
-		corrdata = hiti_get_correction_data(ctx, job->hdr.quality);
-	if (corrdata) {
-		INFO("Running input data through correction tables\n");
-		hiti_interp_init();
-	}
+	/* Convert input packed BGR data into YMC planar, if needed */
+	if (!(job->hdr.payload_flag & PAYLOAD_FLAG_YMCPLANAR)) {
 
-	/* Convert input packed BGR data into YMC planar */
-	{
+		/* Load up correction data, if requested */
+		uint8_t *corrdata = NULL;
+		if (!(job->hdr.payload_flag & PAYLOAD_FLAG_NOCORRECT))
+			corrdata = hiti_get_correction_data(ctx, job->hdr.quality);
+		if (corrdata) {
+			INFO("Running input data through correction tables\n");
+			hiti_interp_init();
+		}
+
 		int stride = ((job->hdr.cols * 4) + 3) / 4;
 		uint8_t *ymcbuf = malloc(job->hdr.rows * stride * 3);
 		uint32_t i, j;
@@ -1521,6 +1530,8 @@ static int hiti_read_parse(void *vctx, const void **vjob, int data_fd, int copie
 		if (corrdata)
 			free(corrdata);
 	}
+
+	// XXX YMC planar may need STRIDE correction!
 
 	*vjob = job;
 
@@ -2169,7 +2180,7 @@ static const char *hiti_prefixes[] = {
 
 struct dyesub_backend hiti_backend = {
 	.name = "HiTi Photo Printers",
-	.version = "0.19",
+	.version = "0.20",
 	.uri_prefixes = hiti_prefixes,
 	.cmdline_usage = hiti_cmdline,
 	.cmdline_arg = hiti_cmdline_arg,
@@ -2194,19 +2205,25 @@ struct dyesub_backend hiti_backend = {
 
    - Figure out 5x6, 6x5, and 6x6 prints (need 6x8 or 6x9 media!)
    - Confirm 6x2" print dimensions (windows?)
-   - Confirm 5" media works properly
+   - Confirm 5" media and sizes work properly
    - Figure out stats/counters for non-4x6 sizes
    - Job control (QJC, RSJ) -- and canceling?
    - Set highlight adjustment & H/V alignment from cmdline
-   - Figure out if driver needs to consume highlight adjustment (ie feed into gamma correction?)
+      * Figure out how to set H/V alignment!
+   - Figure out if driver needs to consume highlight adjustment
+      * Feed into gamma correction?
+      * Feed [un]modified into some printer cmd?
    - Figure out Windows spool format (probably never)
-   - Spool parsing
+   - GP Spool parsing improvements
       * Add additional 'reserved' fields for future use?
-      * Support more hdr.format variants?
-      * Have GP report proper modelid
-   - Job combining (4x6 -> 8x6, etc)
+      * Fix row stride for YMC planar format (in case we get non-*4 column counts)
+   - Job combining!
+      * 4x6 -> 8x6   (0->9)   1844 x 1240 -> 2434  (delta -46)
+      * 3.5x5 -> 5x7 (8->11)  1548 x 1072 -> 2140  (delta -4)
    - Further performance optimizations in color conversion code
+      * Rework to take advantage of auto-vectorization?
       * Pre-compute then cache entire map on disk?
+      * Use external "Cube LUT" implementation?
    - Commands 8008, 8011, EST_SEHT, ESD_SHTPC, RDC_ROC, PCC_STP, CMD_EDM_*
    - Test with P525, P720, P750
    - Further investigation into P110S & P510 series
