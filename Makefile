@@ -178,6 +178,7 @@ $(SINFONIA_BACKENDS_O): backend_sinfonia.h
 backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
 backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
 backend_hiti.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
+backend_mitsud90.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 
 # Library joy:
 %.$(LIB_SUFFIX): CFLAGS += -fPIC --no-strict-overflow

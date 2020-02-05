@@ -1572,3 +1572,213 @@ Comms Protocol for D90 & CP-M1
    a2 5d 00 01 ba ba fe 41 04 13 5d 9c 01 08 00 89  00 00 00 00 00 00 00 00 00 00 01 c9 00 00 00 00  03 0f 00 03 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
 
  */
+
+/* XXX XXX XXX  CP-M1 series stuff */
+#define M1CPCDATA_GAMMA_ROWS 256
+#define M1CPCDATA_ROWS 7
+
+struct M1CPCData {
+	uint16_t GNMaB[M1CPCDATA_GAMMA_ROWS];
+	uint16_t GNMaG[M1CPCDATA_GAMMA_ROWS];
+	uint16_t GNMaR[M1CPCDATA_GAMMA_ROWS];
+
+	uint8_t  EnHTH[M1CPCDATA_ROWS];        // fixed @96
+	uint8_t  NoISetH[M1CPCDATA_ROWS];      // fixed @8
+	uint8_t  NRGain[M1CPCDATA_ROWS];       // fixed @40
+	uint8_t  NRTH[M1CPCDATA_ROWS];         // fixed @32
+	uint8_t  NRK[M1CPCDATA_ROWS];          // fixed @1
+	uint8_t  HDEnhGain[M1CPCDATA_ROWS];    // Varies!
+	uint8_t  EnhDarkGain[M1CPCDATA_ROWS];  // Fixed @0
+	uint8_t  DictArea[M1CPCDATA_ROWS];     // Fixed @1
+	uint8_t  CorCol[M1CPCDATA_ROWS];       // Fixed @2
+	uint8_t  HighDownMode[M1CPCDATA_ROWS]; // Fixed @1
+	uint16_t HighTH[M1CPCDATA_ROWS];       // Fixed @800
+	double   HighG[M1CPCDATA_ROWS];        // Fixed @0.1
+};
+
+#ifndef CORRTABLE_PATH
+#ifdef PACKAGE_DATA_DIR
+#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
+#else
+#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
+#endif
+#endif
+
+#define LAMINATE_STRIDE 1852
+#define MITSU_CPM1_LAMINATE_FILE CORRTABLE_PATH "/M1_MAT02.raw"
+#define CPM1_CPC_FNAME CORRTABLE_PATH "/CPM1_N1.csv"
+#define CPM1_CPC_G1_FNAME CORRTABLE_PATH "/CPM1_G1.csv"
+#define CPM1_CPC_G5_FNAME CORRTABLE_PATH "/CPM1_G5.csv"
+#define CPM1_LUT_FNAME CORRTABLE_PATH "/CPM1_NL.lut"
+
+static struct M1CPCData *get_M1CPCData(const char *filename,
+				       const char *gammafilename)
+{
+	struct M1CPCData *data;
+	FILE *f;
+	char buf[4096];
+	int line;
+	char *ptr;
+
+	const char *delim = " ,\t\n\r";
+	if (!filename || !gammafilename)
+		return NULL;
+	data = malloc(sizeof(*data));
+	if (!data)
+		return NULL;
+	f = fopen(gammafilename, "r");
+	if (!f)
+		goto done_free;
+
+	/* Skip the first two rows */
+	for (line = 0 ; line < 2 ; line++) {
+		if (fgets(buf, sizeof(buf), f) == NULL)
+			goto abort;
+	}
+
+	/* Read in the row data */
+	for (line = 0 ; line < M1CPCDATA_GAMMA_ROWS ; line++) {
+		if (fgets(buf, sizeof(buf), f) == NULL)
+			goto abort;
+		ptr = strtok(buf, delim);  // Always skip first column
+		if (!ptr)
+			goto abort;
+
+		/* Pull out the BGR mappings */
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->GNMaB[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->GNMaG[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->GNMaR[line] = strtol(ptr, NULL, 10);
+	};
+
+	fclose(f);
+
+	/* Now for the CPC Data */
+	f = fopen(filename, "r");
+	if (!f)
+		goto done_free;
+
+	/* Skip the first two rows */
+	for (line = 0 ; line < 2 ; line++) {
+		if (fgets(buf, sizeof(buf), f) == NULL)
+			goto abort;
+	}
+
+	/* Read in the row data */
+	for (line = 0 ; line < M1CPCDATA_ROWS ; line++) {
+		if (fgets(buf, sizeof(buf), f) == NULL)
+			goto abort;
+		ptr = strtok(buf, delim);  // Always skip first column
+		if (!ptr)
+			goto abort;
+
+		/* Pull out the mappings */
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->EnHTH[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->NoISetH[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->NRGain[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->NRTH[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->NRK[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->HDEnhGain[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->EnhDarkGain[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->DictArea[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->CorCol[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->HighDownMode[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->HighTH[line] = strtol(ptr, NULL, 10);
+		ptr = strtok(NULL, delim);
+		if (!ptr)
+			goto abort;
+		data->HighG[line] = strtod(ptr, NULL);
+	};
+
+	fclose(f);
+	return data;
+abort:
+	fclose(f);
+done_free:
+	free(data);
+	return NULL;
+}
+
+static int cpm1_fillmatte(struct mitsud90_printjob *job)
+{
+	int fd, i, j;
+	struct mitsud90_job_hdr *hdr = (struct mitsud90_job_hdr *) job->databuf;
+
+	DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", be16_to_cpu(hdr->cols) * be16_to_cpu(hdr->rows), be16_to_cpu(hdr->cols), LAMINATE_STRIDE);
+	fd = open(MITSU_CPM1_LAMINATE_FILE, O_RDONLY);
+	if (fd < 0) {
+		WARNING("Unable to open matte lamination data file '%s'\n", MITSU_CPM1_LAMINATE_FILE);
+		hdr->overcoat = 0;
+		goto done;
+	}
+
+	// XXX fill out lamination header?
+
+	/* Read in the matte data */
+	for (j = 0; j < be16_to_cpu(hdr->rows) ; j++) {
+		int remain = LAMINATE_STRIDE;
+
+		/* Read in one row at a time */
+		while(remain) {
+			i = read(fd, job->databuf + job->datalen, remain);
+			if (i < 0)
+				return CUPS_BACKEND_CANCEL;
+			if (i == 0) {
+				lseek(fd, 0, SEEK_SET);
+				continue;
+			}
+			job->datalen += i;
+			remain -= i;
+		}
+		/* Back off the buffer so we "wrap" on the row. */
+		job->datalen -= (LAMINATE_STRIDE - be16_to_cpu(hdr->cols));
+	}
+	/* All done */
+	close(fd);
+
+	// XXX fill out footer?
+
+done:
+	return CUPS_BACKEND_OK;
+}
