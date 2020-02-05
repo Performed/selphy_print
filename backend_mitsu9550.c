@@ -27,50 +27,11 @@
 #define BACKEND mitsu9550_backend
 
 #include "backend_common.h"
+#include "backend_mitsu.h"
 
 /* For Integration into gutenprint */
 #if defined(HAVE_CONFIG_H)
 #include <config.h>
-#endif
-
-#ifndef WITH_DYNAMIC
-#warning "No dynamic loading support!"
-#endif
-
-// #include "lib70x/libMitsuD70ImageReProcess.h"
-
-#ifndef LUT_LEN
-#define COLORCONV_RGB 0
-#define COLORCONV_BGR 1
-
-#define LUT_LEN 14739
-struct BandImage {
-	   void  *imgbuf;
-	 int32_t bytes_per_row;
-	uint16_t origin_cols;
-	uint16_t origin_rows;
-	uint16_t cols;
-	uint16_t rows;
-};
-#endif
-
-#define REQUIRED_LIB_APIVERSION 4
-
-/* Image processing library function prototypes */
-#define LIB_NAME_RE "libMitsuD70ImageReProcess" DLL_SUFFIX
-
-typedef int (*lib70x_getapiversionFN)(void);
-typedef int (*Get3DColorTableFN)(uint8_t *buf, const char *filename);
-typedef struct CColorConv3D *(*Load3DColorTableFN)(const uint8_t *ptr);
-typedef void (*Destroy3DColorTableFN)(struct CColorConv3D *this);
-typedef void (*DoColorConvFN)(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t bytes_per_row, int rgb_bgr);
-
-#ifndef CORRTABLE_PATH
-#ifdef PACKAGE_DATA_DIR
-#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
-#else
-#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
-#endif
 #endif
 
 #define MITSU_M98xx_LAMINATE_FILE CORRTABLE_PATH "/M98MATTE.raw"
@@ -212,14 +173,7 @@ struct mitsu9550_ctx {
 	struct marker marker;
 
 	/* CP98xx stuff */
-	void *dl_handle;
-	lib70x_getapiversionFN GetAPIVersion;
-	Get3DColorTableFN Get3DColorTable;
-	Load3DColorTableFN Load3DColorTable;
-	Destroy3DColorTableFN Destroy3DColorTable;
-	DoColorConvFN DoColorConv;
-
-	struct CColorConv3D *lut;
+	struct mitsu_lib lib;
 	struct mitsu98xx_tables *m98xxdata;
 };
 
@@ -322,16 +276,7 @@ static void mitsu98xx_dogamma(uint8_t *src, uint16_t *dest, uint8_t plane,
 
 static int mitsu98xx_fillmatte(struct mitsu9550_printjob *job)
 {
-	int fd, i;
-	uint32_t j, remain;
-
-	DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", job->cols * job->rows * 2, job->cols, LAMINATE_STRIDE);
-	fd = open(MITSU_M98xx_LAMINATE_FILE, O_RDONLY);
-	if (fd < 0) {
-		WARNING("Unable to open matte lamination data file '%s'\n", MITSU_M98xx_LAMINATE_FILE);
-		job->hdr1.matte = 0;
-		goto done;
-	}
+	int ret;
 
 	/* Fill in the lamination plane header */
 	struct mitsu9550_plane *matte = (struct mitsu9550_plane *)(job->databuf + job->datalen);
@@ -345,28 +290,11 @@ static int mitsu98xx_fillmatte(struct mitsu9550_printjob *job)
 	matte->rows = cpu_to_be16(job->hdr1.rows);
 	job->datalen += sizeof(struct mitsu9550_plane);
 
-	/* Read in the matte data plane */
-	for (j = 0 ; j < job->rows ; j++) {
-		remain = LAMINATE_STRIDE * 2;
-
-		/* Read one row of lamination data at a time */
-		while (remain) {
-			i = read(fd, job->databuf + job->datalen, remain);
-			if (i < 0)
-				return CUPS_BACKEND_CANCEL;
-			if (i == 0) {
-				/* We hit EOF, restart from beginning */
-				lseek(fd, 0, SEEK_SET);
-				continue;
-			}
-			job->datalen += i;
-			remain -= i;
-		}
-		/* Back off the buffer so we "wrap" on the print row. */
-		job->datalen -= ((LAMINATE_STRIDE - job->cols) * 2);
-	}
-	/* We're done! */
-	close(fd);
+	ret = mitsu_readlamdata(MITSU_M98xx_LAMINATE_FILE, LAMINATE_STRIDE,
+				job->databuf, &job->datalen,
+				job->rows, job->cols, 2);
+	if (ret)
+		return ret;
 
 	/* Fill in the lamination plane footer */
 	job->databuf[job->datalen++] = 0x1b;
@@ -374,15 +302,8 @@ static int mitsu98xx_fillmatte(struct mitsu9550_printjob *job)
 	job->databuf[job->datalen++] = 0x56;
 	job->databuf[job->datalen++] = 0x00;
 
-done:
 	return CUPS_BACKEND_OK;
 }
-
-#ifndef LUT_LEN
-#define LUT_LEN 14739
-#define COLORCONV_RGB 0
-#define COLORCONV_BGR 1
-#endif
 
 static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int status, int status2, int media);
 static char *mitsu9550_media_types(uint8_t type, uint8_t is_s);
@@ -395,8 +316,6 @@ static void *mitsu9550_init(void)
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct mitsu9550_ctx));
-
-	DL_INIT();
 
 	return ctx;
 }
@@ -424,46 +343,15 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	    ctx->type == P_MITSU_9810)
 		ctx->is_98xx = 1;
 
-	/* Attempt to open the library */
-#if defined(WITH_DYNAMIC)
 	if (!ctx->is_98xx) goto skip;
-
-	DEBUG("Attempting to load image processing library\n");
-	ctx->dl_handle = DL_OPEN(LIB_NAME_RE);
-	if (!ctx->dl_handle)
-		WARNING("Image processing library not found, using internal fallback code\n");
-	if (ctx->dl_handle) {
-		ctx->GetAPIVersion = DL_SYM(ctx->dl_handle, "lib70x_getapiversion");
-		if (!ctx->GetAPIVersion) {
-			ERROR("Problem resolving API Version symbol in imaging processing library, too old or not installed?\n");
-			DL_CLOSE(ctx->dl_handle);
-			ctx->dl_handle = NULL;
-			return CUPS_BACKEND_FAILED;
-		}
-		if (ctx->GetAPIVersion() != REQUIRED_LIB_APIVERSION) {
-			ERROR("Image processing library API version mismatch!\n");
-			DL_CLOSE(ctx->dl_handle);
-			ctx->dl_handle = NULL;
-			return CUPS_BACKEND_FAILED;
-		}
-
-		ctx->Get3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Get3DColorTable");
-		ctx->Load3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Load3DColorTable");
-		ctx->Destroy3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Destroy3DColorTable");
-		ctx->DoColorConv = DL_SYM(ctx->dl_handle, "CColorConv3D_DoColorConv");
-		if (!ctx->Get3DColorTable || !ctx->Load3DColorTable ||
-		    !ctx->Destroy3DColorTable || !ctx->DoColorConv ) {
-			ERROR("Problem resolving symbols in imaging processing library\n");
-			DL_CLOSE(ctx->dl_handle);
-			ctx->dl_handle = NULL;
-			return CUPS_BACKEND_FAILED;
-		} else {
-			DEBUG("Image processing library successfully loaded\n");
-		}
-	}
-skip:
+#if defined(WITH_DYNAMIC)
+	/* Attempt to open the library */
+	if (mitsu_loadlib(&ctx->lib, ctx->type))
+		return CUPS_BACKEND_FAILED;
+#else
+	WARNING("Dynamic library support not enabled, using internal fallback code\n");
 #endif
-
+skip:
 	if (test_mode < TEST_MODE_NOATTACH) {
 		if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
 			return CUPS_BACKEND_FAILED;
@@ -502,13 +390,10 @@ static void mitsu9550_teardown(void *vctx) {
 	if (!ctx)
 		return;
 
-	if (ctx->dl_handle) {
-		if (ctx->lut)
-			ctx->Destroy3DColorTable(ctx->lut);
-		if (ctx->m98xxdata)
-			free(ctx->m98xxdata);
-		DL_CLOSE(ctx->dl_handle);
-	}
+	if (ctx->m98xxdata)
+		free(ctx->m98xxdata);
+
+	mitsu_destroylib(&ctx->lib);
 
 	free(ctx);
 }
@@ -796,38 +681,15 @@ hdr_done:
 
 	/* Apply LUT, if job calls for it.. */
 	if (ctx->is_98xx && !job->is_raw && job->hdr2.unkc[9]) {
-
-		if (!ctx->dl_handle) {
-			// XXXFALLBACK write fallback code?
-			ERROR("!!! Image Processing Library not found, aborting!\n");
+		int ret = mitsu_apply3dlut(&ctx->lib, MITSU_M98xx_LUT_FILE,
+					   job->databuf + sizeof(struct mitsu9550_plane),
+					   job->cols, job->rows,
+					   job->cols * 3, COLORCONV_BGR);
+		if (ret) {
 			mitsu9550_cleanup_job(job);
-			return CUPS_BACKEND_CANCEL;
+			return ret;
 		}
 
-		if (!ctx->lut) {
-			uint8_t *lbuf = malloc(LUT_LEN);
-			if (!lbuf) {
-				ERROR("Memory allocation failure!\n");
-				mitsu9550_cleanup_job(job);
-				return CUPS_BACKEND_RETRY_CURRENT;
-			}
-			if (ctx->Get3DColorTable(lbuf, MITSU_M98xx_LUT_FILE)) {
-				ERROR("Unable to open LUT file '%s'\n", MITSU_M98xx_LUT_FILE);
-				mitsu9550_cleanup_job(job);
-				return CUPS_BACKEND_CANCEL;
-			}
-			ctx->lut = ctx->Load3DColorTable(lbuf);
-			free(lbuf);
-			if (!ctx->lut) {
-				ERROR("Unable to parse LUT\n");
-				mitsu9550_cleanup_job(job);
-				return CUPS_BACKEND_CANCEL;
-			}
-		}
-
-		DEBUG("Running print data through 3D LUT\n");
-		ctx->DoColorConv(ctx->lut, job->databuf + sizeof(struct mitsu9550_plane),
-				 job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
 		job->hdr2.unkc[9] = 0;
 	}
 
@@ -1675,7 +1537,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.49",
+	.version = "0.50" " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

@@ -27,6 +27,7 @@
 #define BACKEND mitsud90_backend
 
 #include "backend_common.h"
+#include "backend_mitsu.h"
 
 #define USB_VID_MITSU       0x06D3
 #define USB_PID_MITSU_D90   0x3B60
@@ -411,7 +412,7 @@ static void mitsud90_dump_status(struct mitsud90_status_resp *resp)
 /* Private data structure */
 struct mitsud90_printjob {
 	uint8_t *databuf;
-	int datalen;
+	uint32_t datalen;
 	int copies;
 };
 
@@ -1311,7 +1312,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.17",
+	.version = "0.17"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
@@ -1742,43 +1743,19 @@ done_free:
 
 static int cpm1_fillmatte(struct mitsud90_printjob *job)
 {
-	int fd, i, j;
+	int ret;
+
 	struct mitsud90_job_hdr *hdr = (struct mitsud90_job_hdr *) job->databuf;
 
-	DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", be16_to_cpu(hdr->cols) * be16_to_cpu(hdr->rows), be16_to_cpu(hdr->cols), LAMINATE_STRIDE);
-	fd = open(MITSU_CPM1_LAMINATE_FILE, O_RDONLY);
-	if (fd < 0) {
-		WARNING("Unable to open matte lamination data file '%s'\n", MITSU_CPM1_LAMINATE_FILE);
-		hdr->overcoat = 0;
-		goto done;
-	}
-
 	// XXX fill out lamination header?
+	ret = mitsu_readlamdata(MITSU_CPM1_LAMINATE_FILE, LAMINATE_STRIDE,
+				job->databuf, &job->datalen,
+				be16_to_cpu(hdr->rows), be16_to_cpu(hdr->cols), 1);
 
-	/* Read in the matte data */
-	for (j = 0; j < be16_to_cpu(hdr->rows) ; j++) {
-		int remain = LAMINATE_STRIDE;
-
-		/* Read in one row at a time */
-		while(remain) {
-			i = read(fd, job->databuf + job->datalen, remain);
-			if (i < 0)
-				return CUPS_BACKEND_CANCEL;
-			if (i == 0) {
-				lseek(fd, 0, SEEK_SET);
-				continue;
-			}
-			job->datalen += i;
-			remain -= i;
-		}
-		/* Back off the buffer so we "wrap" on the row. */
-		job->datalen -= (LAMINATE_STRIDE - be16_to_cpu(hdr->cols));
-	}
-	/* All done */
-	close(fd);
+	if (ret)
+		return ret;
 
 	// XXX fill out footer?
 
-done:
 	return CUPS_BACKEND_OK;
 }

@@ -98,11 +98,13 @@ LDFLAGS += $(CFLAGS) $(CPPFLAGS)
 
 # Build stuff
 DEPS += backend_common.h
-SOURCES = backend_common.c backend_sinfonia.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
+SOURCES = backend_common.c backend_sinfonia.c backend_mitsu.c $(addsuffix .c,$(addprefix backend_,$(BACKENDS)))
 
 # Dependencies for sinfonia backends..
 SINFONIA_BACKENDS = sinfonia kodak605 kodak6800 shinkos1245 shinkos2145 shinkos6145 shinkos6245
 SINFONIA_BACKENDS_O = $(addsuffix .o,$(addprefix backend_,$(SINFONIA_BACKENDS)))
+MITSU_BACKENDS = mitsu mitsu70x mitsu9550
+MITSU_BACKENDS_O = $(addsuffix .o,$(addprefix backend_,$(MITSU_BACKENDS)))
 
 # And now the rules!
 .PHONY: clean all install cppcheck
@@ -175,8 +177,10 @@ endif
 
 # Backend-specific joy:
 $(SINFONIA_BACKENDS_O): backend_sinfonia.h
-backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
-backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" -include lib70x/libMitsuD70ImageReProcess.h
+$(MITSU_BACKENDS_O): backend_mitsu.h
+backend_mitsu.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
+backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
+backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 backend_hiti.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 backend_mitsud90.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 

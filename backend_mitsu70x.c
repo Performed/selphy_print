@@ -27,55 +27,11 @@
 #define BACKEND mitsu70x_backend
 
 #include "backend_common.h"
+#include "backend_mitsu.h"
 
 /* For Integration into gutenprint */
 #if defined(HAVE_CONFIG_H)
 #include <config.h>
-#endif
-
-#ifndef WITH_DYNAMIC
-#warning "No dynamic loading support!"
-#endif
-
-// #include "lib70x/libMitsuD70ImageReProcess.h"
-
-#ifndef LUT_LEN
-#define COLORCONV_RGB 0
-#define COLORCONV_BGR 1
-
-#define LUT_LEN 14739
-struct BandImage {
-	   void  *imgbuf;
-	 int32_t bytes_per_row;
-	uint16_t origin_cols;
-	uint16_t origin_rows;
-	uint16_t cols;
-	uint16_t rows;
-};
-#endif
-
-#define REQUIRED_LIB_APIVERSION 4
-
-/* Image processing library function prototypes */
-#define LIB_NAME_RE "libMitsuD70ImageReProcess" DLL_SUFFIX
-
-typedef int (*lib70x_getapiversionFN)(void);
-typedef int (*Get3DColorTableFN)(uint8_t *buf, const char *filename);
-typedef struct CColorConv3D *(*Load3DColorTableFN)(const uint8_t *ptr);
-typedef void (*Destroy3DColorTableFN)(struct CColorConv3D *this);
-typedef void (*DoColorConvFN)(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t bytes_per_row, int rgb_bgr);
-typedef struct CPCData *(*get_CPCDataFN)(const char *filename);
-typedef void (*destroy_CPCDataFN)(struct CPCData *data);
-typedef int (*do_image_effectFN)(struct CPCData *cpc, struct CPCData *ecpc, struct BandImage *input, struct BandImage *output, int sharpen, int reverse, uint8_t rew[2]);
-typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
-			       int (*callback_fn)(void *context, void *buffer, uint32_t len));
-
-#ifndef CORRTABLE_PATH
-#ifdef PACKAGE_DATA_DIR
-#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
-#else
-#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
-#endif
 #endif
 
 #define USB_VID_MITSU       0x06D3
@@ -100,7 +56,7 @@ struct mitsu70x_printjob {
 	int can_combine;
 
 	uint8_t *databuf;
-	int datalen;
+	uint32_t datalen;
 
 	uint8_t *spoolbuf;
 	int spoolbuflen;
@@ -142,23 +98,7 @@ struct mitsu70x_ctx {
 	char serno[7]; /* 6+null */
 	char fwver[7]; /* 6+null */
 
-	void *dl_handle;
-	lib70x_getapiversionFN GetAPIVersion;
-	Get3DColorTableFN Get3DColorTable;
-	Load3DColorTableFN Load3DColorTable;
-	Destroy3DColorTableFN Destroy3DColorTable;
-	DoColorConvFN DoColorConv;
-	get_CPCDataFN GetCPCData;
-	destroy_CPCDataFN DestroyCPCData;
-	do_image_effectFN DoImageEffect60;
-	do_image_effectFN DoImageEffect70;
-	do_image_effectFN DoImageEffect80;
-	do_image_effectFN DoImageEffect;
-	send_image_dataFN SendImageData;
-
-	struct CColorConv3D *lut;
-	struct CPCData *cpcdata;
-	struct CPCData *ecpcdata;
+	struct mitsu_lib lib;
 
 	char *last_cpcfname;
 	char *last_ecpcfname;
@@ -689,8 +629,6 @@ static void *mitsu70x_init(void)
 	}
 	memset(ctx, 0, sizeof(struct mitsu70x_ctx));
 
-	DL_INIT();
-
 	return ctx;
 }
 
@@ -712,63 +650,10 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	ctx->last_l = ctx->last_u = 65535;
 
-	/* Attempt to open the library */
 #if defined(WITH_DYNAMIC)
-	DEBUG("Attempting to load image processing library\n");
-	ctx->dl_handle = DL_OPEN(LIB_NAME_RE);
-	if (!ctx->dl_handle)
-		WARNING("Image processing library not found, using internal fallback code\n");
-	if (ctx->dl_handle) {
-		ctx->GetAPIVersion = DL_SYM(ctx->dl_handle, "lib70x_getapiversion");
-		if (!ctx->GetAPIVersion) {
-			ERROR("Problem resolving API Version symbol in imaging processing library, too old or not installed?\n");
-			DL_CLOSE(ctx->dl_handle);
-			ctx->dl_handle = NULL;
-			return CUPS_BACKEND_FAILED;
-		}
-		if (ctx->GetAPIVersion() != REQUIRED_LIB_APIVERSION) {
-			ERROR("Image processing library API version mismatch!\n");
-			DL_CLOSE(ctx->dl_handle);
-			ctx->dl_handle = NULL;
-			return CUPS_BACKEND_FAILED;
-		}
-
-		ctx->Get3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Get3DColorTable");
-		ctx->Load3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Load3DColorTable");
-		ctx->Destroy3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Destroy3DColorTable");
-		ctx->DoColorConv = DL_SYM(ctx->dl_handle, "CColorConv3D_DoColorConv");
-		ctx->GetCPCData = DL_SYM(ctx->dl_handle, "get_CPCData");
-		ctx->DestroyCPCData = DL_SYM(ctx->dl_handle, "destroy_CPCData");
-		ctx->DoImageEffect60 = DL_SYM(ctx->dl_handle, "do_image_effect60");
-		ctx->DoImageEffect70 = DL_SYM(ctx->dl_handle, "do_image_effect70");
-		ctx->DoImageEffect80 = DL_SYM(ctx->dl_handle, "do_image_effect80");
-		ctx->SendImageData = DL_SYM(ctx->dl_handle, "send_image_data");
-		if (!ctx->Get3DColorTable || !ctx->Load3DColorTable ||
-		    !ctx->Destroy3DColorTable || !ctx->DoColorConv ||
-		    !ctx->GetCPCData || !ctx->DestroyCPCData ||
-		    !ctx->DoImageEffect60 || !ctx->DoImageEffect70 ||
-		    !ctx->DoImageEffect80 || !ctx->SendImageData) {
-			ERROR("Problem resolving symbols in imaging processing library\n");
-			DL_CLOSE(ctx->dl_handle);
-			ctx->dl_handle = NULL;
-			return CUPS_BACKEND_FAILED;
-		} else {
-			DEBUG("Image processing library successfully loaded\n");
-		}
-	}
-
-	switch (ctx->type) {
-	case P_MITSU_D80:
-		ctx->DoImageEffect = ctx->DoImageEffect80;
-		break;
-	case P_MITSU_K60:
-	case P_KODAK_305:
-		ctx->DoImageEffect = ctx->DoImageEffect60;
-		break;
-	default:
-		ctx->DoImageEffect = ctx->DoImageEffect70;
-		break;
-	}
+	/* Attempt to open the library */
+	if (mitsu_loadlib(&ctx->lib, ctx->type))
+		return CUPS_BACKEND_FAILED;
 #else
 	WARNING("Dynamic library support not enabled, using internal fallback code\n");
 #endif
@@ -887,17 +772,7 @@ static void mitsu70x_teardown(void *vctx) {
 	if (!ctx)
 		return;
 
-	if (ctx->dl_handle) {
-		if (ctx->cpcdata)
-			ctx->DestroyCPCData(ctx->cpcdata);
-		if (ctx->ecpcdata)
-			ctx->DestroyCPCData(ctx->ecpcdata);
-		if (ctx->lut)
-			ctx->Destroy3DColorTable(ctx->lut);
-		DL_CLOSE(ctx->dl_handle);
-	}
-
-	DL_EXIT();
+	mitsu_destroylib(&ctx->lib);
 
 	free(ctx);
 }
@@ -1242,11 +1117,10 @@ repeat:
 			job->datalen += i;
 			remain -= i;
 		}
-		goto done;
+		goto bypass_raw;
 	}
 
 	/* Non-RAW mode! */
-
 	remain = job->rows * job->cols * 3;
 	DEBUG("Reading in %d bytes of 8bpp BGR data\n", remain);
 
@@ -1273,7 +1147,7 @@ repeat:
 		remain -= i;
 	}
 
-	if (!ctx->dl_handle) {
+	if (!ctx->lib.dl_handle) {
 		// XXXFALLBACK write fallback code?
 		ERROR("!!! Image Processing Library not found, aborting!\n");
 		mitsu70x_cleanup_job(job);
@@ -1281,33 +1155,18 @@ repeat:
 	}
 
 	/* Run through basic LUT, if present and enabled */
-	if (job->lutfname && !ctx->lut) {  /* printer-specific, it is fixed per-job */
-		uint8_t *buf = malloc(LUT_LEN);
-		if (!buf) {
-			ERROR("Memory allocation failure!\n");
+	if (job->lutfname) {
+		int ret = mitsu_apply3dlut(&ctx->lib, job->lutfname,
+				       job->databuf, job->cols,
+				       job->rows, job->cols * 3,
+				       COLORCONV_BGR);
+		if (ret) {
 			mitsu70x_cleanup_job(job);
-			return CUPS_BACKEND_RETRY_CURRENT;
-		}
-		if ((i = ctx->Get3DColorTable(buf, job->lutfname))) {
-			ERROR("Unable to open LUT file '%s' (%d)\n", job->lutfname, i);
-			mitsu70x_cleanup_job(job);
-			return CUPS_BACKEND_CANCEL;
-		}
-		ctx->lut = ctx->Load3DColorTable(buf);
-		free(buf);
-		if (!ctx->lut) {
-			ERROR("Unable to parse LUT file '%s'!\n", job->lutfname);
-			mitsu70x_cleanup_job(job);
-			return CUPS_BACKEND_CANCEL;
+			return ret;
 		}
 	}
 
-	if (job->lutfname && ctx->lut) {
-		DEBUG("Running print data through 3D LUT\n");
-		ctx->DoColorConv(ctx->lut, job->spoolbuf, job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
-	}
-
-done:
+bypass_raw:
 	for (i = 0 ; i < ctx->num_decks ; i++) {
 		switch (ctx->medias[i]) {
 		case 0x1: // 5x3.5
@@ -1729,10 +1588,10 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 	/* Load in the CPC file, if needed */
 	if (job->cpcfname && job->cpcfname != ctx->last_cpcfname) {
 		ctx->last_cpcfname = job->cpcfname;
-		if (ctx->cpcdata)
-			ctx->DestroyCPCData(ctx->cpcdata);
-		ctx->cpcdata = ctx->GetCPCData(job->cpcfname);
-		if (!ctx->cpcdata) {
+		if (ctx->lib.cpcdata)
+			ctx->lib.DestroyCPCData(ctx->lib.cpcdata);
+		ctx->lib.cpcdata = ctx->lib.GetCPCData(job->cpcfname);
+		if (!ctx->lib.cpcdata) {
 			ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
 			return CUPS_BACKEND_CANCEL;
 		}
@@ -1741,16 +1600,16 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 	/* Load in the secondary CPC, if needed */
 	if (job->ecpcfname != ctx->last_ecpcfname) {
 		ctx->last_ecpcfname = job->ecpcfname;
-		if (ctx->ecpcdata)
-			ctx->DestroyCPCData(ctx->ecpcdata);
+		if (ctx->lib.ecpcdata)
+			ctx->lib.DestroyCPCData(ctx->lib.ecpcdata);
 		if (job->ecpcfname) {
-			ctx->ecpcdata = ctx->GetCPCData(job->ecpcfname);
-			if (!ctx->ecpcdata) {
+			ctx->lib.ecpcdata = ctx->lib.GetCPCData(job->ecpcfname);
+			if (!ctx->lib.ecpcdata) {
 				ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
 				return CUPS_BACKEND_CANCEL;
 			}
 		} else {
-			ctx->ecpcdata = NULL;
+			ctx->lib.ecpcdata = NULL;
 		}
 	}
 
@@ -1768,8 +1627,8 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 	ctx->output.bytes_per_row = job->cols * 3 * 2;
 
 	DEBUG("Running print data through processing library\n");
-	if (ctx->DoImageEffect(ctx->cpcdata, ctx->ecpcdata,
-			       &input, &ctx->output, job->sharpen, job->reverse, rew)) {
+	if (ctx->lib.DoImageEffect(ctx->lib.cpcdata, ctx->lib.ecpcdata,
+				   &input, &ctx->output, job->sharpen, job->reverse, rew)) {
 		ERROR("Image Processing failed, aborting!\n");
 		return CUPS_BACKEND_CANCEL;
 	}
@@ -1792,40 +1651,17 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 
 	/* Now that we've filled everything in, read matte from file */
 	if (job->matte) {
-		int fd;
-		uint32_t j;
-		DEBUG("Reading %u bytes of matte data from disk (%d/%d)\n", job->matte, job->cols, LAMINATE_STRIDE);
-		fd = open(job->laminatefname, O_RDONLY);
-		if (fd < 0) {
-			ERROR("Unable to open matte lamination data file '%s'\n", job->laminatefname);
-			return CUPS_BACKEND_CANCEL;
-		}
+		int ret;
 
-		for (j = 0 ; j < be16_to_cpu(hdr->lamrows) ; j++) {
-			int remain = LAMINATE_STRIDE * 2;
-
-			/* Read one row of lamination data at a time */
-			while (remain) {
-				int i = read(fd, job->databuf + job->datalen, remain);
-				if (i < 0)
-					return CUPS_BACKEND_CANCEL;
-				if (i == 0) {
-					/* We hit EOF, restart from beginning */
-					lseek(fd, 0, SEEK_SET);
-					continue;
-				}
-				job->datalen += i;
-				remain -= i;
-			}
-			/* Back off the buffer so we "wrap" on the print row. */
-			job->datalen -= ((LAMINATE_STRIDE - job->cols) * 2);
-		}
-		/* We're done */
-		close(fd);
+		ret = mitsu_readlamdata(job->laminatefname, LAMINATE_STRIDE,
+					job->databuf, &job->datalen,
+					be16_to_cpu(hdr->lamrows), be16_to_cpu(hdr->lamcols), 2);
+		if (ret)
+			return ret;
 
 		/* Zero out the tail end of the buffer. */
-		j = be16_to_cpu(hdr->lamcols) * be16_to_cpu(hdr->lamrows) * 2;
-		memset(job->databuf + job->datalen, 0, job->matte - j);
+		ret = be16_to_cpu(hdr->lamcols) * be16_to_cpu(hdr->lamrows) * 2;
+		memset(job->databuf + job->datalen, 0, job->matte - ret);
 	}
 
 bypass:
@@ -2032,8 +1868,8 @@ top:
 			     sizeof(struct mitsu70x_hdr))))
 		return CUPS_BACKEND_FAILED;
 
-	if (ctx->dl_handle && !job->raw_format) {
-		if (ctx->SendImageData(&ctx->output, ctx, d70_library_callback))
+	if (ctx->lib.dl_handle && !job->raw_format) {
+		if (ctx->lib.SendImageData(&ctx->output, ctx, d70_library_callback))
 			return CUPS_BACKEND_FAILED;
 
 		if (job->matte)
@@ -2554,7 +2390,7 @@ static const char *mitsu70x_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu70x_backend = {
 	.name = "Mitsubishi CP-D70 family",
-	.version = "0.97",
+	.version = "0.98" " (lib " LIBMITSU_VER ")",
 	.flags = BACKEND_FLAG_DUMMYPRINT,
 	.uri_prefixes = mitsu70x_prefixes,
 	.cmdline_usage = mitsu70x_cmdline,
