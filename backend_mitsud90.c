@@ -1597,14 +1597,6 @@ struct M1CPCData {
 	double   HighG[M1CPCDATA_ROWS];        // Fixed @0.1
 };
 
-#ifndef CORRTABLE_PATH
-#ifdef PACKAGE_DATA_DIR
-#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
-#else
-#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
-#endif
-#endif
-
 #define LAMINATE_STRIDE 1852
 #define MITSU_CPM1_LAMINATE_FILE CORRTABLE_PATH "/M1_MAT02.raw"
 #define CPM1_CPC_FNAME CORRTABLE_PATH "/CPM1_N1.csv"
