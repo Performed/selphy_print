@@ -1157,7 +1157,7 @@ repeat:
 	/* Run through basic LUT, if present and enabled */
 	if (job->lutfname) {
 		int ret = mitsu_apply3dlut(&ctx->lib, job->lutfname,
-				       job->databuf, job->cols,
+				       job->spoolbuf, job->cols,
 				       job->rows, job->cols * 3,
 				       COLORCONV_BGR);
 		if (ret) {

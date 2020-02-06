@@ -61,7 +61,6 @@ typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 struct mitsu_lib {
 	void *dl_handle;
 	lib70x_getapiversionFN GetAPIVersion;
-	Get3DColorTableFN Get3DColorTable;
 	Load3DColorTableFN Load3DColorTable;
 	Destroy3DColorTableFN Destroy3DColorTable;
 	DoColorConvFN DoColorConv;

@@ -31,6 +31,8 @@ int mitsu_loadlib(struct mitsu_lib *lib, int type)
 {
 	DL_INIT();
 
+	memset(lib, 0, sizeof(*lib));
+
 #if defined(WITH_DYNAMIC)
 	DEBUG("Attempting to load image processing library\n");
 	lib->dl_handle = DL_OPEN(LIB_NAME_RE);
@@ -51,7 +53,6 @@ int mitsu_loadlib(struct mitsu_lib *lib, int type)
 			return CUPS_BACKEND_FAILED;
 		}
 
-		lib->Get3DColorTable = DL_SYM(lib->dl_handle, "CColorConv3D_Get3DColorTable");
 		lib->Load3DColorTable = DL_SYM(lib->dl_handle, "CColorConv3D_Load3DColorTable");
 		lib->Destroy3DColorTable = DL_SYM(lib->dl_handle, "CColorConv3D_Destroy3DColorTable");
 		lib->DoColorConv = DL_SYM(lib->dl_handle, "CColorConv3D_DoColorConv");
@@ -61,7 +62,7 @@ int mitsu_loadlib(struct mitsu_lib *lib, int type)
 		lib->DoImageEffect70 = DL_SYM(lib->dl_handle, "do_image_effect70");
 		lib->DoImageEffect80 = DL_SYM(lib->dl_handle, "do_image_effect80");
 		lib->SendImageData = DL_SYM(lib->dl_handle, "send_image_data");
-		if (!lib->Get3DColorTable || !lib->Load3DColorTable ||
+		if (!lib->Load3DColorTable ||
 		    !lib->Destroy3DColorTable || !lib->DoColorConv ||
 		    !lib->GetCPCData || !lib->DestroyCPCData ||
 		    !lib->DoImageEffect60 || !lib->DoImageEffect70 ||
@@ -133,10 +134,8 @@ int mitsu_apply3dlut(struct mitsu_lib *lib, char *lutfname, uint8_t *databuf,
 			ERROR("Memory allocation failure!\n");
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
-		if ((i = lib->Get3DColorTable(buf, lutfname))) {
-			ERROR("Unable to open LUT file '%s' (%d)\n", lutfname, i);
-			return CUPS_BACKEND_CANCEL;
-		}
+		if ((i = dyesub_read_file(lutfname, buf, LUT_LEN, NULL)))
+			return i;
 		lib->lut = lib->Load3DColorTable(buf);
 		free(buf);
 		if (!lib->lut) {
