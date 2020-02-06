@@ -120,7 +120,7 @@ if ($proc_count > 1 && $kid > 0) {
 		if ($quiet) {
 		    unshift(@args,"-q");
 		}
-		unshift(@args,"valgrind");
+		unshift(@args,"valgrind", "--track-origins=yes");
 	    }
 	    if (!$quiet) {
 		print join(":", @args) . "\n";
