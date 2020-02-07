@@ -45,7 +45,7 @@
 
 */
 
-#define LIB_VERSION "0.7.2"
+#define LIB_VERSION "0.7.3"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -610,14 +610,14 @@ static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 }
 
 static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
-					  int offset, const uint16_t *row, int a4)
+					  int offset, const uint16_t *row, int rownum)
 {
 	uint16_t *src, *v5;
 
 	src = data->linebuf_row[offset + 5];
 	v5 = src + 3 * (data->columns - 1);
 
-	memcpy(src, row -(a4 * data->pixel_count), 2 * data->band_pixels);
+	memcpy(src, row -(rownum * data->pixel_count), 2 * data->band_pixels);
 
 	memcpy(src - 3, src, 6);
 	memcpy(v5 + 3, v5, 6);
@@ -633,10 +633,10 @@ static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
 		memcpy(data->linebuf_line[i], data->linebuf_line[5], 2 * data->linebuf_stride);
 	}
 	for (i = 1 ; i <= 5 ; i++) {
-		if (data->rows -1 >= i)
-			CImageEffect70_Sharp_CopyLine(data, i, row, i);
-		else
-			CImageEffect70_Sharp_CopyLine(data, i, row, data->rows - 1);
+		int rownum = data->rows -1;
+		if (rownum < i)
+			rownum = i;
+		CImageEffect70_Sharp_CopyLine(data, i, row, rownum);
 	}
 }
 
@@ -743,7 +743,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 			+ data->fh_prev2 * prev2[i] // XXX this line is '-' in PPC versions, but + in x86.  Investigate WTF is going on.
 			- data->fh_prev3 * prev3[i];
 		/* Different factors for scaling up vs down */
-		if (v5 > 0.0) {
+		if (v5 >= 0.0) {
 			data->fcc_ymc_scale[i] = v5 / data->fhdiv_up + 1.0;
 		} else {
 			data->fcc_ymc_scale[i] = v5 / data->fhdiv_dn + 1.0;
@@ -881,7 +881,7 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 			ks_comp = ksm[v30];
 		}
 
-		v6 = v7 * ks_comp + input - input;  /* This No-Op WTF is present in every version I've looked at.  Leaving it here. */
+		v6 = (v7 * ks_comp + input) - input;  /* This WTF add/subtract is present in every version I've looked at.  Leaving it here for completion's sake. */
 		v29 = v6;
 		if (v29 >= 0) {
 			int v27 = 127;
@@ -906,6 +906,7 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 				k_comp += kp[j] * v5;
 			else
 				k_comp += km[j] * v5;
+			// XXX PPC code has k_comp += v5, ignoring kp/km value.  Figure out this WTF.
 		}
 
 		sharp_comp = 0.0;
