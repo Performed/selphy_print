@@ -740,7 +740,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 
 		v5 = data->fh_cur * row_comp[i]
 			+ data->fh_prev1 * prev1[i]
-			+ data->fh_prev2 * prev2[i]
+			+ data->fh_prev2 * prev2[i] // XXX this line is '-' in PPC versions, but + in x86.  Investigate WTF is going on.
 			- data->fh_prev3 * prev3[i];
 		/* Different factors for scaling up vs down */
 		if (v5 > 0.0) {
@@ -859,17 +859,15 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 
 	/* For each pixel in the row... */
 	for (i = 0 ; i < data->band_pixels ; i++) {
-		double v4, v6, v7, v8;
+		double v4, v6, v7, input;
 		int v29;
-		int v25;
-		int v17;
 		double ks_comp_f, k_comp, ks_comp, os_comp, sharp_comp;
 		int j, k;
 
 		/* Starting point is the carry-over from the last row plus
 		   the new pixel */
-		v8 = in[i];
-		v7 = data->htd_ttdnext[i] - v8;
+		input = in[i];
+		v7 = data->htd_ttdnext[i] - input;
 		v29 = v7;
 		if (v29 >= 0) {
 			int v31 = 127;
@@ -883,17 +881,17 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 			ks_comp = ksm[v30];
 		}
 
-		v6 = v7 * ks_comp + v8 - v8;  // XXX WTF?
-		v25 = v6;
-		if (v25 >= 0) {
+		v6 = v7 * ks_comp + input - input;  /* This No-Op WTF is present in every version I've looked at.  Leaving it here. */
+		v29 = v6;
+		if (v29 >= 0) {
 			int v27 = 127;
-			if (v25 <= 65535)
-				v27 = v25 >> 9;
+			if (v29 <= 65535)
+				v27 = v29 >> 9;
 			os_comp = osp[v27];
 		} else {
 			int v26 = 127;
-			if (-v25 <= 65535)
-				v26 = -v25 >> 9;
+			if (-v29 <= 65535)
+				v26 = -v29 >> 9;
 			os_comp = osm[v26];
 		}
 
@@ -918,21 +916,21 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 		}
 		/* Update output state based on input plus the
 		   various correction factors */
-		out[i] = v8 - v6 * os_comp + k_comp + sharp_comp;
+		out[i] = input - v6 * os_comp + k_comp + sharp_comp;
 
 		/* Work out the state for HTD operation */
 		v4 = data->htd_ttdnext[i] - out[i];
-		v17 = v4;
-		if ( v17 >= 0 )
+		v29 = v4;
+		if ( v29 >= 0 )
 		{
 			int v19 = 127;
-			if ( v17 <= 65535 )
-				v19 = v17 >> 9;
+			if ( v29 <= 65535 )
+				v19 = v29 >> 9;
 			ks_comp_f = ksp[v19];
 		} else {
 			int v18 = 127;
-			if ( -v17 <= 65535 )
-				v18 = -v17 >> 9;
+			if ( -v29 <= 65535 )
+				v18 = -v29 >> 9;
 			ks_comp_f = ksm[v18];
 		}
 		data->ttd_htd_first[i] = out[i] + v4 * ks_comp_f;
@@ -1221,7 +1219,7 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 static void dump_announce(void)
 {
 	fprintf(stderr, "INFO: libMitsuD70ImageReProcess version '%s' API %d\n", LIB_VERSION, LIB_APIVERSION);
-	fprintf(stderr, "INFO: Copyright (c) 2016-2017 Solomon Peachy\n");
+	fprintf(stderr, "INFO: Copyright (c) 2016-2019 Solomon Peachy\n");
 	fprintf(stderr, "INFO: This free software comes with ABSOLUTELY NO WARRANTY!\n");
 	fprintf(stderr, "INFO: Licensed under the GNU GPL.\n");
 	fprintf(stderr, "INFO: *** This code is NOT supported or endorsed by Mitsubishi! ***\n");
