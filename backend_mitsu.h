@@ -28,6 +28,25 @@
 
 #include "lib70x/libMitsuD70ImageReProcess.h"
 
+/* If we don't have the libMitsu header */
+#ifndef LUT_LEN
+#define COLORCONV_RGB 0
+#define COLORCONV_BGR 1
+
+#define LUT_LEN 14739
+
+struct BandImage {
+	   void  *imgbuf;      //  @0
+	 int32_t bytes_per_row;//  @4  bytes per row (respect 8bpp and 16bpp!)
+	uint16_t origin_cols;  // @8  origin_cols
+	uint16_t origin_rows;  // @12  origin_rows
+	uint16_t cols;         // @16  cols
+	uint16_t rows;         // @20  rows
+	                       // @24
+};
+struct mitsu98xx_data;  /* Forward declaration */
+#endif
+
 typedef int (*lib70x_getapiversionFN)(void);
 typedef int (*Get3DColorTableFN)(uint8_t *buf, const char *filename);
 typedef struct CColorConv3D *(*Load3DColorTableFN)(const uint8_t *ptr);
@@ -39,13 +58,20 @@ typedef int (*do_image_effectFN)(struct CPCData *cpc, struct CPCData *ecpc, stru
 typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 			       int (*callback_fn)(void *context, void *buffer, uint32_t len));
 
+typedef int (*CP98xx_DoConvertFN)(const struct mitsu98xx_data *table,
+				  const struct BandImage *input,
+				  struct BandImage *output,
+				  uint8_t type, int sharpness);
+typedef struct mitsu98xx_data *(*CP98xx_GetDataFN)(const char *filename);
+typedef void (*CP98xx_DestroyDataFN)(const struct mitsu98xx_data *data);
+
 #ifndef WITH_DYNAMIC
 #warning "No dynamic loading support!"
 #endif
 
 #define REQUIRED_LIB_APIVERSION 4
 
-#define LIBMITSU_VER "0.01"
+#define LIBMITSU_VER "0.03"
 
 /* Image processing library function prototypes */
 #define LIB_NAME_RE "libMitsuD70ImageReProcess" DLL_SUFFIX
@@ -71,6 +97,9 @@ struct mitsu_lib {
 	do_image_effectFN DoImageEffect80;
 	do_image_effectFN DoImageEffect;
 	send_image_dataFN SendImageData;
+	CP98xx_DoConvertFN CP98xx_DoConvert;
+	CP98xx_GetDataFN CP98xx_GetData;
+	CP98xx_DestroyDataFN CP98xx_DestroyData;
 
 	struct CColorConv3D *lut;
 	struct CPCData *cpcdata;

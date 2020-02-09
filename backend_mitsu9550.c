@@ -38,7 +38,6 @@
 #define MITSU_M98xx_DATATABLE_FILE CORRTABLE_PATH "/M98TABLE.dat"
 #define MITSU_M98xx_LUT_FILE       CORRTABLE_PATH "/M98XXL01.lut"
 #define LAMINATE_STRIDE 1868
-#define DATATABLE_SIZE  42204
 
 /* USB VIDs and PIDs */
 
@@ -103,37 +102,6 @@ struct mitsu9550_plane {
 	uint16_t rows;       /* BE */
 } __attribute__((packed));
 
-/* CP98xx Tabular Data, as stored in data file! */
-struct mitsu98xx_data {
-	/* @    0 */	uint16_t GNMby[256];     /* BGR Order uncertain */
-	/* @  512 */	uint16_t GNMgm[256];
-	/* @ 1024 */    uint16_t GNMrc[256];
-	/* @ 1536 */    uint16_t unk_sharp[20];  /* Actual format is: u16, u16[9], u16, u16[9] */
-	/* @ 1576 */    double   GammaAdj[3];    /* Assumed to be same order as tables (BGR?) */
-	/* @ 1600 */	struct {
-		/* @    0 */	double   unka[256];
-		/* @ 2048 */	double   unkb[256];
-		/* @ 4096 */	double   unkc[5];   /* Weight factors */
-		/* @ 4136 */	double   unkd[256];
-		/* @ 6184 */	double   unke[256]; // *= sharp->coef[X]
-		/* @ 8232 */	double   unkf[5];   /* Weight factors */
-		/* @ 8272 */	double   unkg[256];
-		/* @10320 */
-			} WMAM;
-	/* @11920 */	double   sharp_coef[11]; /* 0 is off, 1-10 are the levels.  Default is 5. [4 in settings] */
-	/* @12008 */	uint32_t KHStart;
-	/* @12012 */	uint32_t KHEnd;
-	/* @12016 */	uint32_t KHStep;
-	/* @12020 */	double   KH[256];
-	/* @14068 */
-} __attribute__((packed));
-
-struct mitsu98xx_tables {
-	struct mitsu98xx_data superfine;
-	struct mitsu98xx_data fine_std;
-	struct mitsu98xx_data fine_hg;
-} __attribute__((packed));
-
 /* Command header */
 struct mitsu9550_cmd {
 	uint8_t cmd[4];
@@ -174,7 +142,7 @@ struct mitsu9550_ctx {
 
 	/* CP98xx stuff */
 	struct mitsu_lib lib;
-	struct mitsu98xx_tables *m98xxdata;
+	const struct mitsu98xx_data *m98xxdata;
 };
 
 /* Printer data structures */
@@ -264,16 +232,6 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob);
 		} \
 	} while (0);
 
-static void mitsu98xx_dogamma(uint8_t *src, uint16_t *dest, uint8_t plane,
-			      uint16_t *table, uint32_t len)
-{
-	src += plane;
-	while(len--) {
-		*dest++ = cpu_to_be16(table[*src]);
-		src += 3;
-	}
-}
-
 static int mitsu98xx_fillmatte(struct mitsu9550_printjob *job)
 {
 	int ret;
@@ -349,7 +307,7 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	if (mitsu_loadlib(&ctx->lib, ctx->type))
 		return CUPS_BACKEND_FAILED;
 #else
-	WARNING("Dynamic library support not enabled, using internal fallback code\n");
+	WARNING("Dynamic library support not enabled, will be unable to print.");
 #endif
 skip:
 	if (test_mode < TEST_MODE_NOATTACH) {
@@ -391,7 +349,7 @@ static void mitsu9550_teardown(void *vctx) {
 		return;
 
 	if (ctx->m98xxdata)
-		free(ctx->m98xxdata);
+		ctx->lib.CP98xx_DestroyData(ctx->m98xxdata);
 
 	mitsu_destroylib(&ctx->lib);
 
@@ -495,57 +453,11 @@ hdr_done:
 
 	/* Read in CP98xx data tables if necessary */
 	if (ctx->is_98xx && !job->is_raw && !ctx->m98xxdata) {
-		int ret;
-		ctx->m98xxdata = malloc(DATATABLE_SIZE);
-		if (!ctx->m98xxdata) {
-			ERROR("Memory allocation Failure!\n");
-			mitsu9550_cleanup_job(job);
-			return CUPS_BACKEND_RETRY_CURRENT;
-		}
-
 		DEBUG("Reading in 98xx data from disk\n");
-		if ((ret = dyesub_read_file(MITSU_M98xx_DATATABLE_FILE, ctx->m98xxdata, DATATABLE_SIZE, NULL))) {
+		ctx->m98xxdata = ctx->lib.CP98xx_GetData(MITSU_M98xx_DATATABLE_FILE);
+		if (!ctx->m98xxdata) {
 			ERROR("Unable to read 98xx data table file '%s'\n", MITSU_M98xx_DATATABLE_FILE);
-			free(ctx->m98xxdata);
-			return ret;
 		}
-
-		/* Byteswap data table to native endianness, if necessary */
-#if (__BYTE_ORDER == __LITTLE_ENDIAN)
-		int j;
-		struct mitsu98xx_data *ptr = &ctx->m98xxdata->superfine;
-		for (j = 0 ; j < 3 ; j++) {
-			ptr->KHStart = be32_to_cpu(ptr->KHStart);
-			ptr->KHEnd = be32_to_cpu(ptr->KHEnd);
-			ptr->KHStep = be32_to_cpu(ptr->KHStep);
-			for (i = 3 ; i < 3 ; i++) {
-				ptr->GammaAdj[i] = be64_to_cpu(ptr->GammaAdj[i]);
-			}
-			for (i = 0 ; i < 5 ; i++) {
-				ptr->WMAM.unkc[i] = be64_to_cpu(ptr->WMAM.unkc[i]);
-				ptr->WMAM.unkf[i] = be64_to_cpu(ptr->WMAM.unkf[i]);
-			}
-			for (i = 0 ; i < 11 ; i++) {
-				ptr->sharp_coef[i] = be64_to_cpu(ptr->sharp_coef[i]);
-			}
-			for (i = 0 ; i < 20 ; i++) {
-				ptr->unk_sharp[i] = be16_to_cpu(ptr->unk_sharp[i]);
-			}
-			for (i = 0 ; i < 256 ; i++) {
-				ptr->WMAM.unka[i] = be64_to_cpu(ptr->WMAM.unka[i]);
-				ptr->WMAM.unkb[i] = be64_to_cpu(ptr->WMAM.unkb[i]);
-				ptr->WMAM.unkd[i] = be64_to_cpu(ptr->WMAM.unkd[i]);
-				ptr->WMAM.unke[i] = be64_to_cpu(ptr->WMAM.unke[i]);
-				ptr->WMAM.unkg[i] = be64_to_cpu(ptr->WMAM.unkg[i]);
-
-				ptr->GNMby[i] = be16_to_cpu(ptr->GNMby[i]);
-				ptr->GNMgm[i] = be16_to_cpu(ptr->GNMgm[i]);
-				ptr->GNMrc[i] = be16_to_cpu(ptr->GNMrc[i]);
-				ptr->KH[i] = be64_to_cpu(ptr->KH[i]);
-			}
-			ptr++;
-		}
-#endif
 	}
 
 	if (job->is_raw) {
@@ -994,11 +906,11 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 
 	/* Do the 98xx processing here */
 	if (!ctx->is_98xx || job->is_raw)
-		goto bypass;
+		goto non_98xx;
 
+	/* Special CP98xx handling code */
 	uint8_t *newbuf;
 	uint32_t newlen = 0;
-	struct mitsu98xx_data *table;
 	int i, remain, planelen;
 
 	planelen = job->rows * job->cols * 2;
@@ -1008,58 +920,64 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 		ERROR("Memory allocation Failure!\n");
 		return CUPS_BACKEND_RETRY_CURRENT;
 	}
-	switch (job->hdr2.mode) {
-	case 0x80:
-		table = &ctx->m98xxdata->superfine;
-		break;
-	case 0x11:
-		table = &ctx->m98xxdata->fine_hg;
-		job->hdr2.mode = 0x10;
-		break;
-	case 0x10:
-	default:
-		table = &ctx->m98xxdata->fine_std;
-		break;
+
+	DEBUG("Running print data through processing library\n");
+
+	/* Create band images for input and output */
+	struct BandImage input;
+	struct BandImage output;
+
+	uint8_t *convbuf = malloc(planelen * 3);
+	if (!convbuf) {
+		free(newbuf);
+		ERROR("Memory allocation Failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
-	DEBUG("Applying 8bpp->12bpp Gamma Correction\n");
-#pragma GCC diagnostic push
-#if (defined(__GNUC__) && (__GNUC__ >= 9))
-#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
-#endif
-	/* For B/Y plane */
+	input.origin_rows = input.origin_cols = 0;
+	input.rows = job->rows;
+	input.cols = job->cols;
+	input.imgbuf = job->databuf + sizeof(struct mitsu9550_plane);
+	input.bytes_per_row = job->cols * 3;
+
+	output.origin_rows = output.origin_cols = 0;
+	output.rows = job->rows;
+	output.cols = job->cols;
+	output.imgbuf = convbuf;
+	output.bytes_per_row = job->cols * 3 * 2;
+
+	int sharpness = 4;  // XXX make a parameter via hdr extension.
+
+	if (!ctx->lib.CP98xx_DoConvert(ctx->m98xxdata, &input, &output, job->hdr2.mode, sharpness)) {
+		free(convbuf);
+		free(newbuf);
+		ERROR("CP98xx_DoConvert() failed!\n");
+		return CUPS_BACKEND_FAILED;
+	}
+	if (job->hdr2.mode == 0x11)
+		job->hdr2.mode = 0x10;
+
+	/* We're done.  Wrap YMC16 data with appropriate plane headers */
 	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
 	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
 	newlen += sizeof(struct mitsu9550_plane);
-	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-			  (uint16_t*) (newbuf + newlen),
-			  0,
-			  table->GNMby,
-			  planelen / 2);
+	memcpy(newbuf + newlen, convbuf + 0 * planelen, planelen);
 	newlen += planelen;
 
-	/* For G/M plane */
 	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
 	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
 	newlen += sizeof(struct mitsu9550_plane);
-	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-			  (uint16_t*) (newbuf + newlen),
-			  1,
-			  table->GNMgm,
-			  planelen / 2);
+	memcpy(newbuf + newlen, convbuf + 1 * planelen, planelen);
 	newlen += planelen;
 
-	/* For R/C plane */
 	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
 	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
 	newlen += sizeof(struct mitsu9550_plane);
-	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
-			  (uint16_t*) (newbuf + newlen),
-			  2,
-			  table->GNMrc,
-			  planelen / 2);
+	memcpy(newbuf + newlen, convbuf + 2 * planelen, planelen);
 	newlen += planelen;
-#pragma GCC diagnostic pop
+
+	/* All done with conversion buffer, nuke it */
+	free(convbuf);
 
 	/* And finally, the job footer. */
 	memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen/2 * 3, sizeof(struct mitsu9550_cmd));
@@ -1078,7 +996,7 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 		}
 	}
 
-bypass:
+non_98xx:
 	/* Bypass */
 	if (test_mode >= TEST_MODE_NOPRINT)
 		return CUPS_BACKEND_OK;
@@ -1537,7 +1455,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.50" " (lib " LIBMITSU_VER ")",
+	.version = "0.51" " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,

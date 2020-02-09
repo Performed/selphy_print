@@ -1,7 +1,7 @@
 /* LibMitsuD70ImageReProcess -- Re-implemented image processing library for
                                 the Mitsubishi CP-D70 family of printers
 
-   Copyright (c) 2016-2017 Solomon Peachy <pizza@shaftnet.org>
+   Copyright (c) 2016-2020 Solomon Peachy <pizza@shaftnet.org>
 
    ** ** ** ** Do NOT contact Mitsubishi about this library! ** ** ** **
 
@@ -25,6 +25,13 @@
      * Mitsubishi CP-D80DW
      * Kodak 305
      * Fujifilm ASK-300
+
+   More recently, the CP98xx family now uses this library.  These
+   models are expected to function:
+
+     * Mitsubishi CP9800DW
+     * Mitsubishi CP9810DW
+     * Mitsubishi CP9820DW-S
 
    ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **
 
@@ -51,7 +58,7 @@
 #ifndef __MITSU_D70_H
 #define __MITSU_D70_H
 
-#define LIB_APIVERSION 4
+#define LIB_APIVERSION 5
 
 #include <stdint.h>
 
@@ -91,7 +98,7 @@ int do_image_effect80(struct CPCData *cpc, struct CPCData *ecpc,
 		      struct BandImage *input, struct BandImage *output,
 		      int sharpen, int reverse, uint8_t rew[2]);
 
-/* Converts the packed 16bpp YMC image into 16bpp YMC planes, with 
+/* Converts the packed 16bpp YMC image into 16bpp YMC planes, with
    proper padding after each plane.  Calls the callback function for each
    block. */
 int send_image_data(struct BandImage *out, void *context,
@@ -115,5 +122,16 @@ void CColorConv3D_Destroy3DColorTable(struct CColorConv3D *this);
 
 /* Run a packed 8bpp rgb or bgr image through the LUT */
 void CColorConv3D_DoColorConv(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t bytes_per_row, int rgb_bgr);
+
+/* CP98xx family stuff */
+struct mitsu98xx_data;  /* Forward declaration */
+
+struct mitsu98xx_data *CP98xx_GetData(const char *filename);
+void CP98xx_DestroyData(const struct mitsu98xx_data *data);
+
+int CP98xx_DoConvert(const struct mitsu98xx_data *table,
+		     const struct BandImage *input,
+		     struct BandImage *output,
+		     uint8_t type, int sharpness);
 
 #endif /* __MITSU_D70_H */

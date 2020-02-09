@@ -29,11 +29,11 @@
 
 int mitsu_loadlib(struct mitsu_lib *lib, int type)
 {
-	DL_INIT();
-
 	memset(lib, 0, sizeof(*lib));
 
 #if defined(WITH_DYNAMIC)
+	DL_INIT();
+
 	DEBUG("Attempting to load image processing library\n");
 	lib->dl_handle = DL_OPEN(LIB_NAME_RE);
 	if (!lib->dl_handle)
@@ -62,7 +62,12 @@ int mitsu_loadlib(struct mitsu_lib *lib, int type)
 		lib->DoImageEffect70 = DL_SYM(lib->dl_handle, "do_image_effect70");
 		lib->DoImageEffect80 = DL_SYM(lib->dl_handle, "do_image_effect80");
 		lib->SendImageData = DL_SYM(lib->dl_handle, "send_image_data");
+		lib->CP98xx_DoConvert = DL_SYM(lib->dl_handle, "CP98xx_DoConvert");
+		lib->CP98xx_GetData = DL_SYM(lib->dl_handle, "CP98xx_GetData");
+		lib->CP98xx_DestroyData = DL_SYM(lib->dl_handle, "CP98xx_DestroyData");
 		if (!lib->Load3DColorTable ||
+		    !lib->CP98xx_DoConvert || !lib->CP98xx_GetData ||
+		    !lib->CP98xx_DestroyData ||
 		    !lib->Destroy3DColorTable || !lib->DoColorConv ||
 		    !lib->GetCPCData || !lib->DestroyCPCData ||
 		    !lib->DoImageEffect60 || !lib->DoImageEffect70 ||
@@ -88,12 +93,16 @@ int mitsu_loadlib(struct mitsu_lib *lib, int type)
 	case P_FUJI_ASK300:
 		lib->DoImageEffect = lib->DoImageEffect70;
 		break;
+	case P_MITSU_9800:
+	case P_MITSU_9800S:
+	case P_MITSU_9810:
 	default:
 		lib->DoImageEffect = NULL;
 	}
 
 	return CUPS_BACKEND_OK;
 #else
+	ERROR("Need dynamic library support for library loading!\n");
 	return CUPS_BACKEND_FAILED;
 #endif
 }

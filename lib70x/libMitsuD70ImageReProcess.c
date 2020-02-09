@@ -1,7 +1,7 @@
 /* LibMitsuD70ImageReProcess -- Re-implemented image processing library for
                                 the Mitsubishi CP-D70 family of printers
 
-   Copyright (c) 2016-2019 Solomon Peachy <pizza@shaftnet.org>
+   Copyright (c) 2016-2020 Solomon Peachy <pizza@shaftnet.org>
 
    ** ** ** ** Do NOT contact Mitsubishi about this library! ** ** ** **
 
@@ -26,6 +26,13 @@
      * Kodak 305
      * Fujifilm ASK-300
 
+   More recently, the CP98xx family now uses this library.  These
+   models are expected to function:
+
+     * Mitsubishi CP9800DW
+     * Mitsubishi CP9810DW
+     * Mitsubishi CP9820DW-S
+
    ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **
 
    This program is free software; you can redistribute it and/or modify it
@@ -45,7 +52,7 @@
 
 */
 
-#define LIB_VERSION "0.7.3"
+#define LIB_VERSION "0.8.0"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -1474,3 +1481,933 @@ void CImageUtility_CreateBandImage16(struct BandImage *img, uint32_t *a2, int32_
 }
 
 #endif
+
+/* XXXX XXXX CP98XX */
+
+struct CP98xx_WMAM {
+	/* @    0 */	double   unka[256];
+	/* @ 2048 */	double   unkb[256];
+	/* @ 4096 */	double   unkc[5];   /* Weight factors */
+	/* @ 4136 */	double   unkd[256];
+	/* @ 6184 */	double   unke[256]; // *= sharp->coef[X]
+	/* @ 8232 */	double   unkf[5];   /* Weight factors */
+	/* @ 8272 */	double   unkg[256];
+	/* @10320 */
+};
+
+/* CP98xx Tabular Data, as stored in data file! */
+struct mitsu98xx_data {
+	/* @    0 */	uint16_t GNMby[256];     /* BGR Order uncertain */
+	/* @  512 */	uint16_t GNMgm[256];
+	/* @ 1024 */    uint16_t GNMrc[256];
+	/* @ 1536 */    int16_t  sharp[20];   /* Actual format is: u16, u16[9], u16, u16[9] */
+	/* @ 1576 */    double   GammaAdj[3];    /* Assumed to be same order as tables (BGR?) */
+	/* @ 1600 */	struct CP98xx_WMAM WMAM;
+	/* @11920 */	double   sharp_coef[11]; /* 0 is off, 1-10 are the levels.  Default is 5. [4 in settings] */
+	/* @12008 */	uint32_t KHStart;
+	/* @12012 */	uint32_t KHEnd;
+	/* @12016 */	uint32_t KHStep;
+	/* @12020 */	double   KH[256];
+	/* @14068 */
+} __attribute__((packed));
+
+struct mitsu98xx_tables {
+	struct mitsu98xx_data superfine;
+	struct mitsu98xx_data fine_std;
+	struct mitsu98xx_data fine_hg;
+} __attribute__((packed));
+
+#define M98XX_DATATABLE_SIZE  42204
+
+struct CP98xx_KHParams {
+    double KH[256];
+    int32_t Start;
+    int32_t End;
+    int32_t Step;
+};
+
+struct CP98xx_GammaParams {
+    uint16_t GNMby[256];
+    uint16_t GNMgm[256];
+    uint16_t GNMrc[256];
+    double GammaAdj[3];
+};
+
+struct CP98xx_AptParams {
+    int16_t mask[8][6]; // really is [8][6]
+    int unsharp;
+    int mpx10;
+};
+
+struct mitsu98xx_data *CP98xx_GetData(const char *filename)
+{
+	struct mitsu98xx_data *data = NULL;
+	FILE *stream;
+	int rval;
+
+	if (!filename || !*filename)
+		return NULL;
+
+	data = malloc(M98XX_DATATABLE_SIZE);
+	if (!data)
+		return NULL;
+
+	stream = fopen(filename, "rb");
+	if (!stream) {
+		free(data);
+		return NULL;
+	}
+
+	fseek(stream, 0, SEEK_END);
+	if (ftell(stream) < M98XX_DATATABLE_SIZE) {
+		fclose(stream);
+		free(data);
+		return NULL;
+	}
+	fseek(stream, 0, SEEK_SET);
+	rval = fread(data, M98XX_DATATABLE_SIZE, 1, stream);
+	fclose(stream);
+
+	if (rval != 1) {
+		free(data);
+		return NULL;
+	}
+
+	/* Byteswap data table to native endianness, if necessary */
+#if (__BYTE_ORDER == __LITTLE_ENDIAN)
+	int i, j;
+	for (j = 0 ; j < 3 ; j++) {
+		data[j].KHStart = be32_to_cpu(data[j].KHStart);
+		data[j].KHEnd = be32_to_cpu(data[j].KHEnd);
+		data[j].KHStep = be32_to_cpu(data[j].KHStep);
+		for (i = 3 ; i < 3 ; i++) {
+			data[j].GammaAdj[i] = be64_to_cpu(data[j].GammaAdj[i]);
+		}
+		for (i = 0 ; i < 5 ; i++) {
+			data[j].WMAM.unkc[i] = be64_to_cpu(data[j].WMAM.unkc[i]);
+			data[j].WMAM.unkf[i] = be64_to_cpu(data[j].WMAM.unkf[i]);
+		}
+		for (i = 0 ; i < 11 ; i++) {
+			data[j].sharp_coef[i] = be64_to_cpu(data[j].sharp_coef[i]);
+		}
+		for (i = 0 ; i < 20 ; i++) {
+			data[j].sharp[i] = be16_to_cpu(data[j].sharp[i]);
+		}
+		for (i = 0 ; i < 256 ; i++) {
+			data[j].WMAM.unka[i] = be64_to_cpu(data[j].WMAM.unka[i]);
+			data[j].WMAM.unkb[i] = be64_to_cpu(data[j].WMAM.unkb[i]);
+			data[j].WMAM.unkd[i] = be64_to_cpu(data[j].WMAM.unkd[i]);
+			data[j].WMAM.unke[i] = be64_to_cpu(data[j].WMAM.unke[i]);
+			data[j].WMAM.unkg[i] = be64_to_cpu(data[j].WMAM.unkg[i]);
+
+			data[j].GNMby[i] = be16_to_cpu(data[j].GNMby[i]);
+			data[j].GNMgm[i] = be16_to_cpu(data[j].GNMgm[i]);
+			data[j].GNMrc[i] = be16_to_cpu(data[j].GNMrc[i]);
+			data[j].KH[i] = be64_to_cpu(data[j].KH[i]);
+		}
+	}
+#endif
+	return data;
+}
+
+void CP98xx_DestroyData(const struct mitsu98xx_data *data)
+{
+	free((void*)data);
+}
+
+/* return 1 if it's ok, 0 if bad */
+static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
+				    const struct CP98xx_KHParams *KH,
+				    const struct BandImage *img)
+{
+	int end, start, cols, rows, step, bytesPerRow;
+	int i, j;
+	int64_t elements, max;
+	int curCol, curRowBufOffset;
+	uint8_t *rowPtr;
+	int in_r9 = 0; // XXX
+
+	if (KH->Step < 1 || KH->End < KH->Start)
+		return 1;
+
+	if (KH->Start < 0 ||
+	    img->cols <= KH->End ||
+	    img->cols <= KH->Start ||
+	    img->origin_cols ||
+	    img->origin_rows)
+		return 0;
+
+	cols = img->cols - img->origin_cols;
+	rows = img->rows - img->origin_rows;
+	bytesPerRow = img->bytes_per_row;
+
+	if (bytesPerRow < 0) {
+		if (in_r9 == 0) {
+			bytesPerRow = -bytesPerRow;
+			rowPtr = img->imgbuf - -bytesPerRow * (rows - 1);
+		} else {
+			rowPtr = img->imgbuf;
+		}
+	} else {
+		if (in_r9 != 0) {
+			rowPtr = img->imgbuf - -bytesPerRow * (rows - 1);
+		} else {
+			bytesPerRow = -bytesPerRow;
+			rowPtr = img->imgbuf;
+		}
+	}
+
+	step = KH->Step;
+	end = KH->End;
+	start = KH->Start;
+	elements = step * ((end - start) + 1);
+	max = elements * 0xff;
+
+	for (j = 0 ; j < rows / step ; j++) {
+		int k;
+		int64_t sum1, sum2, sum3, sum4, sum5, sum6;
+		int iVar4 = (cols - end) -1;
+
+		sum6 = 0;
+		sum5 = 0;
+		sum4 = 0;
+		sum3 = 0;
+		sum2 = 0;
+		sum1 = 0;
+
+		for (k = 0 ; k < step ; k++) {
+			curRowBufOffset = start * 3;
+			curCol = start;
+			while (curCol < (end + 1)) {
+				int offset = curRowBufOffset;
+				sum3 += rowPtr[offset];
+				sum2 += rowPtr[offset + 1];
+				sum1 += rowPtr[offset + 2];
+				curRowBufOffset = offset + 3;
+				curCol++;
+			}
+			curRowBufOffset = iVar4 * 3;
+			curCol = iVar4;
+			while (curCol < (cols - start)) {
+				int offset2 = curRowBufOffset;
+				sum6 += rowPtr[offset2];
+				sum5 += rowPtr[offset2 + 1];
+				sum4 += rowPtr[offset2 + 2];
+				curRowBufOffset = offset2 + 3;
+				curCol++;
+			}
+			rowPtr -= bytesPerRow;
+		}
+		if (sum6 < max) {
+			max = sum6;
+		}
+		if (sum5 < max) {
+			max = sum5;
+		}
+		if (sum4 < max) {
+			max = sum4;
+		}
+		if (sum3 < max) {
+			max = sum3;
+		}
+		if (sum2 < max) {
+			max = sum2;
+		}
+		if (sum1 < max) {
+			max = sum1;
+		}
+	}
+
+	int gammaMaxCalc;
+	uint16_t baseRC, baseGM, baseBY;
+	double baseKH;
+
+	gammaMaxCalc = ((double)max / (double)elements) + 0.5;
+
+	baseRC = Gamma->GNMrc[255];
+	baseGM = Gamma->GNMgm[255];
+	baseBY = Gamma->GNMby[255];
+	baseKH = KH->KH[gammaMaxCalc];
+
+	for (i = 0; i < 256 ; i++) {
+		Gamma->GNMrc[i] = baseRC +
+			(baseKH * (Gamma->GNMrc[i] - baseRC)) + 0.5;
+		Gamma->GNMrc[i] = baseGM +
+			(baseKH * (Gamma->GNMgm[i] - baseGM)) + 0.5;
+		Gamma->GNMby[i] = baseGM +
+			(baseKH * (Gamma->GNMby[i] - baseBY)) + 0.5;
+	}
+
+	return 1;
+}
+
+static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
+			      const struct BandImage *inImage,
+			      struct BandImage *outImage)
+{
+	int cols, cols2, rows, inBytesPerRow, tmp, maxTank;
+	uint8_t *inRowPtr;
+	uint16_t *outRowPtr;
+	double gammaAdj0;
+	int pixelsPerRow;
+
+	int in_r8 = 0; // XXXX figure this one out..
+
+	cols = inImage->cols - inImage->origin_cols;
+	rows = inImage->rows - inImage->origin_rows;
+	tmp = inImage->bytes_per_row;
+	if ((cols < 1) || (rows < 1) || (tmp == 0))
+		return 0;
+
+	if (tmp < 0) {
+		if (in_r8 == 0) {
+			inBytesPerRow = -tmp;
+			pixelsPerRow = -outImage->bytes_per_row >> 1;
+			inRowPtr = ((rows + -1) * -tmp + inImage->imgbuf);
+			outRowPtr = (pixelsPerRow * (rows * 2 + -2) + outImage->imgbuf);
+		} else {
+			inBytesPerRow = tmp;
+			pixelsPerRow = outImage->bytes_per_row >> 1;
+			inRowPtr = inImage->imgbuf;
+			outRowPtr = outImage->imgbuf;
+		}
+	} else {
+		if (in_r8 != 0) {
+			inBytesPerRow = tmp;
+			pixelsPerRow = outImage->bytes_per_row >> 1;
+			outRowPtr = (pixelsPerRow * (rows * 2 + -2) + outImage->imgbuf);
+			inRowPtr = ((rows + -1) * inImage->bytes_per_row + inImage->imgbuf);
+		} else {
+			inBytesPerRow = -tmp;
+			pixelsPerRow = (-outImage->bytes_per_row) >> 1;
+			inRowPtr = inImage->imgbuf;
+			outRowPtr = outImage->imgbuf;
+		}
+	}
+
+	tmp = 0;
+	cols2 = cols;
+	maxTank = cols2 * 255;
+	gammaAdj0 = Gamma->GammaAdj[0];
+
+	int outVal;
+	double dVar2 = 0.0;
+	double calc2, calc1, calc0;
+	int curRowBufOffset, curCol;
+
+	while ((outVal = rows, tmp < outVal &&
+		(dVar2 = gammaAdj0, 0.50000000 <= dVar2))) {
+		calc1 = 0.00000000;
+		curRowBufOffset = 0;
+		curCol = 0;
+		calc2 = calc1;
+		calc0 = calc1;
+
+		while (curCol < cols2) {
+			calc2 += inRowPtr[2 + curRowBufOffset];
+			calc1 += inRowPtr[1 + curRowBufOffset];
+			calc0 += inRowPtr[0 + curRowBufOffset];
+			curRowBufOffset += 3;
+			curCol++;
+		}
+		double calcMax;
+		double calc3;
+		double gammaAdj2;
+		double gammaAdj1;
+		int col;
+
+		col = 0;
+		gammaAdj1 = Gamma->GammaAdj[1];
+		curRowBufOffset = 0;
+		curCol = 0;
+		gammaAdj2 = Gamma->GammaAdj[2];
+		calcMax = maxTank;
+
+		calc3 = ((calcMax - calc0) + (calcMax - calc2) + (calcMax - calc1)) / (cols * 3);
+
+		gammaAdj0 = ((dVar2 + (((calc3 * dVar2) / 255.00000000) * gammaAdj1) / -4095.00000000) * gammaAdj2) / 4095.00000000;
+
+		while (col < cols2) {
+			outVal = Gamma->GNMby[inRowPtr[curRowBufOffset + 2]] + gammaAdj0 + 0.50000000;
+			if (outVal < 0x1000) {
+				if (outVal < 0) {
+					outRowPtr[curRowBufOffset] = 0;
+				} else {
+					outRowPtr[curRowBufOffset] = outVal;
+				}
+			} else {
+				outRowPtr[curRowBufOffset] = 0xfff;
+			}
+
+			outVal = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]] + gammaAdj0 + 0.50000000;
+			if (outVal < 0x1000) {
+				if (outVal < 0) {
+					outRowPtr[curRowBufOffset + 1] = 0;
+				} else {
+					outRowPtr[curRowBufOffset + 1] = outVal;
+				}
+			} else {
+				outRowPtr[curRowBufOffset + 1] = 0xfff;
+			}
+
+			outVal = Gamma->GNMrc[inRowPtr[curRowBufOffset]] + gammaAdj0 + 0.50000000;
+			if (outVal < 0x1000) {
+				if (outVal < 0) {
+					outRowPtr[curRowBufOffset + 2] = 0;
+				} else {
+					outRowPtr[curRowBufOffset + 2] = (short)outVal;
+				}
+			} else {
+				outRowPtr[curRowBufOffset + 2] = 0xfff;
+			}
+			cols2 = cols;
+			col = curCol + 1;
+			curRowBufOffset += 3;
+			curCol = col;
+		}
+
+		tmp = inBytesPerRow + 1;
+		inRowPtr -= inBytesPerRow;
+		outRowPtr -= pixelsPerRow;
+	}
+
+	while (tmp < outVal) {
+		outVal = 0;
+		curRowBufOffset = 0;
+		while (curCol = outVal, outVal < cols2) {
+			outRowPtr[curRowBufOffset] = Gamma->GNMby[inRowPtr[curRowBufOffset + 2]];
+			outRowPtr[curRowBufOffset + 1] = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]];
+			outRowPtr[curRowBufOffset + 2] = Gamma->GNMrc[inRowPtr[curRowBufOffset]];
+			cols2 = cols;
+			outVal = curCol + 1;
+			curRowBufOffset += 3;
+		}
+		outVal = rows;
+		tmp ++;
+		inRowPtr -= inBytesPerRow;
+		outRowPtr -= pixelsPerRow;
+	}
+
+  return 1;
+}
+
+static void CP98xx_InitAptParams(const struct mitsu98xx_data *table, struct CP98xx_AptParams *APT, int sharpness)
+{
+	int i, j;
+	double sharpCoef;
+
+	APT->unsharp = 0;
+	APT->mpx10 = 1;
+
+	sharpCoef = table->sharp_coef[sharpness];
+	for (i = 2, j = 0 ; j < 8 ; i++, j++) {
+		APT->mask[j][5] = table->sharp[1];
+		APT->mask[j][4] = sharpCoef * table->sharp[i] + 0.5;
+		APT->mask[j][3] = table->sharp[11];
+		APT->mask[j][2] = sharpCoef * table->sharp[i+10] + 0.5;
+	}
+
+	APT->mask[0][0] = -table->sharp[10];
+	APT->mask[0][1] = -table->sharp[0];
+	APT->mask[1][0] = 0;
+	APT->mask[1][1] = -table->sharp[0];
+	APT->mask[2][0] = table->sharp[10];
+	APT->mask[2][1] = -table->sharp[0];
+	APT->mask[3][0] = -table->sharp[10];
+	APT->mask[3][1] = 0;
+	APT->mask[4][0] = table->sharp[10];
+	APT->mask[4][1] = 0;
+	APT->mask[5][0] = -table->sharp[10];
+	APT->mask[5][1] = table->sharp[0];
+	APT->mask[6][0] = table->sharp[10];
+	APT->mask[6][1] = table->sharp[0];
+	APT->mask[7][0] = 0;
+	APT->mask[7][1] = table->sharp[0];
+}
+
+static void CP98xx_InitWMAM(struct CP98xx_WMAM *wmam, const struct CP98xx_WMAM *src)
+{
+	int i;
+	for (i = 0 ; i < 255 ; i++) {
+		wmam->unka[i] = src->unka[i] / 255.0;
+		wmam->unkb[i] = src->unkb[i] / 255.0;
+		wmam->unkd[i] = src->unkd[i] / 255.0;
+		wmam->unke[i] = src->unke[i] / 64.0;
+		wmam->unkg[i] = src->unkg[i] / 64.0;
+	}
+	memcpy(wmam->unkc, src->unkc, sizeof(wmam->unkc));
+	memcpy(wmam->unkf, src->unkd, sizeof(wmam->unkc));
+}
+
+static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int always_1)
+{
+	uint16_t *imgBuf, *rowPtr;
+	int rows, col, cols, bytesPerRow, pixelCnt;
+	double *rowCalcBuf1, *rowCalcBuf2, *rowCalcBuf3, *rowCalcBuf4, *rowCalcBuf5;
+	double *pdVar3, *pdVar5, *pdVar6, *pdVar7, *pdVar8, *pdVar9, *pdVar11, *pdVar12;
+
+	int row;
+	int rowCalcBufLenB, rowCalcBufLen;
+	int doubleBufOffset, imgBufOffset;
+
+	cols = img->cols - img->origin_cols;
+	rows = img->rows - img->origin_rows;
+	bytesPerRow = img->bytes_per_row;
+	rowPtr = imgBuf = img->imgbuf;
+
+	if ((cols < 6) || (rows < 1) || (bytesPerRow == 0))
+		return 0;
+
+	if (bytesPerRow < 0) {
+		if (always_1 != 0) {
+			bytesPerRow = bytesPerRow >> 1;
+		} else {
+			bytesPerRow = -bytesPerRow;
+			bytesPerRow = bytesPerRow >> 1;
+			rowPtr += bytesPerRow * (rows -1);
+			imgBuf = (uint16_t *)rowPtr;
+		}
+	} else {
+		if (always_1 != 0) {
+			bytesPerRow = bytesPerRow >> 1;
+			rowPtr += bytesPerRow * (rows -1);
+			imgBuf = (uint16_t *)rowPtr;
+		} else {
+			bytesPerRow = (-bytesPerRow) >> 1;
+		}
+	}
+
+	pixelCnt = cols * 3;
+	rowCalcBufLen = cols * 3 * sizeof(double);
+
+	rowCalcBuf1 = malloc(rowCalcBufLen);
+	if (!rowCalcBuf1) {
+		return 0;
+	}
+
+	rowCalcBuf2 = malloc(rowCalcBufLen);
+	if (!rowCalcBuf2) {
+		free(rowCalcBuf1);
+		return 0;
+	}
+
+	rowCalcBufLenB = (pixelCnt + 24) * sizeof(double);
+	rowCalcBuf3 = malloc(rowCalcBufLenB);
+	if (!rowCalcBuf3) {
+		free(rowCalcBuf2);
+		free(rowCalcBuf1);
+		return 0;
+	}
+	pdVar8 = rowCalcBuf3 + 12;
+
+	rowCalcBuf4 = malloc(rowCalcBufLenB);
+	if (!rowCalcBuf4) {
+		free(rowCalcBuf3);
+		free(rowCalcBuf2);
+		free(rowCalcBuf1);
+		return 0;
+	}
+	pdVar7 = rowCalcBuf4 + 12;
+
+	rowCalcBuf5 = malloc(rowCalcBufLen);
+	if (!rowCalcBuf5) {
+		free(rowCalcBuf4);
+		free(rowCalcBuf3);
+		free(rowCalcBuf2);
+		free(rowCalcBuf1);
+		return 0;
+	}
+
+	memset(rowCalcBuf1, 0, cols * 3 * sizeof(double));
+	memset(rowCalcBuf2, 0, cols * 3 * sizeof(double));
+	row = 0;
+	pdVar5 = pdVar7 + (cols -1) * 3;
+	pdVar3 = pdVar8 + (cols -1) * 3;
+
+	for (row = 0 ; row < rows ; row++) {
+		col = pixelCnt + 1;
+		doubleBufOffset = 0;
+		imgBufOffset = 0;
+		if (pixelCnt < 0) {
+			col = 1;
+		}
+
+		for ( ; col > 0 ; col --) {
+			double dVar16, dVar17, dVar18, dVar19;
+			int iVar1;
+			int pixelVal;
+
+			dVar16 = rowPtr[imgBufOffset];
+			dVar17 = rowCalcBuf1[doubleBufOffset] - dVar16;
+			pixelVal = dVar17;
+			if (pixelVal < 0) {
+				iVar1 = -0x80;
+				if (-0xff0 < pixelVal) {
+					iVar1 = -((0x10 - pixelVal) >> 5);
+				}
+			} else {
+				iVar1 = 0x7f;
+				if (pixelVal < 0xfd0) {
+					iVar1 = (pixelVal + 0x10) >> 5;
+				}
+			}
+
+			dVar17 *= wmam->unka[128+iVar1];
+			pixelVal = dVar17;
+			pdVar8[doubleBufOffset] = dVar16 + dVar17;
+			if (pixelVal < 0) {
+				iVar1 = -0x80;
+				if (-0xff0 < pixelVal) {
+					iVar1 = -((0x10 - pixelVal) >> 5);
+				}
+			} else {
+				iVar1 = 0x7f;
+				if (pixelVal < 0xfd0) {
+					iVar1 = (pixelVal + 0x10) >> 5;
+				}
+			}
+			dVar19 = wmam->unkb[128+iVar1];
+			dVar18 = rowCalcBuf2[doubleBufOffset] - dVar16;
+
+			pixelVal = dVar18;
+			if (pixelVal < 0) {
+				iVar1 = -0x80;
+				if (-0xff0 < pixelVal) {
+					iVar1 = -((0x10 - pixelVal) >> 5);
+				}
+			} else {
+				iVar1 = 0x7f;
+				if (pixelVal < 0xfd0) {
+					iVar1 = (pixelVal + 0x10) >> 5;
+				}
+			}
+			dVar18 *= wmam->unkd[128+iVar1];
+			pdVar7[doubleBufOffset] = dVar16 + dVar18;
+
+			pixelVal = dVar18;
+			if (pixelVal < 0) {
+				iVar1 = -0x80;
+				if (-0xff0 < pixelVal) {
+					iVar1 = -((0x10 - pixelVal) >> 5);
+				}
+			} else {
+				iVar1 = 0x7f;
+				if (pixelVal < 0xfd0) {
+					iVar1 = (pixelVal + 0x10) >> 5;
+				}
+			}
+
+			dVar16 = (-(dVar17 * dVar19 - dVar16) +
+				  -(dVar18 * (wmam->unke[iVar1 + 128]) - dVar16)) * 0.50000000;
+
+			if (row != 0) {
+				if (0.00000000 <= dVar16) {
+					if (dVar16 <= 4095.00000000) {
+						dVar17 = rowCalcBuf5[doubleBufOffset];
+					} else {
+						iVar1 = 0;
+						pixelVal = (dVar16 - 4095.00000000);
+						if ((-1 < pixelVal) && (iVar1 = 0x7f, pixelVal < 0xff0)) {
+							iVar1 = (pixelVal + 0x10) >> 5;
+						}
+						dVar17 = (dVar16 - 4095.00000000) * wmam->unkg[127+iVar1] +
+							rowCalcBuf5[doubleBufOffset];
+					}
+				} else {
+					pixelVal = dVar16;
+					iVar1 = 0x80;
+					if ((-0xff0 < pixelVal) && (iVar1 = 0xff, pixelVal < 1)) {
+						iVar1 = 0xff - ((0x10 - pixelVal) >> 5);
+					}
+					dVar17 = dVar16 * wmam->unkg[127+iVar1] +
+						rowCalcBuf5[doubleBufOffset];
+				}
+				pixelVal = dVar17 + 0.50000000;
+				if (pixelVal < 0x1000) {
+					if (pixelVal < 0) {
+						imgBuf[imgBufOffset] = 0;
+					} else {
+						imgBuf[imgBufOffset] = pixelVal;
+					}
+				} else {
+					imgBuf[imgBufOffset] = 0xfff;
+				}
+			}
+
+			rowCalcBuf5[doubleBufOffset] = dVar16;
+			imgBufOffset++;
+			doubleBufOffset++;
+		}
+
+		col = 0;
+
+		rowCalcBuf3[9]  = rowCalcBuf3[15];
+		rowCalcBuf3[10] = rowCalcBuf3[16];
+		rowCalcBuf3[11] = rowCalcBuf3[17];
+		rowCalcBuf3[6]  = rowCalcBuf3[18];
+		rowCalcBuf3[7]  = rowCalcBuf3[19];
+		rowCalcBuf3[8]  = rowCalcBuf3[20];
+		rowCalcBuf3[3]  = rowCalcBuf3[21];
+		rowCalcBuf3[4]  = rowCalcBuf3[22];
+		rowCalcBuf3[5]  = rowCalcBuf3[23];
+		rowCalcBuf3[0]  = rowCalcBuf3[24];
+		rowCalcBuf3[1]  = rowCalcBuf3[25];
+		rowCalcBuf3[2]  = rowCalcBuf3[26];
+
+		rowCalcBuf4[9]  = rowCalcBuf4[15];
+		rowCalcBuf4[10] = rowCalcBuf4[16];
+		rowCalcBuf4[11] = rowCalcBuf4[17];
+		rowCalcBuf4[6]  = rowCalcBuf4[18];
+		rowCalcBuf4[7]  = rowCalcBuf4[19];
+		rowCalcBuf4[8]  = rowCalcBuf4[20];
+		rowCalcBuf4[3]  = rowCalcBuf4[21];
+		rowCalcBuf4[4]  = rowCalcBuf4[22];
+		rowCalcBuf4[5]  = rowCalcBuf4[23];
+		rowCalcBuf4[0]  = rowCalcBuf4[24];
+		rowCalcBuf4[1]  = rowCalcBuf4[25];
+		rowCalcBuf4[2]  = rowCalcBuf4[26];
+
+		pdVar3[3]  = pdVar3[-3];
+		pdVar3[4]  = pdVar3[-2];
+		pdVar3[5]  = pdVar3[-1];
+		pdVar3[6]  = pdVar3[-6];
+		pdVar3[7]  = pdVar3[-5];
+		pdVar3[8]  = pdVar3[-4];
+		pdVar3[9]  = pdVar3[-9];
+		pdVar3[10] = pdVar3[-8];
+		pdVar3[11] = pdVar3[-7];
+		pdVar3[12] = pdVar3[-12];
+		pdVar3[13] = pdVar3[-11];
+		pdVar3[14] = pdVar3[-10];
+
+		pdVar5[3]  = pdVar5[-3];
+		pdVar5[4]  = pdVar5[-2];
+		pdVar5[5]  = pdVar5[-1];
+		pdVar5[6]  = pdVar5[-6];
+		pdVar5[7]  = pdVar5[-5];
+		pdVar5[8]  = pdVar5[-4];
+		pdVar5[9]  = pdVar5[-9];
+		pdVar5[10] = pdVar5[-8];
+		pdVar5[11] = pdVar5[-7];
+		pdVar5[12] = pdVar5[-12];
+		pdVar5[13] = pdVar5[-11];
+		pdVar5[14] = pdVar5[-10];
+
+		pdVar11 = rowCalcBuf2;
+		pdVar12 = pdVar8;
+		pdVar6 = pdVar7;
+		pdVar9 = rowCalcBuf1;
+
+		while( 1 ) {
+			double dVar16, dVar17, dVar18, dVar19;
+			double dVar20, dVar21, dVar22, dVar23, dVar24, dVar25;
+			double dVar26, dVar27, dVar28, dVar29, dVar30, dVar31;
+			double dVar32, dVar33, dVar34, dVar35, dVar36, dVar37;
+			double dVar38, dVar39, dVar40, dVar41, dVar42, dVar43;
+			double dVar44, dVar45, dVar46, dVar47, dVar48, dVar49;
+			double dVar50, dVar51, dVar52, dVar53, dVar54, dVar55;
+			double dVar56, dVar57, dVar58, dVar59, dVar60, dVar61;
+			double dVar62, dVar63, dVar64, dVar65, dVar66, dVar67;
+			double dVar68, dVar69, dVar70;
+
+			if (pixelCnt <= col) break;
+			col += 3;
+
+			dVar38 = pdVar12[-11];
+			dVar26 = pdVar12[-10];
+			dVar60 = pdVar12[-8];
+			dVar70 = pdVar12[-7];
+			dVar61 = pdVar12[-5];
+			dVar58 = pdVar12[-4];
+			dVar36 = pdVar12[-2];
+			dVar27 = pdVar12[-1];
+			dVar43 = pdVar12[1];
+			dVar25 = pdVar12[2];
+			dVar30 = pdVar12[4];
+			dVar42 = pdVar12[5];
+			dVar54 = pdVar12[7];
+			dVar59 = pdVar12[8];
+			dVar55 = pdVar12[10];
+			dVar28 = pdVar12[11];
+			dVar53 = pdVar12[13];
+			dVar56 = pdVar12[14];
+
+			dVar41 = pdVar6[-12];
+			dVar29 = pdVar6[-11];
+			dVar45 = pdVar6[-10];
+			dVar21 = pdVar6[-9];
+			dVar66 = pdVar6[-8];
+			dVar24 = pdVar6[-7];
+			dVar57 = pdVar6[-6];
+			dVar67 = pdVar6[-5];
+			dVar64 = pdVar6[-4];
+			dVar23 = pdVar6[-3];
+			dVar33 = pdVar6[-2];
+			dVar39 = pdVar6[-1];
+			dVar22 = pdVar6[0];
+			dVar47 = pdVar6[1];
+			dVar31 = pdVar6[2];
+			dVar46 = pdVar6[3];
+			dVar49 = pdVar6[4];
+			dVar16 = pdVar6[5];
+			dVar63 = pdVar6[6];
+			dVar65 = pdVar6[7];
+			dVar69 = pdVar6[8];
+			dVar40 = pdVar6[9];
+			dVar44 = pdVar6[10];
+			dVar48 = pdVar6[11];
+			dVar62 = pdVar6[12];
+			dVar68 = pdVar6[13];
+			dVar20 = pdVar6[14];
+
+			dVar37 = wmam->unkc[0];
+			dVar50 = wmam->unkc[1];
+			dVar18 = wmam->unkc[2];
+			dVar35 = wmam->unkc[3];
+			dVar19 = wmam->unkc[4];
+
+			dVar34 = wmam->unkf[0];
+			dVar17 = wmam->unkf[1];
+			dVar51 = wmam->unkf[2];
+			dVar32 = wmam->unkf[3];
+			dVar52 = wmam->unkf[4];
+
+			pdVar9[0] = (dVar19 * (pdVar12[-0xc] + pdVar12[0xc]) +
+				     dVar35 * (pdVar12[-9] + pdVar12[9]) +
+				     dVar18 * (pdVar12[-6] + pdVar12[6]) +
+				     dVar37 * (*pdVar12 + *pdVar12) + dVar50 * (pdVar12[-3] + pdVar12[3])) / 1000.00000000;
+			pdVar9[1] = (dVar19 * (dVar38 + dVar53) +
+				     dVar35 * (dVar60 + dVar55) +
+				     dVar18 * (dVar61 + dVar54) +
+				     dVar37 * (dVar43 + dVar43) + dVar50 * (dVar36 + dVar30)) / 1000.00000000;
+			pdVar9[2] = (dVar19 * (dVar26 + dVar56) +
+				     dVar35 * (dVar70 + dVar28) +
+				     dVar18 * (dVar58 + dVar59) +
+				     dVar37 * (dVar25 + dVar25) + dVar50 * (dVar27 + dVar42)) / 1000.00000000;
+			pdVar11[0] = (dVar52 * (dVar41 + dVar62) +
+				    dVar32 * (dVar21 + dVar40) +
+				    dVar51 * (dVar57 + dVar63) +
+				    dVar34 * (dVar22 + dVar22) + dVar17 * (dVar23 + dVar46)) / 1000.00000000;
+			pdVar11[1] = (dVar52 * (dVar29 + dVar68) +
+				      dVar32 * (dVar66 + dVar44) +
+				      dVar51 * (dVar67 + dVar65) +
+				      dVar34 * (dVar47 + dVar47) + dVar17 * (dVar33 + dVar49)) / 1000.00000000;
+			pdVar11[2] = (dVar52 * (dVar45 + dVar20) +
+				      dVar32 * (dVar24 + dVar48) +
+				      dVar51 * (dVar64 + dVar69) +
+				      dVar34 * (dVar31 + dVar31) + dVar17 * (dVar39 + dVar16)) / 1000.00000000;
+
+			pdVar11 += 3;
+			pdVar12 += 3;
+			pdVar6 += 3;
+			pdVar9 += 3;
+		}
+
+		rowPtr -= bytesPerRow;
+		if (row != 0) {
+			imgBuf -= bytesPerRow;
+		}
+	}
+	int iVar4 = pixelCnt + 1;
+	pdVar3 = rowCalcBuf5;
+	if (pixelCnt < 0) {
+		iVar4 = 1;
+	}
+	for ( ; iVar4 > 0 ; iVar4--) {
+		col = (*pdVar3 + 0.50000000);
+		if (col < 0) {
+			*imgBuf = 0;
+		} else {
+			if (col < 0x1000) {
+				*imgBuf = col;
+			}
+			else {
+				*imgBuf = 0xfff;
+			}
+		}
+		pdVar3 ++;
+		imgBuf ++;
+	}
+
+	/* Clean up, we're done! */
+	free(rowCalcBuf5);
+	free(rowCalcBuf4);
+	free(rowCalcBuf3);
+	free(rowCalcBuf2);
+	free(rowCalcBuf1);
+
+	return 1;
+}
+
+int CP98xx_DoConvert(const struct mitsu98xx_data *table,
+		     const struct BandImage *input,
+		     struct BandImage *output,
+		     uint8_t type, int sharpness)
+{
+	int i;
+
+	dump_announce();
+
+	/* Figure out which table to use */
+	switch (type) {
+	case 0x80:
+		table = &table[0];  /* Superfine */
+		break;
+	case 0x11:
+		table = &table[2];  /* Fine HG */
+		break;
+	case 0x10:
+	default:
+		table = &table[1];  /* Fine STD */
+		break;
+	}
+
+	/* We've already gone through 3D LUT */
+
+	/* Sharpen, as needed */
+	struct CP98xx_AptParams APT;
+	CP98xx_InitAptParams(table, &APT, sharpness);
+	// XXX DoAptMWithParams()
+
+	/* Set up gamma table and do the conversion */
+	struct CP98xx_GammaParams gamma;
+	struct CP98xx_KHParams kh;
+	struct CP98xx_WMAM wmam;
+
+	memcpy(gamma.GNMgm, table->GNMgm, sizeof(gamma.GNMgm));
+	memcpy(gamma.GNMby, table->GNMby, sizeof(gamma.GNMby));
+	memcpy(gamma.GNMrc, table->GNMrc, sizeof(gamma.GNMrc));
+	memcpy(gamma.GammaAdj, table->GammaAdj, sizeof(gamma.GammaAdj));
+
+	memcpy(kh.KH, table->KH, sizeof(kh.KH));
+	kh.Start = table->KHStart;
+	kh.End = table->KHEnd;
+	kh.Step = table->KHStep;
+
+	/* Run through gamma conversion */
+	if (CP98xx_DoCorrectGammaTbl(&gamma, &kh, input) != 1) {
+		return 0;
+	}
+	if (CP98xx_DoGammaConv(&gamma, input, output) != 1) {
+		return 0;
+	}
+
+	/* Run the WMAM flow */
+#pragma GCC diagnostic push
+#if (defined(__GNUC__) && (__GNUC__ >= 9))
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
+	CP98xx_InitWMAM(&wmam, &table->WMAM);
+#pragma GCC diagnostic pop
+
+	if (CP98xx_DoWMAM(&wmam, output, 1) != 1) {
+		return 0;
+	}
+
+	/* Convert to printer's native BE16 */
+	for (i = 0; i < (output->rows * output->cols * 3 / 2) ; i++) {
+		((uint16_t*)output->imgbuf)[i] = cpu_to_be16(((uint16_t*)output->imgbuf)[i]);
+	}
+
+	return 1;
+}
