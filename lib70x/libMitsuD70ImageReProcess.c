@@ -626,7 +626,7 @@ static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
 static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
 					     const uint16_t *row)
 {
-	uint32_t i;
+	int i;
 
 	CImageEffect70_Sharp_CopyLine(data, 0, row, 0);
 	for (i = 0 ; i < 5 ; i++) {
