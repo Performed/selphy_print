@@ -93,6 +93,8 @@ CPPFLAGS += -DUSE_DLOPEN
 LDFLAGS += -ldl
 endif
 
+STP_VERBOSE=0
+
 # Linking..
 LDFLAGS += $(CFLAGS) $(CPPFLAGS)
 
@@ -127,19 +129,19 @@ sloccount:
 	sloccount *.[ch] lib*/*.[ch] *.pl
 
 test: dyesub_backend
-	STP_PARALLEL=$(CPUS) ./regression.pl regression.csv
+	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression.pl regression.csv
 
 test_%: dyesub_backend
-	STP_PARALLEL=$(CPUS) ./regression.pl regression.csv $(subst test_,,$@)
+	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression.pl regression.csv $(subst test_,,$@)
 
 testgp: dyesub_backend
-	STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv
+	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv
 
 testgp_%: dyesub_backend
-	STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv $(subst testgp_,,$@)
+	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv $(subst testgp_,,$@)
 
 cppcheck:
-	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" --include=lib70x/libMitsuD70ImageReProcess.h $(CPPFLAGS) $(SOURCES) $(LIB70X_SOURCES) $(LIBS6145_SOURCES)
+	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" $(CPPFLAGS) $(SOURCES) $(LIB70X_SOURCES) $(LIBS6145_SOURCES)
 
 install:
 	$(MKDIR) -p $(CUPS_BACKEND_DIR)
