@@ -69,7 +69,7 @@ typedef void (*CP98xx_DestroyDataFN)(const struct mitsu98xx_data *data);
 #warning "No dynamic loading support!"
 #endif
 
-#define REQUIRED_LIB_APIVERSION 4
+#define REQUIRED_LIB_APIVERSION 5
 
 #define LIBMITSU_VER "0.03"
 

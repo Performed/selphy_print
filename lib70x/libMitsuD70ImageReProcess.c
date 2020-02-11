@@ -1942,7 +1942,7 @@ static void CP98xx_InitWMAM(struct CP98xx_WMAM *wmam, const struct CP98xx_WMAM *
 static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int always_1)
 {
 	uint16_t *imgBuf, *rowPtr;
-	int rows, col, cols, bytesPerRow, pixelCnt;
+	int rows, col, cols, pixelsPerRow, pixelCnt;
 	double *rowCalcBuf1, *rowCalcBuf2, *rowCalcBuf3, *rowCalcBuf4, *rowCalcBuf5;
 	double *pdVar3, *pdVar5, *pdVar6, *pdVar7, *pdVar8, *pdVar9, *pdVar11, *pdVar12;
 
@@ -1952,28 +1952,27 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 
 	cols = img->cols - img->origin_cols;
 	rows = img->rows - img->origin_rows;
-	bytesPerRow = img->bytes_per_row;
+	pixelsPerRow = img->bytes_per_row;
 	rowPtr = imgBuf = img->imgbuf;
 
-	if ((cols < 6) || (rows < 1) || (bytesPerRow == 0))
+	if ((cols < 6) || (rows < 1) || (pixelsPerRow == 0))
 		return 0;
 
-	if (bytesPerRow < 0) {
+	if (pixelsPerRow < 0) {
 		if (always_1 != 0) {
-			bytesPerRow = bytesPerRow >> 1;
+			pixelsPerRow = pixelsPerRow >> 1;
 		} else {
-			bytesPerRow = -bytesPerRow;
-			bytesPerRow = bytesPerRow >> 1;
-			rowPtr += bytesPerRow * (rows -1);
+			pixelsPerRow = (-pixelsPerRow) >> 1;
+			rowPtr += pixelsPerRow * (rows -1);
 			imgBuf = (uint16_t *)rowPtr;
 		}
 	} else {
 		if (always_1 != 0) {
-			bytesPerRow = bytesPerRow >> 1;
-			rowPtr += bytesPerRow * (rows -1);
+			pixelsPerRow = pixelsPerRow >> 1;
+			rowPtr += pixelsPerRow * (rows -1);
 			imgBuf = (uint16_t *)rowPtr;
 		} else {
-			bytesPerRow = (-bytesPerRow) >> 1;
+			pixelsPerRow = (-pixelsPerRow) >> 1;
 		}
 	}
 
@@ -2025,11 +2024,11 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 	pdVar3 = pdVar8 + (cols -1) * 3;
 
 	for (row = 0 ; row < rows ; row++) {
-		col = pixelCnt + 1;
+		col = pixelCnt;
 		doubleBufOffset = 0;
 		imgBufOffset = 0;
 		if (pixelCnt < 0) {
-			col = 1;
+			col = 0;
 		}
 
 		for ( ; col > 0 ; col --) {
@@ -2303,15 +2302,15 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 			pdVar9 += 3;
 		}
 
-		rowPtr -= bytesPerRow;
+		rowPtr -= pixelsPerRow;
 		if (row != 0) {
-			imgBuf -= bytesPerRow;
+			imgBuf -= pixelsPerRow;
 		}
 	}
-	int iVar4 = pixelCnt + 1;
+	int iVar4 = pixelCnt;
 	pdVar3 = rowCalcBuf5;
 	if (pixelCnt < 0) {
-		iVar4 = 1;
+		iVar4 = 0;
 	}
 	for ( ; iVar4 > 0 ; iVar4--) {
 		col = (*pdVar3 + 0.50000000);

@@ -47,7 +47,7 @@ int mitsu_loadlib(struct mitsu_lib *lib, int type)
 			return CUPS_BACKEND_FAILED;
 		}
 		if (lib->GetAPIVersion() != REQUIRED_LIB_APIVERSION) {
-			ERROR("Image processing library API version mismatch!\n");
+			ERROR("Image processing library API version mismatch! (%d vs %d)\n", lib->GetAPIVersion(), REQUIRED_LIB_APIVERSION);
 			DL_CLOSE(lib->dl_handle);
 			lib->dl_handle = NULL;
 			return CUPS_BACKEND_FAILED;
