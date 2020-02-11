@@ -109,6 +109,9 @@ struct mitsu9550_cmd {
 
 /* Private data structure */
 struct mitsu9550_printjob {
+	size_t jobsize;
+	int copies;
+
 	uint8_t *databuf;
 	uint32_t datalen;
 
@@ -116,8 +119,6 @@ struct mitsu9550_printjob {
 	uint16_t cols;
 	uint32_t plane_len;
 	int is_raw;
-
-	int copies;
 
 	/* Parse headers separately */
 	struct mitsu9550_hdr1 hdr1;
@@ -374,6 +375,8 @@ static int mitsu9550_read_parse(void *vctx, const void **vjob, int data_fd, int 
 	}
 	memset(job, 0, sizeof(*job));
 	job->is_raw = 1;
+	job->jobsize = sizeof(*job);
+	job->copies = copies;
 
 top:
 	/* Read in initial header */
