@@ -1186,11 +1186,12 @@ newpage:
 		backend->cleanup_job(job);
 		goto done;
 	}
-	INFO("Parsed page %d (%d copies)\n", read_page, ncopies);
 
 	/* Stick it onto the end of the list */
 	dyesub_joblist_appendjob(jlist, job);
 	read_page++;
+
+	INFO("Parsed page %d (%d copies)\n", read_page, ncopies);
 
 	/* If we get here, we can wait for another combined job, do so */
 	if (dyesub_joblist_canwait(jlist))
