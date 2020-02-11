@@ -1035,15 +1035,16 @@
     [1]  **** VERY IMPORTANT ****
 
     The CP-98xx family is similar to the CP-D70 family in that it requires
-    the input data to be gamma corrected (and likely transformed in other
-    ways) before it is sent to the printer.
+    the input data to be gamma corrected (and transformed in other ways)
+    before it is sent to the printer.
 
-    Unlike the D70 family, the data tables used are embedded into the driver
-    instead of being bundled separately, further complicating the process
-    of figuring out how everything works.  Some progress has been made,
-    allowing for proper gamma correction/linearization that generates
-    usable prints, although the quality is still sub-par when compared to
-    Mitsubishi's proprietary drivers.
+    Considerable progress has been made in decoding the CP-98xx data 
+    tables and algorithms, and everything but sharpening has now been 
+    implemented.  In theory, the output quality should be comparable to 
+    Mitsubishi's own drivers.
+
+    This code has been implemented in the lib70 driver, and note that while
+    feature complete, it has NOT been tested.
 
  ***************************************************************************
   BACKEND=mitsup9x
