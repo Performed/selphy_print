@@ -43,9 +43,11 @@ endif
 # Figure out what the backend name needs to be
 ifeq ($(NO_GUTENPRINT),)
 GUTENPRINT_INCLUDE := $(shell pkg-config --variable=includedir gutenprint)/gutenprint
+ifneq (,$(GUTENPRINT_INCLUDE))
 GUTENPRINT_MAJOR := $(shell grep 'define STP_MAJOR' $(GUTENPRINT_INCLUDE)/gutenprint-version.h | tr -d '()\t' | cut -c33- )
 GUTENPRINT_MINOR := $(shell grep 'define STP_MINOR' $(GUTENPRINT_INCLUDE)/gutenprint-version.h | tr -d '()\t' | cut -c33- )
 BACKEND_NAME ?= gutenprint$(GUTENPRINT_MAJOR)$(GUTENPRINT_MINOR)+usb
+endif
 endif
 
 # For Gutenprint 5.2, use old URI scheme
