@@ -28,7 +28,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.103"
+#define BACKEND_VERSION "0.104"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -390,7 +390,7 @@ static char *url_decode(char *str) {
 
 static int probe_device(struct libusb_device *device,
 			struct libusb_device_descriptor *desc,
-			const char *uri_prefix,
+			const char *make,
 			const char *prefix, const char *manuf_override,
 			int found, int num_claim_attempts,
 			int scan_only, const char *match_serno,
@@ -615,7 +615,7 @@ candidate:
 	if (scan_only) {
 		if (!old_uri) {
 			fprintf(stdout, "direct %s://%s/%s \"%s\" \"%s\" \"%s\" \"\"\n",
-				prefix, uri_prefix, serial,
+				prefix, make, serial,
 				descr, descr,
 				ieee_id ? ieee_id : "");
 		} else {
@@ -630,7 +630,7 @@ candidate:
 			strncpy(buf + k, product, sizeof(buf)-k);
 
 			fprintf(stdout, "direct %s://%s?serial=%s&backend=%s \"%s\" \"%s\" \"%s\" \"\"\n",
-				prefix, buf, serial, uri_prefix,
+				prefix, buf, serial, make,
 				descr, descr,
 				ieee_id? ieee_id : "");
 		}
@@ -774,6 +774,9 @@ static int find_and_enumerate(struct libusb_context *ctx,
 	}
 
 	for (i = 0 ; i < num ; i++) {
+		const char *foundprefix = NULL;
+		const char *probeprefix = NULL;
+
 		struct libusb_device_descriptor desc;
 		libusb_get_device_descriptor((*list)[i], &desc);
 
@@ -802,6 +805,7 @@ static int find_and_enumerate(struct libusb_context *ctx,
 				     desc.idProduct == 0xffff) &&
 				    (!prefix || !strcmp(prefix,backends[k]->devices[j].prefix))) {
 					    found = i;
+					    foundprefix = backends[k]->devices[j].prefix;
 					    goto match;
 				}
 			}
@@ -810,14 +814,16 @@ static int find_and_enumerate(struct libusb_context *ctx,
 		continue;
 
 	match:
-		found = probe_device((*list)[i], &desc, prefix,
+		probeprefix = foundprefix ? foundprefix : prefix;
+
+		found = probe_device((*list)[i], &desc, probeprefix,
 				     URI_PREFIX, backends[k]->devices[j].manuf_str,
 				     found, num_claim_attempts,
 				     scan_only, match_serno,
 				     r_iface, r_altset,
 				     r_endp_up, r_endp_down,
 				     backends[k]);
-
+		foundprefix = NULL;
 		if (found != -1 && !scan_only)
 			break;
 	}
