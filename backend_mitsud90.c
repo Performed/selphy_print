@@ -32,9 +32,6 @@
 #define USB_VID_MITSU       0x06D3
 #define USB_PID_MITSU_D90   0x3B60
 
-const char *mitsu70x_media_types(uint8_t brand, uint8_t type);
-const char *mitsu70x_temperatures(uint8_t temp);
-
 /* Printer data structures */
 #define D90_STATUS_TYPE_MODEL  0x01 // 10, null-terminated ASCII. 'CPD90D'
 #define D90_STATUS_TYPE_x02    0x02 // 1, 0x5f ?
@@ -150,7 +147,8 @@ struct mitsud90_job_hdr {
 	uint8_t  hdr[6]; /* 1b 53 50 30 00 33 */
 	uint16_t cols;   /* BE */
 	uint16_t rows;   /* BE */
-	uint8_t  unk[4]; /* 64 00 00 01 */ // XXX 00 01 might be the jobid?
+	uint8_t  waittime; /* 0-100 */
+	uint8_t  unk[3]; /* 00 00 01 */ // XXX 00 01 might be the jobid?
 	uint8_t  margincut; /* 1 for enabled, 0 for disabled */
 	union {
 #if 0
@@ -163,15 +161,15 @@ struct mitsud90_job_hdr {
 	} __attribute__((packed));
 	uint8_t  zero[24];
 
-/*@x30*/uint8_t  overcoat;
-	uint8_t  quality;
-	uint8_t  colorcorr;
-	uint8_t  sharp_h;
-	uint8_t  sharp_v;
+/*@x30*/uint8_t  overcoat;  /* 0 glossy, matte is 2 (D90) or 3 (M1) */
+	uint8_t  quality;   /* 0 is automatic */
+	uint8_t  colorcorr; /* Always 1 on M1 */
+	uint8_t  sharp_h;   /* Always 0 on M1 */
+	uint8_t  sharp_v;   /* Always 0 on M1 */
 	uint8_t  zero_b[5];
 	union {
 		struct {
-			uint16_t pano_on;   /* 0x0001 when pano is on,  */
+			uint16_t pano_on;   /* 0x0001 when pano is on, or always 0x000a on M1  */
 			uint8_t  pano_tot;  /* 2 or 3 */
 			uint8_t  pano_pg;   /* 1, 2, 3 */
 			uint16_t pano_rows; /* always 0x097c (BE), ie 2428 ie 8" print */
@@ -182,16 +180,22 @@ struct mitsud90_job_hdr {
 		uint8_t zero_c[16];
 	};
 	uint8_t zero_d[6];
-	uint8_t zero_fill[432];
+	uint8_t zero_e[17];
+	uint8_t rgbrate;  /* M1 only */
+	uint8_t oprate;   /* M1 only */
+	uint8_t zero_fill[413];
 } __attribute__((packed));
 
 struct mitsud90_plane_hdr {
 	uint8_t  hdr[6]; /* 1b 5a 54 01 00 09 */
-	uint16_t origin_cols;
-	uint16_t origin_rows;
+	uint16_t origin_cols;  /* Leave at 0 */
+	uint16_t origin_rows;  /* Leave at 0 */
 	uint16_t cols;  /* BE */
 	uint16_t rows;  /* BE */
-	uint8_t  zero_fill[498];
+	uint8_t  zero_a[6];
+	uint16_t lamcols; /* BE (M1 only, OC=3) should be cols+origin_cols */
+	uint16_t lamrows; /* BE (M1 only, OC=3) should be rows+origin_rows+12 */
+	uint8_t  zero_fill[488];
 };
 
 struct mitsud90_job_footer {
@@ -406,7 +410,7 @@ static void mitsud90_dump_status(struct mitsud90_status_resp *resp)
 	     mitsud90_mecha_statuses(resp->mecha),
 	     resp->mecha[0], resp->mecha[1]);
 	INFO("Temperature Status: %s\n",
-	     mitsu70x_temperatures(resp->temp));
+	     mitsu_temperatures(resp->temp));
 }
 
 /* Private data structure */
@@ -584,7 +588,7 @@ static int mitsud90_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
 	ctx->marker.numtype = resp.media.type;
-	ctx->marker.name = mitsu70x_media_types(resp.media.brand, resp.media.type);
+	ctx->marker.name = mitsu_media_types(resp.media.brand, resp.media.type);
 	ctx->marker.levelmax = be16_to_cpu(resp.media.capacity);
 	ctx->marker.levelnow = be16_to_cpu(resp.media.remain);
 
@@ -935,7 +939,7 @@ static int mitsud90_get_media(struct mitsud90_ctx *ctx)
 		return CUPS_BACKEND_FAILED;
 
 	INFO("Media Type:  %s (%02x/%02x)\n",
-	     mitsu70x_media_types(resp.media.brand, resp.media.type),
+	     mitsu_media_types(resp.media.brand, resp.media.type),
 	     resp.media.brand,
 	     resp.media.type);
 	INFO("Prints Remaining:  %03d/%03d\n",
@@ -1337,13 +1341,17 @@ struct dyesub_backend mitsud90_backend = {
 
  [[HEADER 1]]
 
-   1b 53 50 30 00 33 XX XX  YY YY 64 00 00 01 MM ??  XX XX == COLS, YY XX ROWS (BE)
-   ?? ?? ?? ?? ?? ?? ?? ??  00 00 00 00 00 00 00 00  <-- cut position, see below
+   1b 53 50 30 00 33 XX XX  YY YY TT 00 00 01 MM ??  XX XX == COLS, YY XX ROWS (BE)
+   ?? ?? ?? ?? ?? ?? ?? ??  00 00 00 00 00 00 00 00  ?? = cut position, see below
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  MM == 0 for no margin cut, 1 for margin cut
-   QQ RR SS HH VV 00 00 00  00 00 01 00 03 II 09 7c  QQ == 02 matte, 00 glossy,
-   09 4c 00 00 02 58 00 0c  00 06                    RR == 00 auto, 03 == fine, 02 == superfine.
-                                                     SS == 00 colorcorr, 01 == none
-                                                     HH/VV sharpening for Horiz/Vert, 0-8, 0 is off, 4 is normal
+   QQ RR SS HH VV 00 00 00  00 00 ZZ 00 03 II 09 7c  QQ == 02 matte (D90) or 03 (M1), 00 glossy,
+   09 4c 00 00 02 58 00 0c  00 06 00 00 00 00 00 00  RR == 00 auto, 03 == fine, 02 == superfine.
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  SS == 00 colorcorr, 01 == none (always 01 on M1)
+   00 Z1 Z2 00 00 00 00 00                           HH/VV sharpening for Horiz/Vert, 0-8, 0 is off, 4 is normal (always 00 on M1)
+                                                     TT is waittime (100 max, always 100 on D90)
+						     ZZ is 0a on M1, D90 see below
+						     Z1 is RGB Rate (M1)
+						     Z2 is OP Rate (M1)
   [pad to 512b]
 
                 normal  == rows  00  00 00  00  00 00  00  00 00
@@ -1356,7 +1364,10 @@ struct dyesub_backend mitsud90_backend = {
 		9x6div3 == 2724  00  03 90  00  07 14  00  00 00
 		9x6div4 == 2628  00  02 97  00  05 22  00  07 ad
 
-    from [01 00 03 03] onwards, only shows in 8x20" PANORAMA prints.  Assume 2" overlap.
+
+
+    from [ZZ 00 03 03] onwards, only shows in 8x20" PANORAMA prints.  Assume 2" overlap.
+    ZZ == 00 (normal) or 01 (panorama)
     II == 01 02 03 (which panel # in panorama!)
     [02 58] == 600, aka 2" * 300dpi?
     [09 4c] == 2380  (48 less than 8 size? (trim length on ends?)
@@ -1431,7 +1442,7 @@ Comms Protocol for D90 & CP-M1
 
    WW    == 0x50 or 0x00 (seen, no idea what it means)
    VV    == Media vendor (0xff etc)
-   TT    == Media type, 0x02/0x0f etc (see mitsu70x_media_types!)
+   TT    == Media type, 0x02/0x0f etc (see mitsu_media_types!)
    XX XX == Media capacity, BE
    YY YY == Media remain,   BE
    QQ QQ == 00 00 normal, 3f 37 error
@@ -1739,15 +1750,12 @@ static int cpm1_fillmatte(struct mitsud90_printjob *job)
 
 	struct mitsud90_job_hdr *hdr = (struct mitsud90_job_hdr *) job->databuf;
 
-	// XXX fill out lamination header?
 	ret = mitsu_readlamdata(MITSU_CPM1_LAMINATE_FILE, LAMINATE_STRIDE,
 				job->databuf, &job->datalen,
-				be16_to_cpu(hdr->rows), be16_to_cpu(hdr->cols), 1);
+				be16_to_cpu(hdr->rows) + 12, be16_to_cpu(hdr->cols), 1);
 
 	if (ret)
 		return ret;
-
-	// XXX fill out footer?
 
 	return CUPS_BACKEND_OK;
 }

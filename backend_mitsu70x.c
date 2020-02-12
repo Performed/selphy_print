@@ -134,10 +134,6 @@ struct mitsu70x_jobs {
 	struct mitsu70x_job jobs[NUM_JOBS];
 } __attribute__((packed));
 
-#define TEMPERATURE_NORMAL  0x00
-#define TEMPERATURE_PREHEAT 0x40
-#define TEMPERATURE_COOLING 0x80
-
 #define MECHA_STATUS_INIT   0x80
 #define MECHA_STATUS_FEED   0x50
 #define MECHA_STATUS_LOAD   0x40
@@ -328,21 +324,6 @@ static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_
 static int mitsu70x_main_loop(void *vctx, const void *vjob);
 
 /* Error dumps, etc */
-
-const char *mitsu70x_temperatures(uint8_t temp)
-{
-	switch(temp) {
-	case TEMPERATURE_NORMAL:
-		return "Normal";
-	case TEMPERATURE_PREHEAT:
-		return "Warming Up";
-	case TEMPERATURE_COOLING:
-		return "Cooling Down";
-	default:
-		break;
-	}
-	return "Unknown Temperature Status";
-}
 
 static const char *mitsu70x_mechastatus(uint8_t *sts)
 {
@@ -579,43 +560,6 @@ static const char *mitsu70x_errors(uint8_t *err)
 	return "Unknown error";
 }
 
-const char *mitsu70x_media_types(uint8_t brand, uint8_t type)
-{
-	if (brand == 0xff && type == 0x01)
-		return "CK-D735 (3.5x5)";
-	else if (brand == 0xff && type == 0x02)
-		return "CK-D746 (4x6)";
-	else if (brand == 0xff && type == 0x04)
-		return "CK-D757 (5x7)";
-	else if (brand == 0xff && type == 0x05)
-		return "CK-D769 (6x9)";
-	else if (brand == 0xff && type == 0x0f)
-		return "CK-D768/CK-D868 (6x8)";
-	else if (brand == 0x6c && type == 0x84)
-		return "Kodak 5R (5x7)";
-	else if (brand == 0x6c && type == 0x8f)
-		return "Kodak 6R (6x8)";
-	else if (brand == 0x61 && type == 0x84)
-		return "CK-K57R (5x7)";
-	else if (brand == 0x61 && type == 0x8f)
-		return "CK-K76R (6x8)";
-	else if (brand == 0x7a && type == 0x01)
-		return "RL-CF900 (3.5x5)";
-	else if (brand == 0x7a && type == 0x02)
-		return "RK-CF800/4R (4x6)";
-	else if (brand == 0x7a && type == 0x04)
-		return "R2L-CF460/5R (5x7)";
-	else if (brand == 0x7a && type == 0x0f)
-		return "R68-CF400/6R (6x8)";
-	else
-		return "Unknown";
-
-// Also CK-D715, CK-D718, CK-D720, CK-D723 (4x6,5x8,6x8,6x9) for D70-S model
-//      CK-D746-U for D70-U model
-//      CK-D820 (6x8) for D80-S model
-// D90 can use _all_ of these types except for the -U!
-
-}
 
 #define CMDBUF_LEN 512
 #define READBACK_LEN 256
@@ -695,7 +639,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	/* Set up markers */
 	ctx->marker[0].color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker[0].name = mitsu70x_media_types(resp.lower.media_brand, resp.lower.media_type);
+	ctx->marker[0].name = mitsu_media_types(resp.lower.media_brand, resp.lower.media_type);
 	ctx->marker[0].numtype = resp.lower.media_type;
 	ctx->marker[0].levelmax = be16_to_cpu(resp.lower.capacity);
 	ctx->marker[0].levelnow = be16_to_cpu(resp.lower.remain);
@@ -703,7 +647,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	if (ctx->num_decks == 2) {
 		ctx->marker[1].color = "#00FFFF#FF00FF#FFFF00";
-		ctx->marker[1].name = mitsu70x_media_types(resp.upper.media_brand, resp.upper.media_type);
+		ctx->marker[1].name = mitsu_media_types(resp.upper.media_brand, resp.upper.media_type);
 		ctx->marker[1].numtype = resp.upper.media_type;
 		ctx->marker[1].levelmax = be16_to_cpu(resp.upper.capacity);
 		ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
@@ -2065,11 +2009,11 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 		     mitsu70x_errors(resp->lower.error_status),
 		     mitsu70x_errorrecovery(resp->lower.error_status));
 	}
-	INFO("Lower Temperature: %s\n", mitsu70x_temperatures(resp->lower.temperature));
+	INFO("Lower Temperature: %s\n", mitsu_temperatures(resp->lower.temperature));
 	INFO("Lower Mechanical Status: %s\n",
 	     mitsu70x_mechastatus(resp->lower.mecha_status));
 	INFO("Lower Media Type:  %s (%02x/%02x)\n",
-	     mitsu70x_media_types(resp->lower.media_brand, resp->lower.media_type),
+	     mitsu_media_types(resp->lower.media_brand, resp->lower.media_type),
 	     resp->lower.media_brand,
 	     resp->lower.media_type);
 	INFO("Lower Prints Remaining:  %03d/%03d\n",
@@ -2087,11 +2031,11 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 			     mitsu70x_errors(resp->upper.error_status),
 			     mitsu70x_errorrecovery(resp->upper.error_status));
 		}
-		INFO("Upper Temperature: %s\n", mitsu70x_temperatures(resp->upper.temperature));
+		INFO("Upper Temperature: %s\n", mitsu_temperatures(resp->upper.temperature));
 		INFO("Upper Mechanical Status: %s\n",
 		     mitsu70x_mechastatus(resp->upper.mecha_status));
 		INFO("Upper Media Type:  %s (%02x/%02x)\n",
-		     mitsu70x_media_types(resp->upper.media_brand, resp->upper.media_type),
+		     mitsu_media_types(resp->upper.media_brand, resp->upper.media_type),
 		     resp->upper.media_brand,
 		     resp->upper.media_type);
 		INFO("Upper Prints Remaining:  %03d/%03d\n",
@@ -2130,7 +2074,7 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 			     mitsu70x_errors(jobstatus.error_status),
 			     mitsu70x_errorrecovery(jobstatus.error_status));
 		}
-		INFO("Lower Deck Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature));
+		INFO("Lower Deck Temperature: %s\n", mitsu_temperatures(jobstatus.temperature));
 
 		INFO("Upper Deck Mechanical Status: %s\n",
 		     mitsu70x_mechastatus(jobstatus.mecha_status_up));
@@ -2140,7 +2084,7 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 			     mitsu70x_errors(jobstatus.error_status_up),
 			     mitsu70x_errorrecovery(jobstatus.error_status_up));
 		}
-		INFO("Upper Deck Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature_up));
+		INFO("Upper Deck Temperature: %s\n", mitsu_temperatures(jobstatus.temperature_up));
 	} else {
 		INFO("Mechanical Status: %s\n",
 		     mitsu70x_mechastatus(jobstatus.mecha_status));
@@ -2150,7 +2094,7 @@ static int mitsu70x_query_jobs(struct mitsu70x_ctx *ctx)
 			     mitsu70x_errors(jobstatus.error_status),
 			     mitsu70x_errorrecovery(jobstatus.error_status));
 		}
-		INFO("Temperature: %s\n", mitsu70x_temperatures(jobstatus.temperature));
+		INFO("Temperature: %s\n", mitsu_temperatures(jobstatus.temperature));
 	}
 
 	// memory status?
