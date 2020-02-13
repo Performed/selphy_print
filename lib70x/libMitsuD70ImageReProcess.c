@@ -544,6 +544,7 @@ static void CImageEffect70_Destroy(struct CImageEffect70 *data)
 static void CImageEffect70_InitMidData(struct CImageEffect70 *data)
 {
 	data->ttd_htd_first = NULL;
+	data->ttd_htd_last = NULL;
 	data->ttd_htd_scratch = NULL;
 	data->htd_ttdnext = NULL;
 	data->fcc_rowcomps = NULL;
@@ -593,6 +594,7 @@ static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 		free(data->ttd_htd_scratch);
 		data->ttd_htd_scratch = NULL;
 		data->ttd_htd_first = NULL;
+		data->ttd_htd_last = NULL;
 	}
 	if (data->htd_ttdnext) {
 		free(data->htd_ttdnext);
@@ -913,7 +915,6 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 				k_comp += kp[j] * v5;
 			else
 				k_comp += km[j] * v5;
-			// XXX PPC code has k_comp += v5, ignoring kp/km value.  Figure out this WTF.
 		}
 
 		sharp_comp = 0.0;
@@ -929,8 +930,7 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 		/* Work out the state for HTD operation */
 		v4 = data->htd_ttdnext[i] - out[i];
 		v29 = v4;
-		if ( v29 >= 0 )
-		{
+		if ( v29 >= 0 ) {
 			int v19 = 127;
 			if ( v29 <= 65535 )
 				v19 = v29 >> 9;
@@ -1839,10 +1839,6 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 
 		inRowPtr -= inBytesPerRow;
 		outRowPtr -= pixelsPerRow;
-	}
-
-	if (!already_reversed) {
-		// XXX reverse each row.  See D70 for how.
 	}
 
 	/* Write gamma corrected data to output buffer, last row first */
