@@ -52,7 +52,7 @@
 
 */
 
-#define LIB_VERSION "0.8.0"
+#define LIB_VERSION "0.8.1"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -1668,33 +1668,24 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 		int64_t sum1, sum2, sum3, sum4, sum5, sum6;
 		int iVar4 = (cols - end) -1;
 
-		sum6 = 0;
-		sum5 = 0;
-		sum4 = 0;
-		sum3 = 0;
-		sum2 = 0;
-		sum1 = 0;
+		sum6 = sum5 = sum4 = sum3 = sum2 = sum1 = 0;
 
 		for (k = 0 ; k < step ; k++) {
 			curRowBufOffset = start * 3;
 			curCol = start;
-			while (curCol < (end + 1)) {
-				int offset = curRowBufOffset;
-				sum3 += rowPtr[offset];
-				sum2 += rowPtr[offset + 1];
-				sum1 += rowPtr[offset + 2];
-				curRowBufOffset = offset + 3;
-				curCol++;
+			for (curCol = start ; curCol < (end + 1) ; curCol++) {
+				sum3 += rowPtr[curRowBufOffset];
+				sum2 += rowPtr[curRowBufOffset + 1];
+				sum1 += rowPtr[curRowBufOffset + 2];
+				curRowBufOffset += 3;
 			}
 			curRowBufOffset = iVar4 * 3;
 			curCol = iVar4;
-			while (curCol < (cols - start)) {
-				int offset2 = curRowBufOffset;
-				sum6 += rowPtr[offset2];
-				sum5 += rowPtr[offset2 + 1];
-				sum4 += rowPtr[offset2 + 2];
-				curRowBufOffset = offset2 + 3;
-				curCol++;
+			for (curCol = start ; curCol < (cols - start); curCol++) {
+				sum6 += rowPtr[curRowBufOffset];
+				sum5 += rowPtr[curRowBufOffset + 1];
+				sum4 += rowPtr[curRowBufOffset + 2];
+				curRowBufOffset += 3;
 			}
 			rowPtr -= bytesPerRow;
 		}
@@ -1743,12 +1734,12 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 
 static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 			      const struct BandImage *inImage,
-			      struct BandImage *outImage)
+			      struct BandImage *outImage,
+			      int already_reversed)
 {
-	int cols, cols2, rows, inBytesPerRow, tmp, maxTank;
+	int cols, rows, inBytesPerRow, tmp, maxTank;
 	uint8_t *inRowPtr;
 	uint16_t *outRowPtr;
-	double gammaAdj0;
 	int pixelsPerRow;
 
 	int in_r8 = 0; // XXXX figure this one out..
@@ -1785,49 +1776,32 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 		}
 	}
 
-	tmp = 0;
-	cols2 = cols;
-	maxTank = cols2 * 255;
-	gammaAdj0 = Gamma->GammaAdj[0];
+	maxTank = cols * 255;
 
 	int outVal;
-	double dVar2 = 0.0;
-	double calc2, calc1, calc0;
-	int curRowBufOffset, curCol;
+	int row, col;
+	int curRowBufOffset;
 
-	while ((outVal = rows, tmp < outVal &&
-		(dVar2 = gammaAdj0, 0.50000000 <= dVar2))) {
-		calc1 = 0.00000000;
-		curRowBufOffset = 0;
-		curCol = 0;
-		calc2 = calc1;
-		calc0 = calc1;
+	double gammaAdj2 = Gamma->GammaAdj[2];
+	double gammaAdj1 = Gamma->GammaAdj[1];
+	double gammaAdj0 = Gamma->GammaAdj[0];
 
-		while (curCol < cols2) {
+	for (row = 0 ; row < rows && gammaAdj0 >= 0.5 ; row++) {
+		double calc3, calc2, calc1, calc0;
+		calc0 = calc1 = calc2 = 0.00000000;
+
+		for (col = 0, curRowBufOffset = 0 ; col < cols ; col++) {
 			calc2 += inRowPtr[2 + curRowBufOffset];
 			calc1 += inRowPtr[1 + curRowBufOffset];
 			calc0 += inRowPtr[0 + curRowBufOffset];
 			curRowBufOffset += 3;
-			curCol++;
 		}
-		double calcMax;
-		double calc3;
-		double gammaAdj2;
-		double gammaAdj1;
-		int col;
 
-		col = 0;
-		gammaAdj1 = Gamma->GammaAdj[1];
-		curRowBufOffset = 0;
-		curCol = 0;
-		gammaAdj2 = Gamma->GammaAdj[2];
-		calcMax = maxTank;
+		calc3 = ((maxTank - calc0) + (maxTank - calc2) + (maxTank - calc1)) / (cols * 3);
 
-		calc3 = ((calcMax - calc0) + (calcMax - calc2) + (calcMax - calc1)) / (cols * 3);
+		gammaAdj0 = ((gammaAdj0 + (((calc3 * gammaAdj0) / 255.00000000) * gammaAdj1) / -4095.00000000) * gammaAdj2) / 4095.00000000;
 
-		gammaAdj0 = ((dVar2 + (((calc3 * dVar2) / 255.00000000) * gammaAdj1) / -4095.00000000) * gammaAdj2) / 4095.00000000;
-
-		while (col < cols2) {
+		for (col = 0, curRowBufOffset = 0; col < cols ; col++) {
 			outVal = Gamma->GNMby[inRowPtr[curRowBufOffset + 2]] + gammaAdj0 + 0.50000000;
 			if (outVal < 0x1000) {
 				if (outVal < 0) {
@@ -1855,35 +1829,40 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 				if (outVal < 0) {
 					outRowPtr[curRowBufOffset + 2] = 0;
 				} else {
-					outRowPtr[curRowBufOffset + 2] = (short)outVal;
+					outRowPtr[curRowBufOffset + 2] = outVal;
 				}
 			} else {
 				outRowPtr[curRowBufOffset + 2] = 0xfff;
 			}
-			cols2 = cols;
-			col = curCol + 1;
 			curRowBufOffset += 3;
-			curCol = col;
 		}
 
-		tmp = inBytesPerRow + 1;
 		inRowPtr -= inBytesPerRow;
 		outRowPtr -= pixelsPerRow;
 	}
 
-	while (tmp < outVal) {
-		outVal = 0;
-		curRowBufOffset = 0;
-		while (curCol = outVal, outVal < cols2) {
-			outRowPtr[curRowBufOffset] = Gamma->GNMby[inRowPtr[curRowBufOffset + 2]];
-			outRowPtr[curRowBufOffset + 1] = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]];
-			outRowPtr[curRowBufOffset + 2] = Gamma->GNMrc[inRowPtr[curRowBufOffset]];
-			cols2 = cols;
-			outVal = curCol + 1;
+	if (!already_reversed) {
+		// XXX reverse each row.  See D70 for how.
+	}
+
+	/* Write gamma corrected data to output buffer, last row first */
+	for (row = 0 ; row < rows ; row++) {
+		int outRowBufOffset = 0;
+
+		if (!already_reversed)
+			outRowBufOffset += (cols - 1) * 3;
+
+		for (col = 0, curRowBufOffset = 0 ; col < cols ; col ++) {
+			// XXX is this order correct?  output is YMC but this treats input as RGB?
+			outRowPtr[outRowBufOffset] = Gamma->GNMby[inRowPtr[curRowBufOffset + 2]];
+			outRowPtr[outRowBufOffset + 1] = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]];
+			outRowPtr[outRowBufOffset + 2] = Gamma->GNMrc[inRowPtr[curRowBufOffset]];
 			curRowBufOffset += 3;
+			if (already_reversed)
+				outRowBufOffset += 3;
+			else
+				outRowBufOffset -= 3;
 		}
-		outVal = rows;
-		tmp ++;
 		inRowPtr -= inBytesPerRow;
 		outRowPtr -= pixelsPerRow;
 	}
@@ -2341,7 +2320,7 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 		     const struct BandImage *input,
 		     struct BandImage *output,
-		     uint8_t type, int sharpness)
+		     uint8_t type, int sharpness, int already_reversed)
 {
 	int i;
 
@@ -2364,9 +2343,11 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 	/* We've already gone through 3D LUT */
 
 	/* Sharpen, as needed */
-	struct CP98xx_AptParams APT;
-	CP98xx_InitAptParams(table, &APT, sharpness);
-	// XXX DoAptMWithParams()
+	if (sharpness > 0) {
+		struct CP98xx_AptParams APT;
+		CP98xx_InitAptParams(table, &APT, sharpness);
+		// XXX DoAptMWithParams();
+	}
 
 	/* Set up gamma table and do the conversion */
 	struct CP98xx_GammaParams gamma;
@@ -2387,7 +2368,7 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 	if (CP98xx_DoCorrectGammaTbl(&gamma, &kh, input) != 1) {
 		return 0;
 	}
-	if (CP98xx_DoGammaConv(&gamma, input, output) != 1) {
+	if (CP98xx_DoGammaConv(&gamma, input, output, already_reversed) != 1) {
 		return 0;
 	}
 

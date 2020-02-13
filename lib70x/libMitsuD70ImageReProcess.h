@@ -132,6 +132,6 @@ void CP98xx_DestroyData(const struct mitsu98xx_data *data);
 int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 		     const struct BandImage *input,
 		     struct BandImage *output,
-		     uint8_t type, int sharpness);
+		     uint8_t type, int sharpness, int already_reversed);
 
 #endif /* __MITSU_D70_H */

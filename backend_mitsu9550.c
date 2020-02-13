@@ -947,37 +947,53 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 	output.rows = job->rows;
 	output.cols = job->cols;
 	output.imgbuf = convbuf;
-	output.bytes_per_row = job->cols * 3 * 2;
+	output.bytes_per_row = job->cols * 3 * sizeof(uint16_t);
 
-	int sharpness = 4;  // XXX make a parameter via hdr extension.
+	int sharpness = job->hdr2.unkc[7];
 
-	if (!ctx->lib.CP98xx_DoConvert(ctx->m98xxdata, &input, &output, job->hdr2.mode, sharpness)) {
+	if (!ctx->lib.CP98xx_DoConvert(ctx->m98xxdata, &input, &output, job->hdr2.mode, sharpness, job->hdr2.unkc[8])) {
 		free(convbuf);
 		free(newbuf);
 		ERROR("CP98xx_DoConvert() failed!\n");
 		return CUPS_BACKEND_FAILED;
 	}
+
+	/* Clear special extension flags used by our backend */
 	if (job->hdr2.mode == 0x11)
 		job->hdr2.mode = 0x10;
+	job->hdr2.unkc[8] = 0;  /* Clear "already reversed" flag */
+	job->hdr2.unkc[7] = 0;  /* Clear "sharpness" parameter */
 
-	/* We're done.  Wrap YMC16 data with appropriate plane headers */
-	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-	newlen += sizeof(struct mitsu9550_plane);
-	memcpy(newbuf + newlen, convbuf + 0 * planelen, planelen);
-	newlen += planelen;
+	/* Library is now done, but output is packed YMC16 format.  We need to
+	   convert it to a planar YMC16, plus appropriate plane headers */
+	uint8_t *yPtr, *mPtr, *cPtr;
+	int j, offset;
 
-	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-	newlen += sizeof(struct mitsu9550_plane);
-	memcpy(newbuf + newlen, convbuf + 1 * planelen, planelen);
-	newlen += planelen;
+	yPtr = newbuf + newlen;
+	memcpy(yPtr, job->databuf, sizeof(struct mitsu9550_plane));
+	yPtr[3] = 0x10;  /* ie 16bpp data */
+	yPtr += sizeof(struct mitsu9550_plane);
+	newlen += sizeof(struct mitsu9550_plane) + planelen;
 
-	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
-	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
-	newlen += sizeof(struct mitsu9550_plane);
-	memcpy(newbuf + newlen, convbuf + 2 * planelen, planelen);
-	newlen += planelen;
+	mPtr = newbuf + newlen;
+	memcpy(mPtr, job->databuf, sizeof(struct mitsu9550_plane));
+	mPtr[3] = 0x10;  /* ie 16bpp data */
+	mPtr += sizeof(struct mitsu9550_plane);
+	newlen += sizeof(struct mitsu9550_plane) + planelen;
+
+	cPtr = newbuf + newlen;
+	memcpy(cPtr, job->databuf, sizeof(struct mitsu9550_plane));
+	cPtr[3] = 0x10;  /* ie 16bpp data */
+	cPtr += sizeof(struct mitsu9550_plane);
+	newlen += sizeof(struct mitsu9550_plane) + planelen;
+
+	for (offset = 0, i = output.cols - 1; i >= 0 ; i--) {
+		for (j = 0 ; j < output.rows ; j ++) {
+			yPtr[i*output.cols + j] = convbuf[offset++];
+			mPtr[i*output.cols + j] = convbuf[offset++];
+			cPtr[i*output.cols + j] = convbuf[offset++];
+		}
+	}
 
 	/* All done with conversion buffer, nuke it */
 	free(convbuf);
@@ -1458,7 +1474,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.51" " (lib " LIBMITSU_VER ")",
+	.version = "0.52" " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -1510,9 +1526,11 @@ struct dyesub_backend mitsu9550_backend = {
 
    1b 57 21 2e 00 80 00 22  QQ QQ 00 00 00 00 00 00 :: ZZ ZZ = num copies (>= 0x01)
    00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY = 00/80 Fine/SuperFine (9550), 10/80 Fine/Superfine (98x0), 00 (9600)
-   XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 00 00 :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
+   XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 SS TT :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
    RR 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500
                                                     :: RR = 01 for "use LUT" on 98xx, 0x00 otherwise.  Extension to stock.
+						    :: TT = 01 for "already reversed". Extension to stock.
+						    :: SS == sharpening level, 0 for off, 1-10 otherwise. Extesion to stock.
 
    ~~~ Header 3 (9550 and 9800-S only..)
 

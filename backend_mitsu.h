@@ -61,7 +61,7 @@ typedef int (*send_image_dataFN)(struct BandImage *out, void *context,
 typedef int (*CP98xx_DoConvertFN)(const struct mitsu98xx_data *table,
 				  const struct BandImage *input,
 				  struct BandImage *output,
-				  uint8_t type, int sharpness);
+				  uint8_t type, int sharpness, int reversed);
 typedef struct mitsu98xx_data *(*CP98xx_GetDataFN)(const char *filename);
 typedef void (*CP98xx_DestroyDataFN)(const struct mitsu98xx_data *data);
 
