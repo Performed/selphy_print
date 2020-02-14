@@ -556,8 +556,8 @@ static void CImageEffect70_InitMidData(struct CImageEffect70 *data)
 
 	memset(data->linebuf_row, 0, sizeof(data->linebuf_row));
 	memset(data->linebuf_line, 0, sizeof(data->linebuf_line));
-//	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch));  // redundant
-//	memset(data->fcc_ymc_scratch, 0, sizeof(data->fcc_ymc_scratch)); // redundant
+	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch)); // redundant
+	memset(data->fcc_ymc_scratch, 0, sizeof(data->fcc_ymc_scratch)); // redundant
 }
 
 static void CImageEffect70_CreateMidData(struct CImageEffect70 *data)
@@ -579,7 +579,7 @@ static void CImageEffect70_CreateMidData(struct CImageEffect70 *data)
 	data->linebuf_row[0] = data->linebuf_line[0] + 3; // ie 6 bytes.
 
 	for (i = 1 ; i < 11 ; i++ ) {
-		data->linebuf_line[i] = data->linebuf_line[i-1] + /* 2* */ data->linebuf_stride;
+		data->linebuf_line[i] = data->linebuf_line[i-1] + data->linebuf_stride;
 		data->linebuf_row[i] = data->linebuf_line[i] + 3; // ie 6 bytes
 	}
 	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch));
@@ -806,6 +806,12 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in
 	line_comp[1] = data->cpc->LINEm[cur_row];
 	line_comp[2] = data->cpc->LINEc[cur_row];
 
+#if 0 // XXX experiment
+	/* EK305 and K60 have only Y in their UF table */
+	if (!line_comp[1]) line_comp[1] = line_comp[0];
+	if (!line_comp[2]) line_comp[2] = line_comp[0];
+#endif
+
 	/* Fill in shoulders of the row */
 	last = data->ttd_htd_last;
 	memcpy(first - 9, first, 0x18);   // Copy first pixel to pre-buffer
@@ -866,14 +872,14 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 	if (data->sharpen >= 0)
 		sharp = &data->cpc->SHK[8 * data->sharpen];
 
-	/* For each pixel in the row... */
+	/* For each pixel in the row.. Note this is not color/plane dependent */
 	for (i = 0 ; i < data->band_pixels ; i++) {
 		double v4, v6, v7, input;
 		int v29;
 		double ks_comp_f, k_comp, ks_comp, os_comp, sharp_comp;
 		int j, k;
 
-		/* Starting point is the carry-over from the last row plus
+		/* Starting point is the carry-over from the previous row minus
 		   the new pixel */
 		input = in[i];
 		v7 = data->htd_ttdnext[i] - input;
