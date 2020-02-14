@@ -1823,10 +1823,10 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 			outRowBufOffset += (cols - 1) * 3;
 
 		for (col = 0, curRowBufOffset = 0 ; col < cols ; col ++) {
-			// XXX is this order correct?  output is YMC but this treats input as RGB?
-			outRowPtr[outRowBufOffset] = Gamma->GNMby[inRowPtr[curRowBufOffset + 2]];
+			/* Mitsu code treats input as RGB, we always use BGR. */
+			outRowPtr[outRowBufOffset] = Gamma->GNMby[inRowPtr[curRowBufOffset]];
 			outRowPtr[outRowBufOffset + 1] = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]];
-			outRowPtr[outRowBufOffset + 2] = Gamma->GNMrc[inRowPtr[curRowBufOffset]];
+			outRowPtr[outRowBufOffset + 2] = Gamma->GNMrc[inRowPtr[curRowBufOffset + 2]];
 			curRowBufOffset += 3;
 			if (already_reversed)
 				outRowBufOffset += 3;
