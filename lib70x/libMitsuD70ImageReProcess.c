@@ -1629,10 +1629,7 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 	int end, start, cols, rows, step, bytesPerRow;
 	int i, j;
 	int64_t elements, max;
-	int curCol, curRowBufOffset;
 	uint8_t *rowPtr;
-	int in_r9 = 0; // XXX
-
 	if (KH->Step < 1 || KH->End < KH->Start)
 		return 1;
 
@@ -1648,19 +1645,9 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 	bytesPerRow = img->bytes_per_row;
 
 	if (bytesPerRow < 0) {
-		if (in_r9 == 0) {
-			bytesPerRow = -bytesPerRow;
-			rowPtr = img->imgbuf - -bytesPerRow * (rows - 1);
-		} else {
-			rowPtr = img->imgbuf;
-		}
+		rowPtr = img->imgbuf;
 	} else {
-		if (in_r9 != 0) {
-			rowPtr = img->imgbuf - -bytesPerRow * (rows - 1);
-		} else {
-			bytesPerRow = -bytesPerRow;
-			rowPtr = img->imgbuf;
-		}
+		rowPtr = img->imgbuf + (bytesPerRow * (rows - 1));
 	}
 
 	step = KH->Step;
@@ -1677,8 +1664,8 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 		sum6 = sum5 = sum4 = sum3 = sum2 = sum1 = 0;
 
 		for (k = 0 ; k < step ; k++) {
+			int curCol, curRowBufOffset;
 			curRowBufOffset = start * 3;
-			curCol = start;
 			for (curCol = start ; curCol < (end + 1) ; curCol++) {
 				sum3 += rowPtr[curRowBufOffset];
 				sum2 += rowPtr[curRowBufOffset + 1];
@@ -1686,8 +1673,7 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 				curRowBufOffset += 3;
 			}
 			curRowBufOffset = iVar4 * 3;
-			curCol = iVar4;
-			for (curCol = start ; curCol < (cols - start); curCol++) {
+			for (curCol = iVar4 ; curCol < (cols - start); curCol++) {
 				sum6 += rowPtr[curRowBufOffset];
 				sum5 += rowPtr[curRowBufOffset + 1];
 				sum4 += rowPtr[curRowBufOffset + 2];
@@ -1743,43 +1729,25 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 			      struct BandImage *outImage,
 			      int already_reversed)
 {
-	int cols, rows, inBytesPerRow, tmp, maxTank;
+	int cols, rows, inBytesPerRow, maxTank;
 	uint8_t *inRowPtr;
 	uint16_t *outRowPtr;
 	int pixelsPerRow;
 
-	int in_r8 = 0; // XXXX figure this one out..
-
 	cols = inImage->cols - inImage->origin_cols;
 	rows = inImage->rows - inImage->origin_rows;
-	tmp = inImage->bytes_per_row;
-	if ((cols < 1) || (rows < 1) || (tmp == 0))
+	inBytesPerRow = inImage->bytes_per_row;
+	pixelsPerRow = outImage->bytes_per_row >> 1;
+
+	if ((cols < 1) || (rows < 1) || (inBytesPerRow == 0))
 		return 0;
 
-	if (tmp < 0) {
-		if (in_r8 == 0) {
-			inBytesPerRow = -tmp;
-			pixelsPerRow = -outImage->bytes_per_row >> 1;
-			inRowPtr = ((rows + -1) * -tmp + inImage->imgbuf);
-			outRowPtr = (pixelsPerRow * (rows * 2 + -2) + outImage->imgbuf);
-		} else {
-			inBytesPerRow = tmp;
-			pixelsPerRow = outImage->bytes_per_row >> 1;
-			inRowPtr = inImage->imgbuf;
-			outRowPtr = outImage->imgbuf;
-		}
+	if (inBytesPerRow < 0) {
+		inRowPtr = inImage->imgbuf;
+		outRowPtr = outImage->imgbuf;
 	} else {
-		if (in_r8 != 0) {
-			inBytesPerRow = tmp;
-			pixelsPerRow = outImage->bytes_per_row >> 1;
-			outRowPtr = (pixelsPerRow * (rows * 2 + -2) + outImage->imgbuf);
-			inRowPtr = ((rows + -1) * inImage->bytes_per_row + inImage->imgbuf);
-		} else {
-			inBytesPerRow = -tmp;
-			pixelsPerRow = (-outImage->bytes_per_row) >> 1;
-			inRowPtr = inImage->imgbuf;
-			outRowPtr = outImage->imgbuf;
-		}
+		outRowPtr = (pixelsPerRow * (rows * 2 -2) + outImage->imgbuf);
+		inRowPtr = ((rows -1) * inBytesPerRow + inImage->imgbuf);
 	}
 
 	maxTank = cols * 255;
