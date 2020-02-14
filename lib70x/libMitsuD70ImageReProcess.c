@@ -52,7 +52,7 @@
 
 */
 
-#define LIB_VERSION "0.8.1"
+#define LIB_VERSION "0.8.2"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -621,15 +621,15 @@ static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
 					  int offset, const uint16_t *row, int rownum)
 {
-	uint16_t *src, *v5;
+	uint16_t *dst, *v5;
 
-	src = data->linebuf_row[offset + 5];
-	v5 = src + 3 * (data->columns - 1);
+	dst = data->linebuf_row[offset + 5]; /* Points at start of dst row */
+	v5 = dst + 3 * data->columns; /* Point at end of dst row */
 
-	memcpy(src, row -(rownum * data->pixel_count), 2 * data->band_pixels);
+	memcpy(dst, row -(rownum * data->pixel_count), 2 * data->band_pixels);
 
-	memcpy(src - 3, src, 6);
-	memcpy(v5 + 3, v5, 6);
+	memcpy(dst - 3, dst, 6); /* Fill in dst row head */
+	memcpy(v5, v5 - 3, 6); /* Fill in dst row tail */
 }
 
 static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
