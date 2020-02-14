@@ -52,7 +52,7 @@
 
 */
 
-#define LIB_VERSION "0.8.2"
+#define LIB_VERSION "0.8.3"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -785,7 +785,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 
 static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in, double *out)
 {
-	int cur_row, offset;
+	uint32_t cur_row, offset;
 	double *hk;
 	double *last, *first;
 	unsigned int i, k;
@@ -1510,9 +1510,9 @@ struct mitsu98xx_data {
 	/* @ 1576 */    double   GammaAdj[3];    /* Assumed to be same order as tables (BGR?) */
 	/* @ 1600 */	struct CP98xx_WMAM WMAM;
 	/* @11920 */	double   sharp_coef[11]; /* 0 is off, 1-10 are the levels.  Default is 5. [4 in settings] */
-	/* @12008 */	uint32_t KHStart;
-	/* @12012 */	uint32_t KHEnd;
-	/* @12016 */	uint32_t KHStep;
+	/* @12008 */	int32_t KHStart;
+	/* @12012 */	int32_t KHEnd;
+	/* @12016 */	int32_t KHStep;
 	/* @12020 */	double   KH[256];
 	/* @14068 */
 } __attribute__((packed));
@@ -1731,7 +1731,7 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 			(baseKH * (Gamma->GNMrc[i] - baseRC)) + 0.5;
 		Gamma->GNMrc[i] = baseGM +
 			(baseKH * (Gamma->GNMgm[i] - baseGM)) + 0.5;
-		Gamma->GNMby[i] = baseGM +
+		Gamma->GNMby[i] = baseBY +
 			(baseKH * (Gamma->GNMby[i] - baseBY)) + 0.5;
 	}
 
@@ -2294,14 +2294,13 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 		iVar4 = 0;
 	}
 	for ( ; iVar4 > 0 ; iVar4--) {
-		col = (*pdVar3 + 0.50000000);
-		if (col < 0) {
+		int16_t val = (*pdVar3 + 0.50000000);
+		if (val < 0) {
 			*imgBuf = 0;
 		} else {
-			if (col < 0x1000) {
-				*imgBuf = col;
-			}
-			else {
+			if (val < 0x1000) {
+				*imgBuf = val;
+			} else {
 				*imgBuf = 0xfff;
 			}
 		}
