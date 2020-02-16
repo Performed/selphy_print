@@ -52,7 +52,7 @@
 
 */
 
-#define LIB_VERSION "0.8.3"
+#define LIB_VERSION "0.8.4"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -785,7 +785,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 
 static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in, double *out)
 {
-	uint32_t cur_row, offset;
+	int32_t cur_row, offset;
 	double *hk;
 	double *last, *first;
 	unsigned int i, k;
