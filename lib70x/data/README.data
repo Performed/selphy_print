@@ -2,14 +2,17 @@ There are three sets of files here:
 
  *.lut -- Color Lookup tables
  *.raw -- Matte lamination data
- *.cpc -- Data tables
+ *.cpc -- Data tables (CSV)
+ *.dat -- Data tables (binary)
 
 All files were directly copied from the data files bundled with the 
-Windows drivers of the following printers:
+Windows or Mac drivers of the following printers:
 
+  Fujifilm ASK-300
+  Kodak 305
+  Mitsubishi CP9800/9810
   Mitsubishi CP-D70DW/D707-DW
   Mitsubishi CP-K60DW-S
   Mitsubishi CP-D80DW
-  Kodak 305
-  Fujifilm ASK-300
-
+  Mitsubishi CP-M1
+ 

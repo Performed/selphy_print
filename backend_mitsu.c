@@ -132,10 +132,13 @@ int mitsu_apply3dlut(struct mitsu_lib *lib, char *lutfname, uint8_t *databuf,
 		     int rgb_bgr)
 {
 #if defined(WITH_DYNAMIC)
+	char full[2048];
 	int i;
 
 	if (!lutfname)
 		return CUPS_BACKEND_OK;
+
+	snprintf(full, sizeof(full), "%s/%s", corrtable_path, lutfname);
 
 	if (!lib->lut) {
 		uint8_t *buf = malloc(LUT_LEN);
@@ -143,12 +146,12 @@ int mitsu_apply3dlut(struct mitsu_lib *lib, char *lutfname, uint8_t *databuf,
 			ERROR("Memory allocation failure!\n");
 			return CUPS_BACKEND_RETRY_CURRENT;
 		}
-		if ((i = dyesub_read_file(lutfname, buf, LUT_LEN, NULL)))
+		if ((i = dyesub_read_file(full, buf, LUT_LEN, NULL)))
 			return i;
 		lib->lut = lib->Load3DColorTable(buf);
 		free(buf);
 		if (!lib->lut) {
-			ERROR("Unable to parse LUT file '%s'!\n", lutfname);
+			ERROR("Unable to parse LUT file '%s'!\n", full);
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
@@ -167,11 +170,14 @@ int mitsu_readlamdata(const char *fname, uint16_t lamstride,
 {
 	int i, j, fd;
 	int remain = cols * rows * bpp;
+	char full[2048];
+
+	snprintf(full, sizeof(full), "%s/%s", corrtable_path, fname);
 
 	DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", cols * rows * bpp, cols, lamstride);
-	fd = open(fname, O_RDONLY);
+	fd = open(full, O_RDONLY);
 	if (fd < 0) {
-		ERROR("Unable to open matte lamination data file '%s'\n", fname);
+		ERROR("Unable to open matte lamination data file '%s'\n", full);
 		return CUPS_BACKEND_CANCEL;
 	}
 

@@ -34,11 +34,11 @@
 
 /* CPM1 stuff */
 #define CPM1_LAMINATE_STRIDE 1852
-#define CPM1_LAMINATE_FILE CORRTABLE_PATH "/M1_MAT02.raw"
-#define CPM1_CPC_FNAME CORRTABLE_PATH "/CPM1_N1.csv"
-#define CPM1_CPC_G1_FNAME CORRTABLE_PATH "/CPM1_G1.csv"
-#define CPM1_CPC_G5_FNAME CORRTABLE_PATH "/CPM1_G5.csv"
-#define CPM1_LUT_FNAME CORRTABLE_PATH "/CPM1_NL.lut"
+#define CPM1_LAMINATE_FILE "M1_MAT02.raw"
+#define CPM1_CPC_FNAME "CPM1_N1.csv"
+#define CPM1_CPC_G1_FNAME "CPM1_G1.csv"
+#define CPM1_CPC_G5_FNAME "CPM1_G5.csv"
+#define CPM1_LUT_FNAME "CPM1_NL.lut"
 
 
 /* Printer data structures */
@@ -1785,7 +1785,10 @@ static struct M1CPCData *get_M1CPCData(const char *filename,
 	data = malloc(sizeof(*data));
 	if (!data)
 		return NULL;
-	f = fopen(gammafilename, "r");
+
+	snprintf(buf, sizeof(buf), "%s/%s", corrtable_path, gammafilename);
+
+	f = fopen(buf, "r");
 	if (!f)
 		goto done_free;
 
@@ -1820,8 +1823,10 @@ static struct M1CPCData *get_M1CPCData(const char *filename,
 
 	fclose(f);
 
+	snprintf(buf, sizeof(buf), "%s/%s", corrtable_path, filename);
+
 	/* Now for the CPC Data */
-	f = fopen(filename, "r");
+	f = fopen(buf, "r");
 	if (!f)
 		goto done_free;
 

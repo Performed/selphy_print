@@ -929,32 +929,32 @@ repeat:
 
 	/* Figure out the correction data table to use */
 	if (ctx->type == P_MITSU_D70X) {
-		job->laminatefname = CORRTABLE_PATH "/D70MAT01.raw";
-		job->lutfname = CORRTABLE_PATH "/CPD70L01.lut";
+		job->laminatefname = "D70MAT01.raw";
+		job->lutfname = "CPD70L01.lut";
 
 		if (mhdr.speed == 3) {
-			job->cpcfname = CORRTABLE_PATH "/CPD70S01.cpc";
+			job->cpcfname = "CPD70S01.cpc";
 		} else if (mhdr.speed == 4) {
-			job->cpcfname = CORRTABLE_PATH "/CPD70U01.cpc";
+			job->cpcfname = "CPD70U01.cpc";
 		} else {
-			job->cpcfname = CORRTABLE_PATH "/CPD70N01.cpc";
+			job->cpcfname = "CPD70N01.cpc";
 		}
 		if (mhdr.hdr[3] != 0x01) {
 			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
 			mhdr.hdr[3] = 0x01;
 		}
 	} else if (ctx->type == P_MITSU_D80) {
-		job->laminatefname = CORRTABLE_PATH "/D80MAT01.raw";
-		job->lutfname = CORRTABLE_PATH "/CPD80L01.lut";
+		job->laminatefname = "D80MAT01.raw";
+		job->lutfname = "CPD80L01.lut";
 
 		if (mhdr.speed == 3) {
-			job->cpcfname = CORRTABLE_PATH "/CPD80S01.cpc";
-			job->ecpcfname = CORRTABLE_PATH "/CPD80E01.cpc";
+			job->cpcfname = "CPD80S01.cpc";
+			job->ecpcfname = "CPD80E01.cpc";
 		} else if (mhdr.speed == 4) {
-			job->cpcfname = CORRTABLE_PATH "/CPD80U01.cpc";
+			job->cpcfname = "CPD80U01.cpc";
 			job->ecpcfname = NULL;
 		} else {
-			job->cpcfname = CORRTABLE_PATH "/CPD80N01.cpc";
+			job->cpcfname = "CPD80N01.cpc";
 			job->ecpcfname = NULL;
 		}
 		if (mhdr.hdr[3] != 0x01) {
@@ -962,28 +962,28 @@ repeat:
 			mhdr.hdr[3] = 0x01;
 		}
 	} else if (ctx->type == P_MITSU_K60) {
-		job->laminatefname = CORRTABLE_PATH "/S60MAT02.raw";
-		job->lutfname = CORRTABLE_PATH "/CPS60L01.lut";
+		job->laminatefname = "S60MAT02.raw";
+		job->lutfname = "CPS60L01.lut";
 
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
 			mhdr.speed = 4; /* Ultra Fine */
-			job->cpcfname = CORRTABLE_PATH "/CPS60T03.cpc";
+			job->cpcfname = "CPS60T03.cpc";
 		} else {
-			job->cpcfname = CORRTABLE_PATH "/CPS60T01.cpc";
+			job->cpcfname = "CPS60T01.cpc";
 		}
 		if (mhdr.hdr[3] != 0x00) {
 			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
 			mhdr.hdr[3] = 0x00;
 		}
 	} else if (ctx->type == P_KODAK_305) {
-		job->laminatefname = CORRTABLE_PATH "/EK305MAT.raw"; // Same as K60
-		job->lutfname = CORRTABLE_PATH "/EK305L01.lut";
+		job->laminatefname = "EK305MAT.raw"; // Same as K60
+		job->lutfname = "EK305L01.lut";
 
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
 			mhdr.speed = 4; /* Ultra Fine */
-			job->cpcfname = CORRTABLE_PATH "/EK305T03.cpc";
+			job->cpcfname = "EK305T03.cpc";
 		} else {
-			job->cpcfname = CORRTABLE_PATH "/EK305T01.cpc";
+			job->cpcfname = "EK305T01.cpc";
 		}
 		// XXX what about using K60 media if we read back the proper code?
 		if (mhdr.hdr[3] != 0x90) {
@@ -991,13 +991,13 @@ repeat:
 			mhdr.hdr[3] = 0x90;
 		}
 	} else if (ctx->type == P_FUJI_ASK300) {
-		job->laminatefname = CORRTABLE_PATH "/ASK300M2.raw"; /* Same as D70 */
+		job->laminatefname = "ASK300M2.raw"; /* Same as D70 */
 		job->lutfname = NULL; /* Printer does not come with external LUT */
 		if (mhdr.speed == 3 || mhdr.speed == 4) {
 			mhdr.speed = 3; /* Super Fine */
-			job->cpcfname = CORRTABLE_PATH "/ASK300T3.cpc";
+			job->cpcfname = "ASK300T3.cpc";
 		} else {
-			job->cpcfname = CORRTABLE_PATH "/ASK300T1.cpc";
+			job->cpcfname = "ASK300T1.cpc";
 		}
 		if (mhdr.hdr[3] != 0x80) {
 			WARNING("Print job has wrong submodel specifier (%x)\n", mhdr.hdr[3]);
@@ -1531,25 +1531,33 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 
 	/* Load in the CPC file, if needed */
 	if (job->cpcfname && job->cpcfname != ctx->last_cpcfname) {
+		char full[2048];
 		ctx->last_cpcfname = job->cpcfname;
 		if (ctx->lib.cpcdata)
 			ctx->lib.DestroyCPCData(ctx->lib.cpcdata);
-		ctx->lib.cpcdata = ctx->lib.GetCPCData(job->cpcfname);
+
+		snprintf(full, sizeof(full), "%s/%s", corrtable_path, job->cpcfname);
+
+		ctx->lib.cpcdata = ctx->lib.GetCPCData(full);
 		if (!ctx->lib.cpcdata) {
-			ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
+			ERROR("Unable to load CPC file '%s'\n", full);
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
 
 	/* Load in the secondary CPC, if needed */
 	if (job->ecpcfname != ctx->last_ecpcfname) {
+		char full[2048];
 		ctx->last_ecpcfname = job->ecpcfname;
 		if (ctx->lib.ecpcdata)
 			ctx->lib.DestroyCPCData(ctx->lib.ecpcdata);
+
+		snprintf(full, sizeof(full), "%s/%s", corrtable_path, job->ecpcfname);
+
 		if (job->ecpcfname) {
-			ctx->lib.ecpcdata = ctx->lib.GetCPCData(job->ecpcfname);
+			ctx->lib.ecpcdata = ctx->lib.GetCPCData(full);
 			if (!ctx->lib.ecpcdata) {
-				ERROR("Unable to load CPC file '%s'\n", job->cpcfname);
+				ERROR("Unable to load CPC file '%s'\n", full);
 				return CUPS_BACKEND_CANCEL;
 			}
 		} else {

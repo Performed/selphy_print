@@ -76,14 +76,6 @@ typedef void (*CP98xx_DestroyDataFN)(const struct mitsu98xx_data *data);
 /* Image processing library function prototypes */
 #define LIB_NAME_RE "libMitsuD70ImageReProcess" DLL_SUFFIX
 
-#ifndef CORRTABLE_PATH
-#ifdef PACKAGE_DATA_DIR
-#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
-#else
-#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
-#endif
-#endif
-
 struct mitsu_lib {
 	void *dl_handle;
 	lib70x_getapiversionFN GetAPIVersion;

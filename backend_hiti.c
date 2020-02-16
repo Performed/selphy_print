@@ -33,14 +33,6 @@
 #include <config.h>
 #endif
 
-#ifndef CORRTABLE_PATH
-#ifdef PACKAGE_DATA_DIR
-#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
-#else
-#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
-#endif
-#endif
-
 /* Private structures */
 struct hiti_cmd {
 	uint8_t hdr;    /* 0xa5 */
@@ -959,7 +951,7 @@ static void hiti_cleanup_job(const void *vjob) {
 
 static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx, uint8_t mode)
 {
-	char *fname;
+	const char *fname;
 	uint8_t *buf;
 	int ret, len;
 
@@ -971,104 +963,104 @@ static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx, uint8_t mode)
 	case P_HITI_51X:
 		if (!mediatype) {
 			if (mode) {
-				fname = CORRTABLE_PATH "/P51x_CMQPra.bin";
+				fname = "P51x_CMQPra.bin";
 				break;
 			} else {
-				fname = CORRTABLE_PATH "/P51x_CMPPra.bin";
+				fname = "P51x_CMPPra.bin";
 				break;
 			}
 		} else {
 			if (mode) {
 				switch(mediaver) {
 				case 0:
-					fname = CORRTABLE_PATH "/P51x_CCQPra.bin";
+					fname = "P51x_CCQPra.bin";
 					break;
 				case 1:
-					fname = CORRTABLE_PATH "/P51x_CCQP1ra.bin";
+					fname = "P51x_CCQP1ra.bin";
 					break;
 				case 2:
-					fname = CORRTABLE_PATH "/P51x_CCQP2ra.bin";
+					fname = "P51x_CCQP2ra.bin";
 					break;
 				case 3:
 				default:
-					fname = CORRTABLE_PATH "/P51x_CCQP3ra.bin";
+					fname = "P51x_CCQP3ra.bin";
 					break;
 				}
 			} else {
 				switch(mediaver) {
 				case 0:
-					fname = CORRTABLE_PATH "/P51x_CCPPra.bin";
+					fname = "P51x_CCPPra.bin";
 					break;
 				case 1:
-					fname = CORRTABLE_PATH "/P51x_CCPP1ra.bin";
+					fname = "P51x_CCPP1ra.bin";
 					break;
 				case 2:
-					fname = CORRTABLE_PATH "/P51x_CCPP2ra.bin";
+					fname = "P51x_CCPP2ra.bin";
 					break;
 				case 3:
 				default:
-					fname = CORRTABLE_PATH "/P51x_CCPP3ra.bin";
+					fname = "P51x_CCPP3ra.bin";
 					break;
 				}
 			}
 		}
 		break;
 	case P_HITI_52X:
-		fname = CORRTABLE_PATH "/P52x_CCPPri.bin";
+		fname = "P52x_CCPPri.bin";
 		break;
 	case P_HITI_720:
 		if (!mediatype) {
 			if (mode) {
-				fname = CORRTABLE_PATH "/P72x_CMQPrd.bin";
+				fname = "P72x_CMQPrd.bin";
 				break;
 			} else {
-				fname = CORRTABLE_PATH "/P72x_CMPPrd.bin";
+				fname = "P72x_CMPPrd.bin";
 				break;
 			}
 		} else {
 			if (mode) {
 				switch(mediaver) {
 				case 0:
-					fname = CORRTABLE_PATH "/P72x_CCQPrd.bin";
+					fname = "P72x_CCQPrd.bin";
 					break;
 				case 1:
-					fname = CORRTABLE_PATH "/P72x_CCQP1rd.bin";
+					fname = "P72x_CCQP1rd.bin";
 					break;
 				case 2:
-					fname = CORRTABLE_PATH "/P72x_CCQP2rd.bin";
+					fname = "P72x_CCQP2rd.bin";
 					break;
 				case 3:
-					fname = CORRTABLE_PATH "/P72x_CCQP3rd.bin";
+					fname = "P72x_CCQP3rd.bin";
 					break;
 				case 4:
 				default:
-					fname = CORRTABLE_PATH "/P72x_CCQP4rd.bin";
+					fname = "P72x_CCQP4rd.bin";
 				break;
 				}
 			} else {
 				switch(mediaver) {
 				case 0:
-					fname = CORRTABLE_PATH "/P72x_CCPPrd.bin";
+					fname = "P72x_CCPPrd.bin";
 					break;
 				case 1:
-					fname = CORRTABLE_PATH "/P72x_CCPP1rd.bin";
+					fname = "P72x_CCPP1rd.bin";
 					break;
 				case 2:
-					fname = CORRTABLE_PATH "/P72x_CCPP2rd.bin";
+					fname = "P72x_CCPP2rd.bin";
 					break;
 				case 3:
-					fname = CORRTABLE_PATH "/P72x_CCPP3rd.bin";
+					fname = "P72x_CCPP3rd.bin";
 					break;
 				case 4:
 				default:
-					fname = CORRTABLE_PATH "/P72x_CCPP4rd.bin";
+					fname = "P72x_CCPP4rd.bin";
 					break;
 				}
 			}
 		}
 		break;
 	case P_HITI_750:
-		fname = CORRTABLE_PATH "/P75x_CCPPri.bin";
+		fname = "P75x_CCPPri.bin";
 		break;
 	default:
 		fname = NULL;
@@ -1083,7 +1075,10 @@ static uint8_t *hiti_get_correction_data(struct hiti_ctx *ctx, uint8_t mode)
 		return NULL;
 	}
 
-	ret = dyesub_read_file(fname, buf, CORRECTION_FILE_SIZE, &len);
+	char full[2048];
+	snprintf(full, sizeof(full), "%s/%s", corrtable_path, fname);
+
+	ret = dyesub_read_file(full, buf, CORRECTION_FILE_SIZE, &len);
 	if (ret) {
 		free(buf);
 		return NULL;

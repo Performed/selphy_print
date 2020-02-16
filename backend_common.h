@@ -304,6 +304,7 @@ extern int ncopies;
 extern int collate;
 extern int test_mode;
 extern int quiet;
+extern const char *corrtable_path;
 
 enum {
 	TEST_MODE_NONE = 0,

@@ -34,9 +34,9 @@
 #include <config.h>
 #endif
 
-#define MITSU_M98xx_LAMINATE_FILE CORRTABLE_PATH "/M98MATTE.raw"
-#define MITSU_M98xx_DATATABLE_FILE CORRTABLE_PATH "/M98TABLE.dat"
-#define MITSU_M98xx_LUT_FILE       CORRTABLE_PATH "/M98XXL01.lut"
+#define MITSU_M98xx_LAMINATE_FILE  "M98MATTE.raw"
+#define MITSU_M98xx_DATATABLE_FILE "M98TABLE.dat"
+#define MITSU_M98xx_LUT_FILE       "M98XXL01.lut"
 #define LAMINATE_STRIDE 1868
 
 /* USB VIDs and PIDs */
@@ -456,8 +456,11 @@ hdr_done:
 
 	/* Read in CP98xx data tables if necessary */
 	if (ctx->is_98xx && !job->is_raw && !ctx->m98xxdata) {
+		char full[2048];
+		snprintf(full, sizeof(full), "%s/%s", corrtable_path, MITSU_M98xx_DATATABLE_FILE);
+
 		DEBUG("Reading in 98xx data from disk\n");
-		ctx->m98xxdata = ctx->lib.CP98xx_GetData(MITSU_M98xx_DATATABLE_FILE);
+		ctx->m98xxdata = ctx->lib.CP98xx_GetData(full);
 		if (!ctx->m98xxdata) {
 			ERROR("Unable to read 98xx data table file '%s'\n", MITSU_M98xx_DATATABLE_FILE);
 		}

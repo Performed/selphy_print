@@ -80,7 +80,7 @@ CFLAGS += -Wall -Wextra -Wformat-security -funit-at-a-time -g -Og -D_FORTIFY_SOU
 LDFLAGS += $(shell pkg-config --libs libusb-1.0)
 CPPFLAGS += $(shell pkg-config --cflags libusb-1.0)
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
-CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\" $(OLD_URI)
+CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\" $(OLD_URI) -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 LIBLDFLAGS = -g -shared
 
 # List of backends
@@ -143,7 +143,7 @@ testgp_%: dyesub_backend
 	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv $(subst testgp_,,$@)
 
 cppcheck:
-	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include  -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\" $(CPPFLAGS) $(SOURCES) $(LIB70X_SOURCES) $(LIBS6145_SOURCES)
+	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include $(CPPFLAGS) $(SOURCES) $(LIB70X_SOURCES) $(LIBS6145_SOURCES)
 
 install:
 	$(MKDIR) -p $(CUPS_BACKEND_DIR)
@@ -182,11 +182,6 @@ endif
 # Backend-specific joy:
 $(SINFONIA_BACKENDS_O): backend_sinfonia.h
 $(MITSU_BACKENDS_O): backend_mitsu.h
-backend_mitsu.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
-backend_mitsu70x.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
-backend_mitsu9550.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
-backend_hiti.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
-backend_mitsud90.o: CPPFLAGS += -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 
 # Library joy:
 %.$(LIB_SUFFIX): CFLAGS += -fPIC --no-strict-overflow

@@ -315,6 +315,9 @@
 
            MAX_XFER_SIZE=32768 XFER_TIMEOUT=30000 backend filename
 
+       To change the location of backend data at runtime, set CORRTABLE_PATH
+       to the appropriate directory.
+
        Finally, BACKEND_QUIET can be set to a non-zero value to silence all
        output other than warnings and errors.
 

@@ -28,9 +28,17 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.104"
+#define BACKEND_VERSION "0.105"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
+#endif
+
+#ifndef CORRTABLE_PATH
+#ifdef PACKAGE_DATA_DIR
+#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
+#else
+#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
+#endif
 #endif
 
 #define URB_XFER_SIZE  (64*1024)
@@ -50,11 +58,12 @@ int extra_type = -1;
 int ncopies = 1;
 int collate = 0;
 int test_mode = 0;
-int old_uri = 0;
 int quiet = 0;
 
+const char *corrtable_path = CORRTABLE_PATH;
 static int max_xfer_size = URB_XFER_SIZE;
 static int xfer_timeout = XFER_TIMEOUT;
+static int old_uri = 0;
 
 /* Support Functions */
 int backend_claim_interface(struct libusb_device_handle *dev, int iface,
@@ -1281,6 +1290,8 @@ int main (int argc, char **argv)
 		test_mode = atoi(getenv("TEST_MODE"));
 	if (getenv("OLD_URI_SCHEME"))
 		old_uri = atoi(getenv("OLD_URI_SCHEME"));
+	if (getenv("CORRTABLE_PATH"))
+		corrtable_path = getenv("CORRTABLE_PATH");
 
 	if (test_mode >= TEST_MODE_NOATTACH && (extra_vid == -1 || extra_pid == -1)) {
 		ERROR("Must specify EXTRA_VID, EXTRA_PID in test mode > 1!\n");
