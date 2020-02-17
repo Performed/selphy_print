@@ -462,7 +462,7 @@ hdr_done:
 		DEBUG("Reading in 98xx data from disk\n");
 		ctx->m98xxdata = ctx->lib.CP98xx_GetData(full);
 		if (!ctx->m98xxdata) {
-			ERROR("Unable to read 98xx data table file '%s'\n", MITSU_M98xx_DATATABLE_FILE);
+			ERROR("Unable to read 98xx data table file '%s'\n", full);
 		}
 	}
 
