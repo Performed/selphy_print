@@ -11,6 +11,9 @@
 # main executable
 dyesub_backend
 
+# staging area for datafiles
+datafiles
+
 # symlinks
 canonselphy
 canonselphyneo

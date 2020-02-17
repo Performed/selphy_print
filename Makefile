@@ -86,7 +86,12 @@ LIBLDFLAGS = -g -shared
 # List of backends
 BACKENDS = canonselphy canonselphyneo dnpds40 hiti kodak605 kodak1400 kodak6800 magicard mitsu70x mitsu9550 mitsud90 mitsup95d shinkos1245 shinkos2145 shinkos6145 shinkos6245 sonyupd sonyupdneo
 
-# For the s6145, mitsu70x, and mitsu9550 backends
+# List of data files
+DATAFILES = $(wildcard hiti_data/*bin) $(wildcard lib70x/data/*raw) \
+	$(wildcard lib70x/data/*cpc) $(wildcard lib70x/data/*lut) \
+	$(wildcard lib70x/data/*dat) $(wildcard lib70x/data/*csv)
+
+# For the s6145, mitsu70x, mitsud90, and mitsu9550 backends
 ifneq (,$(findstring mingw,$(CC)))
 CPPFLAGS += -DUSE_LTDL
 LDFLAGS += -lltdl
@@ -107,13 +112,16 @@ SOURCES = backend_common.c backend_sinfonia.c backend_mitsu.c $(addsuffix .c,$(a
 # Dependencies for sinfonia backends..
 SINFONIA_BACKENDS = sinfonia kodak605 kodak6800 shinkos1245 shinkos2145 shinkos6145 shinkos6245
 SINFONIA_BACKENDS_O = $(addsuffix .o,$(addprefix backend_,$(SINFONIA_BACKENDS)))
-MITSU_BACKENDS = mitsu mitsu70x mitsu9550
+MITSU_BACKENDS = mitsu mitsu70x mitsu9550 mitsud90
 MITSU_BACKENDS_O = $(addsuffix .o,$(addprefix backend_,$(MITSU_BACKENDS)))
+
+# Datafiles
+DATAFILES_TGT = $(addprefix datafiles/,$(notdir $(DATAFILES)))
+DATAFILES_TMP = datafiles
 
 # And now the rules!
 .PHONY: clean all install cppcheck
-
-all: $(EXEC_NAME) $(BACKENDS) libraries
+all: $(EXEC_NAME) $(BACKENDS) libraries $(DATAFILES_TMP) $(DATAFILES_TGT)
 
 libraries: $(LIBRARIES)
 #	$(MAKE) -C lib70x $@
@@ -127,39 +135,49 @@ $(EXEC_NAME): $(SOURCES:.c=.o) $(DEPS)
 $(BACKENDS): $(EXEC_NAME)
 	$(LN) -sf $(EXEC_NAME) $@
 
+# Metrics and sanity-checks
 sloccount:
 	sloccount *.[ch] lib*/*.[ch] *.pl
-
-test: dyesub_backend
-	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression.pl regression.csv
-
-test_%: dyesub_backend
-	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression.pl regression.csv $(subst test_,,$@)
-
-testgp: dyesub_backend
-	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv
-
-testgp_%: dyesub_backend
-	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) ./regression-gp.pl regression-gp.csv $(subst testgp_,,$@)
 
 cppcheck:
 	$(CPPCHECK) -q -v --std=c99 --enable=all --suppress=variableScope --suppress=selfAssignment --suppress=unusedStructMember -I. -I/usr/include $(CPPFLAGS) $(SOURCES) $(LIB70X_SOURCES) $(LIBS6145_SOURCES)
 
-install:
+# Test-related stuff
+$(DATAFILES_TMP)/%: hiti_data/%
+	$(LN) -sf ../$< $@
+
+$(DATAFILES_TMP)/%: lib70x/data/%
+	$(LN) -sf ../$< $@
+
+$(DATAFILES_TMP):
+	$(MKDIR) -p datafiles
+
+test: all
+	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) CORRTABLE_PATH=$(DATAFILES_TMP) ./regression.pl regression.csv
+
+test_%: all
+	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) CORRTABLE_PATH=$(DATAFILES_TMP) ./regression.pl regression.csv $(subst test_,,$@)
+
+testgp: all
+	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) CORRTABLE_PATH=$(DATAFILES_TMP) ./regression-gp.pl regression-gp.csv
+
+testgp_%: all
+	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) CORRTABLE_PATH=$(DATAFILES_TMP) ./regression-gp.pl regression-gp.csv $(subst testgp_,,$@)
+
+# Install and cleanup
+
+install: all
 	$(MKDIR) -p $(CUPS_BACKEND_DIR)
 	$(INSTALL) -o root -m 700 $(EXEC_NAME) $(CUPS_BACKEND_DIR)/$(BACKEND_NAME)
 	$(INSTALL) -o root -m 755 $(LIBRARIES) $(LIB_DIR)
 	$(MKDIR) -p $(CUPS_DATA_DIR)/usb
 	$(INSTALL) -o root -m 644 blacklist $(CUPS_DATA_DIR)/usb/net.sf.gimp-print.usb-quirks
 	$(MKDIR) -p $(BACKEND_DATA_DIR)
-	$(INSTALL) -o root -m 644 hiti_data/*bin $(BACKEND_DATA_DIR)
-	$(INSTALL) -o root -m 644 lib70x/data/*raw $(BACKEND_DATA_DIR)
-	$(INSTALL) -o root -m 644 lib70x/data/*lut $(BACKEND_DATA_DIR)
-	$(INSTALL) -o root -m 644 lib70x/data/*cpc $(BACKEND_DATA_DIR)
-	$(INSTALL) -o root -m 644 lib70x/data/*dat $(BACKEND_DATA_DIR)
+	$(INSTALL) -o root -m 644 $(DATAFILES_TMP)/* $(BACKEND_DATA_DIR)
 
 clean:
 	$(RM) $(EXEC_NAME) $(BACKENDS) $(LIBRARIES) $(SOURCES:.c=.o) $(LIBS6145_SOURCES:.c=.o) $(LIB70X_SOURCES:.c=.o)
+	$(RM) -Rf $(DATAFILES_TMP)
 
 release:
 	$(RM) -Rf selphy_print$(REVISION)
