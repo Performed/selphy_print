@@ -74,6 +74,9 @@ MKDIR ?= mkdir
 INSTALL ?= install
 LN ?= ln
 RM ?= rm
+CP ?= cp
+TAR ?= tar
+ZIP ?= zip
 
 # Flags
 CFLAGS += -Wall -Wextra -Wformat-security -funit-at-a-time -g -Og -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE -std=c99 # -Wconversion
@@ -100,6 +103,7 @@ CPPFLAGS += -DUSE_DLOPEN
 LDFLAGS += -ldl
 endif
 
+# Testing verbosity?
 STP_VERBOSE=0
 
 # Linking..
@@ -182,18 +186,18 @@ clean:
 release:
 	$(RM) -Rf selphy_print$(REVISION)
 	$(MKDIR) -p selphy_print$(REVISION)
-	cp -a COPYING README selphy_print$(REVISION)
+	$(CP) -a COPYING README selphy_print$(REVISION)
 ifeq (,$(findstring mingw,$(CC)))
-	cp -a *.c *.h Makefile blacklist lib6145 lib70x hiti_data selphy_print$(REVISION)
-	tar -czvf selphy_print-src$(REVISION).tar.gz selphy_print$(REVISION)
+	$(CP) -a *.c *.h Makefile blacklist lib6145 lib70x hiti_data selphy_print$(REVISION)
+	$(TAR) -czvf selphy_print-src$(REVISION).tar.gz selphy_print$(REVISION)
 else
-	cp -a $(EXEC_NAME) $(LIBRARIES) selphy_print$(REVISION)
-	cp -a $(MINGW_LIBS)/libltdl*.dll $(MINGW_LIBS)/libusb*.dll selphy_print$(REVISION)
+	$(CP) -a $(EXEC_NAME) $(LIBRARIES) selphy_print$(REVISION)
+	$(CP) -a $(MINGW_LIBS)/libltdl*.dll $(MINGW_LIBS)/libusb*.dll selphy_print$(REVISION)
 	$(MKDIR) -p selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
-	cp -a hiti_data lib70x/data/* selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
-	cp -a lib70x/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib70x
-	cp -a lib6145/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib6145
-	zip -r selphy_print-mingw$(REVISION).zip selphy_print$(REVISION)
+	$(CP) -a hiti_data lib70x/data/* selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
+	$(CP) -a lib70x/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib70x
+	$(CP) -a lib6145/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib6145
+	$(CIP) -r selphy_print-mingw$(REVISION).zip selphy_print$(REVISION)
 endif
 	$(RM) -Rf selphy_print$(REVISION)
 
