@@ -52,7 +52,7 @@
 
 */
 
-#define LIB_VERSION "0.8.4"
+#define LIB_VERSION "0.8.5"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -626,7 +626,7 @@ static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
 	dst = data->linebuf_row[offset + 5]; /* Points at start of dst row */
 	v5 = dst + 3 * data->columns; /* Point at end of dst row */
 
-	memcpy(dst, row -(rownum * data->pixel_count), 2 * data->band_pixels);
+	memcpy(dst, row -(rownum * data->pixel_count), sizeof(uint16_t) * data->band_pixels);
 
 	memcpy(dst - 3, dst, 6); /* Fill in dst row head */
 	memcpy(v5, v5 - 3, 6); /* Fill in dst row tail */
@@ -639,7 +639,7 @@ static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
 
 	CImageEffect70_Sharp_CopyLine(data, 0, row, 0);
 	for (i = 0 ; i < 5 ; i++) {
-		memcpy(data->linebuf_line[i], data->linebuf_line[5], 2 * data->linebuf_stride);
+		memcpy(data->linebuf_line[i], data->linebuf_line[5], sizeof(uint16_t) * data->linebuf_stride);
 	}
 	for (i = 1 ; i <= 5 ; i++) {
 		int rownum = data->rows -1;
@@ -806,8 +806,8 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in
 	line_comp[1] = data->cpc->LINEm[cur_row];
 	line_comp[2] = data->cpc->LINEc[cur_row];
 
-#if 0 // XXX experiment
-	/* EK305 and K60 have only Y in their UF table */
+#if 0
+	/* EK305 and K60 have only LINEy in their tables. Copy over to the others! */
 	if (!line_comp[1]) line_comp[1] = line_comp[0];
 	if (!line_comp[2]) line_comp[2] = line_comp[0];
 #endif
@@ -1132,14 +1132,14 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 		return;
 
 	if (in->bytes_per_row >= 0) {
-		data->pixel_count = in->bytes_per_row / 2; // numbers of pixels per input band
+		data->pixel_count = in->bytes_per_row / sizeof(uint16_t); // numbers of pixels per input band
 
-		outstride = out->bytes_per_row / 2; // pixels per dest band
+		outstride = out->bytes_per_row / sizeof(uint16_t); // pixels per dest band
 		inptr = (uint16_t*) in->imgbuf + data->pixel_count * (data->rows - 1); // ie last row of input buffer
 		outptr = (uint16_t*) out->imgbuf + outstride * (data->rows - 1); // last row of output buffer
 	} else {
-		data->pixel_count = in->bytes_per_row / 2;
-		outstride = out->bytes_per_row / 2;
+		data->pixel_count = in->bytes_per_row / sizeof(uint16_t);
+		outstride = out->bytes_per_row / sizeof(uint16_t);
 		inptr = in->imgbuf;
 		outptr = out->imgbuf;
 	}
@@ -1389,7 +1389,7 @@ int send_image_data(struct BandImage *out, void *context,
 					memset(buf, 0, CHUNK_LEN);
 				}
 			}
-			v13 -= out->bytes_per_row / 2;
+			v13 -= out->bytes_per_row / sizeof(uint16_t);
 		}
 		if (count) {
 			if (callback_fn(context, buf, (count + 511) / 512 * 512))
@@ -1507,7 +1507,7 @@ struct mitsu98xx_data {
 	/* @  512 */	uint16_t GNMgm[256];
 	/* @ 1024 */    uint16_t GNMrc[256];
 	/* @ 1536 */    int16_t  sharp[20];   /* Actual format is: u16, u16[9], u16, u16[9] */
-	/* @ 1576 */    double   GammaAdj[3];    /* Assumed to be same order as tables (BGR?) */
+	/* @ 1576 */    double   GammaAdj[3];
 	/* @ 1600 */	struct CP98xx_WMAM WMAM;
 	/* @11920 */	double   sharp_coef[11]; /* 0 is off, 1-10 are the levels.  Default is 5. [4 in settings] */
 	/* @12008 */	int32_t KHStart;
@@ -1746,8 +1746,8 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 		inRowPtr = inImage->imgbuf;
 		outRowPtr = outImage->imgbuf;
 	} else {
-		outRowPtr = (pixelsPerRow * (rows * 2 -2) + outImage->imgbuf);
-		inRowPtr = ((rows -1) * inBytesPerRow + inImage->imgbuf);
+		outRowPtr = outImage->imgbuf + (pixelsPerRow * (rows-1) * sizeof(uint16_t));
+		inRowPtr = inImage->imgbuf + (inBytesPerRow * (rows-1));
 	}
 
 	maxTank = cols * 255;
@@ -1762,7 +1762,9 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 
 	for (row = 0 ; row < rows && gammaAdj0 >= 0.5 ; row++) {
 		double calc3, calc2, calc1, calc0;
-		calc0 = calc1 = calc2 = 0.00000000;
+		double gammaAdjX;
+
+		calc0 = calc1 = calc2 = 0.0;
 
 		for (col = 0, curRowBufOffset = 0 ; col < cols ; col++) {
 			calc2 += inRowPtr[2 + curRowBufOffset];
@@ -1771,12 +1773,13 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 			curRowBufOffset += 3;
 		}
 
-		calc3 = ((maxTank - calc0) + (maxTank - calc2) + (maxTank - calc1)) / (cols * 3);
+		calc3 = ((maxTank - calc0) + (maxTank - calc1) + (maxTank - calc2)) / (cols * 3);
 
-		gammaAdj0 = ((gammaAdj0 + (((calc3 * gammaAdj0) / 255.00000000) * gammaAdj1) / -4095.00000000) * gammaAdj2) / 4095.00000000;
+		gammaAdjX = ((gammaAdj0 + (((calc3 * gammaAdj0) / 255.0) * gammaAdj1) / -4095.0) * gammaAdj2) / 4095.0;
 
+		/* Input and output order are BGR and YMC! */
 		for (col = 0, curRowBufOffset = 0; col < cols ; col++) {
-			outVal = Gamma->GNMby[inRowPtr[curRowBufOffset + 2]] + gammaAdj0 + 0.50000000;
+			outVal = Gamma->GNMby[inRowPtr[curRowBufOffset]] + gammaAdjX + 0.5;
 			if (outVal < 0x1000) {
 				if (outVal < 0) {
 					outRowPtr[curRowBufOffset] = 0;
@@ -1787,7 +1790,7 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 				outRowPtr[curRowBufOffset] = 0xfff;
 			}
 
-			outVal = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]] + gammaAdj0 + 0.50000000;
+			outVal = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]] + gammaAdjX + 0.5;
 			if (outVal < 0x1000) {
 				if (outVal < 0) {
 					outRowPtr[curRowBufOffset + 1] = 0;
@@ -1798,7 +1801,7 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 				outRowPtr[curRowBufOffset + 1] = 0xfff;
 			}
 
-			outVal = Gamma->GNMrc[inRowPtr[curRowBufOffset]] + gammaAdj0 + 0.50000000;
+			outVal = Gamma->GNMrc[inRowPtr[curRowBufOffset + 2]] + gammaAdjX + 0.5;
 			if (outVal < 0x1000) {
 				if (outVal < 0) {
 					outRowPtr[curRowBufOffset + 2] = 0;
@@ -2291,7 +2294,7 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 		     struct BandImage *output,
 		     uint8_t type, int sharpness, int already_reversed)
 {
-	int i;
+	uint32_t i;
 
 	dump_announce();
 
@@ -2354,7 +2357,7 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 	}
 
 	/* Convert to printer's native BE16 */
-	for (i = 0; i < (output->rows * output->cols * 3 / 2) ; i++) {
+	for (i = 0; i < (output->rows * output->cols * 3 / sizeof(uint16_t)) ; i++) {
 		((uint16_t*)output->imgbuf)[i] = cpu_to_be16(((uint16_t*)output->imgbuf)[i]);
 	}
 
