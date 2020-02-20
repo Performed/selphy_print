@@ -129,16 +129,17 @@ struct CColorConv3D {
 };
 
 /* State for image processing algorithm */
+/* Note: pixel data is always ordered YMC! */
 struct CImageEffect70 {
 	uint32_t pad;            // @0
-	  double *ttd_htd_scratch;  // @4/1         // array [(cols+6) * 3], single row, plus padding.  processing buffer from TTD->HTD
+	  double *ttd_htd_scratch;  // @4/1      // array [(cols+6) * 3], single row, plus padding.  processing buffer from TTD->HTD
 	  double *ttd_htd_first; // @8/2         // first pixel of ttd_htd_scratch
 	  double *ttd_htd_last;  // @12/3        // last pixel of ttd_htd_scratch
 	  double *htd_ttdnext;   // @16/4        // array [band_pixels], state from HTD->TTDnext.
-	  double fcc_ymc_scale[3];  // @20/5   // FCC generates, YMC consumes. per-row scaling factor for thermal compensation.
-	uint32_t htd_fcc_scratch[3][128];  // @44/11    // state from HTD->FCC
-	  double fcc_ymc_scratch[3][128];  // @1580/395 // state from FCC->YMC6
-	  double *fcc_rowcomps;  // @4652/1163   // array of [3 * row_count], Per-row/color correction factor?  Used internally by FCC code.
+	  double fcc_ymc_scale[3];  // @20/5     // FCC generates, YMC consumes. per-color scaling factor for thermal compensation.
+	uint32_t htd_fcc_scratch[3][128];  // @44/11    // per-color state from HTD->FCC
+	  double fcc_ymc_scratch[3][128];  // @1580/395 // per-color state from FCC->YMC6
+	  double *fcc_rowcomps;  // @4652/1163   // array of [row_count][3], Per-row/color correction factor?  Used internally by FCC code.
 	uint16_t *linebuf;       // @4656/1164   // array of [11 * sizeof(uint16_t) * linebuf_stride], Historical line buffer
 	uint16_t *linebuf_row[11];  // @4660/1165   // Pointers into rows in line buffer, minus padding!
 	uint16_t *linebuf_line[11]; // @4704/1176   // Pointers to raw rows in line buffer (w/ padding on either side)
@@ -686,8 +687,8 @@ static void CImageEffect70_CalcYMC6(struct CImageEffect70 *data,
 	offset = 0;
 	for ( i = 0; i < data->columns; i++ ) {
 		for ( j = 0; j < 3; j++ ) {
-			/* Per-row scaling * per-bucket scaling * input pixel * uh_factor */
-			double pixel = data->fcc_ymc_scale[j] * data->fcc_ymc_scratch[j][((int)in[offset] >> 9)] * in[offset] * uh_val;
+			/* Processed input pixel * UH factor * per-color scaling * per-bucket scaling */
+			double pixel = in[offset] * uh_val * data->fcc_ymc_scale[j] * data->fcc_ymc_scratch[j][((int)in[offset] >> 9)];
 			if ( pixel > 65535.0)
 				imgdata[offset] = 65535;
 			else if ( pixel < 0.0)
@@ -709,7 +710,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 	/* Figure out where we need to be */
 	row_comp = &data->fcc_rowcomps[3*data->cur_row];
 
-	/* Initialize correction factor for this row based on the
+	/* Initialize correction factors for this row based on the
 	   buckets that CalcHTD handed us */
 	for (j = 0 ; j < 3 ; j++) {
 		row_comp[j] = 127 * data->htd_fcc_scratch[j][127];
@@ -741,7 +742,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 		prev3 = row_comp;
 	}
 
-	/* For each plane in the row, work out the global scaling factor */
+	/* Work out the global color scaling factor for each color in the row */
 	for (i = 0 ; i < 3 ; i++) {
 		double v5;
 		/* Average it out over the number of columns */
@@ -751,7 +752,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 			+ data->fh_prev1 * prev1[i]
 			+ data->fh_prev2 * prev2[i] // XXX this line is '-' in PPC versions, but + in x86.  Investigate WTF is going on.
 			- data->fh_prev3 * prev3[i];
-		/* Different factors for scaling up vs down */
+		/* Positive vs Negative values require different scaling factors */
 		if (v5 >= 0.0) {
 			data->fcc_ymc_scale[i] = v5 / data->fhdiv_up + 1.0;
 		} else {
