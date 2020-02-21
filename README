@@ -81,7 +81,7 @@
    Mitsubishi CP-3020D/DE and CP-3020DA/DAE
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
-   Mitsubishi CP-M1A / CP-M1E
+   Mitsubishi CP-M1A / CP-M1E / CP-M15E
    Olmec OP900
    Shinko CHC-S2245 (aka Sinfonia S3)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
@@ -965,7 +965,7 @@
 
    Work-in-progress printers:
 
-    Mitsubishi CP-M1A / CP-M1E
+    Mitsubishi CP-M1A / CP-M1E / CP-M15E
 
    Unsupported printers (Unknown VID/PID):
 

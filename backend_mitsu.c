@@ -259,4 +259,7 @@ const char *mitsu_media_types(uint8_t brand, uint8_t type)
 	// CK-M57S  (5x7 for M1)
 	// CK-M68S  (6x8 for M1)
 	// CK-M46S  (6x4 for M1)
+	// CK-M15S  (6x4 for M15)
+	// CK-M18S  (5x7 for M15)
+	// CK-M20S  (6x8 for M15)
 }
