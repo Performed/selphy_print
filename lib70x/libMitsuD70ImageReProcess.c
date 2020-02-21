@@ -52,7 +52,7 @@
 
 */
 
-#define LIB_VERSION "0.8.5"
+#define LIB_VERSION "0.8.6"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -135,7 +135,7 @@ struct CImageEffect70 {
 	  double *ttd_htd_scratch;  // @4/1      // array [(cols+6) * 3], single row, plus padding.  processing buffer from TTD->HTD
 	  double *ttd_htd_first; // @8/2         // first pixel of ttd_htd_scratch
 	  double *ttd_htd_last;  // @12/3        // last pixel of ttd_htd_scratch
-	  double *htd_ttdnext;   // @16/4        // array [band_pixels], state from HTD->TTDnext.
+	  double *htd_ttd_next;  // @16/4        // array [band_pixels], state from HTD->TTDnext.
 	  double fcc_ymc_scale[3];  // @20/5     // FCC generates, YMC consumes. per-color scaling factor for thermal compensation.
 	uint32_t htd_fcc_scratch[3][128];  // @44/11    // per-color state from HTD->FCC
 	  double fcc_ymc_scratch[3][128];  // @1580/395 // per-color state from FCC->YMC6
@@ -547,7 +547,7 @@ static void CImageEffect70_InitMidData(struct CImageEffect70 *data)
 	data->ttd_htd_first = NULL;
 	data->ttd_htd_last = NULL;
 	data->ttd_htd_scratch = NULL;
-	data->htd_ttdnext = NULL;
+	data->htd_ttd_next = NULL;
 	data->fcc_rowcomps = NULL;
 	data->linebuf = NULL;
 
@@ -569,8 +569,8 @@ static void CImageEffect70_CreateMidData(struct CImageEffect70 *data)
 	memset(data->ttd_htd_scratch, 0, (sizeof(double) * 3 * (data->columns + 6)));
 	data->ttd_htd_first = data->ttd_htd_scratch + 9;
 	data->ttd_htd_last = data->ttd_htd_first + 3 * (data->columns - 1);
-	data->htd_ttdnext = malloc(sizeof(double) * data->band_pixels);
-	memset(data->htd_ttdnext, 0, (sizeof(double) * data->band_pixels));
+	data->htd_ttd_next = malloc(sizeof(double) * data->band_pixels);
+	memset(data->htd_ttd_next, 0, (sizeof(double) * data->band_pixels));
 	data->fcc_rowcomps = malloc(3 * sizeof(double) * data->rows);
 	memset(data->fcc_rowcomps, 0, (3 * sizeof(double) * data->rows));
 	data->linebuf_stride = data->band_pixels + 6;
@@ -597,9 +597,9 @@ static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 		data->ttd_htd_first = NULL;
 		data->ttd_htd_last = NULL;
 	}
-	if (data->htd_ttdnext) {
-		free(data->htd_ttdnext);
-		data->htd_ttdnext = NULL;
+	if (data->htd_ttd_next) {
+		free(data->htd_ttd_next);
+		data->htd_ttd_next = NULL;
 	}
 	if (data->fcc_rowcomps) {
 		free(data->fcc_rowcomps);
@@ -781,7 +781,7 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
    add in the fixed overhead from LINEy/m/c[]
    cap at 0-65535.
 
-   Also populates htd_ttdnext, which informs the NEXT CalcTTD run what to do.
+   Also populates htd_ttd_next, which informs the NEXT CalcTTD run what to do.
 */
 
 static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in, double *out)
@@ -794,6 +794,7 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in
 
 	hk = data->cpc->HK;
 	first = data->ttd_htd_first;
+	last = data->ttd_htd_last;
 
 	/* Clean out correction buckets */
 	memset(data->htd_fcc_scratch, 0, sizeof(data->htd_fcc_scratch));
@@ -814,7 +815,6 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in
 #endif
 
 	/* Fill in shoulders of the row */
-	last = data->ttd_htd_last;
 	memcpy(first - 9, first, 0x18);   // Copy first pixel to pre-buffer
 	memcpy(first - 6, first, 0x18);
 	memcpy(first - 3, first, 0x18);
@@ -829,7 +829,7 @@ static void CImageEffect70_CalcHTD(struct CImageEffect70 *data, const double *in
 			int v11;
 
 			/* Compute starting point for next TTD row, weighing the adjacent pixels based on the HK factor.. */
-			data->htd_ttdnext[offset] = hk[0] * (first[offset] + first[offset]) +
+			data->htd_ttd_next[offset] = hk[0] * (first[offset] + first[offset]) +
 				hk[1] * (first[offset - 3] + first[offset + 3]) +
 				hk[2] * (first[offset - 6] + first[offset + 6]) +
 				hk[3] * (first[offset - 9] + first[offset + 9]);
@@ -883,7 +883,7 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 		/* Starting point is the carry-over from the previous row minus
 		   the new pixel */
 		input = in[i];
-		v7 = data->htd_ttdnext[i] - input;
+		v7 = data->htd_ttd_next[i] - input;
 		v29 = v7;
 		if (v29 >= 0) {
 			int v31 = 127;
@@ -935,7 +935,7 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 		out[i] = input - v6 * os_comp + k_comp + sharp_comp;
 
 		/* Work out the state for HTD operation */
-		v4 = data->htd_ttdnext[i] - out[i];
+		v4 = data->htd_ttd_next[i] - out[i];
 		v29 = v4;
 		if ( v29 >= 0 ) {
 			int v19 = 127;
@@ -1139,7 +1139,7 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 		inptr = (uint16_t*) in->imgbuf + data->pixel_count * (data->rows - 1); // ie last row of input buffer
 		outptr = (uint16_t*) out->imgbuf + outstride * (data->rows - 1); // last row of output buffer
 	} else {
-		data->pixel_count = in->bytes_per_row / sizeof(uint16_t);
+		data->pixel_count = -in->bytes_per_row / sizeof(uint16_t);
 		outstride = out->bytes_per_row / sizeof(uint16_t);
 		inptr = in->imgbuf;
 		outptr = out->imgbuf;
@@ -1159,7 +1159,7 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 	offset = 0;
 	for(j = 0; j < data->columns ; j++) {
 		for (i = 0 ; i < 3 ; i++) {
-			data->ttd_htd_scratch[offset++] = maxval[i];
+			data->htd_ttd_next[offset++] = maxval[i];
 		}
 	}
 
