@@ -193,7 +193,7 @@ struct CPCData {
 	/* Used by roller mark correction (K60/D80/EK305) -- Unused! */
 	uint32_t ROLK[13];       // @42084
 	/* Used by reverse/skip logic (K60/D80/EK305) */
-	 int32_t REV[76];        // @42136 // ACtually int32_t[4][19]
+	 int32_t REV[76];        // @42136 // Actually int32_t[4][19]
 	                         // @42440
 };
 
@@ -1004,7 +1004,6 @@ static void CImageEffect70_CalcSA(struct BandImage *img,
 	ptr = buf - start_row * stride;
 	for ( row = start_row ; row < rows ; row++ ) {
 		int16_t *v18 = ptr + 3 * start_col;
-		col = start_col;
 		for ( col = start_col ; col < cols ; col++) {
 			out[0] += (revX <= v18[0]);
 			out[1] += (revX <= v18[1]);
@@ -1026,6 +1025,7 @@ static int CImageEffect70_JudgeReverseSkipRibbon_int(struct BandImage *img,
 	rows = img->rows - img->origin_rows;
 	cols = img->cols - img->origin_cols;
 
+	/* Input rectangles: start_col, start_row, cols, rows */
 	int32_t v16[4] = { REV[0], REV[2], REV[1], rows };
 	int32_t v20[4] = { REV[1], 0, cols, rows };
 	int32_t v24[4] = { 0, 0, REV[0], rows };
@@ -1155,7 +1155,7 @@ static void CImageEffect70_DoConv(struct CImageEffect70 *data,
 	maxval[1] = cpc->GNMgm[255];
 	maxval[2] = cpc->GNMrc[255];
 
-	/* Initialize ttd_htd structures */
+	/* Initialize ttd_next structures */
 	offset = 0;
 	for(j = 0; j < data->columns ; j++) {
 		for (i = 0 ; i < 3 ; i++) {
