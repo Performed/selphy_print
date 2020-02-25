@@ -778,10 +778,15 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	return CUPS_BACKEND_OK;
 }
 
+struct M1CPCData;
 static int M1_calc_rgbrate(uint16_t rows, uint16_t cols, uint8_t *data);
 static uint8_t M1_calc_oprate_gloss(uint16_t rows, uint16_t cols);
 static uint8_t M1_calc_oprate_matte(uint16_t rows, uint16_t cols, uint8_t *data);
 static int cpm1_fillmatte(struct mitsud90_printjob *job);
+static struct M1CPCData *get_M1CPCData(const char *filename,
+				       const char *gammafilename);
+static void M1_gamma8to14(const struct M1CPCData *cpc,
+			  const struct BandImage *in, struct BandImage *out);
 
 static int mitsud90_main_loop(void *vctx, const void *vjob) {
 	struct mitsud90_ctx *ctx = vctx;
@@ -803,6 +808,7 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 	if (ctx->type == P_MITSU_M1) {
 		struct BandImage input;
 		struct BandImage output;
+		struct M1CPCData *cpc;
 
 		input.origin_rows = input.origin_cols = 0;
 		input.rows = be16_to_cpu(job->hdr.rows);
@@ -823,16 +829,22 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		output.bytes_per_row = output.cols * 3 * sizeof(uint16_t);
 
 		job->hdr.rgbrate = M1_calc_rgbrate(input.rows,
-					      input.cols,
-					      input.imgbuf);
+						   input.cols,
+						   input.imgbuf);
 		// XXX
-		// ** CBGRtoRGB
-		// ** CContrastConv
+		// ** CBGRtoRGB (not necessary...)
+		// ** CContrastConv (?)
 		// Compute RGBRate, OPRate (already done..)
 		// CColorConv3D  (already done earlier)
-		// read CPC+gamma table based on... ?
-		// ** CGammaConv8to14 (uses gamma table..)
-		// ** CLocalEnhancer (uses "CPC" data)
+		const char *fname = CPM1_CPC_G1_FNAME;  // Appears to be fixed..?
+// XXX		const char *fname = CPM1_CPC_G5_FNAME;  // Figure out how to tell
+		cpc = get_M1CPCData(fname, CPM1_CPC_FNAME);
+		if (!cpc) {
+			ERROR("Cannot read data tables\n");
+			return CUPS_BACKEND_FAILED;
+		}
+		M1_gamma8to14(cpc, &input, &output);
+		// ** CLocalEnhancer (uses "CPC" data) <-- only if SHARPEN enabled!
 
 		free(job->databuf);
 		job->databuf = convbuf;
@@ -1720,6 +1732,33 @@ struct M1CPCData {
 	uint16_t HighTH[M1CPCDATA_ROWS];       // Fixed @800
 	double   HighG[M1CPCDATA_ROWS];        // Fixed @0.1
 };
+
+/* Do the 8bpp->14bpp gamma conversion */
+static void M1_gamma8to14(const struct M1CPCData *cpc,
+			  const struct BandImage *in, struct BandImage *out)
+{
+	int rows, cols, row, col;
+	const uint8_t *inp;
+	uint16_t *outp;
+
+	rows = in->rows - in->origin_rows;
+	cols = in->cols - in->origin_cols;
+
+	inp = in->imgbuf;
+	outp = (uint16_t*) out->imgbuf;
+
+	for (row = 0 ; row < rows ; rows ++) {
+		for (col = 0 ; col < cols * 3 ; col+=3) {
+			outp[col] = cpc->GNMaB[inp[col]]; /* B */
+			outp[col+1] = cpc->GNMaG[inp[col+1]]; /* G */
+			outp[col+2] = cpc->GNMaR[inp[col+2]]; /* R */
+		}
+
+		inp += in->bytes_per_row;
+		outp += out->bytes_per_row / 2;
+	}
+}
+
 
 /* Note return value of this function needs to be multiplied by 2. */
 static uint8_t M1_calc_oprate_gloss(uint16_t rows, uint16_t cols)
