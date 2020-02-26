@@ -177,7 +177,7 @@ struct mitsud90_job_hdr {
 	uint8_t  zero_b[5];
 	union {
 		struct {
-			uint16_t pano_on;   /* 0x0001 when pano is on, or always 0x000a on M1  */
+			uint16_t pano_on;   /* 0x0001 when pano is on, or always 0x0002 on M1  */
 			uint8_t  pano_tot;  /* 2 or 3 */
 			uint8_t  pano_pg;   /* 1, 2, 3 */
 			uint16_t pano_rows; /* always 0x097c (BE), ie 2428 ie 8" print */
@@ -185,7 +185,7 @@ struct mitsud90_job_hdr {
 			uint16_t pano_zero; /* 0x0000 */
 			uint8_t  pano_unk[6];  /* 02 58 00 0c 00 06 */
 		} pano __attribute__((packed));
-		uint8_t zero_c[16]; /* 02 00 00.. for M1 */
+		uint8_t zero_c[16];
 	};
 	uint8_t zero_d[7];
 /*@x51*/uint8_t rgbrate;  /* M1 only, see below */
@@ -760,15 +760,14 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	}
 
 	/* Sanity check */
-	if (job->hdr.pano.pano_on) {
+	if (job->hdr.pano.pano_on && ctx->type != P_MITSU_M1) {
 		ERROR("Unable to handle panorama jobs yet\n");
 		mitsud90_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* CP-M1 has... other considerations */
-	if (ctx->type == P_MITSU_M1) {
-		// XXX job->is_raw
+	if (ctx->type == P_MITSU_M1 && !job->is_raw) {
 		int ret = mitsu_apply3dlut(&ctx->lib, CPM1_LUT_FNAME,
 					   job->databuf,
 					   be16_to_cpu(job->hdr.cols),
