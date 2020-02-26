@@ -175,20 +175,19 @@ struct mitsud90_job_hdr {
 	uint8_t  sharp_h;   /* Always 0 on M1 */
 	uint8_t  sharp_v;   /* Always 0 on M1 */
 	uint8_t  zero_b[5];
-	union {
-		struct {
-			uint16_t pano_on;   /* 0x0001 when pano is on, or always 0x0002 on M1  */
-			uint8_t  pano_tot;  /* 2 or 3 */
-			uint8_t  pano_pg;   /* 1, 2, 3 */
-			uint16_t pano_rows; /* always 0x097c (BE), ie 2428 ie 8" print */
-			uint16_t pano_rows2; /* Always 0x30 less than pano_rows */
-			uint16_t pano_zero; /* 0x0000 */
-			uint8_t  pano_unk[6];  /* 02 58 00 0c 00 06 */
-		} pano __attribute__((packed));
-		uint8_t zero_c[16];
-	};
-	uint8_t zero_d[7];
-/*@x51*/uint8_t rgbrate;  /* M1 only, see below */
+	struct {
+		uint16_t pano_on;   /* 0x0001 when pano is on, or always 0x0002 on M1  */
+		uint8_t  pano_tot;  /* 2 or 3 */
+		uint8_t  pano_pg;   /* 1, 2, 3 */
+		uint16_t pano_rows; /* always 0x097c (BE), ie 2428 ie 8" print */
+		uint16_t pano_rows2; /* Always 0x30 less than pano_rows */
+		uint16_t pano_zero; /* 0x0000 */
+		uint16_t pano_overlap; /* always 0x0258, ie 600 or 2 inches */
+		uint8_t  pano_unk[4];  /* 00 0c 00 06 */
+	} pano __attribute__((packed));
+	uint8_t zero_c[6];
+/*@x50*/uint8_t zero_d;
+	uint8_t rgbrate;  /* M1 only, see below */
 	uint8_t oprate;   /* M1 only, see below */
 	uint8_t zero_fill[429];
 } __attribute__((packed));
@@ -203,7 +202,7 @@ struct mitsud90_plane_hdr {
 	uint16_t lamcols; /* BE (M1 only, OC=3) should be cols+origin_cols */
 	uint16_t lamrows; /* BE (M1 only, OC=3) should be rows+origin_rows+12 */
 	uint8_t  zero_b[8]; // XXX extend to indicate M1 pre-processed vs not..?
-	uint8_t  unk_m1[8]; /* 07 e4 02 19 xx xx xx..  always incrementing. timestamp? Only seen under Windows! */
+	uint8_t  unk_m1[8]; /* 07 e4 02 19 xx xx xx 00 always incrementing. timestamp? Only seen from win-generated jobs? */
 	uint8_t  zero_fill[472];
 } __attribute__((packed));
 
