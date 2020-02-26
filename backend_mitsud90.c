@@ -40,7 +40,6 @@
 #define CPM1_CPC_G5_FNAME "CPM1_G5.csv"
 #define CPM1_LUT_FNAME "CPM1_NL.lut"
 
-
 /* Printer data structures */
 #define D90_STATUS_TYPE_MODEL  0x01 // 10, null-terminated ASCII. 'CPD90D'
 #define D90_STATUS_TYPE_x02    0x02 // 1, 0x5f ?
@@ -143,14 +142,14 @@ struct mitsud90_info_resp {
 struct mitsud90_job_query {
 	uint8_t  hdr[4];  /* 1b 47 44 31 */
 	uint16_t jobid;   /* BE */
-};
+} __attribute__((packed));
 
 struct mitsud90_job_resp {
 	uint8_t  hdr[4];  /* e4 47 44 31 */
 	uint8_t  unk1;
 	uint8_t  unk2;
 	uint16_t unk3;
-};
+} __attribute__((packed));
 
 struct mitsud90_job_hdr {
 	uint8_t  hdr[6]; /* 1b 53 50 30 00 33 */
@@ -186,13 +185,12 @@ struct mitsud90_job_hdr {
 			uint16_t pano_zero; /* 0x0000 */
 			uint8_t  pano_unk[6];  /* 02 58 00 0c 00 06 */
 		} pano __attribute__((packed));
-		uint8_t zero_c[16];
+		uint8_t zero_c[16]; /* 02 00 00.. for M1 */
 	};
-	uint8_t zero_d[6];
-	uint8_t zero_e[17];
-	uint8_t rgbrate;  /* M1 only, see below */
+	uint8_t zero_d[7];
+/*@x51*/uint8_t rgbrate;  /* M1 only, see below */
 	uint8_t oprate;   /* M1 only, see below */
-	uint8_t zero_fill[413];
+	uint8_t zero_fill[429];
 } __attribute__((packed));
 
 struct mitsud90_plane_hdr {
@@ -204,14 +202,16 @@ struct mitsud90_plane_hdr {
 	uint8_t  zero_a[6];
 	uint16_t lamcols; /* BE (M1 only, OC=3) should be cols+origin_cols */
 	uint16_t lamrows; /* BE (M1 only, OC=3) should be rows+origin_rows+12 */
-	uint8_t  zero_fill[488];
-};
+	uint8_t  zero_b[8]; // XXX extend to indicate M1 pre-processed vs not..?
+	uint8_t  unk_m1[8]; /* 07 e4 02 19 xx xx xx..  always incrementing. timestamp? Only seen under Windows! */
+	uint8_t  zero_fill[472];
+} __attribute__((packed));
 
 struct mitsud90_job_footer {
 	uint8_t hdr[4]; /* 1b 42 51 31 */
 	uint8_t pad;
-	uint8_t seconds; /* 0x05 by default (windows) */
-};
+	uint8_t seconds; /* 0x05 by default (windows), 0xff means don't wait */
+} __attribute__((packed));
 
 struct mitsud90_memcheck {
 	uint8_t  hdr[4]; /* 1b 47 44 33 */
@@ -220,13 +220,13 @@ struct mitsud90_memcheck {
 	uint16_t rows;   /* BE */
 	uint8_t  unk_b[4]; /* 64 00 00 01  */
 	uint8_t  zero_fill[498];
-};
+} __attribute__((packed));
 
 struct mitsud90_memcheck_resp {
 	uint8_t  hdr[4];   /* e4 47 44 43 */
 	uint8_t  size_bad; /* 0x00 is ok */
 	uint8_t  mem_bad;  /* 0x00 is ok */
-};
+} __attribute__((packed));
 
 const char *mitsud90_mecha_statuses(const uint8_t *code)
 {
@@ -429,6 +429,8 @@ struct mitsud90_printjob {
 
 	uint8_t *databuf;
 	uint32_t datalen;
+
+	int is_raw;
 
 	struct mitsud90_job_hdr hdr;
 };
@@ -644,6 +646,10 @@ static void mitsud90_cleanup_job(const void *vjob)
 	free((void*)job);
 }
 
+/* Sanity check some stuff */
+STATIC_ASSERT(sizeof(struct mitsud90_job_hdr) == 512);
+STATIC_ASSERT(sizeof(struct mitsud90_plane_hdr) == 512);
+
 static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct mitsud90_ctx *ctx = vctx;
 	int i, remain;
@@ -762,6 +768,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 
 	/* CP-M1 has... other considerations */
 	if (ctx->type == P_MITSU_M1) {
+		// XXX job->is_raw
 		int ret = mitsu_apply3dlut(&ctx->lib, CPM1_LUT_FNAME,
 					   job->databuf,
 					   be16_to_cpu(job->hdr.cols),
@@ -805,7 +812,7 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		return CUPS_BACKEND_FAILED;
 	copies = job->copies;
 
-	if (ctx->type == P_MITSU_M1) {
+	if (ctx->type == P_MITSU_M1 && !job->is_raw) {
 		struct BandImage input;
 		struct BandImage output;
 		struct M1CPCData *cpc;
@@ -813,10 +820,11 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		input.origin_rows = input.origin_cols = 0;
 		input.rows = be16_to_cpu(job->hdr.rows);
 		input.cols = be16_to_cpu(job->hdr.cols);
-		input.imgbuf = job->databuf;
+		input.imgbuf = job->databuf + sizeof(struct mitsud90_plane_hdr);
 		input.bytes_per_row = input.cols * 3;
 
-		uint8_t *convbuf = malloc(input.rows * input.cols * sizeof(uint16_t) * (job->hdr.overcoat ? 3 : 4));
+		/* Allocate new buffer, with extra room for header and footer */
+		uint8_t *convbuf = malloc(input.rows * input.cols * sizeof(uint16_t) * (job->hdr.overcoat ? 3 : 4) + sizeof(struct mitsud90_plane_hdr) + sizeof(struct mitsud90_job_footer));
 		if (!convbuf) {
 			ERROR("Memory allocation Failure!\n");
 			return CUPS_BACKEND_RETRY_CURRENT;
@@ -825,8 +833,11 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		output.origin_rows = output.origin_cols = 0;
 		output.rows = input.rows;
 		output.cols = input.cols;
-		output.imgbuf = convbuf;
+		output.imgbuf = convbuf + sizeof(struct mitsud90_plane_hdr);
 		output.bytes_per_row = output.cols * 3 * sizeof(uint16_t);
+
+		/* Copy over the plane header */
+		memcpy(convbuf, job->databuf, sizeof(struct mitsud90_plane_hdr));
 
 		job->hdr.rgbrate = M1_calc_rgbrate(input.rows,
 						   input.cols,
@@ -836,15 +847,23 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		// ** CContrastConv (?)
 		// Compute RGBRate, OPRate (already done..)
 		// CColorConv3D  (already done earlier)
-		const char *fname = CPM1_CPC_G1_FNAME;  // Appears to be fixed..?
-// XXX		const char *fname = CPM1_CPC_G5_FNAME;  // Figure out how to tell
+		const char *fname = CPM1_CPC_G1_FNAME;
+		// XXX CPC_G5_FNAME is never used in mitsu driver?  ??
 		cpc = get_M1CPCData(fname, CPM1_CPC_FNAME);
 		if (!cpc) {
 			ERROR("Cannot read data tables\n");
 			return CUPS_BACKEND_FAILED;
 		}
+
 		M1_gamma8to14(cpc, &input, &output);
-		// ** CLocalEnhancer (uses "CPC" data) <-- only if SHARPEN enabled!
+		if (job->hdr.sharp_h) {  /* XXX 0 is off, 1-7 corresponds to level 0-6 */
+			// ** CLocalEnhancer (uses "CPC" data)
+			job->hdr.sharp_h = 0;
+		}
+
+		/* Copy off the footer */
+		struct mitsud90_job_footer footer;
+		memcpy(&footer, job->databuf + job->datalen - sizeof(footer), sizeof(footer));
 
 		free(job->databuf);
 		job->databuf = convbuf;
@@ -863,8 +882,9 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			job->hdr.oprate = 2 * M1_calc_oprate_gloss(output.rows,
 								   output.cols);
 		}
-
-		free (convbuf);
+		/* Copy over job footer */
+		memcpy(job->databuf + job->datalen, &footer, sizeof(footer));
+		job->datalen += sizeof(footer);
 	}
 	INFO("Waiting for printer idle...\n");
 
@@ -1438,7 +1458,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90DW",
-	.version = "0.18"  " (lib " LIBMITSU_VER ")",
+	.version = "0.19"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
@@ -1471,10 +1491,11 @@ struct dyesub_backend mitsud90_backend = {
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  MM == 0 for no margin cut, 1 for margin cut
    QQ RR SS HH VV 00 00 00  00 00 ZZ 00 03 II 09 7c  QQ == 02 matte (D90) or 03 (M1), 00 glossy,
    09 4c 00 00 02 58 00 0c  00 06 00 00 00 00 00 00  RR == 00 auto, 03 == fine, 02 == superfine.
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  SS == 00 colorcorr, 01 == none (always 01 on M1)
-   00 Z1 Z2 00 00 00 00 00                           HH/VV sharpening for Horiz/Vert, 0-8, 0 is off, 4 is normal (always 00 on M1)
+   Z0 Z1 Z2 00 00 00 00 00  00 00 00 00 00 00 00 00  SS == 00 colorcorr, 01 == none (always 01 on M1)
+                                                     HH/VV sharpening for Horiz/Vert, 0-8, 0 is off, 4 is normal (always 00 on M1)
                                                      TT is waittime (100 max, always 100 on D90)
-						     ZZ is 0a on M1, D90 see below
+						     ZZ is 0x02 on M1, D90 see below
+						     Z0 is 0x01 (M1 windows) (00 Linux. UNK!)
 						     Z1 is RGB Rate (M1)
 						     Z2 is OP Rate (M1)
   [pad to 512b]
@@ -1712,7 +1733,7 @@ Comms Protocol for D90 & CP-M1
 
 /* XXX XXX XXX  CP-M1 series stuff */
 #define M1CPCDATA_GAMMA_ROWS 256
-#define M1CPCDATA_ROWS 7
+#define M1CPCDATA_ROWS 7 /* Correlates to sharpening levels */
 
 struct M1CPCData {
 	uint16_t GNMaB[M1CPCDATA_GAMMA_ROWS];
@@ -1726,7 +1747,7 @@ struct M1CPCData {
 	uint8_t  NRK[M1CPCDATA_ROWS];          // fixed @1
 	uint8_t  HDEnhGain[M1CPCDATA_ROWS];    // Varies!
 	uint8_t  EnhDarkGain[M1CPCDATA_ROWS];  // Fixed @0
-	uint8_t  DictArea[M1CPCDATA_ROWS];     // Fixed @1
+	uint8_t  DtctArea[M1CPCDATA_ROWS];     // Fixed @1
 	uint8_t  CorCol[M1CPCDATA_ROWS];       // Fixed @2
 	uint8_t  HighDownMode[M1CPCDATA_ROWS]; // Fixed @1
 	uint16_t HighTH[M1CPCDATA_ROWS];       // Fixed @800
@@ -1916,7 +1937,7 @@ static struct M1CPCData *get_M1CPCData(const char *filename,
 		ptr = strtok(NULL, delim);
 		if (!ptr)
 			goto abort;
-		data->DictArea[line] = strtol(ptr, NULL, 10);
+		data->DtctArea[line] = strtol(ptr, NULL, 10);
 		ptr = strtok(NULL, delim);
 		if (!ptr)
 			goto abort;
