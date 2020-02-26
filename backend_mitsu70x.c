@@ -320,6 +320,8 @@ struct mitsu70x_hdr {
 	uint8_t  pad[447];
 } __attribute__((packed));
 
+STATIC_ASSERT(sizeof(struct mitsu70x_hdr) == 512);
+
 static int mitsu70x_get_printerstatus(struct mitsu70x_ctx *ctx, struct mitsu70x_printerstatus_resp *resp);
 static int mitsu70x_main_loop(void *vctx, const void *vjob);
 
