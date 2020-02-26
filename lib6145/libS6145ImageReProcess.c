@@ -224,46 +224,17 @@ static void LeadEdgeCorrection(void);
 
 //-------------------------------------------------------------------------
 // Endian Manipulation macros
-
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le64_to_cpu(__x) __x
 #define le32_to_cpu(__x) __x
 #define le16_to_cpu(__x) __x
-#define be16_to_cpu(__x) ((uint16_t)(			\
-	(((uint16_t)(__x) & (uint16_t)0x00ff) <<  8) |  \
-	(((uint16_t)(__x) & (uint16_t)0xff00) >>  8) ))
-#define be32_to_cpu(__x) ((uint32_t)(			     \
-	(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-	(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-	(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-	(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) ))
-#define be64_to_cpu(__x) ((uint64_t)(                         \
-        (((uint64_t)(__x) & (uint64_t)0x00000000000000ffULL) << 56) |   \
-        (((uint64_t)(__x) & (uint64_t)0x000000000000ff00ULL) << 40) |   \
-        (((uint64_t)(__x) & (uint64_t)0x0000000000ff0000ULL) << 24) |   \
-        (((uint64_t)(__x) & (uint64_t)0x00000000ff000000ULL) <<  8) |   \
-        (((uint64_t)(__x) & (uint64_t)0x000000ff00000000ULL) >>  8) |   \
-        (((uint64_t)(__x) & (uint64_t)0x0000ff0000000000ULL) >> 24) |   \
-        (((uint64_t)(__x) & (uint64_t)0x00ff000000000000ULL) >> 40) |   \
-        (((uint64_t)(__x) & (uint64_t)0xff00000000000000ULL) >> 56) ))
+#define be16_to_cpu(__x) __builtin_bswap16(__x)
+#define be32_to_cpu(__x) __builtin_bswap32(__x)
+#define be64_to_cpu(__x) __builtin_bswap64(__x)
 #else
-#define le16_to_cpu(__x) ((uint16_t)(			\
-	(((uint16_t)(__x) & (uint16_t)0x00ff) <<  8) |  \
-	(((uint16_t)(__x) & (uint16_t)0xff00) >>  8) ))
-#define le32_to_cpu(__x) ((uint32_t)(			     \
-	(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-	(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-	(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-	(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) ))
-#define le64_to_cpu(__x) ((uint64_t)(                         \
-        (((uint64_t)(__x) & (uint64_t)0x00000000000000ffULL) << 56) |   \
-        (((uint64_t)(__x) & (uint64_t)0x000000000000ff00ULL) << 40) |   \
-        (((uint64_t)(__x) & (uint64_t)0x0000000000ff0000ULL) << 24) |   \
-        (((uint64_t)(__x) & (uint64_t)0x00000000ff000000ULL) <<  8) |   \
-        (((uint64_t)(__x) & (uint64_t)0x000000ff00000000ULL) >>  8) |   \
-        (((uint64_t)(__x) & (uint64_t)0x0000ff0000000000ULL) >> 24) |   \
-        (((uint64_t)(__x) & (uint64_t)0x00ff000000000000ULL) >> 40) |   \
-        (((uint64_t)(__x) & (uint64_t)0xff00000000000000ULL) >> 56)))
+#define le16_to_cpu(__x) __builtin_bswap16(__x)
+#define le32_to_cpu(__x) __builtin_bswap32(__x)
+#define le64_to_cpu(__x) __builtin_bswap64(__x)
 #define be64_to_cpu(__x) __x
 #define be32_to_cpu(__x) __x
 #define be16_to_cpu(__x) __x
