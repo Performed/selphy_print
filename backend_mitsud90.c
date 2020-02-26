@@ -186,7 +186,7 @@ struct mitsud90_job_hdr {
 		uint8_t  pano_unk[4];  /* 00 0c 00 06 */
 	} pano __attribute__((packed));
 	uint8_t zero_c[6];
-/*@x50*/uint8_t zero_d;
+/*@x50*/uint8_t unk_m1;   /* 00 on d90 & m1 Linux, 01 on m1 (windows) */
 	uint8_t rgbrate;  /* M1 only, see below */
 	uint8_t oprate;   /* M1 only, see below */
 	uint8_t zero_fill[429];
@@ -771,7 +771,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 					   job->databuf,
 					   be16_to_cpu(job->hdr.cols),
 					   be16_to_cpu(job->hdr.rows),
-					   be16_to_cpu(job->hdr.cols) * 3, COLORCONV_BGR);
+					   be16_to_cpu(job->hdr.cols) * 3, COLORCONV_RGB);
 		if (ret) {
 			mitsud90_cleanup_job(job);
 			return ret;
@@ -858,6 +858,15 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			// ** CLocalEnhancer (uses "CPC" data)
 			job->hdr.sharp_h = 0;
 		}
+
+#if (__BYTE_ORDER == __BIG_ENDIAN)
+		/* Convert data to LITTLE ENDIAN if needed */
+		int i;
+		uint16_t *ptr = output.imgbuf;
+		for (i = 0; i < output.rows * output.cols ; i ++) {
+			ptr[i] = cpu_to_le16(i);
+		}
+#endif
 
 		/* Copy off the footer */
 		struct mitsud90_job_footer footer;
@@ -1493,7 +1502,7 @@ struct dyesub_backend mitsud90_backend = {
                                                      HH/VV sharpening for Horiz/Vert, 0-8, 0 is off, 4 is normal (always 00 on M1)
                                                      TT is waittime (100 max, always 100 on D90)
 						     ZZ is 0x02 on M1, D90 see below
-						     Z0 is 0x01 (M1 windows) (00 Linux. UNK!)
+						     Z0 is 0x01 (M1 windows) (00 Linux and d90 UNK!)
 						     Z1 is RGB Rate (M1)
 						     Z2 is OP Rate (M1)
   [pad to 512b]
@@ -1524,11 +1533,21 @@ struct dyesub_backend mitsud90_backend = {
 
  [[DATA PLANE HEADER]]
 
-   1b 5a 54 01 00 09 00 00  00 00 XX XX YY YY 00 00
+   1b 5a 54 01 00 09 00 00  00 00 CC CC RR RR 00 00
+   00 00 00 00 LC LC LR LR
    ...
    [pad to 512b]
 
-    data, RGB packed, 8bpp.  No padding to 512b!
+   CC CC cols (BE)
+   RR RR rows (BE)
+   LC LC lamination columns (BE, M1 only, same as cols)
+   LR LR lamination rows (BE, M1 only, rows + 12d )
+
+   D90 family:
+    data is *RGB* packed, @ 8bpp.  No padding to 512b!
+   M1 family:
+    data is *RGB* packed, @16bpp, LITTLE ENDIAN.  No padding to 512b!
+    optional matte data is 8bpp, follows immediately.
 
  [[FOOTER]]
 
