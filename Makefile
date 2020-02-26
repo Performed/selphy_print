@@ -78,6 +78,14 @@ CP ?= cp
 TAR ?= tar
 ZIP ?= zip
 
+# Try and pretty things up a bit.
+Q=@
+E=echo
+ifeq ($(V), 1)
+Q=
+E=true
+endif
+
 # Flags
 CFLAGS += -Wall -Wextra -Wformat-security -funit-at-a-time -g -Og -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE -std=c99 # -Wconversion
 LDFLAGS += $(shell pkg-config --libs libusb-1.0)
@@ -131,13 +139,16 @@ libraries: $(LIBRARIES)
 #	$(MAKE) -C lib70x $@
 
 %.o: %.c $(DEPS)
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+	@$(E) "      CC  " $@
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 $(EXEC_NAME): $(SOURCES:.c=.o) $(DEPS)
-	$(CC) -o $@ $(SOURCES:.c=.o) $(LDFLAGS)
+	@$(E) "    CCLD  " $@
+	$(Q)$(CC) -o $@ $(SOURCES:.c=.o) $(LDFLAGS)
 
 $(BACKENDS): $(EXEC_NAME)
-	$(LN) -sf $(EXEC_NAME) $@
+	@$(E) "      LN  " $@
+	$(Q)$(LN) -sf $(EXEC_NAME) $@
 
 # Metrics and sanity-checks
 sloccount:
@@ -148,13 +159,16 @@ cppcheck:
 
 # Test-related stuff
 $(DATAFILES_TMP)/%: hiti_data/%
-	$(LN) -sf ../$< $@
+	@$(E) "      LN  " $@
+	$(Q)$(LN) -sf ../$< $@
 
 $(DATAFILES_TMP)/%: lib70x/data/%
-	$(LN) -sf ../$< $@
+	@$(E) "      LN  " $@
+	$(Q)$(LN) -sf ../$< $@
 
 $(DATAFILES_TMP):
-	$(MKDIR) -p datafiles
+	@$(E) "   MKDIR  " $@
+	$(Q)$(MKDIR) -p datafiles
 
 test: all
 	LD_LIBRARY_PATH=lib70x:lib6145:$(LD_LIBRARY_PATH) STP_VERBOSE=$(STP_VERBOSE) STP_PARALLEL=$(CPUS) CORRTABLE_PATH=$(DATAFILES_TMP) ./regression.pl regression.csv
@@ -180,8 +194,9 @@ install: all
 	$(INSTALL) -o root -m 644 $(DATAFILES_TMP)/* $(BACKEND_DATA_DIR)
 
 clean:
-	$(RM) $(EXEC_NAME) $(BACKENDS) $(LIBRARIES) $(SOURCES:.c=.o) $(LIBS6145_SOURCES:.c=.o) $(LIB70X_SOURCES:.c=.o)
-	$(RM) -Rf $(DATAFILES_TMP)
+	@$(E) "   CLEAN  " all
+	$(Q)$(RM) $(EXEC_NAME) $(BACKENDS) $(LIBRARIES) $(SOURCES:.c=.o) $(LIBS6145_SOURCES:.c=.o) $(LIB70X_SOURCES:.c=.o)
+	$(Q)$(RM) -Rf $(DATAFILES_TMP)
 
 release:
 	$(RM) -Rf selphy_print$(REVISION)
@@ -209,7 +224,9 @@ $(MITSU_BACKENDS_O): backend_mitsu.h
 %.$(LIB_SUFFIX): CFLAGS += -fPIC --no-strict-overflow
 
 $(LIB70X_NAME):  $(LIB70X_SOURCES:.c=.o)
-	$(CC) $(LIBLDFLAGS) -o $@ $^
+	@$(E) "    CCLD  " $@
+	$(Q)$(CC) $(LIBLDFLAGS) -o $@ $^
 
 $(LIBS6145_NAME):  $(LIBS6145_SOURCES:.c=.o)
-	$(CC) $(LIBLDFLAGS) -o $@ $^
+	@$(E) "    CCLD  " $@
+	$(Q)$(CC) $(LIBLDFLAGS) -o $@ $^
