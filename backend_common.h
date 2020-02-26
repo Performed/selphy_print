@@ -109,6 +109,9 @@
 /* To cheat the compiler */
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
+/* Compile-time assertions */
+#define STATIC_ASSERT(test_for_true) _Static_assert((test_for_true), "(" #test_for_true ") failed")
+
 /* IEEE1284 ID processing */
 struct deviceid_dict {
 	char *key;
