@@ -302,15 +302,14 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	    ctx->type == P_MITSU_9810)
 		ctx->is_98xx = 1;
 
-	if (!ctx->is_98xx) goto skip;
+	if (ctx->is_98xx) {
 #if defined(WITH_DYNAMIC)
-	/* Attempt to open the library */
-	if (mitsu_loadlib(&ctx->lib, ctx->type))
-		return CUPS_BACKEND_FAILED;
-#else
-	WARNING("Dynamic library support not enabled, will be unable to print.");
+		/* Attempt to open the library */
+		if (mitsu_loadlib(&ctx->lib, ctx->type))
 #endif
-skip:
+			WARNING("Dynamic library support not loaded, will be unable to print.");
+	}
+
 	if (test_mode < TEST_MODE_NOATTACH) {
 		if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
 			return CUPS_BACKEND_FAILED;
@@ -457,6 +456,13 @@ hdr_done:
 	/* Read in CP98xx data tables if necessary */
 	if (ctx->is_98xx && !job->is_raw && !ctx->m98xxdata) {
 		char full[2048];
+
+		if (!ctx->lib.dl_handle) {
+			ERROR("!!! Image Processing Library not found, aborting!\n");
+			mitsu9550_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+
 		snprintf(full, sizeof(full), "%s/%s", corrtable_path, MITSU_M98xx_DATATABLE_FILE);
 
 		DEBUG("Reading in 98xx data from disk\n");

@@ -599,10 +599,8 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 #if defined(WITH_DYNAMIC)
 	/* Attempt to open the library */
 	if (mitsu_loadlib(&ctx->lib, ctx->type))
-		return CUPS_BACKEND_FAILED;
-#else
-	WARNING("Dynamic library support not enabled, using internal fallback code\n");
 #endif
+		WARNING("Dynamic library support not loaded, will be unable to print.");
 
 	struct mitsu70x_printerstatus_resp resp;
 	int ret;
@@ -1094,7 +1092,6 @@ repeat:
 	}
 
 	if (!ctx->lib.dl_handle) {
-		// XXXFALLBACK write fallback code?
 		ERROR("!!! Image Processing Library not found, aborting!\n");
 		mitsu70x_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;

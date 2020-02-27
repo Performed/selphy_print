@@ -613,10 +613,8 @@ static int mitsud90_attach(void *vctx, struct libusb_device_handle *dev, int typ
 #if defined(WITH_DYNAMIC)
 	/* Attempt to open the library */
 	if (mitsu_loadlib(&ctx->lib, ctx->type))
-		return CUPS_BACKEND_FAILED;
-#else
-	WARNING("Dynamic library support not enabled, will be unable to print.");
 #endif
+		WARNING("Dynamic library support not loaded, will be unable to print.");
 	}
 
 	return CUPS_BACKEND_OK;
@@ -767,6 +765,12 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 
 	/* CP-M1 has... other considerations */
 	if (ctx->type == P_MITSU_M1 && !job->is_raw) {
+		if (!ctx->lib.dl_handle) {
+			ERROR("!!! Image Processing Library not found, aborting!\n");
+			mitsud90_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+
 		int ret = mitsu_apply3dlut(&ctx->lib, CPM1_LUT_FNAME,
 					   job->databuf,
 					   be16_to_cpu(job->hdr.cols),
