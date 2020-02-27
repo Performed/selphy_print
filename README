@@ -64,6 +64,7 @@
    Sony UP-DR200
    Sony UP-D895
    Sony UP-D897
+   Stryker SDP1000
 
   Work-in-progress Printers:
 
@@ -863,6 +864,7 @@
   Verified supported printers:
 
     Sony UP-DR80MD
+    Stryker SDP1000
 
   Work-in-progress printers
 
@@ -1041,9 +1043,9 @@
     the input data to be gamma corrected (and transformed in other ways)
     before it is sent to the printer.
 
-    Considerable progress has been made in decoding the CP-98xx data 
-    tables and algorithms, and everything but sharpening has now been 
-    implemented.  In theory, the output quality should be comparable to 
+    Considerable progress has been made in decoding the CP-98xx data
+    tables and algorithms, and everything but sharpening has now been
+    implemented.  In theory, the output quality should be comparable to
     Mitsubishi's own drivers.
 
     This code has been implemented in the lib70 driver, and note that while
