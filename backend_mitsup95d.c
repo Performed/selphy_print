@@ -785,7 +785,10 @@ UNKNOWNS:
  * How multiple images are stacked for printing on a single page
    (col offset too?  write four, then tell PRINT?)
  * How to adjust P95D printer sharpness?
- * Serial number query (iSerial appears bogus)
+ * Serial number query -- Only via USB iSerial?
+   * U0 mode disables, U1 shows actual serial, U2 reports serno of '000000'
+   * Detect mode U2 and print a warning.  However, changing it might
+     not be possible without going into service mode.
  * What "custom gamma" table does to spool file?
 
 */
