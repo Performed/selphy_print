@@ -1,7 +1,7 @@
 /*
  *   Mitsubishi CP-D90DW Photo Printer CUPS backend
  *
- *   (c) 2019 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2019-2020 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *
@@ -611,10 +611,10 @@ static int mitsud90_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	if (ctx->type == P_MITSU_M1) {
 #if defined(WITH_DYNAMIC)
-	/* Attempt to open the library */
-	if (mitsu_loadlib(&ctx->lib, ctx->type))
+		/* Attempt to open the library */
+		if (mitsu_loadlib(&ctx->lib, ctx->type))
 #endif
-		WARNING("Dynamic library support not loaded, will be unable to print.");
+			WARNING("Dynamic library support not loaded, will be unable to print.");
 	}
 
 	return CUPS_BACKEND_OK;
@@ -826,7 +826,7 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		input.bytes_per_row = input.cols * 3;
 
 		/* Allocate new buffer, with extra room for header and footer */
-		uint8_t *convbuf = malloc(input.rows * input.cols * sizeof(uint16_t) * (job->hdr.overcoat ? 3 : 4) + sizeof(struct mitsud90_plane_hdr) + sizeof(struct mitsud90_job_footer));
+		uint8_t *convbuf = malloc(input.rows * input.cols * sizeof(uint16_t) * 3 + (job->hdr.overcoat? input.rows * input.cols + CPM1_LAMINATE_STRIDE / 2 : 0) + sizeof(struct mitsud90_plane_hdr) + sizeof(struct mitsud90_job_footer));
 		if (!convbuf) {
 			ERROR("Memory allocation Failure!\n");
 			return CUPS_BACKEND_RETRY_CURRENT;
@@ -890,8 +890,8 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 							       output.cols,
 							       ptr);
 		} else {
-			job->hdr.oprate = 2 * M1_calc_oprate_gloss(output.rows,
-								   output.cols);
+			job->hdr.oprate = M1_calc_oprate_gloss(output.rows,
+							       output.cols);
 		}
 		/* Copy over job footer */
 		memcpy(job->databuf + job->datalen, &footer, sizeof(footer));
@@ -1801,8 +1801,7 @@ static void M1_gamma8to14(const struct M1CPCData *cpc,
 	}
 }
 
-
-/* Note return value of this function needs to be multiplied by 2. */
+/* Essentially this yields a fixed value for any given print size */
 static uint8_t M1_calc_oprate_gloss(uint16_t rows, uint16_t cols)
 {
 	double d;
@@ -1816,6 +1815,7 @@ static uint8_t M1_calc_oprate_gloss(uint16_t rows, uint16_t cols)
 	return (uint8_t) d;
 }
 
+/* Assumes rowstride = cols */
 static uint8_t M1_calc_oprate_matte(uint16_t rows, uint16_t cols, uint8_t *data)
 {
 	uint64_t sum = 0;
@@ -1834,8 +1834,7 @@ static uint8_t M1_calc_oprate_matte(uint16_t rows, uint16_t cols, uint8_t *data)
 	return (uint8_t)d;
 }
 
-/* Assumes rowstride = cols * 3 (and is a multiple of 4)
-   Note this has to be done on RGB8 data, prior to gamma scaling */
+/* Assumes rowstride = cols * 3 */
 static int M1_calc_rgbrate(uint16_t rows, uint16_t cols, uint8_t *data)
 {
 	uint64_t sum = 0;
