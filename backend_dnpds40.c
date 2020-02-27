@@ -887,10 +887,10 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 			udev = libusb_get_device(ctx->dev);
 			libusb_get_device_descriptor(udev, &desc);
 
-			char buf[256];
+			char buf[STR_LEN_MAX + 1];
 			buf[0] = 0;
+			buf[STR_LEN_MAX] = 0;
 			libusb_get_string_descriptor_ascii(ctx->dev, desc.iManufacturer, (unsigned char*)buf, STR_LEN_MAX);
-			// XXX sanitize_string(buf);
 
 			if (!strncmp(buf, "Dai", 3)) /* "Dai Nippon Printing" */
 				ctx->mfg = 0;
