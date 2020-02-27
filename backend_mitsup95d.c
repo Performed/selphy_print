@@ -155,7 +155,7 @@ static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev, int ty
 		udev = libusb_get_device(ctx->dev);
 		libusb_get_device_descriptor(udev, &desc);
 
-		if (desc.iSerialNumber) {
+		if (!desc.iSerialNumber) {
 			WARNING("Printer configured for iSerial mode U0, so no serial number is reported.\n");
 		} else {
 			libusb_get_string_descriptor_ascii(ctx->dev, desc.iSerialNumber, (uint8_t*)ctx->serno, STR_LEN_MAX);
