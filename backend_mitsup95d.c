@@ -62,6 +62,7 @@ struct mitsup95d_ctx {
 	uint8_t endp_down;
 
 	int type;
+	char serno[STR_LEN_MAX + 1];
 
 	struct marker marker;
 };
@@ -146,6 +147,24 @@ static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	ctx->marker.levelmax = CUPS_MARKER_UNAVAILABLE;
 	ctx->marker.levelnow = CUPS_MARKER_UNKNOWN;
 
+	/* Query serial number */
+	{
+		struct libusb_device_descriptor desc;
+		struct libusb_device *udev;
+
+		udev = libusb_get_device(ctx->dev);
+		libusb_get_device_descriptor(udev, &desc);
+
+		if (desc.iSerialNumber) {
+			WARNING("Printer configured for iSerial mode U0, so no serial number is reported.\n");
+		} else {
+			libusb_get_string_descriptor_ascii(ctx->dev, desc.iSerialNumber, (uint8_t*)ctx->serno, STR_LEN_MAX);
+
+			if (strstr(ctx->serno, "000000")) {
+				WARNING("Printer configured for iSerial mode U2, reporting a fixed serial number of 000000\n");
+			}
+		}
+	}
 	return CUPS_BACKEND_OK;
 }
 
@@ -495,6 +514,14 @@ static int mitsup95d_dump_status(struct mitsup95d_ctx *ctx)
 	ret = mitsup95d_get_status(ctx, queryresp);
 	if (ret)
 		return ret;
+	if (!ctx->serno[0])
+		INFO("iSerial mode: Disasbled (U0)\n");
+	else if (strstr(ctx->serno, "000000"))
+		INFO("iSerial Mode: Force 000000 (U2)\n");
+	else {
+		INFO("iSerial Mode: Enabled (U1)\n");
+		INFO("Serial Number: %s\n", ctx->serno);
+	}
 
 	if (ctx->type == P_MITSU_P95D) {
 		if (queryresp[6] & 0x40) {
@@ -582,7 +609,7 @@ static const char *mitsup95d_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsup95d_backend = {
 	.name = "Mitsubishi P93D/P95D",
-	.version = "0.13",
+	.version = "0.14",
 	.uri_prefixes = mitsup95d_prefixes,
 	.cmdline_arg = mitsup95d_cmdline_arg,
 	.cmdline_usage = mitsup95d_cmdline,
@@ -785,10 +812,6 @@ UNKNOWNS:
  * How multiple images are stacked for printing on a single page
    (col offset too?  write four, then tell PRINT?)
  * How to adjust P95D printer sharpness?
- * Serial number query -- Only via USB iSerial?
-   * U0 mode disables, U1 shows actual serial, U2 reports serno of '000000'
-   * Detect mode U2 and print a warning.  However, changing it might
-     not be possible without going into service mode.
  * What "custom gamma" table does to spool file?
 
 */
