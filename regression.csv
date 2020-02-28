@@ -154,7 +154,7 @@ fujiask300,0x04cb,0x5006,mitsu_d70x_4x6-8bpp.raw,0x2
 #
 mitsud90,0x06d3,0x3b60,mitsu_d90_4x6.raw,0xf
 mitsud90,0x06d3,0x3b60,mitsu_d90_4x6.raw,0x2
-#mitsubishi-cpm1,0x06d3,0x????,mitsu_m1-4x6-12bpp.raw,0xf   ### NEED USB PID
+mitsubishi-cpm1,0x06d3,0x3b80,mitsu_m1-4x6-12bpp.raw,0x2
 #
 # 'mitsup95d'
 #

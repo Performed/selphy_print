@@ -781,6 +781,8 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 			mitsud90_cleanup_job(job);
 			return ret;
 		}
+
+		job->is_raw = 1;  // XXX fixed for now.
 	}
 
 	*vjob = job;
