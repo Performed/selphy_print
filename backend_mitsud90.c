@@ -794,6 +794,7 @@ static uint8_t M1_calc_oprate_matte(uint16_t rows, uint16_t cols, uint8_t *data)
 static int cpm1_fillmatte(struct mitsud90_printjob *job);
 static struct M1CPCData *get_M1CPCData(const char *filename,
 				       const char *gammafilename);
+static void free_M1CPCData(struct M1CPCData *dat);
 static void M1_gamma8to14(const struct M1CPCData *cpc,
 			  const struct BandImage *in, struct BandImage *out);
 
@@ -884,8 +885,11 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		if (job->hdr.overcoat == 3) {
 			uint8_t *ptr = convbuf + (output.rows * output.cols * 2 * 3);
 			ret = cpm1_fillmatte(job);
-			if (ret)
+			if (ret) {
+				mitsud90_cleanup_job(job);
+				free_M1CPCData(cpc);
 				return ret;
+			}
 			job->hdr.oprate = M1_calc_oprate_matte(output.rows,
 							       output.cols,
 							       ptr);
@@ -1849,6 +1853,11 @@ static int M1_calc_rgbrate(uint16_t rows, uint16_t cols, uint8_t *data)
 	d = ((sum / 3533449320.0) * 100) + 0.5;
 
 	return (uint8_t)d;
+}
+
+static void free_M1CPCData(struct M1CPCData *dat)
+{
+	free(dat);
 }
 
 static struct M1CPCData *get_M1CPCData(const char *filename,
