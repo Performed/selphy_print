@@ -864,6 +864,9 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			job->hdr.sharp_h = 0;
 		}
 
+		/* We're done with the CPC data */
+		free_M1CPCData(cpc);
+
 #if (__BYTE_ORDER == __BIG_ENDIAN)
 		/* Convert data to LITTLE ENDIAN if needed */
 		int i;
@@ -887,7 +890,6 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			ret = cpm1_fillmatte(job);
 			if (ret) {
 				mitsud90_cleanup_job(job);
-				free_M1CPCData(cpc);
 				return ret;
 			}
 			job->hdr.oprate = M1_calc_oprate_matte(output.rows,
