@@ -1441,7 +1441,18 @@ static int mitsud90_query_stats(void *vctx, struct printerstats *stats)
 		return CUPS_BACKEND_FAILED;
 
 	stats->mfg = "Mitsubishi";
-	stats->model = "CP-D90DW";
+	switch (ctx->type) {
+	case P_MITSU_D90:
+		stats->model = "CP-D90 family";
+		break;
+	case P_MITSU_M1:
+		stats->model = "CP-M1 family";
+		break;
+	default:
+		stats->model = "Unknown!";
+		break;
+	}
+
 	stats->serial = ctx->serno;
 
 	// stats->fwver = ctx->fwver; // XXX use resp.fw_vers[0] aka MAIN FW
@@ -1474,7 +1485,7 @@ static const char *mitsud90_prefixes[] = {
 
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
-	.name = "Mitsubishi CP-D90DW",
+	.name = "Mitsubishi CP-D90/CP-M1",
 	.version = "0.19"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
