@@ -31,6 +31,7 @@
 
 #define USB_VID_MITSU       0x06D3
 #define USB_PID_MITSU_D90   0x3B60
+#define USB_PID_MITSU_CPM1  0x3B80
 
 /* CPM1 stuff */
 #define CPM1_LAMINATE_STRIDE 1852
@@ -1501,7 +1502,7 @@ struct dyesub_backend mitsud90_backend = {
 	.query_stats = mitsud90_query_stats,
 	.devices = {
 		{ USB_VID_MITSU, USB_PID_MITSU_D90, P_MITSU_D90, NULL, "mitsubishi-d90dw"},
-//		{ USB_VID_MITSU, USB_PID_MITSU_CPM1, P_MITSU_M1, NULL, "mitsubishi-cpm1"},
+		{ USB_VID_MITSU, USB_PID_MITSU_CPM1, P_MITSU_M1, NULL, "mitsubishi-cpm1"},
 //		{ USB_VID_MITSU, USB_PID_MITSU_CPM15, P_MITSU_M1, NULL, "mitsubishi-cpm15"},
 		{ 0, 0, 0, NULL, NULL}
 	}
