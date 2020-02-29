@@ -181,7 +181,7 @@ struct mitsud90_job_hdr {
 	union {
 #if 0
 		struct {
-			uint8_t  margin;
+			uint8_t  margin; // XXX seen 0 and 1, maybe single vs double cut?
 			uint16_t position;
 		} cuts[3] __attribute__((packed));
 #endif
@@ -1654,8 +1654,7 @@ struct dyesub_backend mitsud90_backend = {
      * consolidate M1 vs D90 info query/dump more efficiently
      * job control (job id, active job, buffer status, etc)
      * any sort of counters
-     * define M1 hdr extensions
-     * add M1 job creation to gutenprint
+     * figure out "margin" parameter on the cut list
      * finish M1 image processing code
      * move M1 image processing code into lib70x
      * sleep and waking up
