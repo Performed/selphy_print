@@ -147,6 +147,9 @@ static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev, int ty
 	ctx->marker.levelmax = CUPS_MARKER_UNAVAILABLE;
 	ctx->marker.levelnow = CUPS_MARKER_UNKNOWN;
 
+	if (test_mode >= TEST_MODE_NOATTACH)
+		goto done;
+
 	/* Query serial number */
 	{
 		struct libusb_device_descriptor desc;
@@ -165,6 +168,8 @@ static int mitsup95d_attach(void *vctx, struct libusb_device_handle *dev, int ty
 			}
 		}
 	}
+
+done:
 	return CUPS_BACKEND_OK;
 }
 
