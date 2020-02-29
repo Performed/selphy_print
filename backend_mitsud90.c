@@ -1601,7 +1601,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.19"  " (lib " LIBMITSU_VER ")",
+	.version = "0.20"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,

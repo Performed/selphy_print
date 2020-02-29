@@ -222,8 +222,6 @@ const char *mitsu_temperatures(uint8_t temp)
 
 const char *mitsu_media_types(int printer, uint8_t brand, uint8_t type)
 {
-	UNUSED(printer);
-
 	if (brand == 0xff) {  /* Mitsubishi */
 		if (printer == P_MITSU_M1) {
 			if (type == 0x02)
