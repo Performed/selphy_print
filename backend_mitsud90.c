@@ -194,7 +194,7 @@ struct mitsud90_job_hdr {
 	uint8_t  colorcorr; /* Always 1 on M1 */
 	uint8_t  sharp_h;   /* Always 0 on M1 */
 	uint8_t  sharp_v;   /* Always 0 on M1 */
-	uint8_t  zero_b[5];
+	uint8_t  zero_b[5]; /* zero_b[4] on M1 is the not-raw flag */
 	struct {
 		uint16_t pano_on;   /* 0x0001 when pano is on, or always 0x0002 on M1  */
 		uint8_t  pano_tot;  /* 2 or 3 */
@@ -221,7 +221,7 @@ struct mitsud90_plane_hdr {
 	uint8_t  zero_a[6];
 	uint16_t lamcols; /* BE (M1 only, OC=3) should be cols+origin_cols */
 	uint16_t lamrows; /* BE (M1 only, OC=3) should be rows+origin_rows+12 */
-	uint8_t  zero_b[8]; // XXX extend to indicate M1 pre-processed vs not..?
+	uint8_t  zero_b[8];
 	uint8_t  unk_m1[8]; /* 07 e4 02 19 xx xx xx 00 always incrementing. timestamp? Only seen from win-generated jobs? */
 	uint8_t  zero_fill[472];
 } __attribute__((packed));
@@ -667,6 +667,8 @@ static void mitsud90_cleanup_job(const void *vjob)
 STATIC_ASSERT(sizeof(struct mitsud90_job_hdr) == 512);
 STATIC_ASSERT(sizeof(struct mitsud90_plane_hdr) == 512);
 
+static int mitsud90_main_loop(void *vctx, const void *vjob);
+
 static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct mitsud90_ctx *ctx = vctx;
 	int i, remain;
@@ -747,9 +749,9 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	remain = be16_to_cpu(job->hdr.cols) * be16_to_cpu(job->hdr.rows) * 3;
 
 	if (ctx->type == P_MITSU_M1) {
-		// check header for special TBD flag
-		job->is_raw = 1;  // XXX fixed for now.
-		// clear TBD flag in header..
+		/* See if it's a special gutenprint "not-raw" job */
+		job->is_raw = !job->hdr.zero_b[4];
+		job->hdr.zero_b[4] = 0;
 
 		/* If it's a raw M1 job, the pixels are 2 bytes each */
 		if (job->is_raw)
@@ -806,16 +808,23 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 			return CUPS_BACKEND_CANCEL;
 		}
 
-		int ret = mitsu_apply3dlut(&ctx->lib, CPM1_LUT_FNAME,
-					   job->databuf,
-					   be16_to_cpu(job->hdr.cols),
-					   be16_to_cpu(job->hdr.rows),
-					   be16_to_cpu(job->hdr.cols) * 3, COLORCONV_RGB);
-		if (ret) {
-			mitsud90_cleanup_job(job);
-			return ret;
+		if (!job->hdr.colorcorr) {
+			int ret = mitsu_apply3dlut(&ctx->lib, CPM1_LUT_FNAME,
+						   job->databuf,
+						   be16_to_cpu(job->hdr.cols),
+						   be16_to_cpu(job->hdr.rows),
+						   be16_to_cpu(job->hdr.cols) * 3, COLORCONV_RGB);
+			if (ret) {
+				mitsud90_cleanup_job(job);
+				return ret;
+			}
+			job->hdr.colorcorr = 1;
 		}
 	}
+
+	/* All further work is in main loop */
+	if (test_mode >= TEST_MODE_NOPRINT)
+		mitsud90_main_loop(ctx, job);
 
 	*vjob = job;
 
@@ -862,7 +871,7 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		input.bytes_per_row = input.cols * 3;
 
 		/* Allocate new buffer, with extra room for header and footer */
-		uint8_t *convbuf = malloc(input.rows * input.cols * sizeof(uint16_t) * 3 + (job->hdr.overcoat? input.rows * input.cols + CPM1_LAMINATE_STRIDE / 2 : 0) + sizeof(struct mitsud90_plane_hdr) + sizeof(struct mitsud90_job_footer));
+		uint8_t *convbuf = malloc(input.rows * input.cols * sizeof(uint16_t) * 3 + (job->hdr.overcoat? (input.rows + 12) * input.cols + CPM1_LAMINATE_STRIDE / 2 : 0) + sizeof(struct mitsud90_plane_hdr) + sizeof(struct mitsud90_job_footer));
 		if (!convbuf) {
 			ERROR("Memory allocation Failure!\n");
 			return CUPS_BACKEND_RETRY_CURRENT;
@@ -887,16 +896,19 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		// CColorConv3D  (already done earlier)
 		const char *fname = CPM1_CPC_G1_FNAME;
 		// XXX CPC_G5_FNAME is never used in mitsu driver?  ??
-		cpc = get_M1CPCData(fname, CPM1_CPC_FNAME);
+		cpc = get_M1CPCData(CPM1_CPC_FNAME, fname);
 		if (!cpc) {
 			ERROR("Cannot read data tables\n");
 			return CUPS_BACKEND_FAILED;
 		}
 
 		M1_gamma8to14(cpc, &input, &output);
-		if (job->hdr.sharp_h) {  /* XXX 0 is off, 1-7 corresponds to level 0-6 */
+		if (job->hdr.sharp_h || job->hdr.sharp_v) {
+			/* 0 is off, 1-7 corresponds to level 0-6 */
 			// ** CLocalEnhancer (uses "CPC" data)
 			job->hdr.sharp_h = 0;
+			job->hdr.sharp_v = 0;
+			WARNING("Sharpening on CP-M1 series not yet implemented!\n");
 		}
 
 		/* We're done with the CPC data */
@@ -917,11 +929,11 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 
 		free(job->databuf);
 		job->databuf = convbuf;
-		job->datalen = input.rows * input.cols * sizeof(uint16_t) * 3;
+		job->datalen = sizeof(struct mitsud90_plane_hdr) + input.rows * input.cols * sizeof(uint16_t) * 3;
 
 		/* Deal with lamination settings */
 		if (job->hdr.overcoat == 3) {
-			uint8_t *ptr = convbuf + (output.rows * output.cols * 2 * 3);
+			uint8_t *ptr = convbuf + (output.rows * output.cols * sizeof(uint16_t) * 3);
 			ret = cpm1_fillmatte(job);
 			if (ret) {
 				mitsud90_cleanup_job(job);
@@ -934,10 +946,16 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			job->hdr.oprate = M1_calc_oprate_gloss(output.rows,
 							       output.cols);
 		}
+
 		/* Copy over job footer */
 		memcpy(job->databuf + job->datalen, &footer, sizeof(footer));
 		job->datalen += sizeof(footer);
 	}
+
+	/* Bypass */
+	if (test_mode >= TEST_MODE_NOPRINT)
+		return CUPS_BACKEND_OK;
+
 	INFO("Waiting for printer idle...\n");
 
 top:
@@ -1610,7 +1628,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.21"  " (lib " LIBMITSU_VER ")",
+	.version = "0.22"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
@@ -1947,11 +1965,11 @@ static void M1_gamma8to14(const struct M1CPCData *cpc,
 	inp = in->imgbuf;
 	outp = (uint16_t*) out->imgbuf;
 
-	for (row = 0 ; row < rows ; rows ++) {
+	for (row = 0 ; row < rows ; row ++) {
 		for (col = 0 ; col < cols * 3 ; col+=3) {
-			outp[col] = cpc->GNMaB[inp[col]]; /* B */
+			outp[col] = cpc->GNMaR[inp[col]];     /* R */
 			outp[col+1] = cpc->GNMaG[inp[col+1]]; /* G */
-			outp[col+2] = cpc->GNMaR[inp[col+2]]; /* R */
+			outp[col+2] = cpc->GNMaB[inp[col+2]]; /* B */
 		}
 
 		inp += in->bytes_per_row;
@@ -2046,6 +2064,7 @@ static struct M1CPCData *get_M1CPCData(const char *filename,
 	for (line = 0 ; line < M1CPCDATA_GAMMA_ROWS ; line++) {
 		if (fgets(buf, sizeof(buf), f) == NULL)
 			goto abort;
+
 		ptr = strtok(buf, delim);  // Always skip first column
 		if (!ptr)
 			goto abort;
@@ -2151,15 +2170,24 @@ done_free:
 static int cpm1_fillmatte(struct mitsud90_printjob *job)
 {
 	int ret;
+	int rows, cols;
 
-	struct mitsud90_job_hdr *hdr = (struct mitsud90_job_hdr *) job->databuf;
+	struct mitsud90_plane_hdr *phdr = (struct mitsud90_plane_hdr *) job->databuf;
 
+	rows = be16_to_cpu(job->hdr.rows) + 12;
+	cols = be16_to_cpu(job->hdr.cols);
+
+	/* Fill in matte data */
 	ret = mitsu_readlamdata(CPM1_LAMINATE_FILE, CPM1_LAMINATE_STRIDE,
 				job->databuf, &job->datalen,
-				be16_to_cpu(hdr->rows) + 12, be16_to_cpu(hdr->cols), 1);
+				rows, cols, 1);
 
 	if (ret)
 		return ret;
+
+	/* Update plane header and overall length */
+	phdr->lamcols = cpu_to_be16(cols);
+	phdr->lamrows = cpu_to_be16(rows);
 
 	return CUPS_BACKEND_OK;
 }

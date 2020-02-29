@@ -199,7 +199,7 @@ int mitsu_readlamdata(const char *fname, uint16_t lamstride,
 			remain -= i;
 		}
 		/* Back off the buffer so we "wrap" on the print row. */
-		*datalen -= ((lamstride - cols) * 2);
+		*datalen -= ((lamstride - cols) * bpp);
 	}
 
 	return CUPS_BACKEND_OK;
