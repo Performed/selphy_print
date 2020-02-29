@@ -639,7 +639,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	/* Set up markers */
 	ctx->marker[0].color = "#00FFFF#FF00FF#FFFF00";
-	ctx->marker[0].name = mitsu_media_types(resp.lower.media_brand, resp.lower.media_type);
+	ctx->marker[0].name = mitsu_media_types(ctx->type, resp.lower.media_brand, resp.lower.media_type);
 	ctx->marker[0].numtype = resp.lower.media_type;
 	ctx->marker[0].levelmax = be16_to_cpu(resp.lower.capacity);
 	ctx->marker[0].levelnow = be16_to_cpu(resp.lower.remain);
@@ -647,7 +647,7 @@ static int mitsu70x_attach(void *vctx, struct libusb_device_handle *dev, int typ
 
 	if (ctx->num_decks == 2) {
 		ctx->marker[1].color = "#00FFFF#FF00FF#FFFF00";
-		ctx->marker[1].name = mitsu_media_types(resp.upper.media_brand, resp.upper.media_type);
+		ctx->marker[1].name = mitsu_media_types(ctx->type, resp.upper.media_brand, resp.upper.media_type);
 		ctx->marker[1].numtype = resp.upper.media_type;
 		ctx->marker[1].levelmax = be16_to_cpu(resp.upper.capacity);
 		ctx->marker[1].levelnow = be16_to_cpu(resp.upper.remain);
@@ -2020,7 +2020,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 	INFO("Lower Mechanical Status: %s\n",
 	     mitsu70x_mechastatus(resp->lower.mecha_status));
 	INFO("Lower Media Type:  %s (%02x/%02x)\n",
-	     mitsu_media_types(resp->lower.media_brand, resp->lower.media_type),
+	     mitsu_media_types(ctx->type, resp->lower.media_brand, resp->lower.media_type),
 	     resp->lower.media_brand,
 	     resp->lower.media_type);
 	INFO("Lower Prints Remaining:  %03d/%03d\n",
@@ -2042,7 +2042,7 @@ static void mitsu70x_dump_printerstatus(struct mitsu70x_ctx *ctx,
 		INFO("Upper Mechanical Status: %s\n",
 		     mitsu70x_mechastatus(resp->upper.mecha_status));
 		INFO("Upper Media Type:  %s (%02x/%02x)\n",
-		     mitsu_media_types(resp->upper.media_brand, resp->upper.media_type),
+		     mitsu_media_types(ctx->type, resp->upper.media_brand, resp->upper.media_type),
 		     resp->upper.media_brand,
 		     resp->upper.media_type);
 		INFO("Upper Prints Remaining:  %03d/%03d\n",

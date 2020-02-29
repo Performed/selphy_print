@@ -71,7 +71,7 @@ typedef void (*CP98xx_DestroyDataFN)(const struct mitsu98xx_data *data);
 
 #define REQUIRED_LIB_APIVERSION 5
 
-#define LIBMITSU_VER "0.04"
+#define LIBMITSU_VER "0.05"
 
 /* Image processing library function prototypes */
 #define LIB_NAME_RE "libMitsuD70ImageReProcess" DLL_SUFFIX
@@ -112,4 +112,4 @@ int mitsu_readlamdata(const char *fname, uint16_t lamstride,
 #define TEMPERATURE_COOLING 0x80
 
 const char *mitsu_temperatures(uint8_t temp);
-const char *mitsu_media_types(uint8_t brand, uint8_t type);
+const char *mitsu_media_types(int printer, uint8_t brand, uint8_t type);

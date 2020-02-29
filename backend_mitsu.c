@@ -220,45 +220,65 @@ const char *mitsu_temperatures(uint8_t temp)
 	return "Unknown Temperature Status";
 }
 
-const char *mitsu_media_types(uint8_t brand, uint8_t type)
+const char *mitsu_media_types(int printer, uint8_t brand, uint8_t type)
 {
-	if (brand == 0xff && type == 0x01)
-		return "CK-D735 (3.5x5)";
-	else if (brand == 0xff && type == 0x02)
-		return "CK-D746 (4x6)";
-	else if (brand == 0xff && type == 0x04)
-		return "CK-D757 (5x7)";
-	else if (brand == 0xff && type == 0x05)
-		return "CK-D769 (6x9)";
-	else if (brand == 0xff && type == 0x0f)
-		return "CK-D768/CK-D868 (6x8)";
-	else if (brand == 0x6c && type == 0x84)
-		return "Kodak 5R (5x7)";
-	else if (brand == 0x6c && type == 0x8f)
-		return "Kodak 6R (6x8)";
-	else if (brand == 0x61 && type == 0x84)
-		return "CK-K57R (5x7)";
-	else if (brand == 0x61 && type == 0x8f)
-		return "CK-K76R (6x8)";
-	else if (brand == 0x7a && type == 0x01)
-		return "RL-CF900 (3.5x5)";
-	else if (brand == 0x7a && type == 0x02)
-		return "RK-CF800/4R (4x6)";
-	else if (brand == 0x7a && type == 0x04)
-		return "R2L-CF460/5R (5x7)";
-	else if (brand == 0x7a && type == 0x0f)
-		return "R68-CF400/6R (6x8)";
-	else
-		return "Unknown";
+	UNUSED(printer);
+
+	if (brand == 0xff) {  /* Mitsubishi */
+		if (printer == P_MITSU_M1) {
+			if (type == 0x02)
+				return "CK-M46S (4x6)";
+			else if (type == 0x04)
+				return "CK-M57S (5x7)";
+			else if (type == 0x0f)
+				return "CK-M68S (6x8)";
+		} else if (printer == P_MITSU_D80) {
+			if (type == 0x0f)
+				return "CK-D868 (6x8)";
+		} else if (printer == P_MITSU_D90) {
+			if (type == 0x0f)
+				return "CK-D768/CK-D868 (6x8)";
+		}
+
+		/* Mitsu D70, and D90 fallthrough */
+		if (type == 0x01)
+			return "CK-D735 (3.5x5)";
+		else if (type == 0x02)
+			return "CK-D746 (4x6)";
+		else if (type == 0x04)
+			return "CK-D757 (5x7)";
+		else if (type == 0x05)
+			return "CK-D769 (6x9)";
+		else if (type == 0x0f)
+			return "CK-D768 (6x8)";
+	} else if (brand == 0x61) { /* Mitsubishi (K60 series) */
+		if (type == 0x84)
+			return "CK-K57R (5x7)";
+		else if (type == 0x8f)
+			return "CK-K76R (6x8)";
+	} else if (brand == 0x6c) { /* Kodak */
+		if (type == 0x84)
+			return "Kodak 5R (5x7)";
+		else if (type == 0x8f)
+			return "Kodak 6R (6x8)";
+	} else if (brand == 0x7a) { /* Fujifilm*/
+		if (type == 0x01)
+			return "RL-CF900 (3.5x5)";
+		else if (type == 0x02)
+			return "RK-CF800/4R (4x6)";
+		else if (type == 0x04)
+			return "R2L-CF460/5R (5x7)";
+		else if (type == 0x0f)
+			return "R68-CF400/6R (6x8)";
+	}
+
+	return "Unknown";
 
 // Also CK-D715, CK-D718, CK-D720, CK-D723 (4x6,5x8,6x8,6x9) for D70-S model
 //      CK-D746-U for D70-U model
 //      CK-D820 (6x8) for D80-S model
 // D90 can use _all_ of these types except for the -U!
 
-	// CK-M57S  (5x7 for M1)
-	// CK-M68S  (6x8 for M1)
-	// CK-M46S  (6x4 for M1)
 	// CK-M15S  (6x4 for M15)
 	// CK-M18S  (5x7 for M15)
 	// CK-M20S  (6x8 for M15)
