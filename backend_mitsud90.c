@@ -736,14 +736,30 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	/* More sanity checks */
+	if (job->hdr.pano.pano_on && ctx->type != P_MITSU_M1) {
+		ERROR("Unable to handle panorama jobs yet\n");
+		mitsud90_cleanup_job(job);
+		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* How many pixels do we need to read? */
+	remain = be16_to_cpu(job->hdr.cols) * be16_to_cpu(job->hdr.rows) * 3;
+
 	if (ctx->type == P_MITSU_M1) {
 		// check header for special TBD flag
 		job->is_raw = 1;  // XXX fixed for now.
 		// clear TBD flag in header..
+
+		/* If it's a raw M1 job, the pixels are 2 bytes each */
+		if (job->is_raw)
+			remain *= 2;
 	}
 
+	/* Add in the plane header */
+	remain += sizeof(struct mitsud90_plane_hdr);
+
 	/* Now read in the rest */
-	remain = sizeof(struct mitsud90_plane_hdr) + be16_to_cpu(job->hdr.cols) * be16_to_cpu(job->hdr.rows) * 3;
 	while(remain) {
 		i = read(data_fd, job->databuf + job->datalen, remain);
 		if (i == 0) {
@@ -758,7 +774,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		remain -= i;
 	}
 
-	/* Read in the footer.  Hopefully. */
+	/* Read in the footer.  Hopefully... */
 	remain = sizeof(struct mitsud90_job_footer);
 	i = read(data_fd, job->databuf + job->datalen, remain);
 	if (i == 0) {
@@ -780,13 +796,6 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	} else {
 		job->datalen += i;
 		ctx->holdover_on = 0;
-	}
-
-	/* Sanity check */
-	if (job->hdr.pano.pano_on && ctx->type != P_MITSU_M1) {
-		ERROR("Unable to handle panorama jobs yet\n");
-		mitsud90_cleanup_job(job);
-		return CUPS_BACKEND_CANCEL;
 	}
 
 	/* CP-M1 has... other considerations */
@@ -1601,7 +1610,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.20"  " (lib " LIBMITSU_VER ")",
+	.version = "0.21"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
