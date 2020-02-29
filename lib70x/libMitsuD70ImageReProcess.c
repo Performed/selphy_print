@@ -276,16 +276,6 @@ static void CColorConv3D_DoColorConvPixel(struct CColorConv3D *this, uint8_t *re
 	tab6 = this->lut[red_h+0][grn_h+1][blu_h+1];
 	tab7 = this->lut[red_h+1][grn_h+1][blu_h+1];
 
-#if 0
-	printf(" %d %d %d ", tab0[0], tab0[1], tab0[2]);
-	printf(" %d %d %d ", tab1[0], tab1[1], tab1[2]);
-	printf(" %d %d %d ", tab2[0], tab2[1], tab2[2]);
-	printf(" %d %d %d ", tab3[0], tab3[1], tab3[2]);
-	printf(" %d %d %d ", tab4[0], tab4[1], tab4[2]);
-	printf(" %d %d %d ", tab5[0], tab5[1], tab5[2]);
-	printf(" %d %d %d ", tab6[0], tab6[1], tab6[2]);
-	printf(" %d %d %d ", tab7[0], tab7[1], tab7[2]);
-#endif
 	*redp = (blu_li
 		 * (grn_li * (red_li * tab0[0] + red_l * tab1[0])
 		    + grn_l * (red_li * tab2[0] + red_l * tab3[0]))
