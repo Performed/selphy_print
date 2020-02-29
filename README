@@ -989,6 +989,7 @@
 
     [1]  Job ID is the Internal Job ID (reported via job status query)
     [2]  Printer will need to be power-cycled for this to take effect.
+         Only valid for CP-D90
 
  ***************************************************************************
   BACKEND=mitsu9xxx

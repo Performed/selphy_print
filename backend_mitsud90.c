@@ -42,30 +42,33 @@
 #define CPM1_LUT_FNAME "CPM1_NL.lut"
 
 /* Printer data structures */
-#define D90_STATUS_TYPE_MODEL  0x01 // 10, null-terminated ASCII. 'CPD90D'
-#define D90_STATUS_TYPE_x02    0x02 // 1, 0x5f ?
-#define D90_STATUS_TYPE_FW_0b  0x0b // 8, 34 31 34 42 31 31 a7 de (414D11)
-#define D90_STATUS_TYPE_FW_MA  0x0c // 8, 34 31 35 41 38 31 86 bf (415A81)  // MAIN FW
-#define D90_STATUS_TYPE_FW_F   0x0d // 8, 34 31 36 41 35 31 dc 8a (416A51)  // FPGA FW
-#define D90_STATUS_TYPE_FW_T   0x0e // 8, 34 31 37 45 31 31 e7 e6 (417E11)  // TABLE FW
-#define D90_STATUS_TYPE_FW_0f  0x0f // 8, 34 31 38 41 31 32 6c 64 (418A12)
-#define D90_STATUS_TYPE_FW_11  0x11 // 8, 34 32 31 51 31 31 74 f2 (421Q11)
-#define D90_STATUS_TYPE_FW_ME  0x13 // 8, 34 31 39 45 31 31 15 bf (419E11)  // MECHA FW
+#define COM_STATUS_TYPE_MODEL   0x01 // 10, null-terminated ASCII. 'CPD90D'
+#define COM_STATUS_TYPE_x02     0x02 // 1, 0x5f ?
+#define CM1_STATUS_TYPE_ISERIAL 0x03 // 24, full iSerial string in UTF16(LE)
+#define CM1_STATUS_TYPE_SERIAL  0x04 // 6, serial number only (ascii)
+#define CM1_STATUS_TYPE_FW_0a   0x0a // 8, 34 34 38 41 31 32 29 f4 (448A12)
+#define COM_STATUS_TYPE_FW_0b   0x0b // 8, 34 31 34 42 31 31 a7 de (414D11)
+#define COM_STATUS_TYPE_FW_MA   0x0c // 8, 34 31 35 41 38 31 86 bf (415A81)  // MAIN FW
+#define COM_STATUS_TYPE_FW_F    0x0d // 8, 34 31 36 41 35 31 dc 8a (416A51)  // FPGA FW
+#define COM_STATUS_TYPE_FW_T    0x0e // 8, 34 31 37 45 31 31 e7 e6 (417E11)  // TABLE FW
+#define COM_STATUS_TYPE_FW_0f   0x0f // 8, 34 31 38 41 31 32 6c 64 (418A12)
+#define COM_STATUS_TYPE_FW_11   0x11 // 8, 34 32 31 51 31 31 74 f2 (421Q11)
+#define COM_STATUS_TYPE_FW_ME   0x13 // 8, 34 31 39 45 31 31 15 bf (419E11)  // MECHA FW
 
-#define D90_STATUS_TYPE_ERROR  0x16 // 11 (see below)
-#define D90_STATUS_TYPE_MECHA  0x17 // 2  (see below)
-#define D90_STATUS_TYPE_x1e    0x1e // 1, power state or time?  (x00)
-#define D90_STATUS_TYPE_TEMP   0x1f // 1  (see below)
-#define D90_STATUS_TYPE_x22    0x22 // 2,  all 0  (counter?)
-#define D90_STATUS_TYPE_x28    0x28 // 2, next jobid? (starts 00 01 at power cycle, increments by 1 for each print)
-#define D90_STATUS_TYPE_x29    0x29 // 8,  e0 07 00 00 21 e6 b3 22
-#define D90_STATUS_TYPE_MEDIA  0x2a // 10 (see below)
-#define D90_STATUS_TYPE_x2b    0x2b // 2,  all 0 (counter?)
-#define D90_STATUS_TYPE_x2c    0x2c // 2,  00 56 (counter?)
-#define D90_STATUS_TYPE_x65    0x65 // 50, see below
-#define D90_STATUS_TYPE_ISER   0x82 // 1,  80 (iserial disabled)
-#define D90_STATUS_TYPE_x83    0x83 // 1,  00
-#define D90_STATUS_TYPE_x84    0x84 // 1,  00
+#define COM_STATUS_TYPE_ERROR   0x16 // 11 (see below)
+#define COM_STATUS_TYPE_MECHA   0x17 // 2  (see below)
+#define COM_STATUS_TYPE_x1e     0x1e // 1, power state or time?  (x00)
+#define COM_STATUS_TYPE_TEMP    0x1f // 1  (see below)
+#define COM_STATUS_TYPE_x22     0x22 // 2,  all 0  (counter?)
+#define COM_STATUS_TYPE_x28     0x28 // 2, next jobid? (starts 00 01 at power cycle, increments by 1 for each print)
+#define COM_STATUS_TYPE_x29     0x29 // 8,  e0 07 00 00 21 e6 b3 22
+#define COM_STATUS_TYPE_MEDIA   0x2a // 10 (see below)
+#define COM_STATUS_TYPE_x2b     0x2b // 2,  all 0 (counter?)
+#define COM_STATUS_TYPE_x2c     0x2c // 2,  00 56 (counter?)
+#define COM_STATUS_TYPE_x65     0x65 // 50, see below
+#define D90_STATUS_TYPE_ISEREN  0x82 // 1,  80 (iserial disabled)
+#define COM_STATUS_TYPE_x83     0x83 // 1,  00
+#define D90_STATUS_TYPE_x84     0x84 // 1,  00
 
 //#define D90_STATUS_TYPE_x85    0x85 // 2, 00 ?? BE, wait time?
                                     // combined total of 5.
@@ -84,17 +87,17 @@ struct mitsud90_media_resp {
 		uint16_t capacity; /* BE */
 		uint16_t remain;  /* BE */
 		uint8_t  unk_b[2];
-	} __attribute__((packed)) media; /* D90_STATUS_TYPE_MEDIA */
+	} __attribute__((packed)) media; /* COM_STATUS_TYPE_MEDIA */
 } __attribute__((packed));
 
 struct mitsud90_status_resp {
 	uint8_t  hdr[4];  /* e4 47 44 30 */
-	/* D90_STATUS_TYPE_ERROR */
+	/* COM_STATUS_TYPE_ERROR */
 	uint8_t  code[2]; /* 00 is ok, nonzero is error */
 	uint8_t  unk[9];
-	/* D90_STATUS_TYPE_MECHA */
+	/* COM_STATUS_TYPE_MECHA */
 	uint8_t  mecha[2];
-	/* D90_STATUS_TYPE_TEMP */
+	/* COM_STATUS_TYPE_TEMP */
 	uint8_t  temp;
 } __attribute__((packed));
 
@@ -114,6 +117,22 @@ struct mitsud90_info_resp {
 	uint8_t  x83;
 	uint8_t  x84;
 } __attribute__((packed));
+
+struct mitsum1_info_resp {
+	uint8_t  hdr[4];  /* e4 47 44 30 */
+	uint8_t  model[10];
+	uint8_t  x02;
+	struct mitsud90_fw_resp_single fw_vers[8];
+	uint8_t  x1e;
+	uint8_t  x22[2];
+	uint16_t x28;
+	uint8_t  x29[8];
+	uint8_t  x2b[2];
+	uint8_t  x2c[2];
+	uint8_t  x65[50];
+	uint8_t  x83;
+} __attribute__((packed));
+
 
 #define D90_MECHA_STATUS_IDLE         0x00
 #define D90_MECHA_STATUS_PRINTING     0x50
@@ -465,7 +484,7 @@ static int mitsud90_query_media(struct mitsud90_ctx *ctx, struct mitsud90_media_
 	cmdbuf[4] = 0;
 	cmdbuf[5] = 0;
 	cmdbuf[6] = 0x01;  /* Number of commands */
-	cmdbuf[7] = D90_STATUS_TYPE_MEDIA;
+	cmdbuf[7] = COM_STATUS_TYPE_MEDIA;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, sizeof(cmdbuf))))
@@ -497,9 +516,9 @@ static int mitsud90_query_status(struct mitsud90_ctx *ctx, struct mitsud90_statu
 	cmdbuf[4] = 0;
 	cmdbuf[5] = 0;
 	cmdbuf[6] = 0x03;  /* Number of commands */
-	cmdbuf[7] = D90_STATUS_TYPE_ERROR;
-	cmdbuf[8] = D90_STATUS_TYPE_MECHA;
-	cmdbuf[9] = D90_STATUS_TYPE_TEMP;
+	cmdbuf[7] = COM_STATUS_TYPE_ERROR;
+	cmdbuf[8] = COM_STATUS_TYPE_MECHA;
+	cmdbuf[9] = COM_STATUS_TYPE_TEMP;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     cmdbuf, sizeof(cmdbuf))))
@@ -717,6 +736,12 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		return CUPS_BACKEND_CANCEL;
 	}
 
+	if (ctx->type == P_MITSU_M1) {
+		// check header for special TBD flag
+		job->is_raw = 1;  // XXX fixed for now.
+		// clear TBD flag in header..
+	}
+
 	/* Now read in the rest */
 	remain = sizeof(struct mitsud90_plane_hdr) + be16_to_cpu(job->hdr.cols) * be16_to_cpu(job->hdr.rows) * 3;
 	while(remain) {
@@ -781,8 +806,6 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 			mitsud90_cleanup_job(job);
 			return ret;
 		}
-
-		job->is_raw = 1;  // XXX fixed for now.
 	}
 
 	*vjob = job;
@@ -1137,28 +1160,28 @@ static int mitsud90_get_info(struct mitsud90_ctx *ctx)
 	cmdbuf[5] = 0;
 	cmdbuf[6] = 19;  /* Number of commands */
 
-	cmdbuf[7] = D90_STATUS_TYPE_MODEL;
-	cmdbuf[8] = D90_STATUS_TYPE_x02;
-	cmdbuf[9] = D90_STATUS_TYPE_FW_0b;
-	cmdbuf[10] = D90_STATUS_TYPE_FW_MA;
+	cmdbuf[7] = COM_STATUS_TYPE_MODEL;
+	cmdbuf[8] = COM_STATUS_TYPE_x02;
+	cmdbuf[9] = COM_STATUS_TYPE_FW_0b;
+	cmdbuf[10] = COM_STATUS_TYPE_FW_MA;
 
-	cmdbuf[11] = D90_STATUS_TYPE_FW_F;
-	cmdbuf[12] = D90_STATUS_TYPE_FW_T;
-	cmdbuf[13] = D90_STATUS_TYPE_FW_0f;
-	cmdbuf[14] = D90_STATUS_TYPE_FW_11;
+	cmdbuf[11] = COM_STATUS_TYPE_FW_F;
+	cmdbuf[12] = COM_STATUS_TYPE_FW_T;
+	cmdbuf[13] = COM_STATUS_TYPE_FW_0f;
+	cmdbuf[14] = COM_STATUS_TYPE_FW_11;
 
-	cmdbuf[15] = D90_STATUS_TYPE_FW_ME;
-	cmdbuf[16] = D90_STATUS_TYPE_x1e;
-	cmdbuf[17] = D90_STATUS_TYPE_x22;
-	cmdbuf[18] = D90_STATUS_TYPE_x28;
+	cmdbuf[15] = COM_STATUS_TYPE_FW_ME;
+	cmdbuf[16] = COM_STATUS_TYPE_x1e;
+	cmdbuf[17] = COM_STATUS_TYPE_x22;
+	cmdbuf[18] = COM_STATUS_TYPE_x28;
 
-	cmdbuf[19] = D90_STATUS_TYPE_x29;
-	cmdbuf[20] = D90_STATUS_TYPE_x2b;
-	cmdbuf[21] = D90_STATUS_TYPE_x2c;
-	cmdbuf[22] = D90_STATUS_TYPE_x65;
+	cmdbuf[19] = COM_STATUS_TYPE_x29;
+	cmdbuf[20] = COM_STATUS_TYPE_x2b;
+	cmdbuf[21] = COM_STATUS_TYPE_x2c;
+	cmdbuf[22] = COM_STATUS_TYPE_x65;
 
-	cmdbuf[23] = D90_STATUS_TYPE_ISER;
-	cmdbuf[24] = D90_STATUS_TYPE_x83;
+	cmdbuf[23] = D90_STATUS_TYPE_ISEREN;
+	cmdbuf[24] = COM_STATUS_TYPE_x83;
 	cmdbuf[25] = D90_STATUS_TYPE_x84;
 
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
@@ -1205,6 +1228,91 @@ static int mitsud90_get_info(struct mitsud90_ctx *ctx)
 	INFO("iSerial: %s\n", resp.iserial ? "Disabled" : "Enabled");
 	INFO("TYPE_83: %02x\n", resp.x83);
 	INFO("TYPE_84: %02x\n", resp.x84);
+
+	// XXX what about resume, wait time, "cut limit", sleep time ?
+
+	return CUPS_BACKEND_OK;
+}
+
+static int mitsum1_get_info(struct mitsud90_ctx *ctx)
+{
+	uint8_t cmdbuf[25];
+	int ret, num;
+	struct mitsum1_info_resp resp;
+
+	cmdbuf[0] = 0x1b;
+	cmdbuf[1] = 0x47;
+	cmdbuf[2] = 0x44;
+	cmdbuf[3] = 0x30;
+	cmdbuf[4] = 0;
+	cmdbuf[5] = 0;
+	cmdbuf[6] = 18;  /* Number of commands */
+
+	cmdbuf[7] = COM_STATUS_TYPE_MODEL;
+	cmdbuf[8] = COM_STATUS_TYPE_x02;
+	cmdbuf[9] = CM1_STATUS_TYPE_FW_0a;
+	cmdbuf[10] = COM_STATUS_TYPE_FW_0b;
+	cmdbuf[11] = COM_STATUS_TYPE_FW_MA;
+
+	cmdbuf[12] = COM_STATUS_TYPE_FW_F;
+	cmdbuf[13] = COM_STATUS_TYPE_FW_T;
+	cmdbuf[14] = COM_STATUS_TYPE_FW_0f;
+	cmdbuf[15] = COM_STATUS_TYPE_FW_11;
+
+	cmdbuf[16] = COM_STATUS_TYPE_FW_ME;
+	cmdbuf[17] = COM_STATUS_TYPE_x1e;
+	cmdbuf[18] = COM_STATUS_TYPE_x22;
+	cmdbuf[19] = COM_STATUS_TYPE_x28;
+
+	cmdbuf[20] = COM_STATUS_TYPE_x29;
+	cmdbuf[21] = COM_STATUS_TYPE_x2b;
+	cmdbuf[22] = COM_STATUS_TYPE_x2c;
+	cmdbuf[23] = COM_STATUS_TYPE_x65;
+
+	cmdbuf[24] = COM_STATUS_TYPE_x83;
+
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     cmdbuf, sizeof(cmdbuf))))
+		return ret;
+	memset(&resp, 0, sizeof(resp));
+
+	ret = read_data(ctx->dev, ctx->endp_up,
+			(uint8_t*) &resp, sizeof(resp), &num);
+
+	if (ret < 0)
+		return ret;
+	if (num != sizeof(resp)) {
+		ERROR("Short Read! (%d/%d)\n", num, (int)sizeof(resp));
+		return 4;
+	}
+
+	/* start dumping output */
+	memset(cmdbuf, 0, sizeof(cmdbuf));
+	memcpy(cmdbuf, resp.model, sizeof(resp.model));
+	INFO("Model: %s\n", (char*)cmdbuf);
+	INFO("Serial: %s\n", ctx->serno);
+	for (num = 0; num < 8 ; num++) {
+		memset(cmdbuf, 0, sizeof(cmdbuf));
+		memcpy(cmdbuf, resp.fw_vers[num].version, sizeof(resp.fw_vers[num].version));
+		INFO("FW Component %02d: %s (%04x)\n",
+		     num, cmdbuf, be16_to_cpu(resp.fw_vers[num].csum));
+	}
+	INFO("TYPE_02: %02x\n", resp.x02);
+	INFO("TYPE_1e: %02x\n", resp.x1e);
+	INFO("TYPE_22: %02x %02x\n", resp.x22[0], resp.x22[1]);
+	INFO("TYPE_28: %04x\n", be16_to_cpu(resp.x28));
+	INFO("TYPE_29: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	     resp.x29[0], resp.x29[1], resp.x29[2], resp.x29[3],
+	     resp.x29[4], resp.x29[5], resp.x29[6], resp.x29[7]);
+	INFO("TYPE_2b: %02x %02x\n", resp.x2b[0], resp.x2b[1]);
+	INFO("TYPE_2c: %02x %02x\n", resp.x2c[0], resp.x2c[1]);
+
+	INFO("TYPE_65:");
+	for (num = 0; num < 50 ; num++) {
+		DEBUG2(" %02x", resp.x65[num]);
+	}
+	DEBUG2("\n");
+	INFO("TYPE_83: %02x\n", resp.x83);
 
 	// XXX what about resume, wait time, "cut limit", sleep time ?
 
@@ -1387,7 +1495,10 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'i':
-			j = mitsud90_get_info(ctx);
+			if (ctx->type == P_MITSU_D90)
+				j = mitsud90_get_info(ctx);
+			else
+				j = mitsum1_get_info(ctx);
 			break;
 		case 'j':
 			j = mitsud90_get_jobstatus(ctx, atoi(optarg));
@@ -1402,7 +1513,8 @@ static int mitsud90_cmdline_arg(void *vctx, int argc, char **argv)
 			j = mitsud90_get_status(ctx);
 			break;
 		case 'x':
-			j = mitsud90_set_iserial(ctx, atoi(optarg));
+			if (ctx->type == P_MITSU_D90)
+				j = mitsud90_set_iserial(ctx, atoi(optarg));
 			break;
 		case 'Z':
 			j = mitsud90_dumpall(ctx);
@@ -1458,7 +1570,7 @@ static int mitsud90_query_stats(void *vctx, struct printerstats *stats)
 
 	stats->serial = ctx->serno;
 
-	// stats->fwver = ctx->fwver; // XXX use resp.fw_vers[0] aka MAIN FW
+	// stats->fwver = ctx->fwver; // XXX use resp.fw_vers for 0xc/FW_MA
 	stats->decks = 1;
 
 	stats->name[0] = "Roll";
@@ -1509,6 +1621,20 @@ struct dyesub_backend mitsud90_backend = {
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
+
+/* To-Do:
+
+     * consolidate M1 vs D90 info query/dump more efficiently
+     * job control (job id, active job, buffer status, etc)
+     * any sort of counters
+     * define M1 hdr extensions
+     * add M1 job creation to gutenprint
+     * finish M1 image processing code
+     * move M1 image processing code into lib70x
+     * sleep and waking up
+     * cut limit?
+     * put FW version into
+ */
 
 /*
    Mitsubishi CP-D90DW data format
@@ -1769,6 +1895,9 @@ Comms Protocol for D90 & CP-M1
  [ power cycle ]
    a2 5c 00 01 ba ba fe 42 06 13 5d 9c 00 00 00 00  00 00 00 00 00 00 00 00 00 00 01 e0 00 00 00 00  03 0f 00 03 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
    a2 5d 00 01 ba ba fe 41 04 13 5d 9c 01 08 00 89  00 00 00 00 00 00 00 00 00 00 01 c9 00 00 00 00  03 0f 00 03 10 40 00 00 00 00 00 00 05 80 00 3a  00 00
+ [ cp-m1 ]
+   00 00 01 f2 00 07 00 00 00 0f 00 a7 02 9f 03 91  00 00 00 00 00 00 02 36 00 07 03 ff 02 07 03 ff  03 4c 00 01 10 00 00 00 00 00 00 00 05 80 00 24  04 00
+
 
  */
 
