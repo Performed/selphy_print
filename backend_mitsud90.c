@@ -452,6 +452,7 @@ struct mitsud90_printjob {
 	int is_raw;
 
 	struct mitsud90_job_hdr hdr;
+	struct mitsud90_job_footer footer;
 };
 
 struct mitsud90_ctx {
@@ -691,7 +692,6 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	job->datalen = 0;
 	job->databuf = malloc(sizeof(struct mitsud90_job_hdr) +
 			      sizeof(struct mitsud90_plane_hdr) +
-			      sizeof(struct mitsud90_job_footer) +
 			      1852*2729*3 + 1024);
 
 	if (!job->databuf) {
@@ -777,8 +777,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	}
 
 	/* Read in the footer.  Hopefully... */
-	remain = sizeof(struct mitsud90_job_footer);
-	i = read(data_fd, job->databuf + job->datalen, remain);
+	i = read(data_fd, (uint8_t*)&job->footer, sizeof(job->footer));
 	if (i == 0) {
 		mitsud90_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
@@ -789,14 +788,14 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	}
 
 	/* See if this is a job footer.  If it is, keep, else holdover. */
-	if (job->databuf[job->datalen + 0] != 0x1b ||
-	    job->databuf[job->datalen + 1] != 0x42 ||
-	    job->databuf[job->datalen + 2] != 0x51 ||
-	    job->databuf[job->datalen + 3] != 0x31) {
-		memcpy(&ctx->holdover, job->databuf + job->datalen, sizeof(struct mitsud90_job_footer));
+	if (job->footer.hdr[0] != 0x1b ||
+	    job->footer.hdr[1] != 0x42 ||
+	    job->footer.hdr[2] != 0x51 ||
+	    job->footer.hdr[3] != 0x31) {
+		memcpy(&ctx->holdover, &job->footer, sizeof(job->footer));
 	        ctx->holdover_on = 1;
+		// XXX generate a footer!
 	} else {
-		job->datalen += i;
 		ctx->holdover_on = 0;
 	}
 
@@ -810,7 +809,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 
 		if (!job->hdr.colorcorr) {
 			int ret = mitsu_apply3dlut(&ctx->lib, CPM1_LUT_FNAME,
-						   job->databuf,
+						   job->databuf + sizeof(struct mitsud90_plane_hdr),
 						   be16_to_cpu(job->hdr.cols),
 						   be16_to_cpu(job->hdr.rows),
 						   be16_to_cpu(job->hdr.cols) * 3, COLORCONV_RGB);
@@ -870,8 +869,8 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		input.imgbuf = job->databuf + sizeof(struct mitsud90_plane_hdr);
 		input.bytes_per_row = input.cols * 3;
 
-		/* Allocate new buffer, with extra room for header and footer */
-		uint8_t *convbuf = malloc(input.rows * input.cols * sizeof(uint16_t) * 3 + (job->hdr.overcoat? (input.rows + 12) * input.cols + CPM1_LAMINATE_STRIDE / 2 : 0) + sizeof(struct mitsud90_plane_hdr) + sizeof(struct mitsud90_job_footer));
+		/* Allocate new buffer, with extra room for header */
+		uint8_t *convbuf = malloc(input.rows * input.cols * sizeof(uint16_t) * 3 + (job->hdr.overcoat? (input.rows + 12) * input.cols + CPM1_LAMINATE_STRIDE / 2 : 0) + sizeof(struct mitsud90_plane_hdr));
 		if (!convbuf) {
 			ERROR("Memory allocation Failure!\n");
 			return CUPS_BACKEND_RETRY_CURRENT;
@@ -923,10 +922,6 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		}
 #endif
 
-		/* Copy off the footer */
-		struct mitsud90_job_footer footer;
-		memcpy(&footer, job->databuf + job->datalen - sizeof(footer), sizeof(footer));
-
 		free(job->databuf);
 		job->databuf = convbuf;
 		job->datalen = sizeof(struct mitsud90_plane_hdr) + input.rows * input.cols * sizeof(uint16_t) * 3;
@@ -946,10 +941,6 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			job->hdr.oprate = M1_calc_oprate_gloss(output.rows,
 							       output.cols);
 		}
-
-		/* Copy over job footer */
-		memcpy(job->databuf + job->datalen, &footer, sizeof(footer));
-		job->datalen += sizeof(footer);
 	}
 
 	/* Bypass */
@@ -1050,11 +1041,16 @@ top:
 		return CUPS_BACKEND_FAILED;
 	sent += sizeof(job->hdr);
 
-	/* Send payload + footer */
+	/* Send payload */
 	if ((ret = send_data(ctx->dev, ctx->endp_down,
 			     job->databuf + sent, job->datalen - sent)))
 		return CUPS_BACKEND_FAILED;
 //	sent += (job->datalen - sent);
+
+	/* Send job footer */
+	if ((ret = send_data(ctx->dev, ctx->endp_down,
+			     (uint8_t*) &job->footer, sizeof(job->footer))))
+		return CUPS_BACKEND_FAILED;
 
 	/* Wait for completion */
 	do {
@@ -1628,7 +1624,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.22"  " (lib " LIBMITSU_VER ")",
+	.version = "0.23"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
