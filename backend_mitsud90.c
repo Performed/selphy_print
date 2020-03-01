@@ -840,6 +840,8 @@ static struct M1CPCData *get_M1CPCData(const char *filename,
 static void free_M1CPCData(struct M1CPCData *dat);
 static void M1_gamma8to14(const struct M1CPCData *cpc,
 			  const struct BandImage *in, struct BandImage *out);
+static void M1_clocalenhancer(const struct M1CPCData *cpc, int sharp,
+			      struct BandImage *img);
 
 static int mitsud90_main_loop(void *vctx, const void *vjob) {
 	struct mitsud90_ctx *ctx = vctx;
@@ -885,29 +887,29 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		/* Copy over the plane header */
 		memcpy(convbuf, job->databuf, sizeof(struct mitsud90_plane_hdr));
 
+		// Do CContrastConv prior to RGBRate
 		job->hdr.rgbrate = M1_calc_rgbrate(input.rows,
 						   input.cols,
 						   input.imgbuf);
-		// XXX
-		// ** CBGRtoRGB (not necessary...)
-		// ** CContrastConv (?)
-		// Compute RGBRate, OPRate (already done..)
-		// CColorConv3D  (already done earlier)
-		const char *fname = CPM1_CPC_G1_FNAME;
-		// XXX CPC_G5_FNAME is never used in mitsu driver?  ??
-		cpc = get_M1CPCData(CPM1_CPC_FNAME, fname);
+
+		// XXX CPC_G5_FNAME is never used by mitsu driver!?
+		cpc = get_M1CPCData(CPM1_CPC_FNAME, CPM1_CPC_G1_FNAME);
 		if (!cpc) {
 			ERROR("Cannot read data tables\n");
 			return CUPS_BACKEND_FAILED;
 		}
 
+		/* Do gamma conversion */
 		M1_gamma8to14(cpc, &input, &output);
+
 		if (job->hdr.sharp_h || job->hdr.sharp_v) {
 			/* 0 is off, 1-7 corresponds to level 0-6 */
-			// ** CLocalEnhancer (uses "CPC" data)
+			int sharp = ((job->hdr.sharp_h > job->hdr.sharp_v) ? job->hdr.sharp_h : job->hdr.sharp_v) - 1;
 			job->hdr.sharp_h = 0;
 			job->hdr.sharp_v = 0;
-			WARNING("Sharpening on CP-M1 series not yet implemented!\n");
+
+			/* And do the sharpening */
+			M1_clocalenhancer(cpc, sharp, &output);
 		}
 
 		/* We're done with the CPC data */
@@ -1932,13 +1934,13 @@ struct M1CPCData {
 	uint16_t GNMaG[M1CPCDATA_GAMMA_ROWS];
 	uint16_t GNMaR[M1CPCDATA_GAMMA_ROWS];
 
-	uint8_t  EnHTH[M1CPCDATA_ROWS];        // fixed @96
-	uint8_t  NoISetH[M1CPCDATA_ROWS];      // fixed @8
-	uint8_t  NRGain[M1CPCDATA_ROWS];       // fixed @40
-	uint8_t  NRTH[M1CPCDATA_ROWS];         // fixed @32
+	uint16_t EnHTH[M1CPCDATA_ROWS];        // fixed @96
+	uint16_t NoISetH[M1CPCDATA_ROWS];      // fixed @8
+	uint16_t NRGain[M1CPCDATA_ROWS];       // fixed @40
+	uint16_t NRTH[M1CPCDATA_ROWS];         // fixed @32
 	uint8_t  NRK[M1CPCDATA_ROWS];          // fixed @1
-	uint8_t  HDEnhGain[M1CPCDATA_ROWS];    // Varies!
-	uint8_t  EnhDarkGain[M1CPCDATA_ROWS];  // Fixed @0
+	uint16_t HDEnhGain[M1CPCDATA_ROWS];    // Varies!
+	uint16_t EnhDarkGain[M1CPCDATA_ROWS];  // Fixed @0
 	uint8_t  DtctArea[M1CPCDATA_ROWS];     // Fixed @1
 	uint8_t  CorCol[M1CPCDATA_ROWS];       // Fixed @2
 	uint8_t  HighDownMode[M1CPCDATA_ROWS]; // Fixed @1
@@ -1971,6 +1973,179 @@ static void M1_gamma8to14(const struct M1CPCData *cpc,
 		outp += out->bytes_per_row / 2;
 	}
 }
+
+
+/* Sharpening! */
+struct SIZE {
+    int32_t cx;
+    int32_t cy;
+};
+
+struct POINT {
+    uint32_t x;
+    uint32_t y;
+};
+
+/* Get all pixel values around a given point */
+static void M1_GetAroundBrightness(uint16_t *pSrcBrightness,
+				   struct SIZE *pSrcSize,
+				   struct POINT *pPtCenter,
+				   uint16_t *pDstBrightness,
+				   struct SIZE *pDstSize)
+
+{
+	uint16_t center;
+	int32_t vert, horiz;
+	int32_t UVar1;
+	int32_t UVar2;
+	int bottom, right, top, left;
+	int i;
+	uint16_t *pBottomRight;
+	uint16_t *pTopLeft;
+	int32_t col;
+	int32_t row;
+	uint16_t *pDstRow;
+
+	center = pSrcBrightness[pSrcSize->cx * pPtCenter->y + pPtCenter->x];
+	pDstRow = pDstBrightness + pDstSize->cx;
+
+	for (row = 0 ; row < pDstSize->cx ; row++) {
+		pDstBrightness[row] = center;
+	}
+
+	for (col = 1; col < pDstSize->cy; col++) {
+		memcpy(pDstRow, pDstBrightness, pDstSize->cx * sizeof(uint16_t));
+		pDstRow += pDstSize->cx;
+	}
+
+	vert = pPtCenter->x + (pDstSize->cx >> 1);
+	horiz = pPtCenter->y + (pDstSize->cy >> 1);
+
+	top = pPtCenter->x - vert;
+	bottom = 0;
+	if (top < 0) {
+		bottom = -top;
+		top = 0;
+	}
+
+	left = pPtCenter->y - horiz;
+	right = 0;
+	if (left < 0) {
+		right = -left;
+	  left = 0;
+	}
+
+	if (pSrcSize->cx - 1 < vert) {
+		UVar1 = pDstSize->cx - ((vert - pSrcSize->cx) + 1);
+	} else {
+		UVar1 = pDstSize->cx;
+	}
+
+	if (pSrcSize->cy - 1 < horiz) {
+		UVar2 = pDstSize->cy - ((horiz - pSrcSize->cy) + 1);
+	} else {
+		UVar2 = pDstSize->cy;
+	}
+
+	pTopLeft = pSrcBrightness + pSrcSize->cx * left + top;
+	pBottomRight = pDstBrightness + pDstSize->cx * right + bottom;
+	for (i = right ; i < UVar2 ; i++) {
+		memcpy(pBottomRight, pTopLeft, (UVar1 - bottom) * sizeof(uint16_t));
+		pTopLeft = pTopLeft + pSrcSize->cx;
+		pBottomRight += pDstSize->cx;
+	}
+	return;
+}
+
+static const int16_t aroundMap08[9] = { 1, 1, 1, 1, 0, 1, 1, 1, 1};
+static const int16_t aroundMap16[25] = { 0, 0, 1, 1, 0, 1, 1, 1,
+					 1, 0, 1, 1, 0, 1, 1, 0,
+					 1, 1, 1, 1, 0, 1, 1, 0,
+					 0 };
+static const int16_t aroundMap64[81] = { 0, 0, 0, 1, 1, 1, 1, 0,
+					 0, 0, 1, 1, 1, 1, 1, 1,
+					 1, 0, 0, 1, 1, 1, 5, 5,
+					 1, 1, 0, 1, 1, 5, 5, 5,
+					 5, 1, 1, 1, 1, 1, 5, 5,
+					 1, 5, 5, 1, 1, 1, 1, 1,
+					 5, 5, 5, 5, 1, 0, 0, 1,
+					 1, 5, 5, 1, 1, 1, 0, 0,
+					 1, 1, 1, 1, 1, 1, 1, 0,
+					 0, 0, 1, 1, 1, 1, 1, 0,
+					 0 };
+
+static double M1_GetBrightnessAverage(uint16_t *pBitBrightness,
+				      struct SIZE *pSize,
+				      struct POINT *pPtCenter,
+				      uint8_t dtctArea,
+				      int32_t enhTh, int32_t noiseTh)
+
+{
+	uint16_t srcPixel;
+	struct SIZE dtct;
+	uint16_t pDestBrightness [85];
+	uint16_t intPixel;
+	int32_t col, row;
+	uint16_t *pDestPtr;
+	uint16_t local_12 = 0;
+	uint32_t local_10 = 0;
+
+	const int16_t *aroundMapPtr;
+	const int16_t *aroundMap;
+
+	if (dtctArea == 0) {
+		aroundMap = aroundMap64;
+		dtct.cx = 9;
+		dtct.cy = 9;
+	} else if (dtctArea == 1) {
+		aroundMap = aroundMap16;
+		dtct.cx = 5;
+		dtct.cy = 5;
+	} else {
+		aroundMap = aroundMap08;
+		dtct.cx = 3;
+		dtct.cy = 3;
+	}
+	M1_GetAroundBrightness(pBitBrightness,pSize,pPtCenter,pDestBrightness,&dtct);
+	srcPixel = pBitBrightness[pSize->cx * pPtCenter->y + pPtCenter->x];
+	pDestPtr = pDestBrightness;
+	aroundMapPtr = aroundMap;
+	for (row = 0 ; row < dtct.cy ; row++) {
+		for (col = 0 ; col < dtct.cx ; col++) {
+			int32_t iVar1 = *pDestPtr - srcPixel;
+			if ((noiseTh + enhTh) < iVar1) {
+				intPixel = enhTh + srcPixel;
+			} else {
+				if (noiseTh < iVar1) {
+					intPixel = *pDestPtr - noiseTh;
+				} else if (-(noiseTh + enhTh) == iVar1 || -iVar1 < (noiseTh + enhTh)) {
+					intPixel = srcPixel;
+					if (-noiseTh != iVar1 && noiseTh <= -iVar1) {
+						intPixel = noiseTh + *pDestPtr;
+					}
+				} else {
+					intPixel = srcPixel - enhTh;
+				}
+			}
+			local_10 += *aroundMapPtr * intPixel;
+			local_12 += *aroundMapPtr;
+			pDestPtr++;
+			aroundMapPtr++;
+		}
+	}
+	return (double)local_10 / (double)local_12;
+}
+
+static void M1_clocalenhancer(const struct M1CPCData *cpc,
+			      int sharp, struct BandImage *img)
+{
+	UNUSED(cpc);
+	UNUSED(sharp);
+	UNUSED(img);
+
+	WARNING("Sharpening on CP-M1 series not yet implemented!\n");
+}
+
 
 /* Essentially this yields a fixed value for any given print size */
 static uint8_t M1_calc_oprate_gloss(uint16_t rows, uint16_t cols)
