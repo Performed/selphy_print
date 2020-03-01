@@ -76,7 +76,7 @@ struct mitsu9550_hdr2 {
 	uint8_t  cut;      /* 00 == normal, 83 == 2x6*2 */
 	uint8_t  unkb[5];
 	uint8_t  mode;     /* 00 == fine, 80 == superfine */
-	uint8_t  unkc[11]; /* 00 [...] 00 01 */
+	uint8_t  unkc[11]; /* 00 [...] 00 01 ; note [7][8][9] are cp98xx extensions for sharpness/reversed/lut */
 } __attribute__((packed));
 
 /* Fine Deep selection (9550 only) */
