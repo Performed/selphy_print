@@ -51,8 +51,9 @@
    Mitsubishi CP-9600D/DW
    Mitsubishi CP-D70DW and CP-D707DW
    Mitsubishi CP-D80DW
-   Mitsubishi CP-K60DW-S
    Mitsubishi CP-D90DW
+   Mitsubishi CP-K60DW-S
+   Mitsubishi CP-M1A / CP-M1E
    Mitsubishi P95DW
    Mitsubishi P93DW
    Shinko CHC-S1245 (aka Sinfonia E1)
@@ -82,7 +83,7 @@
    Mitsubishi CP-3020D/DE and CP-3020DA/DAE
    Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
    Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
-   Mitsubishi CP-M1A / CP-M1E / CP-M15E
+   Mitsubishi CP-M15
    Olmec OP900
    Shinko CHC-S2245 (aka Sinfonia S3)
    Shinko CHC-S6145-5A (aka Sinfonia CS2-c)
@@ -964,19 +965,39 @@
    Supported and tested printers:
 
     Mitsubishi CP-D90DW
+    Mitsubishi CP-M1A / CP-M1E
 
    Work-in-progress printers:
 
-    Mitsubishi CP-M1A / CP-M1E / CP-M15E
+    Mitsubishi CP-M15E
 
    *** VERY IMPORTANT ***
 
      In order to generate usable output, the Mitsubishi CP-M1 family
      requires the input data to be transformed using specific image
-     processing algorithms.  These are currently only implemented within
-     Mitsubishi's proprietary drivers, and will require a substantial
-     amount of effort to re-implement.  Some progress has been made, but
-     there is no specific roadmap or timeline.
+     processing algorithms.
+
+     Considerable progress has been made, and everything but the
+     sharpening feature has been implemented.  In theory, the output
+     quality should be comparable to Mitsubishi's own drivers.
+
+     The library that implements this processing is dynamically loaded
+     at runtime.  There is currently only one option:
+
+	 * libMitsuD70ImageReProcess -- GPL'd re-implementation of the
+	   Mitsubishi algorithms, available as source.  No guaranteees are
+	   made about its output quality versus Mitsubishi's
+	   proprietary drivers, but is generally considerd quite good.
+
+	   DISCLAIMER:  Mitsubishi was not involved in the creation of
+	   libMitsuD70ImageReProcess and is not responsible in any way for
+	   any deficiencies in its output.  They will provide no support if
+	   it is used.
+
+	   Do *NOT* contact Mitsubishi for support if you are using
+	   any combination of gutenprint, selphy_print or libMitsuD70ImageReProcess.
+
+             (Please see the full disclaimer in libMitsuD70ImageReProcess.c)
 
    Valid commands:
 
