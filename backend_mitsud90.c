@@ -61,10 +61,10 @@
 #define COM_STATUS_TYPE_TEMP    0x1f // 1  (see below)
 #define COM_STATUS_TYPE_x22     0x22 // 2,  all 0  (counter?)
 #define COM_STATUS_TYPE_x28     0x28 // 2, next jobid? (starts 00 01 at power cycle, increments by 1 for each print)
-#define COM_STATUS_TYPE_x29     0x29 // 8,  e0 07 00 00 21 e6 b3 22
+#define COM_STATUS_TYPE_x29     0x29 // 8,  e0 07 00 00 21 e6 b3 22 or e0 07 80 96 3f 28 12 2d
 #define COM_STATUS_TYPE_MEDIA   0x2a // 10 (see below)
 #define COM_STATUS_TYPE_x2b     0x2b // 2,  all 0 (counter?)
-#define COM_STATUS_TYPE_x2c     0x2c // 2,  00 56 (counter?)
+#define COM_STATUS_TYPE_x2c     0x2c // 2,  00 56 (counter?) or 00 28
 #define COM_STATUS_TYPE_x65     0x65 // 50, see below
 #define D90_STATUS_TYPE_ISEREN  0x82 // 1,  80 (iserial disabled)
 #define COM_STATUS_TYPE_x83     0x83 // 1,  00
