@@ -194,7 +194,7 @@ struct mitsud90_job_hdr {
 	uint8_t  colorcorr; /* Always 1 on M1 */
 	uint8_t  sharp_h;   /* Always 0 on M1 */
 	uint8_t  sharp_v;   /* Always 0 on M1 */
-	uint8_t  zero_b[5]; /* zero_b[4] on M1 is the not-raw flag */
+	uint8_t  zero_b[4]; /* zero_b[3] on M1 is the not-raw flag */
 	struct {
 		uint16_t pano_on;   /* 0x0001 when pano is on, or always 0x0002 on M1  */
 		uint8_t  pano_tot;  /* 2 or 3 */
@@ -205,7 +205,7 @@ struct mitsud90_job_hdr {
 		uint16_t pano_overlap; /* always 0x0258, ie 600 or 2 inches */
 		uint8_t  pano_unk[4];  /* 00 0c 00 06 */
 	} pano __attribute__((packed));
-	uint8_t zero_c[6];
+	uint8_t zero_c[7];
 /*@x50*/uint8_t unk_m1;   /* 00 on d90 & m1 Linux, 01 on m1 (windows) */
 	uint8_t rgbrate;  /* M1 only, see below */
 	uint8_t oprate;   /* M1 only, see below */
@@ -750,8 +750,8 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 
 	if (ctx->type == P_MITSU_M1) {
 		/* See if it's a special gutenprint "not-raw" job */
-		job->is_raw = !job->hdr.zero_b[4];
-		job->hdr.zero_b[4] = 0;
+		job->is_raw = !job->hdr.zero_b[3];
+		job->hdr.zero_b[3] = 0;
 
 		/* If it's a raw M1 job, the pixels are 2 bytes each */
 		if (job->is_raw)
@@ -1626,7 +1626,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.23"  " (lib " LIBMITSU_VER ")",
+	.version = "0.24"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
