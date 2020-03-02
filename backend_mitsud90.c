@@ -840,8 +840,8 @@ static struct M1CPCData *get_M1CPCData(const char *filename,
 static void free_M1CPCData(struct M1CPCData *dat);
 static void M1_gamma8to14(const struct M1CPCData *cpc,
 			  const struct BandImage *in, struct BandImage *out);
-static void M1_clocalenhancer(const struct M1CPCData *cpc, int sharp,
-			      struct BandImage *img);
+static int M1_CLocalEnhancer(const struct M1CPCData *cpc, int sharp,
+			     struct BandImage *img);
 
 static int mitsud90_main_loop(void *vctx, const void *vjob) {
 	struct mitsud90_ctx *ctx = vctx;
@@ -896,6 +896,7 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		cpc = get_M1CPCData(CPM1_CPC_FNAME, CPM1_CPC_G1_FNAME);
 		if (!cpc) {
 			ERROR("Cannot read data tables\n");
+			free(convbuf);
 			return CUPS_BACKEND_FAILED;
 		}
 
@@ -909,7 +910,12 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			job->hdr.sharp_v = 0;
 
 			/* And do the sharpening */
-			M1_clocalenhancer(cpc, sharp, &output);
+			if (M1_CLocalEnhancer(cpc, sharp, &output)) {
+				ERROR("CLocalEnhancer failed (out of memory?)\n");
+				free(convbuf);
+				free_M1CPCData(cpc);
+				return CUPS_BACKEND_RETRY_CURRENT;
+			}
 		}
 
 		/* We're done with the CPC data */
@@ -1987,9 +1993,9 @@ struct POINT {
 };
 
 /* Get all pixel values around a given point */
-static void M1_GetAroundBrightness(uint16_t *pSrcBrightness,
-				   struct SIZE *pSrcSize,
-				   struct POINT *pPtCenter,
+static void M1_GetAroundBrightness(const uint16_t *pSrcBrightness,
+				   const struct SIZE *pSrcSize,
+				   const struct POINT *pPtCenter,
 				   uint16_t *pDstBrightness,
 				   struct SIZE *pDstSize)
 
@@ -2001,7 +2007,7 @@ static void M1_GetAroundBrightness(uint16_t *pSrcBrightness,
 	int bottom, right, top, left;
 	int i;
 	uint16_t *pBottomRight;
-	uint16_t *pTopLeft;
+	const uint16_t *pTopLeft;
 	int32_t col;
 	int32_t row;
 	uint16_t *pDstRow;
@@ -2057,26 +2063,27 @@ static void M1_GetAroundBrightness(uint16_t *pSrcBrightness,
 	return;
 }
 
-static const int16_t aroundMap08[9] = { 1, 1, 1, 1, 0, 1, 1, 1, 1};
-static const int16_t aroundMap16[25] = { 0, 0, 1, 1, 0, 1, 1, 1,
-					 1, 0, 1, 1, 0, 1, 1, 0,
-					 1, 1, 1, 1, 0, 1, 1, 0,
-					 0 };
-static const int16_t aroundMap64[81] = { 0, 0, 0, 1, 1, 1, 1, 0,
-					 0, 0, 1, 1, 1, 1, 1, 1,
-					 1, 0, 0, 1, 1, 1, 5, 5,
-					 1, 1, 0, 1, 1, 5, 5, 5,
-					 5, 1, 1, 1, 1, 1, 5, 5,
-					 1, 5, 5, 1, 1, 1, 1, 1,
-					 5, 5, 5, 5, 1, 0, 0, 1,
-					 1, 5, 5, 1, 1, 1, 0, 0,
-					 1, 1, 1, 1, 1, 1, 1, 0,
-					 0, 0, 1, 1, 1, 1, 1, 0,
-					 0 };
+static const int16_t aroundMap08[9] = { 1, 1, 1,
+					1, 0, 1,
+					1, 1, 1};
+static const int16_t aroundMap16[25] = { 0, 0, 1, 1, 0,
+					 1, 1, 1, 1, 0,
+					 1, 1, 0, 1, 1,
+					 0, 1, 1, 1, 1,
+					 0, 1, 1, 0, 0 };
+static const int16_t aroundMap64[81] = { 0, 0, 0, 1, 1, 1, 1, 0, 0,
+					 0, 1, 1, 1, 1, 1, 1, 1, 0,
+					 0, 1, 1, 1, 5, 5, 1, 1, 0,
+					 1, 1, 5, 5, 5, 5, 1, 1, 1,
+					 1, 1, 5, 5, 1, 5, 5, 1, 1,
+					 1, 1, 1, 5, 5, 5, 5, 1, 0,
+					 0, 1, 1, 5, 5, 1, 1, 1, 0,
+					 0, 1, 1, 1, 1, 1, 1, 1, 0,
+					 0, 0, 1, 1, 1, 1, 1, 0, 0 };
 
-static double M1_GetBrightnessAverage(uint16_t *pBitBrightness,
-				      struct SIZE *pSize,
-				      struct POINT *pPtCenter,
+static double M1_GetBrightnessAverage(const uint16_t *pBitBrightness,
+				      const struct SIZE *pSize,
+				      const struct POINT *pPtCenter,
 				      uint8_t dtctArea,
 				      int32_t enhTh, int32_t noiseTh)
 
@@ -2136,16 +2143,201 @@ static double M1_GetBrightnessAverage(uint16_t *pBitBrightness,
 	return (double)local_10 / (double)local_12;
 }
 
-static void M1_clocalenhancer(const struct M1CPCData *cpc,
-			      int sharp, struct BandImage *img)
+static int M1_CLocalEnhancer(const struct M1CPCData *cpc,
+			     int sharp, struct BandImage *img)
 {
-	UNUSED(cpc);
-	UNUSED(sharp);
-	UNUSED(img);
+	struct SIZE size;
+	double NRK;
+	uint16_t *rowBuffer, *rowPtr;
+	uint16_t *inBasePtr, *inRowPtr, *inPixelPtr;
+	int row, col;
+	struct POINT pt;
+	int i;
+	double avgBrightness;
 
-	WARNING("Sharpening on CP-M1 series not yet implemented!\n");
+	size.cx = img->cols - img->origin_cols;
+	size.cy = img->rows - img->origin_rows;
+
+	switch (cpc->NRK[sharp]) {
+	case 3:
+		NRK = 3.0;
+		break;
+	case 2:
+		NRK = 2.0;
+		break;
+	case 1:
+		NRK = 1.0;
+		break;
+	default:
+		NRK = 0.5;
+		break;
+	}
+
+	rowBuffer = malloc(size.cx * size.cy * 2);
+	if (!rowBuffer)
+		return CUPS_BACKEND_FAILED;
+
+	if (img->bytes_per_row < 0)
+		inBasePtr = img->imgbuf;
+	else
+		inBasePtr = img->imgbuf + (size.cy - 1) * img->bytes_per_row;
+
+	inRowPtr = inBasePtr;
+	rowPtr = rowBuffer;
+
+	/* Work out the luminence of each pixel */
+	for (col = 0 ; col < size.cy ; col ++) {
+		inPixelPtr = inRowPtr;
+		for (row = 0 ; row < size.cx ; row ++) {
+			*rowPtr = ((inPixelPtr[0] * 0.299 +
+				    inPixelPtr[1] * 0.587 +
+				    inPixelPtr[2] * 0.114) / 16.0) + 0.5;
+			inPixelPtr += 3;
+			rowPtr ++;
+		}
+		inRowPtr -= img->bytes_per_row / sizeof(int16_t);
+	}
+
+	inRowPtr = inBasePtr;
+	rowPtr = rowBuffer;
+	for (pt.y = 0 ; (int)pt.y < size.cy ; pt.y++) {
+		inPixelPtr = inRowPtr;
+		for (pt.x = 0 ; (int)pt.x < size.cx ; pt.x++) {
+			double outVals[3];
+			double dVar5;
+			double local_100, local_1b0, local_1b8;
+			uint8_t local_102, local_101;
+			uint16_t uVar2, uVar1;
+
+			memset(outVals, 0, sizeof(outVals));
+
+			/* Get the average brightness of each point */
+			avgBrightness = M1_GetBrightnessAverage(rowBuffer, &size, &pt,
+								cpc->DtctArea[sharp],
+								cpc->EnHTH[sharp],
+								cpc->NoISetH[sharp]);
+
+			/* Work out the amount of compensation for this point */
+			dVar5 = *rowPtr - avgBrightness;
+			if (dVar5 < 0.0) {
+				dVar5 *= -1.0;
+			}
+			if (dVar5 >= cpc->NRTH[sharp]) {
+				if (dVar5 >= cpc->NRTH[sharp] + cpc->NRGain[sharp] / NRK) {
+					dVar5 = 0.0;
+				} else {
+					dVar5 = cpc->NRGain[sharp] - NRK * (dVar5 - cpc->NRTH[sharp]);
+				}
+			} else {
+				dVar5 = cpc->NRGain[sharp];
+			}
+
+			dVar5 = ((cpc->HDEnhGain[sharp] + avgBrightness * cpc->EnhDarkGain[sharp]) - dVar5) / 32.0;
+
+			if (*rowPtr != 0) {
+				avgBrightness /= *rowPtr;
+			}
+			if (1.0 <= avgBrightness) {
+				local_1b0 = 1.00000000 - dVar5 * (avgBrightness - 1.0);
+			} else {
+				local_1b0 = dVar5 * (1.00000000 - avgBrightness) + 1.0;
+			}
+
+			if (0.0 <= local_1b0) {
+				if (local_1b0 <= 8.0) {
+					local_1b8 = local_1b0;
+				} else {
+					local_1b8 = 8.0;
+				}
+			} else {
+				local_1b8 = 0.0;
+			}
+
+			/* Work out relative pixel weights */
+			if (inPixelPtr[1] < inPixelPtr[2]) {
+				if (inPixelPtr[2] < *inPixelPtr) {
+					local_101 = 0;
+					local_102 = 1;
+				} else {
+					local_102 = inPixelPtr[1] < *inPixelPtr;
+					local_101 = 2;
+				}
+			} else {
+				if (inPixelPtr[1] < *inPixelPtr) {
+					local_101 = 0;
+					local_102 = 1;
+				} else {
+					if (inPixelPtr[2] < *inPixelPtr) {
+						local_102 = 1;
+					} else {
+						local_102 = 0;
+					}
+					local_101 = 1;
+				}
+			}
+
+			/* Figure out the per-pixel compensation */
+			uVar2 = inPixelPtr[(int)local_101];
+			uVar1 = inPixelPtr[(int)local_102];
+			if (1.0 <= local_1b0) {
+				local_100 = local_1b8;
+			} else {
+				if (cpc->CorCol[sharp] == 1) {
+					local_100 = 1.0 -
+						((1.0 - local_1b8) * (double)((0x4000 - (uint)uVar2) + (uint)uVar1)) / 16384.0;
+				} else if (cpc->CorCol[sharp] == 2) {
+					if ((int)(uVar2 - uVar1) < 0x2000) {
+						local_100 = 1.0 -
+							((1.0 - local_1b8) * (double)((0x2000 - (uint)uVar2) + (uint)uVar1)) / 16384.0;
+					} else {
+						local_100 = 1.0;
+					}
+				} else {
+					local_100 = local_1b8;
+				}
+			}
+			dVar5 = *rowPtr * local_100;
+
+			/* Apply the compensation to each point */
+			if (((local_100 <= 1.0) || (cpc->HighDownMode[sharp] != 1)) ||
+			    (dVar5 <= cpc->HighTH[sharp])) {
+				for (i = 0 ; i < 3 ; i++) {
+					outVals[i] = inPixelPtr[i] * local_100;
+				}
+			} else {
+				double dVar4 = 1.0 -
+					((dVar5 - cpc->HighTH[sharp]) * cpc->HighG[sharp]) /
+					(0x400 - cpc->HighTH[sharp]);
+				if (*rowPtr <= dVar5 * dVar4) {
+					for (i = 0 ; i < 3 ; i++) {
+						outVals[i] = inPixelPtr[i] * local_100 * dVar4;
+					}
+				} else {
+					for (i = 0 ; i < 3 ; i++) {
+						outVals[i] = inPixelPtr[i];
+					}
+				}
+			}
+
+			/* Finally, spit out the final (capped) values */
+			for (i = 0 ; i < 3 ; i++) {
+				if (outVals[i] < 0)
+					inPixelPtr[i] = 0;
+				else if (outVals[i] > 0x3fff)
+					inPixelPtr[i] = 0x3fff;
+				else
+					inPixelPtr[i] = outVals[i];
+			}
+
+			inPixelPtr+=3;
+			rowPtr++;
+		}
+		inRowPtr -= img->bytes_per_row / sizeof(uint16_t);
+	}
+
+	free(rowBuffer);
+	return CUPS_BACKEND_OK;
 }
-
 
 /* Essentially this yields a fixed value for any given print size */
 static uint8_t M1_calc_oprate_gloss(uint16_t rows, uint16_t cols)
