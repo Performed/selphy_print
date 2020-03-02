@@ -212,7 +212,7 @@ else
 	$(CP) -a hiti_data lib70x/data/* selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
 	$(CP) -a lib70x/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib70x
 	$(CP) -a lib6145/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib6145
-	$(CIP) -r selphy_print-mingw$(REVISION).zip selphy_print$(REVISION)
+	$(ZIP) -r selphy_print-mingw$(REVISION).zip selphy_print$(REVISION)
 endif
 	$(RM) -Rf selphy_print$(REVISION)
 
