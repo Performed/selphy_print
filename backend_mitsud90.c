@@ -194,7 +194,7 @@ struct mitsud90_job_hdr {
 	uint8_t  colorcorr; /* Always 1 on M1 */
 	uint8_t  sharp_h;   /* Always 0 on M1 */
 	uint8_t  sharp_v;   /* Always 0 on M1 */
-	uint8_t  zero_b[4]; /* zero_b[3] on M1 is the not-raw flag */
+	uint8_t  zero_b[4]; /* 0 on D90, on M1, zero_b[3] is the not-raw flag */
 	struct {
 		uint16_t pano_on;   /* 0x0001 when pano is on, or always 0x0002 on M1  */
 		uint8_t  pano_tot;  /* 2 or 3 */
@@ -228,8 +228,7 @@ struct mitsud90_plane_hdr {
 
 struct mitsud90_job_footer {
 	uint8_t hdr[4]; /* 1b 42 51 31 */
-	uint8_t pad;
-	uint8_t seconds; /* 0x05 by default (windows), 0xff means don't wait */
+	uint16_t seconds; /* BE, 0x0005 by default (windows), 0x00ff means don't wait */
 } __attribute__((packed));
 
 struct mitsud90_memcheck {
@@ -450,6 +449,8 @@ struct mitsud90_printjob {
 	uint32_t datalen;
 
 	int is_raw;
+
+	int m1_colormode;
 
 	struct mitsud90_job_hdr hdr;
 	struct mitsud90_job_footer footer;
@@ -807,7 +808,10 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 			return CUPS_BACKEND_CANCEL;
 		}
 
-		if (!job->hdr.colorcorr) {
+		job->m1_colormode = job->hdr.colorcorr;
+		job->hdr.colorcorr = 1;
+
+		if (job->m1_colormode == 0) {
 			int ret = mitsu_apply3dlut(&ctx->lib, CPM1_LUT_FNAME,
 						   job->databuf + sizeof(struct mitsud90_plane_hdr),
 						   be16_to_cpu(job->hdr.cols),
@@ -904,8 +908,18 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 							   input.cols,
 							   input.imgbuf);
 
-		// XXX CPC_G5_FNAME is never used by mitsu driver!?
-		cpc = ctx->lib.M1_GetCPCData(corrtable_path, CPM1_CPC_FNAME, CPM1_CPC_G1_FNAME);
+		/* Color modes: 0 LUT, NOMATCH
+		                1 NOLUT, MATCH  <-- ie use with external ICC profile!
+                                2 NOLUT, NOMATCH */
+
+		const char *gammatab;
+		if (job->m1_colormode == 1) {
+			gammatab = CPM1_CPC_G5_FNAME;
+		} else { /* Mode 0 or 2 */
+			gammatab = CPM1_CPC_G1_FNAME;
+		}
+
+		cpc = ctx->lib.M1_GetCPCData(corrtable_path, CPM1_CPC_FNAME, gammatab);
 		if (!cpc) {
 			ERROR("Cannot read data tables\n");
 			free(convbuf);
@@ -1644,7 +1658,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.25"  " (lib " LIBMITSU_VER ")",
+	.version = "0.26"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
