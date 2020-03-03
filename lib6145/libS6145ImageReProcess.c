@@ -2,7 +2,7 @@
    libS6145ImageReProcess -- Re-implemented Image Processing library for
                              the Sinfonia CHC-S6145 printer family
 
-   Copyright (c) 2015-2016 Solomon Peachy <pizza@shaftnet.org>
+   Copyright (c) 2015-2020 Solomon Peachy <pizza@shaftnet.org>
 
    ** ** ** ** Do NOT contact Sinfonia about this library! ** ** ** **
 
@@ -41,7 +41,7 @@
 
 //#define S6145_UNUSED
 
-#define LIB_VERSION "0.4"
+#define LIB_VERSION "0.4.1"
 
 #include <string.h>
 #include <stdint.h>
@@ -423,7 +423,7 @@ int ImageAvrCalc(uint8_t *input, uint16_t cols, uint16_t rows, uint8_t *avg)
 	  return 4;
   if ( cols <= MIN_COLS || cols > MAX_COLS )
 	  return 2;
-  if ( rows <= MIN_COLS || cols > MAX_ROWS )
+  if ( rows <= MIN_ROWS || rows > MAX_ROWS )
 	  return 3;
 
   planesize = rows * cols;
