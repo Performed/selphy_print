@@ -445,9 +445,9 @@ int ImageProcessing(unsigned char *in, unsigned short *out, void *corrdata)
   uint8_t i;
 
   fprintf(stderr, "INFO: libS6145ImageReProcess version '%s'\n", LIB_VERSION);
-  fprintf(stderr, "INFO: Copyright (c) 2015-2016 Solomon Peachy\n");
+  fprintf(stderr, "INFO: Copyright (c) 2015-2020 Solomon Peachy\n");
   fprintf(stderr, "INFO: This free software comes with ABSOLUTELY NO WARRANTY!\n");
-  fprintf(stderr, "INFO: Licensed under the GNU GPL.\n");
+  fprintf(stderr, "INFO: Licensed under the GNU GPLv3.\n");
   fprintf(stderr, "INFO: *** This code is NOT supported or endorsed by Sinfonia! ***\n");
 
   if (!in)

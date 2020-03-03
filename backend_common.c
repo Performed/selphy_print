@@ -1303,7 +1303,7 @@ int main (int argc, char **argv)
 
 	DEBUG("Multi-Call Dye-sublimation CUPS Backend version %s\n",
 	      BACKEND_VERSION);
-	DEBUG("Copyright 2007-2019 Solomon Peachy\n");
+	DEBUG("Copyright 2007-2020 Solomon Peachy\n");
 	DEBUG("This free software comes with ABSOLUTELY NO WARRANTY! \n");
 	DEBUG("Licensed under the GNU GPL.  Run with '-G' for more details.\n");
 	DEBUG("\n");

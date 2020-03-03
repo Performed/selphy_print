@@ -1197,9 +1197,9 @@ static void CImageEffect70_DoGamma(struct CImageEffect70 *data, struct BandImage
 static void dump_announce(void)
 {
 	fprintf(stderr, "INFO: libMitsuD70ImageReProcess version '%s' API %d\n", LIB_VERSION, LIB_APIVERSION);
-	fprintf(stderr, "INFO: Copyright (c) 2016-2019 Solomon Peachy\n");
+	fprintf(stderr, "INFO: Copyright (c) 2016-2020 Solomon Peachy\n");
 	fprintf(stderr, "INFO: This free software comes with ABSOLUTELY NO WARRANTY!\n");
-	fprintf(stderr, "INFO: Licensed under the GNU GPL.\n");
+	fprintf(stderr, "INFO: Licensed under the GNU GPLv3.\n");
 	fprintf(stderr, "INFO: *** This code is NOT supported or endorsed by Mitsubishi! ***\n");
 }
 
