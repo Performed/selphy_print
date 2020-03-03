@@ -1244,7 +1244,7 @@ int main (int argc, char **argv)
 {
 	struct libusb_context *ctx = NULL;
 	struct libusb_device **list = NULL;
-	struct libusb_device_handle *dev;
+	struct libusb_device_handle *dev = NULL;
 
 	struct dyesub_backend *backend = NULL;
 	void * backend_ctx = NULL;
@@ -1359,8 +1359,6 @@ int main (int argc, char **argv)
 				}
 				*use_serno = 0;
 				use_serno++;
-
-				backend = find_backend(backend_str);
 			}
 
 			if (use_serno) {

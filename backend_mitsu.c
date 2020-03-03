@@ -182,7 +182,6 @@ int mitsu_readlamdata(const char *fname, uint16_t lamstride,
 		      uint16_t rows, uint16_t cols, uint8_t bpp)
 {
 	int i, j, fd;
-	int remain = cols * rows * bpp;
 	char full[2048];
 
 	snprintf(full, sizeof(full), "%s/%s", corrtable_path, fname);
@@ -196,7 +195,7 @@ int mitsu_readlamdata(const char *fname, uint16_t lamstride,
 
 	/* Read in the matte data plane */
 	for (j = 0 ; j < rows ; j++) {
-		remain = lamstride * bpp;
+		int remain = lamstride * bpp;
 
 		/* Read one row of lamination data at a time */
 		while (remain) {

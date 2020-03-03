@@ -1602,8 +1602,6 @@ static int mitsu70x_main_loop(void *vctx, const void *vjob)
 
 	/* Now that we've filled everything in, read matte from file */
 	if (job->matte) {
-		int ret;
-
 		ret = mitsu_readlamdata(job->laminatefname, LAMINATE_STRIDE,
 					job->databuf, &job->datalen,
 					be16_to_cpu(hdr->lamrows), be16_to_cpu(hdr->lamcols), 2);

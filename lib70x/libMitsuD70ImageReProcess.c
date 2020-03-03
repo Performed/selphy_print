@@ -964,8 +964,6 @@ static void CImageEffect70_CalcSA(struct BandImage *img,
 	out[1] = 0;
 	out[0] = 0;
 
-	row = start_row;
-
 	ptr = buf - start_row * stride;
 	for ( row = start_row ; row < rows ; row++ ) {
 		int16_t *v18 = ptr + 3 * start_col;
@@ -1329,7 +1327,7 @@ int send_image_data(struct BandImage *out, void *context,
 		goto done;
 
 	if (out->bytes_per_row > 0) {
-		v15 = out->imgbuf + ((rows - 1) * out->bytes_per_row);
+		v15 = (uint16_t*)((uint8_t*)out->imgbuf + ((rows - 1) * out->bytes_per_row));
 	} else {
 		v15 = out->imgbuf;
 	}
@@ -1613,7 +1611,7 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 	if (bytesPerRow < 0) {
 		rowPtr = img->imgbuf;
 	} else {
-		rowPtr = img->imgbuf + (bytesPerRow * (rows - 1));
+		rowPtr = (uint8_t*)img->imgbuf + (bytesPerRow * (rows - 1));
 	}
 
 	step = KH->Step;
@@ -1712,8 +1710,8 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 		inRowPtr = inImage->imgbuf;
 		outRowPtr = outImage->imgbuf;
 	} else {
-		outRowPtr = outImage->imgbuf + (pixelsPerRow * (rows-1) * sizeof(uint16_t));
-		inRowPtr = inImage->imgbuf + (inBytesPerRow * (rows-1));
+		outRowPtr = (uint16_t*)((uint8_t*)outImage->imgbuf + (pixelsPerRow * (rows-1) * sizeof(uint16_t)));
+		inRowPtr = (uint8_t*)inImage->imgbuf + (inBytesPerRow * (rows-1));
 	}
 
 	maxTank = cols * 255;
@@ -1937,16 +1935,16 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 
 	memset(rowCalcBuf1, 0, cols * 3 * sizeof(double));
 	memset(rowCalcBuf2, 0, cols * 3 * sizeof(double));
-	row = 0;
 	pdVar5 = pdVar7 + (cols -1) * 3;
 	pdVar3 = pdVar8 + (cols -1) * 3;
 
 	for (row = 0 ; row < rows ; row++) {
-		col = pixelCnt;
 		doubleBufOffset = 0;
 		imgBufOffset = 0;
 		if (pixelCnt < 0) {
 			col = 0;
+		} else {
+			col = pixelCnt;
 		}
 
 		for ( ; col > 0 ; col --) {
@@ -2032,7 +2030,7 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 					}
 				} else {
 					pixelVal = dVar16;
-					iVar1 = 0x80;
+					iVar1 = 0x80; // XXX seems redundant, double-check iVar1 here.
 					if ((-0xff0 < pixelVal) && (iVar1 = 0xff, pixelVal < 1)) {
 						iVar1 = 0xff - ((0x10 - pixelVal) >> 5);
 					}
@@ -2552,7 +2550,7 @@ int M1_CLocalEnhancer(const struct M1CPCData *cpc,
 	if (img->bytes_per_row < 0)
 		inBasePtr = img->imgbuf;
 	else
-		inBasePtr = img->imgbuf + (size.cy - 1) * img->bytes_per_row;
+		inBasePtr = (uint16_t*)((uint8_t*)img->imgbuf + (size.cy - 1) * img->bytes_per_row);
 
 	inRowPtr = inBasePtr;
 	rowPtr = rowBuffer;

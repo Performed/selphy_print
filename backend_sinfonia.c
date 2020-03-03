@@ -123,10 +123,10 @@ int sinfonia_read_parse(int data_fd, uint32_t model,
 		job->jp.oc_mode = hdr[9];
 	else
 		job->jp.oc_mode = hdr[10];
-	if (hdr[1] == 1245)
+	if (hdr[1] == 1245) {
 		job->jp.mattedepth = hdr[11];
-	if (hdr[1] == 1245)
 		job->jp.dust = hdr[12];
+	}
 	job->jp.columns = hdr[13];
 	job->jp.rows = hdr[14];
 	job->jp.copies = hdr[15];
