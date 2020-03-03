@@ -52,7 +52,7 @@
 
 */
 
-#define LIB_VERSION "0.8.6"
+#define LIB_VERSION "0.9.0"
 
 #include <stdio.h>
 #include <stdint.h>
