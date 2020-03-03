@@ -45,6 +45,7 @@ struct BandImage {
 	                       // @24
 };
 struct mitsu98xx_data;  /* Forward declaration */
+struct M1CPCData;
 #endif
 
 typedef int (*lib70x_getapiversionFN)(void);
@@ -65,11 +66,23 @@ typedef int (*CP98xx_DoConvertFN)(const struct mitsu98xx_data *table,
 typedef struct mitsu98xx_data *(*CP98xx_GetDataFN)(const char *filename);
 typedef void (*CP98xx_DestroyDataFN)(const struct mitsu98xx_data *data);
 
+typedef struct M1CPCData *(*M1_GetCPCDataFN)(const char *corrtable_path,
+					    const char *filename,
+					    const char *gammafilename);
+typedef void (*M1_DestroyCPCDataFN)(struct M1CPCData *dat);
+typedef void (*M1_Gamma8to14FN)(const struct M1CPCData *cpc,
+				const struct BandImage *in, struct BandImage *out);
+typedef int (*M1_CLocalEnhancerFN)(const struct M1CPCData *cpc,
+				   int sharp, struct BandImage *img);
+typedef int (*M1_CalcRGBRateFN)(uint16_t rows, uint16_t cols, uint8_t *data);
+typedef uint8_t (*M1_CalcOpRateMatteFN)(uint16_t rows, uint16_t cols, uint8_t *data);
+typedef uint8_t (*M1_CalcOpRateGlossFN)(uint16_t rows, uint16_t cols);
+
 #ifndef WITH_DYNAMIC
 #warning "No dynamic loading support!"
 #endif
 
-#define REQUIRED_LIB_APIVERSION 5
+#define REQUIRED_LIB_APIVERSION 6
 
 #define LIBMITSU_VER "0.05"
 
@@ -79,6 +92,7 @@ typedef void (*CP98xx_DestroyDataFN)(const struct mitsu98xx_data *data);
 struct mitsu_lib {
 	void *dl_handle;
 	lib70x_getapiversionFN GetAPIVersion;
+	Get3DColorTableFN Get3DColorTable;
 	Load3DColorTableFN Load3DColorTable;
 	Destroy3DColorTableFN Destroy3DColorTable;
 	DoColorConvFN DoColorConv;
@@ -92,7 +106,13 @@ struct mitsu_lib {
 	CP98xx_DoConvertFN CP98xx_DoConvert;
 	CP98xx_GetDataFN CP98xx_GetData;
 	CP98xx_DestroyDataFN CP98xx_DestroyData;
-
+	M1_GetCPCDataFN M1_GetCPCData;
+	M1_DestroyCPCDataFN M1_DestroyCPCData;
+	M1_CLocalEnhancerFN M1_CLocalEnhancer;
+	M1_Gamma8to14FN M1_Gamma8to14;
+	M1_CalcRGBRateFN M1_CalcRGBRate;
+	M1_CalcOpRateGlossFN M1_CalcOpRateGloss;
+	M1_CalcOpRateMatteFN M1_CalcOpRateMatte;
 	struct CColorConv3D *lut;
 	struct CPCData *cpcdata;
 	struct CPCData *ecpcdata;

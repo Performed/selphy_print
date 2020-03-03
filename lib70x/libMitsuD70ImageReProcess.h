@@ -33,6 +33,11 @@
      * Mitsubishi CP9810DW
      * Mitsubishi CP9820DW-S
 
+   Even more recently, the CP-M1 family now uses this library.  These
+   models are expected to function:
+
+     * Mitsubishi CP-M1
+
    ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **
 
    This program is free software; you can redistribute it and/or modify it
@@ -58,7 +63,7 @@
 #ifndef __MITSU_D70_H
 #define __MITSU_D70_H
 
-#define LIB_APIVERSION 5
+#define LIB_APIVERSION 6
 
 #include <stdint.h>
 
@@ -133,5 +138,23 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 		     const struct BandImage *input,
 		     struct BandImage *output,
 		     uint8_t type, int sharpness, int already_reversed);
+
+/* CP-M1 family stuff */
+
+struct M1CPCData; /* Forward-Declaration */
+
+int M1_CLocalEnhancer(const struct M1CPCData *cpc,
+		      int sharp, struct BandImage *img);
+void M1_Gamma8to14(const struct M1CPCData *cpc,
+		   const struct BandImage *in, struct BandImage *out);
+
+int M1_CalcRGBRate(uint16_t rows, uint16_t cols, uint8_t *data);
+uint8_t M1_CalcOpRateMatte(uint16_t rows, uint16_t cols, uint8_t *data);
+uint8_t M1_CalcOpRateGloss(uint16_t rows, uint16_t cols);
+
+struct M1CPCData *M1_GetCPCData(const char *corrtable_path,
+				const char *filename,
+				const char *gammafilename);
+void M1_DestroyCPCData(struct M1CPCData *dat);
 
 #endif /* __MITSU_D70_H */

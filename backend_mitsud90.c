@@ -830,18 +830,30 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	return CUPS_BACKEND_OK;
 }
 
-struct M1CPCData;
-static int M1_calc_rgbrate(uint16_t rows, uint16_t cols, uint8_t *data);
-static uint8_t M1_calc_oprate_gloss(uint16_t rows, uint16_t cols);
-static uint8_t M1_calc_oprate_matte(uint16_t rows, uint16_t cols, uint8_t *data);
-static int cpm1_fillmatte(struct mitsud90_printjob *job);
-static struct M1CPCData *get_M1CPCData(const char *filename,
-				       const char *gammafilename);
-static void free_M1CPCData(struct M1CPCData *dat);
-static void M1_gamma8to14(const struct M1CPCData *cpc,
-			  const struct BandImage *in, struct BandImage *out);
-static int M1_CLocalEnhancer(const struct M1CPCData *cpc, int sharp,
-			     struct BandImage *img);
+static int cpm1_fillmatte(struct mitsud90_printjob *job)
+{
+	int ret;
+	int rows, cols;
+
+	struct mitsud90_plane_hdr *phdr = (struct mitsud90_plane_hdr *) job->databuf;
+
+	rows = be16_to_cpu(job->hdr.rows) + 12;
+	cols = be16_to_cpu(job->hdr.cols);
+
+	/* Fill in matte data */
+	ret = mitsu_readlamdata(CPM1_LAMINATE_FILE, CPM1_LAMINATE_STRIDE,
+				job->databuf, &job->datalen,
+				rows, cols, 1);
+
+	if (ret)
+		return ret;
+
+	/* Update plane header and overall length */
+	phdr->lamcols = cpu_to_be16(cols);
+	phdr->lamrows = cpu_to_be16(rows);
+
+	return CUPS_BACKEND_OK;
+}
 
 static int mitsud90_main_loop(void *vctx, const void *vjob) {
 	struct mitsud90_ctx *ctx = vctx;
@@ -888,12 +900,12 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		memcpy(convbuf, job->databuf, sizeof(struct mitsud90_plane_hdr));
 
 		// Do CContrastConv prior to RGBRate
-		job->hdr.rgbrate = M1_calc_rgbrate(input.rows,
-						   input.cols,
-						   input.imgbuf);
+		job->hdr.rgbrate = ctx->lib.M1_CalcRGBRate(input.rows,
+							   input.cols,
+							   input.imgbuf);
 
 		// XXX CPC_G5_FNAME is never used by mitsu driver!?
-		cpc = get_M1CPCData(CPM1_CPC_FNAME, CPM1_CPC_G1_FNAME);
+		cpc = ctx->lib.M1_GetCPCData(corrtable_path, CPM1_CPC_FNAME, CPM1_CPC_G1_FNAME);
 		if (!cpc) {
 			ERROR("Cannot read data tables\n");
 			free(convbuf);
@@ -901,7 +913,7 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 		}
 
 		/* Do gamma conversion */
-		M1_gamma8to14(cpc, &input, &output);
+		ctx->lib.M1_Gamma8to14(cpc, &input, &output);
 
 		if (job->hdr.sharp_h || job->hdr.sharp_v) {
 			/* 0 is off, 1-7 corresponds to level 0-6 */
@@ -910,16 +922,16 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			job->hdr.sharp_v = 0;
 
 			/* And do the sharpening */
-			if (M1_CLocalEnhancer(cpc, sharp, &output)) {
+			if (ctx->lib.M1_CLocalEnhancer(cpc, sharp, &output)) {
 				ERROR("CLocalEnhancer failed (out of memory?)\n");
 				free(convbuf);
-				free_M1CPCData(cpc);
+				ctx->lib.M1_DestroyCPCData(cpc);
 				return CUPS_BACKEND_RETRY_CURRENT;
 			}
 		}
 
 		/* We're done with the CPC data */
-		free_M1CPCData(cpc);
+		ctx->lib.M1_DestroyCPCData(cpc);
 
 #if (__BYTE_ORDER == __BIG_ENDIAN)
 		/* Convert data to LITTLE ENDIAN if needed */
@@ -942,12 +954,12 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 				mitsud90_cleanup_job(job);
 				return ret;
 			}
-			job->hdr.oprate = M1_calc_oprate_matte(output.rows,
-							       output.cols,
-							       ptr);
+			job->hdr.oprate = ctx->lib.M1_CalcOpRateMatte(output.rows,
+								      output.cols,
+								      ptr);
 		} else {
-			job->hdr.oprate = M1_calc_oprate_gloss(output.rows,
-							       output.cols);
+			job->hdr.oprate = ctx->lib.M1_CalcOpRateGloss(output.rows,
+								      output.cols);
 		}
 	}
 
@@ -1659,11 +1671,9 @@ struct dyesub_backend mitsud90_backend = {
      * job control (job id, active job, buffer status, etc)
      * any sort of counters
      * figure out "margin" parameter on the cut list
-     * finish M1 image processing code
-     * move M1 image processing code into lib70x
      * sleep and waking up
      * cut limit?
-     * put FW version into
+     * put FW version into stats structure
  */
 
 /*
@@ -1930,626 +1940,3 @@ Comms Protocol for D90 & CP-M1
 
 
  */
-
-/* XXX XXX XXX  CP-M1 series stuff */
-#define M1CPCDATA_GAMMA_ROWS 256
-#define M1CPCDATA_ROWS 7 /* Correlates to sharpening levels */
-
-struct M1CPCData {
-	uint16_t GNMaB[M1CPCDATA_GAMMA_ROWS];
-	uint16_t GNMaG[M1CPCDATA_GAMMA_ROWS];
-	uint16_t GNMaR[M1CPCDATA_GAMMA_ROWS];
-
-	uint16_t EnHTH[M1CPCDATA_ROWS];        // fixed @96
-	uint16_t NoISetH[M1CPCDATA_ROWS];      // fixed @8
-	uint16_t NRGain[M1CPCDATA_ROWS];       // fixed @40
-	uint16_t NRTH[M1CPCDATA_ROWS];         // fixed @32
-	uint8_t  NRK[M1CPCDATA_ROWS];          // fixed @1
-	uint16_t HDEnhGain[M1CPCDATA_ROWS];    // Varies!
-	uint16_t EnhDarkGain[M1CPCDATA_ROWS];  // Fixed @0
-	uint8_t  DtctArea[M1CPCDATA_ROWS];     // Fixed @1
-	uint8_t  CorCol[M1CPCDATA_ROWS];       // Fixed @2
-	uint8_t  HighDownMode[M1CPCDATA_ROWS]; // Fixed @1
-	uint16_t HighTH[M1CPCDATA_ROWS];       // Fixed @800
-	double   HighG[M1CPCDATA_ROWS];        // Fixed @0.1
-};
-
-/* Do the 8bpp->14bpp gamma conversion */
-static void M1_gamma8to14(const struct M1CPCData *cpc,
-			  const struct BandImage *in, struct BandImage *out)
-{
-	int rows, cols, row, col;
-	const uint8_t *inp;
-	uint16_t *outp;
-
-	rows = in->rows - in->origin_rows;
-	cols = in->cols - in->origin_cols;
-
-	inp = in->imgbuf;
-	outp = (uint16_t*) out->imgbuf;
-
-	for (row = 0 ; row < rows ; row ++) {
-		for (col = 0 ; col < cols * 3 ; col+=3) {
-			outp[col] = cpc->GNMaR[inp[col]];     /* R */
-			outp[col+1] = cpc->GNMaG[inp[col+1]]; /* G */
-			outp[col+2] = cpc->GNMaB[inp[col+2]]; /* B */
-		}
-
-		inp += in->bytes_per_row;
-		outp += out->bytes_per_row / 2;
-	}
-}
-
-
-/* Sharpening! */
-struct SIZE {
-    int32_t cx;
-    int32_t cy;
-};
-
-struct POINT {
-    uint32_t x;
-    uint32_t y;
-};
-
-/* Get all pixel values around a given point */
-static void M1_GetAroundBrightness(const uint16_t *pSrcBrightness,
-				   const struct SIZE *pSrcSize,
-				   const struct POINT *pPtCenter,
-				   uint16_t *pDstBrightness,
-				   struct SIZE *pDstSize)
-
-{
-	uint16_t center;
-	int32_t vert, horiz;
-	int32_t UVar1;
-	int32_t UVar2;
-	int bottom, right, top, left;
-	int i;
-	uint16_t *pBottomRight;
-	const uint16_t *pTopLeft;
-	int32_t col;
-	int32_t row;
-	uint16_t *pDstRow;
-
-	center = pSrcBrightness[pSrcSize->cx * pPtCenter->y + pPtCenter->x];
-	pDstRow = pDstBrightness + pDstSize->cx;
-
-	for (row = 0 ; row < pDstSize->cx ; row++) {
-		pDstBrightness[row] = center;
-	}
-
-	for (col = 1; col < pDstSize->cy; col++) {
-		memcpy(pDstRow, pDstBrightness, pDstSize->cx * sizeof(uint16_t));
-		pDstRow += pDstSize->cx;
-	}
-
-	vert = pPtCenter->x + (pDstSize->cx >> 1);
-	horiz = pPtCenter->y + (pDstSize->cy >> 1);
-
-	top = pPtCenter->x - vert;
-	bottom = 0;
-	if (top < 0) {
-		bottom = -top;
-		top = 0;
-	}
-
-	left = pPtCenter->y - horiz;
-	right = 0;
-	if (left < 0) {
-		right = -left;
-	  left = 0;
-	}
-
-	if (pSrcSize->cx - 1 < vert) {
-		UVar1 = pDstSize->cx - ((vert - pSrcSize->cx) + 1);
-	} else {
-		UVar1 = pDstSize->cx;
-	}
-
-	if (pSrcSize->cy - 1 < horiz) {
-		UVar2 = pDstSize->cy - ((horiz - pSrcSize->cy) + 1);
-	} else {
-		UVar2 = pDstSize->cy;
-	}
-
-	pTopLeft = pSrcBrightness + pSrcSize->cx * left + top;
-	pBottomRight = pDstBrightness + pDstSize->cx * right + bottom;
-	for (i = right ; i < UVar2 ; i++) {
-		memcpy(pBottomRight, pTopLeft, (UVar1 - bottom) * sizeof(uint16_t));
-		pTopLeft = pTopLeft + pSrcSize->cx;
-		pBottomRight += pDstSize->cx;
-	}
-	return;
-}
-
-static const int16_t aroundMap08[9] = { 1, 1, 1,
-					1, 0, 1,
-					1, 1, 1};
-static const int16_t aroundMap16[25] = { 0, 0, 1, 1, 0,
-					 1, 1, 1, 1, 0,
-					 1, 1, 0, 1, 1,
-					 0, 1, 1, 1, 1,
-					 0, 1, 1, 0, 0 };
-static const int16_t aroundMap64[81] = { 0, 0, 0, 1, 1, 1, 1, 0, 0,
-					 0, 1, 1, 1, 1, 1, 1, 1, 0,
-					 0, 1, 1, 1, 5, 5, 1, 1, 0,
-					 1, 1, 5, 5, 5, 5, 1, 1, 1,
-					 1, 1, 5, 5, 1, 5, 5, 1, 1,
-					 1, 1, 1, 5, 5, 5, 5, 1, 0,
-					 0, 1, 1, 5, 5, 1, 1, 1, 0,
-					 0, 1, 1, 1, 1, 1, 1, 1, 0,
-					 0, 0, 1, 1, 1, 1, 1, 0, 0 };
-
-static double M1_GetBrightnessAverage(const uint16_t *pBitBrightness,
-				      const struct SIZE *pSize,
-				      const struct POINT *pPtCenter,
-				      uint8_t dtctArea,
-				      int32_t enhTh, int32_t noiseTh)
-
-{
-	uint16_t srcPixel;
-	struct SIZE dtct;
-	uint16_t pDestBrightness [85];
-	uint16_t intPixel;
-	int32_t col, row;
-	uint16_t *pDestPtr;
-	uint16_t local_12 = 0;
-	uint32_t local_10 = 0;
-
-	const int16_t *aroundMapPtr;
-	const int16_t *aroundMap;
-
-	if (dtctArea == 0) {
-		aroundMap = aroundMap64;
-		dtct.cx = 9;
-		dtct.cy = 9;
-	} else if (dtctArea == 1) {
-		aroundMap = aroundMap16;
-		dtct.cx = 5;
-		dtct.cy = 5;
-	} else {
-		aroundMap = aroundMap08;
-		dtct.cx = 3;
-		dtct.cy = 3;
-	}
-	M1_GetAroundBrightness(pBitBrightness,pSize,pPtCenter,pDestBrightness,&dtct);
-	srcPixel = pBitBrightness[pSize->cx * pPtCenter->y + pPtCenter->x];
-	pDestPtr = pDestBrightness;
-	aroundMapPtr = aroundMap;
-	for (row = 0 ; row < dtct.cy ; row++) {
-		for (col = 0 ; col < dtct.cx ; col++) {
-			int32_t iVar1 = *pDestPtr - srcPixel;
-			if ((noiseTh + enhTh) < iVar1) {
-				intPixel = enhTh + srcPixel;
-			} else {
-				if (noiseTh < iVar1) {
-					intPixel = *pDestPtr - noiseTh;
-				} else if (-(noiseTh + enhTh) == iVar1 || -iVar1 < (noiseTh + enhTh)) {
-					intPixel = srcPixel;
-					if (-noiseTh != iVar1 && noiseTh <= -iVar1) {
-						intPixel = noiseTh + *pDestPtr;
-					}
-				} else {
-					intPixel = srcPixel - enhTh;
-				}
-			}
-			local_10 += *aroundMapPtr * intPixel;
-			local_12 += *aroundMapPtr;
-			pDestPtr++;
-			aroundMapPtr++;
-		}
-	}
-	return (double)local_10 / (double)local_12;
-}
-
-static int M1_CLocalEnhancer(const struct M1CPCData *cpc,
-			     int sharp, struct BandImage *img)
-{
-	struct SIZE size;
-	double NRK;
-	uint16_t *rowBuffer, *rowPtr;
-	uint16_t *inBasePtr, *inRowPtr, *inPixelPtr;
-	int row, col;
-	struct POINT pt;
-	int i;
-	double avgBrightness;
-
-	size.cx = img->cols - img->origin_cols;
-	size.cy = img->rows - img->origin_rows;
-
-	switch (cpc->NRK[sharp]) {
-	case 3:
-		NRK = 3.0;
-		break;
-	case 2:
-		NRK = 2.0;
-		break;
-	case 1:
-		NRK = 1.0;
-		break;
-	default:
-		NRK = 0.5;
-		break;
-	}
-
-	rowBuffer = malloc(size.cx * size.cy * 2);
-	if (!rowBuffer)
-		return CUPS_BACKEND_FAILED;
-
-	if (img->bytes_per_row < 0)
-		inBasePtr = img->imgbuf;
-	else
-		inBasePtr = img->imgbuf + (size.cy - 1) * img->bytes_per_row;
-
-	inRowPtr = inBasePtr;
-	rowPtr = rowBuffer;
-
-	/* Work out the luminence of each pixel */
-	for (col = 0 ; col < size.cy ; col ++) {
-		inPixelPtr = inRowPtr;
-		for (row = 0 ; row < size.cx ; row ++) {
-			*rowPtr = ((inPixelPtr[0] * 0.299 +
-				    inPixelPtr[1] * 0.587 +
-				    inPixelPtr[2] * 0.114) / 16.0) + 0.5;
-			inPixelPtr += 3;
-			rowPtr ++;
-		}
-		inRowPtr -= img->bytes_per_row / sizeof(int16_t);
-	}
-
-	inRowPtr = inBasePtr;
-	rowPtr = rowBuffer;
-	for (pt.y = 0 ; (int)pt.y < size.cy ; pt.y++) {
-		inPixelPtr = inRowPtr;
-		for (pt.x = 0 ; (int)pt.x < size.cx ; pt.x++) {
-			double outVals[3];
-			double dVar5;
-			double local_100, local_1b0, local_1b8;
-			uint8_t local_102, local_101;
-			uint16_t uVar2, uVar1;
-
-			memset(outVals, 0, sizeof(outVals));
-
-			/* Get the average brightness of each point */
-			avgBrightness = M1_GetBrightnessAverage(rowBuffer, &size, &pt,
-								cpc->DtctArea[sharp],
-								cpc->EnHTH[sharp],
-								cpc->NoISetH[sharp]);
-
-			/* Work out the amount of compensation for this point */
-			dVar5 = *rowPtr - avgBrightness;
-			if (dVar5 < 0.0) {
-				dVar5 *= -1.0;
-			}
-			if (dVar5 >= cpc->NRTH[sharp]) {
-				if (dVar5 >= cpc->NRTH[sharp] + cpc->NRGain[sharp] / NRK) {
-					dVar5 = 0.0;
-				} else {
-					dVar5 = cpc->NRGain[sharp] - NRK * (dVar5 - cpc->NRTH[sharp]);
-				}
-			} else {
-				dVar5 = cpc->NRGain[sharp];
-			}
-
-			dVar5 = ((cpc->HDEnhGain[sharp] + avgBrightness * cpc->EnhDarkGain[sharp]) - dVar5) / 32.0;
-
-			if (*rowPtr != 0) {
-				avgBrightness /= *rowPtr;
-			}
-			if (1.0 <= avgBrightness) {
-				local_1b0 = 1.00000000 - dVar5 * (avgBrightness - 1.0);
-			} else {
-				local_1b0 = dVar5 * (1.00000000 - avgBrightness) + 1.0;
-			}
-
-			if (0.0 <= local_1b0) {
-				if (local_1b0 <= 8.0) {
-					local_1b8 = local_1b0;
-				} else {
-					local_1b8 = 8.0;
-				}
-			} else {
-				local_1b8 = 0.0;
-			}
-
-			/* Work out relative pixel weights */
-			if (inPixelPtr[1] < inPixelPtr[2]) {
-				if (inPixelPtr[2] < *inPixelPtr) {
-					local_101 = 0;
-					local_102 = 1;
-				} else {
-					local_102 = inPixelPtr[1] < *inPixelPtr;
-					local_101 = 2;
-				}
-			} else {
-				if (inPixelPtr[1] < *inPixelPtr) {
-					local_101 = 0;
-					local_102 = 1;
-				} else {
-					if (inPixelPtr[2] < *inPixelPtr) {
-						local_102 = 1;
-					} else {
-						local_102 = 0;
-					}
-					local_101 = 1;
-				}
-			}
-
-			/* Figure out the per-pixel compensation */
-			uVar2 = inPixelPtr[(int)local_101];
-			uVar1 = inPixelPtr[(int)local_102];
-			if (1.0 <= local_1b0) {
-				local_100 = local_1b8;
-			} else {
-				if (cpc->CorCol[sharp] == 1) {
-					local_100 = 1.0 -
-						((1.0 - local_1b8) * (double)((0x4000 - (uint)uVar2) + (uint)uVar1)) / 16384.0;
-				} else if (cpc->CorCol[sharp] == 2) {
-					if ((int)(uVar2 - uVar1) < 0x2000) {
-						local_100 = 1.0 -
-							((1.0 - local_1b8) * (double)((0x2000 - (uint)uVar2) + (uint)uVar1)) / 16384.0;
-					} else {
-						local_100 = 1.0;
-					}
-				} else {
-					local_100 = local_1b8;
-				}
-			}
-			dVar5 = *rowPtr * local_100;
-
-			/* Apply the compensation to each point */
-			if (((local_100 <= 1.0) || (cpc->HighDownMode[sharp] != 1)) ||
-			    (dVar5 <= cpc->HighTH[sharp])) {
-				for (i = 0 ; i < 3 ; i++) {
-					outVals[i] = inPixelPtr[i] * local_100;
-				}
-			} else {
-				double dVar4 = 1.0 -
-					((dVar5 - cpc->HighTH[sharp]) * cpc->HighG[sharp]) /
-					(0x400 - cpc->HighTH[sharp]);
-				if (*rowPtr <= dVar5 * dVar4) {
-					for (i = 0 ; i < 3 ; i++) {
-						outVals[i] = inPixelPtr[i] * local_100 * dVar4;
-					}
-				} else {
-					for (i = 0 ; i < 3 ; i++) {
-						outVals[i] = inPixelPtr[i];
-					}
-				}
-			}
-
-			/* Finally, spit out the final (capped) values */
-			for (i = 0 ; i < 3 ; i++) {
-				if (outVals[i] < 0)
-					inPixelPtr[i] = 0;
-				else if (outVals[i] > 0x3fff)
-					inPixelPtr[i] = 0x3fff;
-				else
-					inPixelPtr[i] = outVals[i];
-			}
-
-			inPixelPtr+=3;
-			rowPtr++;
-		}
-		inRowPtr -= img->bytes_per_row / sizeof(uint16_t);
-	}
-
-	free(rowBuffer);
-	return CUPS_BACKEND_OK;
-}
-
-/* Essentially this yields a fixed value for any given print size */
-static uint8_t M1_calc_oprate_gloss(uint16_t rows, uint16_t cols)
-{
-	double d;
-
-	rows += 12;
-
-	/* Do not know the significance of this magic number */
-	d = (((rows * cols * 0x80) / 1183483560.0) * 100.0) + 0.5;
-
-	/* Truncate to 8 bit integer */
-	return (uint8_t) d;
-}
-
-/* Assumes rowstride = cols */
-static uint8_t M1_calc_oprate_matte(uint16_t rows, uint16_t cols, uint8_t *data)
-{
-	uint64_t sum = 0;
-	int i;
-	double d;
-
-	for (i = 0 ; i < (rows * cols) ; i++) {
-		sum += data[i];
-	}
-	sum = (rows * cols * 0xff) - sum;
-
-	/* Do not know the significance of this magic number */
-	d = ((sum / 1183483560.0) * 100.0) + 0.5;
-
-	/* Truncate to 8 bit integer */
-	return (uint8_t)d;
-}
-
-/* Assumes rowstride = cols * 3 */
-static int M1_calc_rgbrate(uint16_t rows, uint16_t cols, uint8_t *data)
-{
-	uint64_t sum = 0;
-	int i;
-	double d;
-
-	for (i = 0 ; i < (rows * cols * 3) ; i++) {
-		sum += data[i];
-	}
-	sum = (rows * cols * 3 * 255) - sum;
-
-	d = ((sum / 3533449320.0) * 100) + 0.5;
-
-	return (uint8_t)d;
-}
-
-static void free_M1CPCData(struct M1CPCData *dat)
-{
-	free(dat);
-}
-
-static struct M1CPCData *get_M1CPCData(const char *filename,
-				       const char *gammafilename)
-{
-	struct M1CPCData *data;
-	FILE *f;
-	char buf[4096];
-	int line;
-	char *ptr;
-
-	const char *delim = " ,\t\n\r";
-	if (!filename || !gammafilename)
-		return NULL;
-	data = malloc(sizeof(*data));
-	if (!data)
-		return NULL;
-
-	snprintf(buf, sizeof(buf), "%s/%s", corrtable_path, gammafilename);
-
-	f = fopen(buf, "r");
-	if (!f)
-		goto done_free;
-
-	/* Skip the first two rows */
-	for (line = 0 ; line < 2 ; line++) {
-		if (fgets(buf, sizeof(buf), f) == NULL)
-			goto abort;
-	}
-
-	/* Read in the row data */
-	for (line = 0 ; line < M1CPCDATA_GAMMA_ROWS ; line++) {
-		if (fgets(buf, sizeof(buf), f) == NULL)
-			goto abort;
-
-		ptr = strtok(buf, delim);  // Always skip first column
-		if (!ptr)
-			goto abort;
-
-		/* Pull out the BGR mappings */
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->GNMaB[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->GNMaG[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->GNMaR[line] = strtol(ptr, NULL, 10);
-	};
-
-	fclose(f);
-
-	snprintf(buf, sizeof(buf), "%s/%s", corrtable_path, filename);
-
-	/* Now for the CPC Data */
-	f = fopen(buf, "r");
-	if (!f)
-		goto done_free;
-
-	/* Skip the first two rows */
-	for (line = 0 ; line < 2 ; line++) {
-		if (fgets(buf, sizeof(buf), f) == NULL)
-			goto abort;
-	}
-
-	/* Read in the row data */
-	for (line = 0 ; line < M1CPCDATA_ROWS ; line++) {
-		if (fgets(buf, sizeof(buf), f) == NULL)
-			goto abort;
-		ptr = strtok(buf, delim);  // Always skip first column
-		if (!ptr)
-			goto abort;
-
-		/* Pull out the mappings */
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->EnHTH[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->NoISetH[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->NRGain[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->NRTH[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->NRK[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->HDEnhGain[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->EnhDarkGain[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->DtctArea[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->CorCol[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->HighDownMode[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->HighTH[line] = strtol(ptr, NULL, 10);
-		ptr = strtok(NULL, delim);
-		if (!ptr)
-			goto abort;
-		data->HighG[line] = strtod(ptr, NULL);
-	};
-
-	fclose(f);
-	return data;
-abort:
-	fclose(f);
-done_free:
-	free(data);
-	return NULL;
-}
-
-static int cpm1_fillmatte(struct mitsud90_printjob *job)
-{
-	int ret;
-	int rows, cols;
-
-	struct mitsud90_plane_hdr *phdr = (struct mitsud90_plane_hdr *) job->databuf;
-
-	rows = be16_to_cpu(job->hdr.rows) + 12;
-	cols = be16_to_cpu(job->hdr.cols);
-
-	/* Fill in matte data */
-	ret = mitsu_readlamdata(CPM1_LAMINATE_FILE, CPM1_LAMINATE_STRIDE,
-				job->databuf, &job->datalen,
-				rows, cols, 1);
-
-	if (ret)
-		return ret;
-
-	/* Update plane header and overall length */
-	phdr->lamcols = cpu_to_be16(cols);
-	phdr->lamrows = cpu_to_be16(rows);
-
-	return CUPS_BACKEND_OK;
-}

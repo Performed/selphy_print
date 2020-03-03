@@ -53,6 +53,7 @@ int mitsu_loadlib(struct mitsu_lib *lib, int type)
 			return CUPS_BACKEND_FAILED;
 		}
 
+		lib->Get3DColorTable = DL_SYM(lib->dl_handle, "CColorConv3D_Get3DColorTable");
 		lib->Load3DColorTable = DL_SYM(lib->dl_handle, "CColorConv3D_Load3DColorTable");
 		lib->Destroy3DColorTable = DL_SYM(lib->dl_handle, "CColorConv3D_Destroy3DColorTable");
 		lib->DoColorConv = DL_SYM(lib->dl_handle, "CColorConv3D_DoColorConv");
@@ -65,9 +66,21 @@ int mitsu_loadlib(struct mitsu_lib *lib, int type)
 		lib->CP98xx_DoConvert = DL_SYM(lib->dl_handle, "CP98xx_DoConvert");
 		lib->CP98xx_GetData = DL_SYM(lib->dl_handle, "CP98xx_GetData");
 		lib->CP98xx_DestroyData = DL_SYM(lib->dl_handle, "CP98xx_DestroyData");
-		if (!lib->Load3DColorTable ||
+		lib->M1_GetCPCData = DL_SYM(lib->dl_handle, "M1_GetCPCData");
+		lib->M1_DestroyCPCData = DL_SYM(lib->dl_handle, "M1_DestroyCPCData");
+		lib->M1_Gamma8to14 = DL_SYM(lib->dl_handle, "M1_Gamma8to14");
+		lib->M1_CLocalEnhancer = DL_SYM(lib->dl_handle, "M1_CLocalEnhancer");
+		lib->M1_CalcRGBRate = DL_SYM(lib->dl_handle, "M1_CalcRGBRate");
+		lib->M1_CalcOpRateMatte = DL_SYM(lib->dl_handle, "M1_CalcOpRateMatte");
+		lib->M1_CalcOpRateGloss = DL_SYM(lib->dl_handle, "M1_CalcOpRateGloss");
+
+		if (!lib->Get3DColorTable || !lib->Load3DColorTable ||
 		    !lib->CP98xx_DoConvert || !lib->CP98xx_GetData ||
 		    !lib->CP98xx_DestroyData ||
+		    !lib->M1_GetCPCData || !lib->M1_DestroyCPCData ||
+		    !lib->M1_Gamma8to14 || !lib->M1_CLocalEnhancer ||
+		    !lib->M1_CalcOpRateMatte || !lib->M1_CalcOpRateGloss ||
+		    !lib->M1_CalcRGBRate ||
 		    !lib->Destroy3DColorTable || !lib->DoColorConv ||
 		    !lib->GetCPCData || !lib->DestroyCPCData ||
 		    !lib->DoImageEffect60 || !lib->DoImageEffect70 ||
