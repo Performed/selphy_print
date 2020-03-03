@@ -668,7 +668,7 @@
    Model IDs recognized:
 
      sinfonia-chcs6145 ciaat-brava-21 shinko-chcs6145
-     sinfonia-chcs2245 hiti-m610
+     sinfonia-chcs2245 hiti-m610 kodak-6900
 
    Model IDs for backwards compatibility with older releases:
 
@@ -977,7 +977,7 @@
     the input data to be gamma corrected (and transformed in other ways)
     before it is sent to the printer.
 
-    Consideeable progress has been made, and the implementation is 
+    Consideeable progress has been made, and the implementation is
     considered feature-complete. In theory, the output quality should be
     comparable to Mitsubishi's own drivers.
 
