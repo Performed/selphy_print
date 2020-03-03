@@ -16,8 +16,7 @@
    However, without this library, it is nearly impossible to utilize the
    D70 family of printers under Linux and similar operating systems.
 
-   The following printers are known (or expected) to function with this
-   library:
+   The following printers are known to function with this library:
 
      * Mitsubishi CP-D70DW
      * Mitsubishi CP-D707DW
@@ -26,12 +25,17 @@
      * Kodak 305
      * Fujifilm ASK-300
 
-   Additionally, the following printers utilize portions of this library:
+   More recently, the CP98xx family now uses this library.  These
+   models are expected to function:
 
-    * Mitsubishi CP9800DW
-    * Mitsubishi CP9800DW-S
-    * Mitsubishi CP9810DW
-    * Mitsubishi CP9820DW-S
+     * Mitsubishi CP9800DW
+     * Mitsubishi CP9810DW
+     * Mitsubishi CP9820DW-S
+
+   Even more recently, the CP-M1 family now uses this library.  These
+   models are expected to function:
+
+     * Mitsubishi CP-M1
 
    ** ** ** **
 

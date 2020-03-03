@@ -973,31 +973,20 @@
 
    *** VERY IMPORTANT ***
 
-     In order to generate usable output, the Mitsubishi CP-M1 family
-     requires the input data to be transformed using specific image
-     processing algorithms.
+    The CP-M1 family is similar to the CP-D70 family in that it requires
+    the input data to be gamma corrected (and transformed in other ways)
+    before it is sent to the printer.
 
-     Considerable progress has been made, and everything but the
-     sharpening feature has been implemented.  In theory, the output
-     quality should be comparable to Mitsubishi's own drivers.
+    Consideeable progress has been made, and the implementation is 
+    considered feature-complete. In theory, the output quality should be
+    comparable to Mitsubishi's own drivers.
 
-     The library that implements this processing is dynamically loaded
-     at runtime.  There is currently only one option:
+    This code has been implemented in the lib70 driver, and note that while
+    feature complete, it has NOT been tested.
 
-	 * libMitsuD70ImageReProcess -- GPL'd re-implementation of the
-	   Mitsubishi algorithms, available as source.  No guaranteees are
-	   made about its output quality versus Mitsubishi's
-	   proprietary drivers, but is generally considerd quite good.
-
-	   DISCLAIMER:  Mitsubishi was not involved in the creation of
-	   libMitsuD70ImageReProcess and is not responsible in any way for
-	   any deficiencies in its output.  They will provide no support if
-	   it is used.
-
-	   Do *NOT* contact Mitsubishi for support if you are using
-	   any combination of gutenprint, selphy_print or libMitsuD70ImageReProcess.
-
-             (Please see the full disclaimer in libMitsuD70ImageReProcess.c)
+    Mitsubishi was *NOT* involved in the creation of this library, and is
+    not responsible in any way for the library or any deficiencies in its
+    output.  They will provide no support if it is used.
 
    Valid commands:
 
@@ -1068,6 +1057,10 @@
 
     This code has been implemented in the lib70 driver, and note that while
     feature complete, it has NOT been tested.
+
+    Mitsubishi was *NOT* involved in the creation of this library, and is
+    not responsible in any way for the library or any deficiencies in its
+    output.  They will provide no support if it is used.
 
  ***************************************************************************
   BACKEND=mitsup9x

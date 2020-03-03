@@ -6,18 +6,17 @@
    ** ** ** ** Do NOT contact Mitsubishi about this library! ** ** ** **
 
    This library is a platform-independent reimplementation of the image
-   processing algorithms that are necessary to utilize the Mitsubishi
-   CP-D70 family of printers.
+   processing algorithms that are necessary to utilize most newer
+   Mitsubishi photo printers.
 
    Mitsubishi was *NOT* involved in the creation of this library, and is
    not responsible in any way for the library or any deficiencies in its
    output.  They will provide no support if it is used.
 
-   However, without this library, it is nearly impossible to utilize the
-   D70 family of printers under Linux and similar operating systems.
+   However, without this library, it is nearly impossible to utilize
+   their these printers under Linux and similar operating systems.
 
-   The following printers are known (or expected) to function with this
-   library:
+   The following printers are known to function with this library:
 
      * Mitsubishi CP-D70DW
      * Mitsubishi CP-D707DW
@@ -32,6 +31,11 @@
      * Mitsubishi CP9800DW
      * Mitsubishi CP9810DW
      * Mitsubishi CP9820DW-S
+
+   Even more recently, the CP-M1 family now uses this library.  These
+   models are expected to function:
+
+     * Mitsubishi CP-M1
 
    ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **
 
