@@ -948,7 +948,7 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 
 		/* Deal with lamination settings */
 		if (job->hdr.overcoat == 3) {
-			uint8_t *ptr = convbuf + (output.rows * output.cols * sizeof(uint16_t) * 3);
+			int pre_matte_len = job->datalen;
 			ret = cpm1_fillmatte(job);
 			if (ret) {
 				mitsud90_cleanup_job(job);
@@ -956,7 +956,7 @@ static int mitsud90_main_loop(void *vctx, const void *vjob) {
 			}
 			job->hdr.oprate = ctx->lib.M1_CalcOpRateMatte(output.rows,
 								      output.cols,
-								      ptr);
+								      job->databuf + pre_matte_len);
 		} else {
 			job->hdr.oprate = ctx->lib.M1_CalcOpRateGloss(output.rows,
 								      output.cols);
@@ -1644,7 +1644,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.24"  " (lib " LIBMITSU_VER ")",
+	.version = "0.25"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
