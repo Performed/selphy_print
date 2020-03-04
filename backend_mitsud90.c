@@ -641,6 +641,14 @@ static int mitsud90_attach(void *vctx, struct libusb_device_handle *dev, int typ
 			WARNING("Dynamic library support not loaded, will be unable to print.");
 	}
 
+	// XXX do some runtime checks for FW versions.
+	// do a MA FW comparison; CP-M1 v1.00 is 450B11.  ME is 454C11
+	// CP-D90-P v2.10 is 415A81 or 415G11 (revA vs revB)  ME is 419E11
+	// CP-D90DW v2.10 is 415B94 or 415E54 (??)    ME is 419E42
+	// if nothing else, D90 v2.10 is needed for panorama.
+	// D90DW-P and D90DW share same USB VID/PID.  Not sure how to tell
+	// them apart other than FW.  No idea what functional differences are.
+
 	return CUPS_BACKEND_OK;
 }
 
