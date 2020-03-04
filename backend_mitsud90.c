@@ -453,6 +453,8 @@ struct mitsud90_printjob {
 	int m1_colormode;
 
 	struct mitsud90_job_hdr hdr;
+
+	int has_footer;
 	struct mitsud90_job_footer footer;
 };
 
@@ -797,6 +799,7 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 	        ctx->holdover_on = 1;
 		// XXX generate a footer!
 	} else {
+		job->has_footer = 1;
 		ctx->holdover_on = 0;
 	}
 
@@ -1082,9 +1085,11 @@ top:
 //	sent += (job->datalen - sent);
 
 	/* Send job footer */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t*) &job->footer, sizeof(job->footer))))
-		return CUPS_BACKEND_FAILED;
+	if (job->has_footer) {
+		if ((ret = send_data(ctx->dev, ctx->endp_down,
+				     (uint8_t*) &job->footer, sizeof(job->footer))))
+			return CUPS_BACKEND_FAILED;
+	}
 
 	/* Wait for completion */
 	do {
@@ -1658,7 +1663,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.26"  " (lib " LIBMITSU_VER ")",
+	.version = "0.27"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
