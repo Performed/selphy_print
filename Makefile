@@ -16,6 +16,9 @@ endif
 # Set to disable looking for gutenprint for the backend name..
 #NO_GUTENPRINT = 1
 
+# pkg-config extra stuff
+PKG_CONFIG_EXTRA = --with-path=/usr/local/lib/pkgconfig
+
 # Base executable name
 EXEC_NAME ?= dyesub_backend$(EXEC_SUFFIX)
 
@@ -24,7 +27,7 @@ CPUS ?= $(shell nproc)
 REVISION ?= -$(shell if [ -n "${BUILD_NUMBER}" ] ; then echo -n "b${BUILD_NUMBER}"- ; fi ; if [ -d .git ] ; then echo -n "g" ; git rev-parse --short HEAD; else echo -n "NONE" ; fi)
 
 # Destination directories (rely on CUPS & Gutenprint to tell us where)
-GP_PREFIX ?= $(shell pkg-config --variable=prefix gutenprint)
+GP_PREFIX ?= $(shell pkg-config $(PKG_CONFIG_EXTRA) --variable=prefix gutenprint)
 PREFIX ?=
 CUPS_BACKEND_DIR ?= $(PREFIX)$(shell cups-config --serverbin)/backend
 CUPS_DATA_DIR ?= $(PREFIX)$(shell cups-config --datadir)
@@ -42,7 +45,7 @@ endif
 
 # Figure out what the backend name needs to be
 ifeq ($(NO_GUTENPRINT),)
-GUTENPRINT_INCLUDE := $(shell pkg-config --variable=includedir gutenprint)/gutenprint
+GUTENPRINT_INCLUDE := $(shell pkg-config $(PKG_CONFIG_EXTRA) --variable=includedir gutenprint)/gutenprint
 ifneq (/gutenprint,$(GUTENPRINT_INCLUDE))
 GUTENPRINT_MAJOR := $(shell grep 'define STP_MAJOR' $(GUTENPRINT_INCLUDE)/gutenprint-version.h | tr -d '()\t' | cut -c33- )
 GUTENPRINT_MINOR := $(shell grep 'define STP_MINOR' $(GUTENPRINT_INCLUDE)/gutenprint-version.h | tr -d '()\t' | cut -c33- )
@@ -88,8 +91,8 @@ endif
 
 # Flags
 CFLAGS += -Wall -Wextra -Wformat-security -funit-at-a-time -g -Og -D_FORTIFY_SOURCE=2 -D_GNU_SOURCE -std=c99 # -Wconversion
-LDFLAGS += $(shell pkg-config --libs libusb-1.0)
-CPPFLAGS += $(shell pkg-config --cflags libusb-1.0)
+LDFLAGS += $(shell pkg-config $(PKG_CONFIG_EXTRA) --libs libusb-1.0)
+CPPFLAGS += $(shell pkg-config $(PKG_CONFIG_EXTRA) --cflags libusb-1.0)
 # CPPFLAGS += -DLIBUSB_PRE_1_0_10
 CPPFLAGS += -DURI_PREFIX=\"$(BACKEND_NAME)\" $(OLD_URI) -DCORRTABLE_PATH=\"$(BACKEND_DATA_DIR)\"
 LIBLDFLAGS = -g -shared
