@@ -190,7 +190,7 @@ struct mitsud90_job_hdr {
 	uint8_t  zero[24];
 
 /*@x30*/uint8_t  overcoat;  /* 0 glossy, matte is 2 (D90) or 3 (M1) */
-	uint8_t  quality;   /* 0 is automatic */
+	uint8_t  quality;   /* 0 is automatic, 5 is "fast" on M1 */
 	uint8_t  colorcorr; /* Always 1 on M1 */
 	uint8_t  sharp_h;   /* Always 0 on M1 */
 	uint8_t  sharp_v;   /* Always 0 on M1 */
@@ -1714,7 +1714,7 @@ struct dyesub_backend mitsud90_backend = {
    ?? ?? ?? ?? ?? ?? ?? ??  00 00 00 00 00 00 00 00  ?? = cut position, see below
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  MM == 0 for no margin cut, 1 for margin cut
    QQ RR SS HH VV 00 00 00  00 00 ZZ 00 03 II 09 7c  QQ == 02 matte (D90) or 03 (M1), 00 glossy,
-   09 4c 00 00 02 58 00 0c  00 06 00 00 00 00 00 00  RR == 00 auto, 03 == fine, 02 == superfine.
+   09 4c 00 00 02 58 00 0c  00 06 00 00 00 00 00 00  RR == 00 auto, (D90: 03 == fine, 02 == superfine), (M1: 05 == Fast)
    Z0 Z1 Z2 00 00 00 00 00  00 00 00 00 00 00 00 00  SS == 00 colorcorr, 01 == none (always 01 on M1)
                                                      HH/VV sharpening for Horiz/Vert, 0-8, 0 is off, 4 is normal (always 00 on M1)
                                                      TT is waittime (100 max, always 100 on D90)
