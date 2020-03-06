@@ -178,17 +178,13 @@ struct mitsud90_job_hdr {
 	uint8_t  waittime; /* 0-100 */
 	uint8_t  unk[3]; /* 00 00 01 */ // XXX 00 01 might be the jobid?
 	uint8_t  margincut; /* 1 for enabled, 0 for disabled */
-	union {
-#if 0
-		struct {
-			uint8_t  margin; // XXX seen 0 and 1, maybe single vs double cut?
-			uint16_t position;
-		} cuts[3] __attribute__((packed));
-#endif
-		uint8_t cutzero[9];
-	} __attribute__((packed));
-	uint8_t  zero[24];
-
+	uint8_t  cuttype; /* # of cuts (0-3) but 0-8 legal */
+/*@0x10*/
+	struct {
+		uint16_t position;  // @ center?
+		uint8_t  margincut; // 0 for double cut, 1 for single
+		uint8_t  zeropad;
+	} cutlist[8] __attribute__((packed));
 /*@x30*/uint8_t  overcoat;  /* 0 glossy, matte is 2 (D90) or 3 (M1) */
 	uint8_t  quality;   /* 0 is automatic, 5 is "fast" on M1 */
 	uint8_t  colorcorr; /* Always 1 on M1 */
@@ -1710,8 +1706,8 @@ struct dyesub_backend mitsud90_backend = {
 
  [[HEADER 1]]
 
-   1b 53 50 30 00 33 XX XX  YY YY TT 00 00 01 MM ??  XX XX == COLS, YY XX ROWS (BE)
-   ?? ?? ?? ?? ?? ?? ?? ??  00 00 00 00 00 00 00 00  ?? = cut position, see below
+   1b 53 50 30 00 33 XX XX  YY YY TT 00 00 01 MM NN  XX XX == COLS, YY XX ROWS (BE)
+   ?? ?? ?? ?? ?? ?? ?? ??  ?? ?? ?? ?? 00 00 00 00  NN == num of cuts, ?? see below
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  MM == 0 for no margin cut, 1 for margin cut
    QQ RR SS HH VV 00 00 00  00 00 ZZ 00 03 II 09 7c  QQ == 02 matte (D90) or 03 (M1), 00 glossy,
    09 4c 00 00 02 58 00 0c  00 06 00 00 00 00 00 00  RR == 00 auto, (D90: 03 == fine, 02 == superfine), (M1: 05 == Fast)
@@ -1724,17 +1720,15 @@ struct dyesub_backend mitsud90_backend = {
 						     Z2 is OP Rate (M1)
   [pad to 512b]
 
-                normal  == rows  00  00 00  00  00 00  00  00 00
-                4x6div2 == 1226  00  02 65  01  00 00  01  00 00
-                8x6div2 == 2488  01  04 be  00  00 00  00  00 00
+                normal  == rows  00  00 00 00 00  00 00 00 00
+                4x6div2 == 1226  01  02 65 01 00  00 00 00 00
+                8x6div2 == 2488  01  04 be 00 00  00 00 00 00
 
 		    guesses based on SDK docs:
 
-		9x6div2 == 2728  01  05 36  00  00 00  00  00 00
-		9x6div3 == 2724  00  03 90  00  07 14  00  00 00
-		9x6div4 == 2628  00  02 97  00  05 22  00  07 ad
-
-
+		9x6div2 == 2728  01  05 36 01 00  00 00 00 00  00 00 00 00
+		9x6div3 == 2724  02  03 90 01 00  07 14 00 00  00 00 00 00
+		9x6div4 == 2628  03  02 97 01 00  05 22 00 00  07 ad 00 00
 
     from [ZZ 00 03 03] onwards, only shows in 8x20" PANORAMA prints.  Assume 2" overlap.
     ZZ == 00 (normal) or 01 (panorama)
@@ -1948,7 +1942,11 @@ Comms Protocol for D90 & CP-M1
 
  [[ UNKNOWN (seen in SDK) ]]
 
-   1b 44 43 41  4e 43 45 4c  00 00 00 00
+   1b 44 43 41  4e 43 45 4c  00 00 00 00      : \ESC D CANCEL
+
+ [[ UNKNOWON (seen in SDK) ]]
+
+   1b 42 51 32 00 00       [ Footer of some sort ? ]
 
  request x65 examples:
 
