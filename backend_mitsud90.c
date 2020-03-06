@@ -178,7 +178,7 @@ struct mitsud90_job_hdr {
 	uint8_t  waittime; /* 0-100 */
 	uint8_t  unk[3]; /* 00 00 01 */ // XXX 00 01 might be the jobid?
 	uint8_t  margincut; /* 1 for enabled, 0 for disabled */
-	uint8_t  cuttype; /* # of cuts (0-3) but 0-8 legal */
+	uint8_t  numcuts; /* # of cuts (0-3) but 0-8 legal */
 /*@0x10*/
 	struct {
 		uint16_t position;  // @ center?
@@ -750,6 +750,32 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		ERROR("Unable to handle panorama jobs yet\n");
 		mitsud90_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
+	}
+
+	/* Sanity check cutlist */
+	if (job->hdr.numcuts > 3) {
+		ERROR("Cut list too long!\n");
+		mitsud90_cleanup_job(job);
+		return CUPS_BACKEND_CANCEL;
+	}
+	if (job->hdr.numcuts >= 1) {
+		if (be16_to_cpu(job->hdr.cutlist[0].position) < 613) {
+			ERROR("Minumum cut1 length is 613 rows\n");
+			mitsud90_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+		for (i = 1 ; i < job->hdr.numcuts ; i++) {
+			int min_size;
+			if (job->hdr.cutlist[i-1].margincut)
+				min_size = 606;  // XXX inverted?
+			else
+				min_size = 660;
+			if (be16_to_cpu(job->hdr.cutlist[i].position) - be16_to_cpu(job->hdr.cutlist[i-1].position) < min_size) {
+				ERROR("Minumum cutN length is %d rows!\n", min_size);
+				mitsud90_cleanup_job(job);
+				return CUPS_BACKEND_CANCEL;
+			}
+		}
 	}
 
 	/* How many pixels do we need to read? */
@@ -1667,7 +1693,7 @@ static const char *mitsud90_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsud90_backend = {
 	.name = "Mitsubishi CP-D90/CP-M1",
-	.version = "0.27"  " (lib " LIBMITSU_VER ")",
+	.version = "0.28"  " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsud90_prefixes,
 	.cmdline_arg = mitsud90_cmdline_arg,
 	.cmdline_usage = mitsud90_cmdline,
