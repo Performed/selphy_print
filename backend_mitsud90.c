@@ -759,19 +759,24 @@ static int mitsud90_read_parse(void *vctx, const void **vjob, int data_fd, int c
 		return CUPS_BACKEND_CANCEL;
 	}
 	if (job->hdr.numcuts >= 1) {
-		if (be16_to_cpu(job->hdr.cutlist[0].position) < 613) {
-			ERROR("Minumum cut1 length is 613 rows\n");
-			mitsud90_cleanup_job(job);
-			return CUPS_BACKEND_CANCEL;
-		}
-		for (i = 1 ; i < job->hdr.numcuts ; i++) {
+		int rows = be16_to_cpu(job->hdr.rows);
+		for (i = 0 ; i < job->hdr.numcuts ; i++) {
 			int min_size;
-			if (job->hdr.cutlist[i-1].margincut)
-				min_size = 606;  // XXX inverted?
+			int position = be16_to_cpu(job->hdr.cutlist[i].position);
+			int last_position = (i == 0) ? 0 : be16_to_cpu(job->hdr.cutlist[i-1].position);
+
+			if (i == 0)
+				min_size = 613;
 			else
-				min_size = 660;
-			if (be16_to_cpu(job->hdr.cutlist[i].position) - be16_to_cpu(job->hdr.cutlist[i-1].position) < min_size) {
-				ERROR("Minumum cutN length is %d rows!\n", min_size);
+				min_size = (job->hdr.cutlist[i-1].margincut) ? 601 : 660; // XXX inverted?
+
+			if ((position - last_position) < min_size) {
+				ERROR("Minumum cut#%d length is %d rows\n", i, min_size);
+				mitsud90_cleanup_job(job);
+				return CUPS_BACKEND_CANCEL;
+			}
+			if ((rows - position) < min_size) {
+				ERROR("Cut#%d is too close to end\n", i);
 				mitsud90_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
 			}
