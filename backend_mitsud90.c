@@ -182,9 +182,9 @@ struct mitsud90_job_hdr {
 /*@0x10*/
 	struct {
 		uint16_t position;  // @ center?
-		uint8_t  margincut; // 0 for double cut, 1 for single
+		uint8_t  margincut; /* 0 for double cut, 1 for single */
 		uint8_t  zeropad;
-	} cutlist[8] __attribute__((packed));
+	} cutlist[8] __attribute__((packed));  /* 3 is current legal max */
 /*@x30*/uint8_t  overcoat;  /* 0 glossy, matte is 2 (D90) or 3 (M1) */
 	uint8_t  quality;   /* 0 is automatic, 5 is "fast" on M1 */
 	uint8_t  colorcorr; /* Always 1 on M1 */

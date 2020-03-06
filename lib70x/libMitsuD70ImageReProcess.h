@@ -68,12 +68,12 @@
 
 /* Defines an image.  Note that origin_cols/origin_rows should always = 0 */
 struct BandImage {
-	   void  *imgbuf;      //  @0
-	 int32_t bytes_per_row;//  @4  bytes per row (respect 8bpp and 16bpp!)
-	uint16_t origin_cols;  // @8  origin_cols
-	uint16_t origin_rows;  // @12  origin_rows
-	uint16_t cols;         // @16  cols
-	uint16_t rows;         // @20  rows
+	   void  *imgbuf;      // @ 0
+	 int32_t bytes_per_row;// @ 4 (respect 8bpp and 16bpp!)
+	uint16_t origin_cols;  // @ 8 (left)
+	uint16_t origin_rows;  // @12 (top)
+	uint16_t cols;         // @16 (right)
+	uint16_t rows;         // @20 (bottom)
 	                       // @24
 };
 
