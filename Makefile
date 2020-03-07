@@ -212,9 +212,9 @@ else
 	$(CP) -a $(EXEC_NAME) $(LIBRARIES) selphy_print$(REVISION)
 	$(CP) -a $(MINGW_LIBS)/libltdl*.dll $(MINGW_LIBS)/libusb*.dll selphy_print$(REVISION)
 	$(MKDIR) -p selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
-	$(CP) -a hiti_data lib70x/data/* selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
-	$(CP) -a lib70x/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib70x
-	$(CP) -a lib6145/README selphy_print$(REVISION)/$(BACKEND_DATA_DIR)/README-lib6145
+	$(CP) -a hiti_data/* lib70x/data/* selphy_print$(REVISION)/$(BACKEND_DATA_DIR)
+	$(CP) -a lib70x/README selphy_print$(REVISION)/README-lib70x
+	$(CP) -a lib6145/README selphy_print$(REVISION)/README-lib6145
 	$(ZIP) -r selphy_print-mingw$(REVISION).zip selphy_print$(REVISION)
 endif
 	$(RM) -Rf selphy_print$(REVISION)
