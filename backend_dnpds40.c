@@ -100,6 +100,7 @@ struct dnpds40_ctx {
 	/* Printer capabilities */
 	uint32_t native_width;
 	uint32_t max_height;
+	int supports_600dpi;
 	int supports_6x9;
 	int supports_2x6;
 	int supports_3x5x2;
@@ -118,6 +119,7 @@ struct dnpds40_ctx {
 	int supports_counterp;
 	int supports_adv_fullcut;
 	int supports_mediaoffset;
+	int supports_ctrld_ext;
 	int supports_media_ext;
 	int supports_printspeed;
 	int supports_lowspeed;
@@ -935,6 +937,9 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 			ctx->media = atoi(getenv("MEDIA_CODE"));
 	}
 
+	/* All current models support 600dpi */
+	ctx->supports_600dpi = 1;
+
 	/* Per-printer options */
 	switch (ctx->type) {
 	case P_DNP_DS40:
@@ -1046,6 +1051,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		ctx->supports_printspeed = 1;
 		ctx->supports_lowspeed = 1;
 		ctx->supports_highdensity = 1;
+		ctx->supports_ctrld_ext = 1;
 		ctx->supports_mediaclassrfid = 1;
 		if (FW_VER_CHECK(0,50))
 			ctx->supports_gamma = 1;
@@ -1568,6 +1574,13 @@ parsed:
 		else
 			job->printspeed = 0;
 	}
+
+	if (job->dpi == 600 && !ctx->supports_600dpi) {
+		ERROR("Printer does not support 600dpi!\n");
+		dnpds40_cleanup_job(job);
+		return CUPS_BACKEND_CANCEL;
+	}
+
 	/* And sanity-check whatever value is there */
 	if (job->printspeed == 0 && job->dpi == 600) {
 		job->printspeed = 1;
@@ -2274,6 +2287,9 @@ static int dnpds40_get_sensors(struct dnpds40_ctx *ctx)
 static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 {
 	struct dnpds40_cmd cmd;
+	int cwd_extra = 0;
+	int cwd_index = 1;
+	uint8_t cwd_buf[5];
 	uint8_t *resp;
 	int len = 0;
 
@@ -2422,49 +2438,32 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-	/* Figure out control data and checksums */
+CWD_TOP:
+	/* Figure out color data and checksums */
+	if (ctx->supports_ctrld_ext) {
+		cwd_extra = 4;
+		snprintf((char*)cwd_buf, sizeof(cwd_buf), "%04d", cwd_index);
+	} else {
+		cwd_extra = 0;
+		cwd_buf[0] = 0;
+	}
 
 	/* 300 DPI */
-	dnpds40_build_cmd(&cmd, "TBL_RD", "CWD300_Version", 0);
+	dnpds40_build_cmd(&cmd, "TBL_RD", "CWD300_Version", cwd_extra);
 
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	resp = dnpds40_resp_cmd2(ctx, &cmd, &len, cwd_buf, cwd_extra);
 	if (!resp)
 		return CUPS_BACKEND_FAILED;
 
 	dnpds40_cleanup_string((char*)resp, len);
 
-	INFO("300 DPI Color Data: %s ", (char*)resp);
+	INFO("300 DPI Color Data (%s): %s ", rfid_media_subtypes(cwd_index), (char*)resp);
 
 	free(resp);
 
-	dnpds40_build_cmd(&cmd, "TBL_RD", "CWD300_Checksum", 0);
+	dnpds40_build_cmd(&cmd, "TBL_RD", "CWD300_Checksum", cwd_extra);
 
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
-	DEBUG2("(%s)\n", (char*)resp);
-
-	free(resp);
-
-	/* 600 DPI */
-	dnpds40_build_cmd(&cmd, "TBL_RD", "CWD600_Version", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-	if (!resp)
-		return CUPS_BACKEND_FAILED;
-
-	dnpds40_cleanup_string((char*)resp, len);
-
-	INFO("600 DPI Color Data: %s ", (char*)resp);
-
-	free(resp);
-
-	dnpds40_build_cmd(&cmd, "TBL_RD", "CWD600_Checksum", 0);
-
-	resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+	resp = dnpds40_resp_cmd2(ctx, &cmd, &len, cwd_buf, cwd_extra);
 	if (!resp)
 		return CUPS_BACKEND_FAILED;
 
@@ -2474,23 +2473,58 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 	free(resp);
 
-	if (ctx->supports_lowspeed) {
-		/* "Low Speed" */
-		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD610_Version", 0);
+	if (ctx->supports_600dpi) {
+		/* 600 DPI */
+		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD600_Version", cwd_extra);
 
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		resp = dnpds40_resp_cmd2(ctx, &cmd, &len, cwd_buf, cwd_extra);
 		if (!resp)
 			return CUPS_BACKEND_FAILED;
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("Low Speed Color Data: %s ", (char*)resp);
+		INFO("600 DPI Color Data (%s): %s ", rfid_media_subtypes(cwd_index), (char*)resp);
 
 		free(resp);
 
-		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD610_Checksum", 0);
+		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD600_Checksum", cwd_extra);
 
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		resp = dnpds40_resp_cmd2(ctx, &cmd, &len, cwd_buf, cwd_extra);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		DEBUG2("(%s)\n", (char*)resp);
+
+		free(resp);
+	}
+
+	if (ctx->supports_lowspeed) {
+		/* "Low Speed" */
+		if (ctx->supports_600dpi) {
+			dnpds40_build_cmd(&cmd, "TBL_RD", "CWD610_Version", cwd_extra);
+		} else {
+			dnpds40_build_cmd(&cmd, "TBL_RD", "CWD310_Version", cwd_extra);
+		}
+
+		resp = dnpds40_resp_cmd2(ctx, &cmd, &len, cwd_buf, cwd_extra);
+		if (!resp)
+			return CUPS_BACKEND_FAILED;
+
+		dnpds40_cleanup_string((char*)resp, len);
+
+		INFO("Low Speed Color Data (%s): %s ", rfid_media_subtypes(cwd_index), (char*)resp);
+
+		free(resp);
+
+		if (ctx->supports_600dpi) {
+			dnpds40_build_cmd(&cmd, "TBL_RD", "CWD610_Checksum", cwd_extra);
+		} else {
+			dnpds40_build_cmd(&cmd, "TBL_RD", "CWD310_Checksum", cwd_extra);
+		}
+
+		resp = dnpds40_resp_cmd2(ctx, &cmd, &len, cwd_buf, cwd_extra);
 		if (!resp)
 			return CUPS_BACKEND_FAILED;
 
@@ -2501,27 +2535,30 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 		free(resp);
 	}
 	if (ctx->supports_highdensity) {
-		uint8_t buf[5];
-		int i = 0;
-
-		snprintf((char*)buf, sizeof(buf), "%04d", i);
-
 		/* "High Density" */
-		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD620_Version", 4);
+		if (ctx->supports_600dpi) {
+			dnpds40_build_cmd(&cmd, "TBL_RD", "CWD620_Version", cwd_extra);
+		} else {
+			dnpds40_build_cmd(&cmd, "TBL_RD", "CWD320_Version", cwd_extra);
+		}
 
-		resp = dnpds40_resp_cmd2(ctx, &cmd, &len, buf, 4);
+		resp = dnpds40_resp_cmd2(ctx, &cmd, &len, cwd_buf, cwd_extra);
 		if (!resp)
 			return CUPS_BACKEND_FAILED;
 
 		dnpds40_cleanup_string((char*)resp, len);
 
-		INFO("High Density Color Data: %s ", (char*)resp);
+		INFO("High Density Color Data (%s): %s ", rfid_media_subtypes(cwd_index), (char*)resp);
 
 		free(resp);
 
-		dnpds40_build_cmd(&cmd, "TBL_RD", "CWD620_Checksum", 4);
+		if (ctx->supports_600dpi) {
+			dnpds40_build_cmd(&cmd, "TBL_RD", "CWD620_Checksum", cwd_extra);
+		} else {
+			dnpds40_build_cmd(&cmd, "TBL_RD", "CWD320_Checksum", cwd_extra);
+		}
 
-		resp = dnpds40_resp_cmd2(ctx, &cmd, &len, buf, 4);
+		resp = dnpds40_resp_cmd2(ctx, &cmd, &len, cwd_buf, cwd_extra);
 		if (!resp)
 			return CUPS_BACKEND_FAILED;
 
@@ -2531,6 +2568,12 @@ static int dnpds40_get_info(struct dnpds40_ctx *ctx)
 
 		free(resp);
 	}
+
+	if (cwd_extra && cwd_index == 1) {
+		cwd_index = 3;
+		goto CWD_TOP;
+	}
+
 	if (ctx->supports_gamma) {
 		/* "Low Speed" */
 		dnpds40_build_cmd(&cmd, "TBL_RD", "CTRLD_GAMMA16", 0);
@@ -3234,7 +3277,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.130",
+	.version = "0.131",
 	.uri_prefixes = dnpds40_prefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
