@@ -111,6 +111,7 @@ struct dnpds40_ctx {
 	int supports_fullcut;
 	int supports_rewind;
 	int supports_standby;
+	int supports_keepmode;
 	int supports_6x4_5;
 	int supports_mqty_default;
 	int supports_iserial;
@@ -1013,6 +1014,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		else
 			ctx->supports_rewind = 1;
 		ctx->supports_standby = 1;
+		ctx->supports_keepmode = 1;
 		ctx->supports_iserial = 1;
 		ctx->supports_6x6 = 1;
 		ctx->supports_5x5 = 1;
@@ -1043,6 +1045,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		else
 			ctx->supports_rewind = 1;
 		ctx->supports_standby = 1;
+		ctx->supports_keepmode = 1;
 		ctx->supports_iserial = 1;
 		ctx->supports_adv_fullcut = 1;
 		ctx->supports_advmatte = 1;
@@ -2605,8 +2608,12 @@ CWD_TOP:
 		INFO("Standby Transition time: %d minutes\n", i);
 
 		free(resp);
+	}
 
+	if (ctx->supports_keepmode) {
 		/* Get Media End Keep */
+		int i;
+
 		dnpds40_build_cmd(&cmd, "MNT_RD", "END_KEEP_MODE", 0);
 
 		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
