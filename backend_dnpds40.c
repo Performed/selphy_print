@@ -122,6 +122,7 @@ struct dnpds40_ctx {
 	int supports_printspeed;
 	int supports_lowspeed;
 	int supports_highdensity;
+	int supports_mediaclassrfid;
 	int supports_gamma;
 };
 
@@ -459,7 +460,7 @@ static const char *dnpds620_media_extension_code(int media)
 	return "Unknown";
 }
 
-static const char *dnpds820_media_subtypes(int media)
+static const char *rfid_media_subtypes(int media)
 {
 	switch (media) {
 	case 1: return "SD";
@@ -863,7 +864,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		}
 
 		/* Try to figure out media subtype */
-		if (ctx->type == P_DNP_DS820) {
+		if (ctx->supports_mediaclassrfid) {
 			dnpds40_build_cmd(&cmd, "INFO", "MEDIA_CLASS_RFID", 0);
 			resp = dnpds40_resp_cmd(ctx, &cmd, &len);
 			if (!resp)
@@ -1045,6 +1046,7 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		ctx->supports_printspeed = 1;
 		ctx->supports_lowspeed = 1;
 		ctx->supports_highdensity = 1;
+		ctx->supports_mediaclassrfid = 1;
 		if (FW_VER_CHECK(0,50))
 			ctx->supports_gamma = 1;
 		break;
@@ -1239,10 +1241,10 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	}
 
 	/* Fill out marker message */
-	if (ctx->type == P_DNP_DS820) {
+	if (ctx->supports_mediaclassrfid) {
 		snprintf(ctx->media_text, sizeof(ctx->media_text),
 			 "%s %s", dnpds40_media_types(ctx->media),
-			 dnpds820_media_subtypes(ctx->media_subtype));
+			 rfid_media_subtypes(ctx->media_subtype));
 	} else {
 		snprintf(ctx->media_text, sizeof(ctx->media_text),
 			 "%s", dnpds40_media_types(ctx->media));
@@ -2679,8 +2681,8 @@ static int dnpds40_get_status(struct dnpds40_ctx *ctx)
 	}
 
 	/* Try to figure out media subtype */
-	if (ctx->type == P_DNP_DS820) {
-		INFO("Media Subtype: %s\n", dnpds820_media_subtypes(ctx->media_subtype));
+	if (ctx->supports_mediaclassrfid) {
+		INFO("Media Subtype: %s\n", rfid_media_subtypes(ctx->media_subtype));
 	}
 
 	/* Report Cut Media */
@@ -3386,7 +3388,7 @@ struct cw01_spool_hdr {
 	uint8_t  null0;
 	uint32_t plane_len; /* LE */
 	uint8_t  null1[4];
-};
+} __attribute__((packed));
 
 #define DPI_334 0
 #define DPI_600 1
@@ -3434,7 +3436,7 @@ struct rx1_spool_hdr {
 	uint32_t plane_len; /* LE */
         uint8_t  flags; /* combination of FLAG_?? */
 	uint8_t  null2[3];
-};
+} __attribute__((packed));
 
 #define FLAG_MATTE     0x02
 #define FLAG_NORETRY   0x08
@@ -3478,7 +3480,8 @@ struct ds620_spool_hdr {
 	uint32_t plane_len; /* LE */
 	uint8_t  flags; /* FLAG_?? */
 	uint8_t  null1[3];
-};
+} __attribute__((packed));
+
 #define FLAG_LUSTER    0x04
 #define FLAG_FINEMATTE 0x06
 
