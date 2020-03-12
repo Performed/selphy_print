@@ -69,6 +69,8 @@
 
   Work-in-progress Printers:
 
+   HiTi P110 series
+   HiTi P510 series
    HiTi M610 (not X610!)
    HiTi P525L
    HiTi P720L
@@ -1203,13 +1205,18 @@ Notes:
 
    Verified supported printers:
 
-    HiTi P520L
+     HiTi P520L
 
    Theoretically supported printers (Untested)
 
      HiTi P525L
      HiTi P720L
      HiTi P750L
+
+   Work-in-progress printers
+
+     HiTi P110 series
+     HiTi P510 series
 
    This backend supports additional commands:
 
