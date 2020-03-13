@@ -37,6 +37,11 @@
 
 #include <libusb.h>
 
+/* For Integration into gutenprint */
+#if defined(HAVE_CONFIG_H)
+#include <config.h>
+#endif
+
 #ifndef __BACKEND_COMMON_H
 #define __BACKEND_COMMON_H
 

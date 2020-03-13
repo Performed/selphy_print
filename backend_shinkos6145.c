@@ -34,18 +34,12 @@
  *
  */
 
-
 #define BACKEND shinkos6145_backend
 
 #include "backend_common.h"
 #include "backend_sinfonia.h"
 
 #include <time.h>
-
-/* For Integration into gutenprint */
-#if defined(HAVE_CONFIG_H)
-#include <config.h>
-#endif
 
 #ifndef WITH_DYNAMIC
 #warning "No dynamic loading support!"

@@ -29,11 +29,6 @@
 #include "backend_common.h"
 #include "backend_mitsu.h"
 
-/* For Integration into gutenprint */
-#if defined(HAVE_CONFIG_H)
-#include <config.h>
-#endif
-
 #define MITSU_M98xx_LAMINATE_FILE  "M98MATTE.raw"
 #define MITSU_M98xx_DATATABLE_FILE "M98TABLE.dat"
 #define MITSU_M98xx_LUT_FILE       "M98XXL01.lut"

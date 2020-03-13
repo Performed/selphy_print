@@ -29,11 +29,6 @@
 #include "backend_common.h"
 #include "backend_mitsu.h"
 
-/* For Integration into gutenprint */
-#if defined(HAVE_CONFIG_H)
-#include <config.h>
-#endif
-
 #define USB_VID_MITSU       0x06D3
 #define USB_PID_MITSU_D70X  0x3B30
 #define USB_PID_MITSU_K60   0x3B31
