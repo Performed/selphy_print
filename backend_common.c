@@ -28,7 +28,7 @@
 #include <errno.h>
 #include <signal.h>
 
-#define BACKEND_VERSION "0.105"
+#define BACKEND_VERSION "0.106"
 #ifndef URI_PREFIX
 #error "Must Define URI_PREFIX"
 #endif
@@ -421,12 +421,16 @@ static int probe_device(struct libusb_device *device,
 	DEBUG("Probing VID: %04X PID: %04x\n", desc->idVendor, desc->idProduct);
 	STATE("+connecting-to-device\n");
 
-	if (libusb_open(device, &dev)) {
-		ERROR("Could not open device %04x:%04x (need to be root?)\n", desc->idVendor, desc->idProduct);
+	if ((i = libusb_open(device, &dev))) {
+#ifdef _WIN32
+		if (i == LIBUSB_ERROR_NOT_SUPPORTED)
+			ERROR("Could not open device %04x:%04x! (Genric USB driver missing, See README)\n", desc->idVendor, desc->idProduct);
+		else
+#endif
+			ERROR("Could not open device %04x:%04x - %d (need to be root?)\n", desc->idVendor, desc->idProduct, i);
 		found = -1;
 		goto abort;
 	}
-
 
 #if 0
 	/* XXX FIXME: Iterate through bNumConfigurations */

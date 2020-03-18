@@ -169,6 +169,12 @@
      Once the necessary packages are installed, run 'mingw64-make' and
      everything should compile cleanly.
 
+     Please note that actually running this under Windows will require
+     use/installation of a generic USB driver such as WINUSB.  For more
+      information, see:
+
+	http://zadig.akeo.ie
+
  ***************************************************************************
   CUPS backend usage:
 
