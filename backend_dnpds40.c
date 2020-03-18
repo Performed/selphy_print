@@ -806,6 +806,132 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	ctx->type = type;
 	ctx->iface = iface;
 
+	/* All current models support 600dpi */
+	ctx->supports_600dpi = 1;
+
+	/* Per-printer options */
+	switch (ctx->type) {
+	case P_DNP_DS40:
+		ctx->native_width = 1920;
+		ctx->max_height = 5480;
+		ctx->supports_6x9 = 1;
+		if (FW_VER_CHECK(1,04))
+			ctx->supports_counterp = 1;
+		if (FW_VER_CHECK(1,30))
+			ctx->supports_matte = 1;
+		if (FW_VER_CHECK(1,40))
+			ctx->supports_2x6 = 1;
+		if (FW_VER_CHECK(1,50))
+			ctx->supports_3x5x2 = 1;
+		if (FW_VER_CHECK(1,60))
+			ctx->supports_fullcut = ctx->supports_6x6 = 1; // No 5x5!
+		break;
+	case P_DNP_DS80:
+	case P_DNP_DS80D:
+		ctx->native_width = 2560;
+		ctx->max_height = 7536;
+		if (FW_VER_CHECK(1,02))
+			ctx->supports_counterp = 1;
+		if (FW_VER_CHECK(1,30))
+			ctx->supports_matte = 1;
+		break;
+	case P_DNP_DSRX1:
+		ctx->native_width = 1920;
+		ctx->max_height = 5480;
+		ctx->supports_counterp = 1;
+		ctx->supports_matte = 1;
+		if (FW_VER_CHECK(1,10))
+			ctx->supports_2x6 = ctx->supports_mqty_default = 1;
+                if (FW_VER_CHECK(1,20))
+			ctx->supports_3x5x2 = 1;
+		if (FW_VER_CHECK(2,00)) { /* AKA RX1HS */
+			ctx->needs_mlot = 1;
+			ctx->supports_mediaoffset = 1;
+			ctx->supports_iserial = 1;
+		}
+		if (FW_VER_CHECK(2,06)) {
+			ctx->supports_5x5 = ctx->supports_6x6 = 1;
+		}
+		break;
+	case P_CITIZEN_OP900II:
+		ctx->native_width = 1920;
+		ctx->max_height = 5480;
+		ctx->supports_counterp = 1;
+		ctx->supports_matte = 1;
+		ctx->supports_mqty_default = 1;
+		ctx->supports_6x9 = 1;
+		if (FW_VER_CHECK(1,11))
+			ctx->supports_2x6 = 1;
+		break;
+	case P_CITIZEN_CW01:
+		ctx->native_width = 2048;
+		ctx->max_height = 5480;
+		ctx->supports_6x9 = 1;
+		break;
+	case P_DNP_DS620:
+		ctx->native_width = 1920;
+		ctx->max_height = 5604;
+		ctx->correct_count = 1;
+		ctx->supports_counterp = 1;
+		ctx->supports_matte = 1;
+		ctx->supports_2x6 = 1;
+		ctx->supports_fullcut = 1;
+		ctx->supports_mqty_default = 1;
+		if (strchr(ctx->version, 'A'))
+			ctx->supports_rewind = 0;
+		else
+			ctx->supports_rewind = 1;
+		ctx->supports_standby = 1;
+		ctx->supports_keepmode = 1;
+		ctx->supports_iserial = 1;
+		ctx->supports_6x6 = 1;
+		ctx->supports_5x5 = 1;
+		ctx->supports_lowspeed = 1;
+		if (FW_VER_CHECK(0,30))
+			ctx->supports_3x5x2 = 1;
+		if (FW_VER_CHECK(1,10))
+			ctx->supports_6x9 = ctx->supports_6x4_5 = 1;
+		if (FW_VER_CHECK(1,20))
+			ctx->supports_adv_fullcut = ctx->supports_advmatte = 1;
+		if (FW_VER_CHECK(1,30))
+			ctx->supports_luster = 1;
+		if (FW_VER_CHECK(1,33))
+			ctx->supports_media_ext = 1;
+		if (FW_VER_CHECK(1,52))
+			ctx->supports_finematte = 1;
+		break;
+	case P_DNP_DS820:
+		ctx->native_width = 2560;
+		ctx->max_height = 7536;
+		ctx->correct_count = 1;
+		ctx->supports_counterp = 1;
+		ctx->supports_matte = 1;
+		ctx->supports_fullcut = 1;
+		ctx->supports_mqty_default = 1;
+		if (strchr(ctx->version, 'A'))
+			ctx->supports_rewind = 0;
+		else
+			ctx->supports_rewind = 1;
+		ctx->supports_standby = 1;
+		ctx->supports_keepmode = 1;
+		ctx->supports_iserial = 1;
+		ctx->supports_adv_fullcut = 1;
+		ctx->supports_advmatte = 1;
+		ctx->supports_luster = 1;
+		ctx->supports_finematte = 1;
+		ctx->supports_printspeed = 1;
+		ctx->supports_lowspeed = 1;
+		ctx->supports_highdensity = 1;
+		ctx->supports_ctrld_ext = 1;
+		ctx->supports_mediaclassrfid = 1;
+		if (FW_VER_CHECK(0,50))
+			ctx->supports_gamma = 1;
+		break;
+	default:
+		ERROR("Unknown printer type %d\n", ctx->type);
+		return CUPS_BACKEND_FAILED;
+	}
+
 	if (test_mode < TEST_MODE_NOATTACH) {
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
@@ -936,132 +1062,6 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 
 		if (getenv("MEDIA_CODE"))
 			ctx->media = atoi(getenv("MEDIA_CODE"));
-	}
-
-	/* All current models support 600dpi */
-	ctx->supports_600dpi = 1;
-
-	/* Per-printer options */
-	switch (ctx->type) {
-	case P_DNP_DS40:
-		ctx->native_width = 1920;
-		ctx->max_height = 5480;
-		ctx->supports_6x9 = 1;
-		if (FW_VER_CHECK(1,04))
-			ctx->supports_counterp = 1;
-		if (FW_VER_CHECK(1,30))
-			ctx->supports_matte = 1;
-		if (FW_VER_CHECK(1,40))
-			ctx->supports_2x6 = 1;
-		if (FW_VER_CHECK(1,50))
-			ctx->supports_3x5x2 = 1;
-		if (FW_VER_CHECK(1,60))
-			ctx->supports_fullcut = ctx->supports_6x6 = 1; // No 5x5!
-		break;
-	case P_DNP_DS80:
-	case P_DNP_DS80D:
-		ctx->native_width = 2560;
-		ctx->max_height = 7536;
-		if (FW_VER_CHECK(1,02))
-			ctx->supports_counterp = 1;
-		if (FW_VER_CHECK(1,30))
-			ctx->supports_matte = 1;
-		break;
-	case P_DNP_DSRX1:
-		ctx->native_width = 1920;
-		ctx->max_height = 5480;
-		ctx->supports_counterp = 1;
-		ctx->supports_matte = 1;
-		if (FW_VER_CHECK(1,10))
-			ctx->supports_2x6 = ctx->supports_mqty_default = 1;
-                if (FW_VER_CHECK(1,20))
-			ctx->supports_3x5x2 = 1;
-		if (FW_VER_CHECK(2,00)) { /* AKA RX1HS */
-			ctx->needs_mlot = 1;
-			ctx->supports_mediaoffset = 1;
-			ctx->supports_iserial = 1;
-		}
-		if (FW_VER_CHECK(2,06)) {
-			ctx->supports_5x5 = ctx->supports_6x6 = 1;
-		}
-		break;
-	case P_CITIZEN_OP900II:
-		ctx->native_width = 1920;
-		ctx->max_height = 5480;
-		ctx->supports_counterp = 1;
-		ctx->supports_matte = 1;
-		ctx->supports_mqty_default = 1;
-		ctx->supports_6x9 = 1;
-		if (FW_VER_CHECK(1,11))
-			ctx->supports_2x6 = 1;
-		break;
-	case P_CITIZEN_CW01:
-		ctx->native_width = 2048;
-		ctx->max_height = 5480;
-		ctx->supports_6x9 = 1;
-		break;
-	case P_DNP_DS620:
-		ctx->native_width = 1920;
-		ctx->max_height = 5604;
-		ctx->correct_count = 1;
-		ctx->supports_counterp = 1;
-		ctx->supports_matte = 1;
-		ctx->supports_2x6 = 1;
-		ctx->supports_fullcut = 1;
-		ctx->supports_mqty_default = 1;
-		if (strchr(ctx->version, 'A'))
-			ctx->supports_rewind = 0;
-		else
-			ctx->supports_rewind = 1;
-		ctx->supports_standby = 1;
-		ctx->supports_keepmode = 1;
-		ctx->supports_iserial = 1;
-		ctx->supports_6x6 = 1;
-		ctx->supports_5x5 = 1;
-		ctx->supports_lowspeed = 1;
-		if (FW_VER_CHECK(0,30))
-			ctx->supports_3x5x2 = 1;
-		if (FW_VER_CHECK(1,10))
-			ctx->supports_6x9 = ctx->supports_6x4_5 = 1;
-		if (FW_VER_CHECK(1,20))
-			ctx->supports_adv_fullcut = ctx->supports_advmatte = 1;
-		if (FW_VER_CHECK(1,30))
-			ctx->supports_luster = 1;
-		if (FW_VER_CHECK(1,33))
-			ctx->supports_media_ext = 1;
-		if (FW_VER_CHECK(1,52))
-			ctx->supports_finematte = 1;
-		break;
-	case P_DNP_DS820:
-		ctx->native_width = 2560;
-		ctx->max_height = 7536;
-		ctx->correct_count = 1;
-		ctx->supports_counterp = 1;
-		ctx->supports_matte = 1;
-		ctx->supports_fullcut = 1;
-		ctx->supports_mqty_default = 1;
-		if (strchr(ctx->version, 'A'))
-			ctx->supports_rewind = 0;
-		else
-			ctx->supports_rewind = 1;
-		ctx->supports_standby = 1;
-		ctx->supports_keepmode = 1;
-		ctx->supports_iserial = 1;
-		ctx->supports_adv_fullcut = 1;
-		ctx->supports_advmatte = 1;
-		ctx->supports_luster = 1;
-		ctx->supports_finematte = 1;
-		ctx->supports_printspeed = 1;
-		ctx->supports_lowspeed = 1;
-		ctx->supports_highdensity = 1;
-		ctx->supports_ctrld_ext = 1;
-		ctx->supports_mediaclassrfid = 1;
-		if (FW_VER_CHECK(0,50))
-			ctx->supports_gamma = 1;
-		break;
-	default:
-		ERROR("Unknown printer type %d\n", ctx->type);
-		return CUPS_BACKEND_FAILED;
 	}
 
 	ctx->last_matte = -1;
@@ -3284,7 +3284,7 @@ static const char *dnpds40_prefixes[] = {
 /* Exported */
 struct dyesub_backend dnpds40_backend = {
 	.name = "DNP DS-series / Citizen C-series",
-	.version = "0.131",
+	.version = "0.132",
 	.uri_prefixes = dnpds40_prefixes,
 	.cmdline_usage = dnpds40_cmdline,
 	.cmdline_arg = dnpds40_cmdline_arg,
