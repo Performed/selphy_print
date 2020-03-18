@@ -834,6 +834,10 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		} else {
 			return CUPS_BACKEND_FAILED;
 		}
+	} else {
+		ctx->ver_major = 3;
+		ctx->ver_minor = 0;
+		ctx->version = strdup("UNKNOWN");
 	}
 
 	/* Per-printer options */
@@ -1048,9 +1052,6 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 #endif
 		}
 	} else {
-		ctx->ver_major = 3;
-		ctx->ver_minor = 0;
-		ctx->version = strdup("UNKNOWN");
 		switch(ctx->type) {
 		case P_DNP_DS80D:
 			ctx->duplex_media = 200;
