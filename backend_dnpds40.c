@@ -809,6 +809,33 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 	/* All current models support 600dpi */
 	ctx->supports_600dpi = 1;
 
+	if (test_mode < TEST_MODE_NOATTACH) {
+		struct dnpds40_cmd cmd;
+		uint8_t *resp;
+		int len = 0;
+
+		/* Get Firmware Version */
+		dnpds40_build_cmd(&cmd, "INFO", "FVER", 0);
+
+		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
+		if (resp) {
+			char *ptr;
+			dnpds40_cleanup_string((char*)resp, len);
+			ctx->version = strdup((char*) resp);
+
+			/* Parse version */
+			/* ptr = */ strtok((char*)resp, " .");
+			ptr = strtok(NULL, ".");
+			ctx->ver_major = atoi(ptr);
+			ptr = strtok(NULL, ".");
+			ctx->ver_minor = atoi(ptr);
+
+			free(resp);
+		} else {
+			return CUPS_BACKEND_FAILED;
+		}
+	}
+
 	/* Per-printer options */
 	switch (ctx->type) {
 	case P_DNP_DS40:
@@ -936,26 +963,6 @@ static int dnpds40_attach(void *vctx, struct libusb_device_handle *dev, int type
 		struct dnpds40_cmd cmd;
 		uint8_t *resp;
 		int len = 0;
-
-		/* Get Firmware Version */
-		dnpds40_build_cmd(&cmd, "INFO", "FVER", 0);
-
-		resp = dnpds40_resp_cmd(ctx, &cmd, &len);
-		if (resp) {
-			char *ptr;
-			dnpds40_cleanup_string((char*)resp, len);
-			ctx->version = strdup((char*) resp);
-
-			/* Parse version */
-			/* ptr = */ strtok((char*)resp, " .");
-			ptr = strtok(NULL, ".");
-			ctx->ver_major = atoi(ptr);
-			ptr = strtok(NULL, ".");
-			ctx->ver_minor = atoi(ptr);
-			free(resp);
-		} else {
-			return CUPS_BACKEND_FAILED;
-		}
 
 		/* Get Serial Number */
 		dnpds40_build_cmd(&cmd, "INFO", "SERIAL_NUMBER", 0);
