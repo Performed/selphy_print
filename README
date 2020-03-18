@@ -175,6 +175,12 @@
 
 	http://zadig.akeo.ie
 
+     Another note.  If you are using a NEC/Renesas USB 3.0 host
+     controller, you will need to ensure that it is using up-to-date
+     drivers or no devices will enumerate.  For more information, see:
+
+        https://github.com/libusb/libusb/wiki/Windows
+
  ***************************************************************************
   CUPS backend usage:
 
