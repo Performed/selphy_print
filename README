@@ -56,7 +56,7 @@
    Mitsubishi CP-M1A / CP-M1E
    Mitsubishi P95DW
    Mitsubishi P93DW
-   Shinko CHC-S1245 (aka Sinfonia E1)
+   Shinko CHC-S1245 (aka Sinfonia E1 and DNP Q8)
    Shinko CHC-S2145 (aka Sinfonia S2)
    Shinko CHC-S6145 (aka Sinfonia CS2)
    Sony UP-CR10L (aka DNP DS-SL10)
@@ -69,6 +69,11 @@
 
   Work-in-progress Printers:
 
+
+   Citizen CZ-01
+   DNP QW410
+   DNP M4 / Q4
+   DNP M8
    HiTi P110 series
    HiTi P510 series
    HiTi M610 (not X610!)
@@ -647,6 +652,10 @@
 
      Shinko CHC-S1245 (aka "Sinfonia E1")
 
+   Unsupported printers (unknown VID/PID)
+
+     DNP Q8
+
    Valid commands:
 
      -s                 Query printer status
@@ -1137,6 +1146,9 @@
 
    Work-in-progress printers: (USB PIDs unknown)
 
+    Citizen CZ-01
+    DNP QW410
+    DNP M4 / Q4
     Olmec OP900
     ICI Imagedata OP900
 
