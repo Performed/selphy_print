@@ -587,15 +587,15 @@ static void CImageEffect70_DeleteMidData(struct CImageEffect70 *data)
 static void CImageEffect70_Sharp_CopyLine(struct CImageEffect70 *data,
 					  int offset, const uint16_t *row, int rownum)
 {
-	uint16_t *dst, *v5;
+	uint16_t *dst, *end;
 
 	dst = data->linebuf_row[offset + 5]; /* Points at start of dst row */
-	v5 = dst + 3 * data->columns; /* Point at end of dst row */
+	end = dst + 3 * data->columns; /* Point at end of dst row */
 
 	memcpy(dst, row -(rownum * data->pixel_count), sizeof(uint16_t) * data->band_pixels);
 
 	memcpy(dst - 3, dst, 6); /* Fill in dst row head */
-	memcpy(v5, v5 - 3, 6); /* Fill in dst row tail */
+	memcpy(end, end - 3, 6); /* Fill in dst row tail */
 }
 
 static void CImageEffect70_Sharp_PrepareLine(struct CImageEffect70 *data,
@@ -709,19 +709,19 @@ static void CImageEffect70_CalcFCC(struct CImageEffect70 *data)
 
 	/* Work out the global color scaling factor for each color in the row */
 	for (i = 0 ; i < 3 ; i++) {
-		double v5;
+		double val;
 		/* Average it out over the number of columns */
 		row_comp[i] /= data->columns;
 
-		v5 = data->fh_cur * row_comp[i]
+		val = data->fh_cur * row_comp[i]
 			+ data->fh_prev1 * prev1[i]
 			+ data->fh_prev2 * prev2[i] // XXX this line is '-' in PPC versions, but + in x86.  Investigate WTF is going on.
 			- data->fh_prev3 * prev3[i];
 		/* Positive vs Negative values require different scaling factors */
-		if (v5 >= 0.0) {
-			data->fcc_ymc_scale[i] = v5 / data->fhdiv_up + 1.0;
+		if (val >= 0.0) {
+			data->fcc_ymc_scale[i] = val / data->fhdiv_up + 1.0;
 		} else {
-			data->fcc_ymc_scale[i] = v5 / data->fhdiv_dn + 1.0;
+			data->fcc_ymc_scale[i] = val / data->fhdiv_dn + 1.0;
 		}
 	}
 
@@ -878,15 +878,15 @@ static void CImageEffect70_CalcTTD(struct CImageEffect70 *data,
 
 		k_comp = 0.0;
 		for ( j = 0 ; j < 11 ; j++) {
-			int v5;
+			int val;
 			if (j == 5)
 				continue;
 
-			v5 = in[i] - data->linebuf_row[j][i];
-			if (v5 >= 0)
-				k_comp += kp[j] * v5;
+			val = in[i] - data->linebuf_row[j][i];
+			if (val >= 0)
+				k_comp += kp[j] * val;
 			else
-				k_comp += km[j] * v5;
+				k_comp += km[j] * val;
 		}
 
 		sharp_comp = 0.0;
@@ -1623,7 +1623,7 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 	for (j = 0 ; j < rows / step ; j++) {
 		int k;
 		int64_t sum1, sum2, sum3, sum4, sum5, sum6;
-		int iVar4 = (cols - end) -1;
+		int startcol = (cols - end) -1;
 
 		sum6 = sum5 = sum4 = sum3 = sum2 = sum1 = 0;
 
@@ -1636,8 +1636,8 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 				sum1 += rowPtr[curRowBufOffset + 2];
 				curRowBufOffset += 3;
 			}
-			curRowBufOffset = iVar4 * 3;
-			for (curCol = iVar4 ; curCol < (cols - start); curCol++) {
+			curRowBufOffset = startcol * 3;
+			for (curCol = startcol ; curCol < (cols - start); curCol++) {
 				sum6 += rowPtr[curRowBufOffset];
 				sum5 += rowPtr[curRowBufOffset + 1];
 				sum4 += rowPtr[curRowBufOffset + 2];
@@ -2223,12 +2223,10 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 			imgBuf -= pixelsPerRow;
 		}
 	}
-	int iVar4 = pixelCnt;
+
+	int iVar4;
 	pdVar3 = rowCalcBuf5;
-	if (pixelCnt < 0) {
-		iVar4 = 0;
-	}
-	for ( ; iVar4 > 0 ; iVar4--) {
+	for (iVar4 = pixelCnt ; iVar4 > 0 ; iVar4--) {
 		int16_t val = (*pdVar3 + 0.50000000);
 		if (val < 0) {
 			*imgBuf = 0;
@@ -2489,15 +2487,15 @@ static double M1_GetBrightnessAverage(const uint16_t *pBitBrightness,
 	aroundMapPtr = aroundMap;
 	for (row = 0 ; row < dtct.cy ; row++) {
 		for (col = 0 ; col < dtct.cx ; col++) {
-			int32_t iVar1 = *pDestPtr - srcPixel;
-			if ((noiseTh + enhTh) < iVar1) {
+			int32_t tmp = *pDestPtr - srcPixel;
+			if ((noiseTh + enhTh) < tmp) {
 				intPixel = enhTh + srcPixel;
 			} else {
-				if (noiseTh < iVar1) {
+				if (noiseTh < tmp) {
 					intPixel = *pDestPtr - noiseTh;
-				} else if (-(noiseTh + enhTh) == iVar1 || -iVar1 < (noiseTh + enhTh)) {
+				} else if (-(noiseTh + enhTh) == tmp || -tmp < (noiseTh + enhTh)) {
 					intPixel = srcPixel;
-					if (-noiseTh != iVar1 && noiseTh <= -iVar1) {
+					if (-noiseTh != tmp && noiseTh <= -tmp) {
 						intPixel = noiseTh + *pDestPtr;
 					}
 				} else {
