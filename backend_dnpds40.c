@@ -391,7 +391,7 @@ static void dnpds40_build_cmd(struct dnpds40_cmd *cmd, char *arg1, char *arg2, u
 	memcpy(cmd->arg1, arg1, min(strlen(arg1), sizeof(cmd->arg1)));
 	memcpy(cmd->arg2, arg2, min(strlen(arg2), sizeof(cmd->arg2)));
 	if (arg3_len) {
-		char buf[9];
+		char buf[11];  /* Extra padding to shut up GCC 10 */
 		snprintf(buf, sizeof(buf), "%08u", arg3_len);
 		memcpy(cmd->arg3, buf, 8);
 	}
