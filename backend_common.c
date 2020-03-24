@@ -1072,7 +1072,7 @@ void print_help(const char *argv0, const struct dyesub_backend *backend)
 	libusb_free_device_list(list, 1);
 }
 
-int parse_cmdstream(struct dyesub_backend *backend, void *backend_ctx, int fd)
+static int parse_cmdstream(struct dyesub_backend *backend, void *backend_ctx, int fd)
 {
 	FILE *fp = stdin;
 	char line[128];
@@ -1110,10 +1110,10 @@ int parse_cmdstream(struct dyesub_backend *backend, void *backend_ctx, int fd)
 		fclose(fp);
 
 	return CUPS_BACKEND_OK;
-};
+}
 
 static int handle_input(struct dyesub_backend *backend, void *backend_ctx,
-			char *fname, char *uri, char *type)
+			const char *fname, char *uri, char *type)
 {
 	int ret = CUPS_BACKEND_OK;
 #ifndef _WIN32
@@ -1265,7 +1265,7 @@ int main (int argc, char **argv)
 	int stats_only = 0;
 	char *uri;
 	char *type;
-	char *fname = NULL;
+	const char *fname = NULL;
 	char *use_serno = NULL;
 	const char *backend_str = NULL;
 	int  printer_type;
@@ -1777,7 +1777,7 @@ static int __dyesub_joblist_addjob(struct dyesub_joblist *list, const void *job)
 	list->entries[list->num_entries++] = job;
 
 	return CUPS_BACKEND_OK;
-};
+}
 
 static int __dyesub_append_job(struct dyesub_joblist *list, const void **vjob, int polarity)
 {

@@ -65,7 +65,7 @@ struct selphyneo_ctx {
 	struct marker marker;
 };
 
-static char *selphyneo_statuses(uint8_t sts)
+static const char *selphyneo_statuses(uint8_t sts)
 {
 	switch(sts) {
 	case 0x01:
@@ -85,7 +85,7 @@ static char *selphyneo_statuses(uint8_t sts)
 	}
 }
 
-static char *selphyneo_errors(uint8_t err)
+static const char *selphyneo_errors(uint8_t err)
 {
 	switch(err) {
 	case 0x00:
@@ -111,7 +111,7 @@ static char *selphyneo_errors(uint8_t err)
 	}
 }
 
-static char *selphynew_pgcodes(uint8_t type) {
+static const char *selphynew_pgcodes(uint8_t type) {
 
 	switch (type & 0xf) {
 	case 0x01:

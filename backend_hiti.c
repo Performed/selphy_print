@@ -891,8 +891,6 @@ static void *hiti_init(void)
 	return ctx;
 }
 
-extern struct dyesub_backend hiti_backend;
-
 static int hiti_attach(void *vctx, struct libusb_device_handle *dev, int type,
 		       uint8_t endp_up, uint8_t endp_down, int iface, uint8_t jobid)
 {
