@@ -27,6 +27,7 @@
 #include "backend_common.h"
 #include <errno.h>
 #include <signal.h>
+#include <strings.h>  /* For strncasecmp */
 
 #define BACKEND_VERSION "0.106"
 #ifndef URI_PREFIX
