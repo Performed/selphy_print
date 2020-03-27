@@ -85,7 +85,7 @@ typedef uint8_t (*M1_CalcOpRateGlossFN)(uint16_t rows, uint16_t cols);
 
 #define REQUIRED_LIB_APIVERSION 6
 
-#define LIBMITSU_VER "0.05"
+#define LIBMITSU_VER "0.06"
 
 /* Image processing library function prototypes */
 #define LIB_NAME_RE "libMitsuD70ImageReProcess" DLL_SUFFIX
