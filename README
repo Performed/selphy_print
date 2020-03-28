@@ -160,7 +160,7 @@
      Fedora/RedHat:
 	yum install libusbx-devel libusb1-devel cups-devel gutenprint-devel
      Debian/Ubuntu
-	apt-get install libusbx-dev libusb-1.0-0-dev libcups2-dev gutenprint-dev
+	apt-get install libusbx-dev libusb-1.0-0-dev libcups2-dev libgutenprint-dev
 
      All you need to do after that is type 'make'
 
