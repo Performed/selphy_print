@@ -17,7 +17,7 @@ endif
 #NO_GUTENPRINT = 1
 
 # pkg-config extra stuff
-PKG_CONFIG_EXTRA = --with-path=/usr/local/lib/pkgconfig
+#PKG_CONFIG_EXTRA = --with-path=/usr/local/lib/pkgconfig  # only works with pkgconf, not pkg-config!
 
 # Base executable name
 EXEC_NAME ?= dyesub_backend$(EXEC_SUFFIX)
