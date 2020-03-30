@@ -37,6 +37,7 @@
    DNP DS820 / DS820A / Citizen CX-02W
    Fujifilm ASK-300
    HiTi P520L
+   HiTi P525L
    Kodak Professional 1400
    Kodak 305 Photo Printer
    Kodak 605 Photo Printer
@@ -69,7 +70,6 @@
 
   Work-in-progress Printers:
 
-
    Citizen CZ-01
    DNP QW410
    DNP M4 / Q4
@@ -77,7 +77,6 @@
    HiTi P110 series
    HiTi P510 series
    HiTi M610 (not X610!)
-   HiTi P525L
    HiTi P720L
    HiTi P750L
    HiTi P910L
@@ -1230,10 +1229,10 @@ Notes:
    Verified supported printers:
 
      HiTi P520L
+     HiTi P525L
 
    Theoretically supported printers (Untested)
 
-     HiTi P525L
      HiTi P720L
      HiTi P750L
 
