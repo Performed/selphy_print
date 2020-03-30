@@ -51,6 +51,7 @@
    Mitsubishi CP-9550D/DW/DW-S/DZ/DZ-S
    Mitsubishi CP-9600D/DW
    Mitsubishi CP-D70DW and CP-D707DW
+   Mitsubishi CP-D70DW-S and CP-D707DW-S
    Mitsubishi CP-D80DW
    Mitsubishi CP-D90DW
    Mitsubishi CP-K60DW-S
@@ -925,14 +926,14 @@
     Fujifilm ASK-300
     Kodak 305
     Mitsubishi CP-D70DW
+    Mitsubishi CP-D70DW-S
     Mitsubishi CP-D707DW
+    Mitsubishi CP-D707DW-S
     Mitsubishi CP-D80DW
     Mitsubishi CP-K60DW-S
 
    Unsupported printers (Unknown VID/PID):
 
-    Mitsubishi CP-D70DW-S
-    Mitsubishi CP-D707DW-S
     Mitsubishi CP-D80DW-S
 
    Development was sponsored in part by:
