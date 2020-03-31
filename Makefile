@@ -134,6 +134,10 @@ MITSU_BACKENDS_O = $(addsuffix .o,$(addprefix backend_,$(MITSU_BACKENDS)))
 DATAFILES_TGT = $(addprefix datafiles/,$(notdir $(DATAFILES)))
 DATAFILES_TMP = datafiles
 
+# And now the rules!
+.PHONY: config clean all install cppcheck
+all: config $(EXEC_NAME) $(BACKENDS) libraries $(DATAFILES_TMP) $(DATAFILES_TGT)
+
 config:
 	@echo
 	@echo "     Configuration Summary"
@@ -147,10 +151,6 @@ endif
 	@echo "   BACKEND DATA DIR:  $(BACKEND_DATA_DIR)"
 	@echo "   LIBDIR:            $(LIB_DIR)"
 	@echo
-
-# And now the rules!
-.PHONY: config clean all install cppcheck
-all: config $(EXEC_NAME) $(BACKENDS) libraries $(DATAFILES_TMP) $(DATAFILES_TGT)
 
 libraries: $(LIBRARIES)
 #	$(MAKE) -C lib70x $@
