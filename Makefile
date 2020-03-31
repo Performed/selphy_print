@@ -134,9 +134,23 @@ MITSU_BACKENDS_O = $(addsuffix .o,$(addprefix backend_,$(MITSU_BACKENDS)))
 DATAFILES_TGT = $(addprefix datafiles/,$(notdir $(DATAFILES)))
 DATAFILES_TMP = datafiles
 
+config:
+	@echo
+	@echo "     Configuration Summary"
+	@echo
+ifeq ($(NO_GUTENPRINT),)
+	@echo "   GUTENPRINT VER:    $(GUTENPRINT_MAJOR).$(GUTENPRINT_MINOR)"
+endif
+	@echo "   CUPS BACKEND DIR:  $(CUPS_BACKEND_DIR)"
+	@echo "   BACKEND NAME:      $(BACKEND_NAME)"
+	@echo "   CUPS DATA DIR:     $(CUPS_DATA_DIR)"
+	@echo "   BACKEND DATA DIR:  $(BACKEND_DATA_DIR)"
+	@echo "   LIBDIR:            $(LIB_DIR)"
+	@echo
+
 # And now the rules!
-.PHONY: clean all install cppcheck
-all: $(EXEC_NAME) $(BACKENDS) libraries $(DATAFILES_TMP) $(DATAFILES_TGT)
+.PHONY: config clean all install cppcheck
+all: config $(EXEC_NAME) $(BACKENDS) libraries $(DATAFILES_TMP) $(DATAFILES_TGT)
 
 libraries: $(LIBRARIES)
 #	$(MAKE) -C lib70x $@
