@@ -86,9 +86,10 @@
    Kodak 6900
    Kodak 7010 / 7015
    Magicard Rio 2E (and other Magicard models)
-   Mitsubishi CP-3020D/DE and CP-3020DA/DAE
-   Mitsubishi CP-9000DW, CP-9500DW, and CP-9600DW-S
-   Mitsubishi CP-9800DW, CP-9800DW-S, CP-9810DW, and CP-9820DW-S
+   Mitsubishi CP30DW
+   Mitsubishi CP3020D/DE and CP3020DA/DAE
+   Mitsubishi CP9000DW, CP9500DW, and CP9600DW-S
+   Mitsubishi CP9800DW, CP9800DW-S, CP9810DW, and CP9820DW-S
    Mitsubishi CP-M15
    Olmec OP900
    Shinko CHC-S2245 (aka Sinfonia S3)
@@ -1039,24 +1040,25 @@
 
    Supported and tested printers:
 
-    Mitsubishi CP-9550D/DW and CP-9550DZ/DZS/DW-S
-    Mitsubishi CP-9600D/DW
-    Mitsubishi CP-9800DZ/DZS/DW-S                     [1]
+    Mitsubishi CP9550D/DW and CP9550DZ/DZS/DW-S
+    Mitsubishi CP9600D/DW
+    Mitsubishi CP9800DZ/DZS/DW-S                     [1]
 
    Unverified/untested, but should work:  (let us know, please!)
 
-    Mitsubishi CP-9800D/DW                            [1]
-    Mitsubishi CP-9810D/DW                            [1]
-    Mitsubishi CP-9820DW-S                            [1]
+    Mitsubishi CP9800D/DW                            [1]
+    Mitsubishi CP9810D/DW                            [1]
+    Mitsubishi CP9820DW-S                            [1]
 
    Work-in-progress printers:
 
-    Mitsubishi CP-9000D/DW
-    Mitsubishi CP-9500D/DW
+    Mitsubishi CP9000D/DW
+    Mitsubishi CP9500D/DW
 
    Unsupported (unknown VID/PID):
 
-    Mitsubishi CP-9600DW-S/DZ/DZ-S
+    Mitsubishi CP30DW
+    Mitsubishi CP9600DW-S/DZ/DZ-S
 
    Valid commands:
 

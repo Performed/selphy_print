@@ -49,6 +49,7 @@
 #define USB_PID_MITSU_98__D  0x3B21
 //#define USB_PID_MITSU_9810D   XXXXXX
 //#define USB_PID_MITSU_9820DS  XXXXXX
+//#define USB_PID_MITSU_CP30D   XXXXXX
 
 /* Spool file structures */
 
@@ -133,6 +134,7 @@ struct mitsu9550_ctx {
 	int type;
 	int is_s;
 	int is_98xx;
+	int footer_len;
 
 	struct marker marker;
 
@@ -304,6 +306,11 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 #endif
 			WARNING("Dynamic library support not loaded, will be unable to print.");
 	}
+
+	if (ctx->type == P_MITSU_CP30D)
+		ctx->footer_len = 6;
+	else
+		ctx->footer_len = 4;
 
 	if (test_mode < TEST_MODE_NOATTACH) {
 		if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
@@ -554,7 +561,7 @@ hdr_done:
 		    - Additional block header (12B)
 		    - Job footer (4B)
 		*/
-		i = read(data_fd, buf, 4);
+		i = read(data_fd, buf, ctx->footer_len);
 		if (i == 0) {
 			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
@@ -569,8 +576,8 @@ hdr_done:
 		    plane->cmd[1] == 0x50 &&
 		    plane->cmd[3] == 0x00) {
 			/* store it in the buffer */
-			memcpy(job->databuf + job->datalen, buf, 4);
-			job->datalen += 4;
+			memcpy(job->databuf + job->datalen, buf, ctx->footer_len);
+			job->datalen += ctx->footer_len;
 
 			/* Unless we have a raw matte plane following,
 			   we're done */
@@ -580,7 +587,7 @@ hdr_done:
 			remain = sizeof(buf);
 		} else {
 			/* It's part of a block header, mark what we've read */
-			remain = sizeof(buf) - 4;
+			remain = sizeof(buf) - ctx->footer_len;
 		}
 
 		/* Read in the rest of the header */
@@ -883,6 +890,13 @@ static int validate_media(int type, int media, int cols, int rows)
 			break;
 		}
 		break;
+	case P_MITSU_CP30D:
+		if (cols != 1600)
+			return 1;
+		// XXX validate media type vs job size.  Don't know readback codes.
+		// S == 1600x1200
+		// L == 1600x2100
+		break;
 	default:
 		WARNING("Unknown printer type %d\n", type);
 		break;
@@ -1003,7 +1017,7 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 	free(convbuf);
 
 	/* And finally, the job footer. */
-	memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen/2 * 3, sizeof(struct mitsu9550_cmd));
+	memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen/2 * 3, ctx->footer_len);
 	newlen += sizeof(struct mitsu9550_cmd);
 
 	/* Clean up, and move pointer to new buffer; */
@@ -1197,9 +1211,9 @@ top:
 	} else {
 		/* Send from spool file */
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ptr, sizeof(cmd))))
+				     ptr, ctx->footer_len)))
 			return CUPS_BACKEND_FAILED;
-		ptr += sizeof(cmd);
+		ptr += ctx->footer_len;
 	}
 
 	/* Don't forget the 9810's matte plane */
@@ -1478,7 +1492,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.52" " (lib " LIBMITSU_VER ")",
+	.version = "0.53" " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -1508,14 +1522,15 @@ struct dyesub_backend mitsu9550_backend = {
 		{ USB_VID_MITSU, USB_PID_MITSU_98__D, P_MITSU_9810, NULL, "mitsubishi-9810d"}, /* Duplicate */
 //	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, NULL, "mitsubishi-9810dw"},
 //	{ USB_VID_MITSU, USB_PID_MITSU_9820DS, P_MITSU_9820S, NULL, "mitsubishi-9820dw-s"},
+//	{ USB_VID_MITSU, USB_PID_MITSU_CP30D, P_MITSU_CP30D, NULL, "mitsubishi-cp30dw"},
 		{ 0, 0, 0, NULL, NULL}
 	}
 };
 
-/* Mitsubish CP-9500/9550/9600/9800/9810/9820 spool format:
+/* Mitsubish CP-30/9500/9550/9600/9800/9810/9820 spool format:
 
-   Spool file consists of 3 (or 4) 50-byte headers, followed by three
-   image planes, each with a 12-byte header, then a 4-byte footer.
+   Spool file consists of 3 or 4 50-byte headers, followed by three
+   image planes, each with a 12-byte header, then a 4 or 6-byte footer.
 
    All multi-byte numbers are big endian.
 
@@ -1529,14 +1544,14 @@ struct dyesub_backend mitsu9550_backend = {
    ~~~ Header 2
 
    1b 57 21 2e 00 80 00 22  QQ QQ 00 00 00 00 00 00 :: ZZ ZZ = num copies (>= 0x01)
-   00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY = 00/80 Fine/SuperFine (9550), 10/80 Fine/Superfine (98x0), 00 (9600)
+   00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY = 00/80 Fine/SuperFine (9550), 10/80 Fine/Superfine (98x0), 00 (9600), 0x80/0x00 Powersave/Normal (CP30)
    XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 SS TT :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
-   RR 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500
+   RR 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500, 0x0802 on CP30
                                                     :: RR = 01 for "use LUT" on 98xx, 0x00 otherwise.  Extension to stock.
 						    :: TT = 01 for "already reversed". Extension to stock.
 						    :: SS == sharpening level, 0 for off, 1-10 otherwise. Extesion to stock.
 
-   ~~~ Header 3 (9550 and 9800-S only..)
+   ~~~ Header 3 (9550, 9800-S, and CP30 only..)
 
    1b 57 22 2e 00 QQ 00 00  00 00 00 XX 00 00 00 00 :: XX = 00 normal, 01 FineDeep
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ = 0xf0 on 9500, 0x40 on the rest
@@ -1545,10 +1560,13 @@ struct dyesub_backend mitsu9550_backend = {
 
    ~~~ Header 4 (all but 9550-S and 9800-S, involves error policy?)
 
-   1b 57 26 2e 00 QQ 00 00  00 00 00 SS RR 01 00 00 :: QQ = 0x70 on 9550/98x0, 0x60 on 9600 or 9800S
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: RR = 0x01 on 9550/98x0, 0x00 on 9600
+   1b 57 26 2e 00 QQ TT 00  00 00 00 SS RR 01 VV WW :: QQ = 0x70 on 9550/98x0, 0x60 on 9600 or 9800S, 0x3f on CP30
+   WW 00 WW 00 00 00 00 00  00 00 00 00 00 00 00 00 :: RR = 0x01 on 9550/98x0/CP30, 0x00 on 9600
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: SS = 0x01 on 9800S, 0x00 otherwise.
    00 00
+                                                    :: TT = 0x80 on CP30, 0x00 otherwise
+                                                    :: VV = 0x80 on CP30, 0x00 otherwise
+                                                    :: WW = 0x10 on CP30, 0x00 otherwise
 
   ~~~~ Data follows:
 
@@ -1581,6 +1599,7 @@ struct dyesub_backend mitsu9550_backend = {
    1b 50 4e 00  (9800-S)
    1b 50 51 00  (CP3020DA)
    1b 50 57 00  (9500)
+   1b 5a 52 00 00 00 (CP30)
 
    Unknown: 9600-S, 9820-S, 1 other..
 
