@@ -616,7 +616,7 @@ hdr_done:
 		int ret = mitsu_apply3dlut(&ctx->lib, ctx->lut_fname,
 					   job->databuf + sizeof(struct mitsu9550_plane),
 					   job->cols, job->rows,
-					   job->cols * 3, COLORCONV_RGB);
+					   job->cols * 3, COLORCONV_BGR);
 		if (ret) {
 			mitsu9550_cleanup_job(job);
 			return ret;
