@@ -32,6 +32,7 @@
 #define MITSU_M98xx_LAMINATE_FILE  "M98MATTE.raw"
 #define MITSU_M98xx_DATATABLE_FILE "M98TABLE.dat"
 #define MITSU_M98xx_LUT_FILE       "M98XXL01.lut"
+#define MITSU_CP30D_LUT_FILE       "CP30LT_1.lut"
 #define LAMINATE_STRIDE 1868
 
 /* USB VIDs and PIDs */
@@ -135,6 +136,7 @@ struct mitsu9550_ctx {
 	int is_s;
 	int is_98xx;
 	int footer_len;
+	const char *lut_fname;
 
 	struct marker marker;
 
@@ -296,8 +298,10 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 
 	if (ctx->type == P_MITSU_9800 ||
 	    ctx->type == P_MITSU_9800S ||
-	    ctx->type == P_MITSU_9810)
+	    ctx->type == P_MITSU_9810) {
 		ctx->is_98xx = 1;
+		ctx->lut_fname = MITSU_M98xx_LUT_FILE;
+	}
 
 	if (ctx->is_98xx) {
 #if defined(WITH_DYNAMIC)
@@ -307,10 +311,12 @@ static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int ty
 			WARNING("Dynamic library support not loaded, will be unable to print.");
 	}
 
-	if (ctx->type == P_MITSU_CP30D)
+	if (ctx->type == P_MITSU_CP30D) {
 		ctx->footer_len = 6;
-	else
+		ctx->lut_fname = MITSU_CP30D_LUT_FILE;
+	} else {
 		ctx->footer_len = 4;
+	}
 
 	if (test_mode < TEST_MODE_NOATTACH) {
 		if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
@@ -606,11 +612,11 @@ hdr_done:
 	}
 
 	/* Apply LUT, if job calls for it.. */
-	if (ctx->is_98xx && !job->is_raw && job->hdr2.unkc[9]) {
-		int ret = mitsu_apply3dlut(&ctx->lib, MITSU_M98xx_LUT_FILE,
+	if (ctx->lut_fname && !job->is_raw && job->hdr2.unkc[9]) {
+		int ret = mitsu_apply3dlut(&ctx->lib, ctx->lut_fname,
 					   job->databuf + sizeof(struct mitsu9550_plane),
 					   job->cols, job->rows,
-					   job->cols * 3, COLORCONV_BGR);
+					   job->cols * 3, COLORCONV_RGB);
 		if (ret) {
 			mitsu9550_cleanup_job(job);
 			return ret;
@@ -1492,7 +1498,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.53" " (lib " LIBMITSU_VER ")",
+	.version = "0.54" " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
@@ -1543,18 +1549,21 @@ struct dyesub_backend mitsu9550_backend = {
 
    ~~~ Header 2
 
-   1b 57 21 2e 00 80 00 22  QQ QQ 00 00 00 00 00 00 :: ZZ ZZ = num copies (>= 0x01)
+   1b 57 21 2e 00 GG 00 HH  QQ QQ 00 00 00 00 00 00 :: ZZ ZZ = num copies (>= 0x01)
    00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY = 00/80 Fine/SuperFine (9550), 10/80 Fine/Superfine (98x0), 00 (9600), 0x80/0x00 Powersave/Normal (CP30)
    XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 SS TT :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
-   RR 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500, 0x0802 on CP30
+   RR II                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500, 0x0802 on CP30
                                                     :: RR = 01 for "use LUT" on 98xx, 0x00 otherwise.  Extension to stock.
 						    :: TT = 01 for "already reversed". Extension to stock.
 						    :: SS == sharpening level, 0 for off, 1-10 otherwise. Extesion to stock.
+                                                    :: GG == 0x00 on CP30, 0x80 on others
+						    :: HH == 0x20 on CP30, 0x22 on others
+						    :: II == 0x00 on CP30, 0x01 on others.
 
    ~~~ Header 3 (9550, 9800-S, and CP30 only..)
 
    1b 57 22 2e 00 QQ 00 00  00 00 00 XX 00 00 00 00 :: XX = 00 normal, 01 FineDeep
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ = 0xf0 on 9500, 0x40 on the rest
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ = 0xf0 on 9500, 0x00 on CP30, 0x40 on the rest
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
    00 00
 
@@ -1599,7 +1608,7 @@ struct dyesub_backend mitsu9550_backend = {
    1b 50 4e 00  (9800-S)
    1b 50 51 00  (CP3020DA)
    1b 50 57 00  (9500)
-   1b 5a 52 00 00 00 (CP30)
+   1b 50 52 00 00 00 (CP30)
 
    Unknown: 9600-S, 9820-S, 1 other..
 
