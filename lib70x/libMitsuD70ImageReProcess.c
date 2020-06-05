@@ -56,7 +56,7 @@
 
 */
 
-#define LIB_VERSION "0.9.0"
+#define LIB_VERSION "0.9.1"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -1691,7 +1691,7 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 			      const struct BandImage *inImage,
 			      struct BandImage *outImage,
-			      int already_reversed)
+			      int reverse)
 {
 	int cols, rows, inBytesPerRow, maxTank;
 	uint8_t *inRowPtr;
@@ -1782,11 +1782,12 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 		outRowPtr -= pixelsPerRow;
 	}
 
-	/* Write gamma corrected data to output buffer, last row first */
+	/* HACK:  Reverse the row data when we perform gamma correction,
+	          because Old Gutenprint sends it in the wrong order. */
 	for (row = 0 ; row < rows ; row++) {
 		int outRowBufOffset = 0;
 
-		if (!already_reversed)
+		if (reverse)
 			outRowBufOffset += (cols - 1) * 3;
 
 		for (col = 0, curRowBufOffset = 0 ; col < cols ; col ++) {
@@ -1795,7 +1796,7 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 			outRowPtr[outRowBufOffset + 1] = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]];
 			outRowPtr[outRowBufOffset + 2] = Gamma->GNMrc[inRowPtr[curRowBufOffset + 2]];
 			curRowBufOffset += 3;
-			if (already_reversed)
+			if (!reverse)
 				outRowBufOffset += 3;
 			else
 				outRowBufOffset -= 3;
@@ -1855,7 +1856,7 @@ static void CP98xx_InitWMAM(struct CP98xx_WMAM *wmam, const struct CP98xx_WMAM *
 	memcpy(wmam->unkf, src->unkd, sizeof(wmam->unkc));
 }
 
-static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int always_1)
+static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int reverse)
 {
 	uint16_t *imgBuf, *rowPtr;
 	int rows, col, cols, pixelsPerRow, pixelCnt;
@@ -1875,7 +1876,7 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 		return 0;
 
 	if (pixelsPerRow < 0) {
-		if (always_1 != 0) {
+		if (reverse) {
 			pixelsPerRow = pixelsPerRow >> 1;
 		} else {
 			pixelsPerRow = (-pixelsPerRow) >> 1;
@@ -1883,7 +1884,7 @@ static int CP98xx_DoWMAM(struct CP98xx_WMAM *wmam, struct BandImage *img, int al
 			imgBuf = (uint16_t *)rowPtr;
 		}
 	} else {
-		if (always_1 != 0) {
+		if (reverse) {
 			pixelsPerRow = pixelsPerRow >> 1;
 			rowPtr += pixelsPerRow * (rows -1);
 			imgBuf = (uint16_t *)rowPtr;
@@ -2302,7 +2303,7 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 	if (CP98xx_DoCorrectGammaTbl(&gamma, &kh, input) != 1) {
 		return 0;
 	}
-	if (CP98xx_DoGammaConv(&gamma, input, output, already_reversed) != 1) {
+	if (CP98xx_DoGammaConv(&gamma, input, output, !already_reversed) != 1) {
 		return 0;
 	}
 
@@ -2314,7 +2315,7 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 	CP98xx_InitWMAM(&wmam, &table->WMAM);
 #pragma GCC diagnostic pop
 
-	if (CP98xx_DoWMAM(&wmam, output, 1) != 1) {
+	if (CP98xx_DoWMAM(&wmam, output, !already_reversed) != 1) {
 		return 0;
 	}
 
