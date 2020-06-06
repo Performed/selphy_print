@@ -988,8 +988,9 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 	job->hdr2.unkc[8] = 0;  /* Clear "already reversed" flag */
 	job->hdr2.unkc[7] = 0;  /* Clear "sharpness" parameter */
 
-	/* Library is now done, but output is packed YMC16 format.  We need to
-	   convert it to a planar YMC16, plus appropriate plane headers */
+	/* Library is done, but its output is packed YMC16.
+	   We need to convert this to planar YMC16, with a header for
+	   each plane. */
 	uint8_t *yPtr, *mPtr, *cPtr;
 	int j, offset;
 
@@ -1011,18 +1012,18 @@ static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 	cPtr += sizeof(struct mitsu9550_plane);
 	newlen += sizeof(struct mitsu9550_plane) + planelen;
 
-	for (offset = 0, i = output.cols - 1; i >= 0 ; i--) {
-		for (j = 0 ; j < output.rows ; j ++) {
-			yPtr[i*output.cols + j] = convbuf[offset++];
-			mPtr[i*output.cols + j] = convbuf[offset++];
-			cPtr[i*output.cols + j] = convbuf[offset++];
+	for (offset = 0, i = 0; i < output.rows ; i++) {
+		for (j = 0 ; j < output.cols ; j ++, offset += 3) {
+			yPtr[i*output.cols + j] = convbuf[0 + offset];
+			mPtr[i*output.cols + j] = convbuf[1 + offset];
+			cPtr[i*output.cols + j] = convbuf[2 + offset];
 		}
 	}
 
 	/* All done with conversion buffer, nuke it */
 	free(convbuf);
 
-	/* And finally, the job footer. */
+	/* And finally, append the job footer. */
 	memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen/2 * 3, ctx->footer_len);
 	newlen += sizeof(struct mitsu9550_cmd);
 
@@ -1498,7 +1499,7 @@ static const char *mitsu9550_prefixes[] = {
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
 	.name = "Mitsubishi CP9xxx family",
-	.version = "0.54" " (lib " LIBMITSU_VER ")",
+	.version = "0.55" " (lib " LIBMITSU_VER ")",
 	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
