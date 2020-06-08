@@ -61,27 +61,21 @@
 #define PPD( ... ) do { fprintf(stderr, "PPD: " __VA_ARGS__ ); sleep(1); } while (0)
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define le64_to_cpu(__x) __x
-#define le32_to_cpu(__x) __x
 #define le16_to_cpu(__x) __x
+#define le32_to_cpu(__x) __x
 #define be16_to_cpu(__x) __builtin_bswap16(__x)
 #define be32_to_cpu(__x) __builtin_bswap32(__x)
-#define be64_to_cpu(__x) __builtin_bswap64(__x)
 #else
 #define le16_to_cpu(__x) __builtin_bswap16(__x)
 #define le32_to_cpu(__x) __builtin_bswap32(__x)
-#define le64_to_cpu(__x) __builtin_bswap64(__x)
-#define be64_to_cpu(__x) __x
 #define be32_to_cpu(__x) __x
 #define be16_to_cpu(__x) __x
 #endif
 
 #define cpu_to_le16 le16_to_cpu
 #define cpu_to_le32 le32_to_cpu
-#define cpu_to_le64 le64_to_cpu
 #define cpu_to_be16 be16_to_cpu
 #define cpu_to_be32 be32_to_cpu
-#define cpu_to_be64 be64_to_cpu
 
 /* To cheat the compiler */
 #define UNUSED(expr) do { (void)(expr); } while (0)
