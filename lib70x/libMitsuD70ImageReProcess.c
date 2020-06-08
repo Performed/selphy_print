@@ -56,7 +56,7 @@
 
 */
 
-#define LIB_VERSION "0.9.2"
+#define LIB_VERSION "0.9.3"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -71,27 +71,29 @@
 //-------------------------------------------------------------------------
 // Endian Manipulation macros
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define le64_to_cpu(__x) __x
-#define le32_to_cpu(__x) __x
 #define le16_to_cpu(__x) __x
+#define le32_to_cpu(__x) __x
 #define be16_to_cpu(__x) __builtin_bswap16(__x)
 #define be32_to_cpu(__x) __builtin_bswap32(__x)
-#define be64_to_cpu(__x) __builtin_bswap64(__x)
+
+#define le64d_to_cpu(__x) __x
+#define be64d_to_cpu(__x) swab_double(__x)
 #else
 #define le16_to_cpu(__x) __builtin_bswap16(__x)
 #define le32_to_cpu(__x) __builtin_bswap32(__x)
-#define le64_to_cpu(__x) __builtin_bswap64(__x)
-#define be64_to_cpu(__x) __x
-#define be32_to_cpu(__x) __x
 #define be16_to_cpu(__x) __x
+#define be32_to_cpu(__x) __x
+
+#define le64d_to_cpu(__x) swab_double(__x)
+#define be64d_to_cpu(__x) __x
 #endif
 
 #define cpu_to_le16 le16_to_cpu
 #define cpu_to_le32 le32_to_cpu
 #define cpu_to_be16 be16_to_cpu
 #define cpu_to_be32 be32_to_cpu
-#define cpu_to_le64 le64_to_cpu
-#define cpu_to_be64 be64_to_cpu
+#define cpu_to_le64d le64d_to_cpu
+#define cpu_to_be64d be64d_to_cpu
 
 //-------------------------------------------------------------------------
 // Data declarations
@@ -1514,6 +1516,20 @@ struct CP98xx_AptParams {
     int mpx10;
 };
 
+static double swab_double(double d)
+{
+	union {
+		double d;
+		uint64_t n;
+		uint8_t c[sizeof(double)];
+	} u;
+
+	u.d = d;
+	u.n = __builtin_bswap64(u.n);
+
+	return u.d;
+}
+
 struct mitsu98xx_data *CP98xx_GetData(const char *filename)
 {
 	struct mitsu98xx_data *data = NULL;
@@ -1556,29 +1572,30 @@ struct mitsu98xx_data *CP98xx_GetData(const char *filename)
 		data[j].KHEnd = be32_to_cpu(data[j].KHEnd);
 		data[j].KHStep = be32_to_cpu(data[j].KHStep);
 		for (i = 3 ; i < 3 ; i++) {
-			data[j].GammaAdj[i] = be64_to_cpu(data[j].GammaAdj[i]);
+			data[j].GammaAdj[i] = be64d_to_cpu(data[j].GammaAdj[i]);
 		}
 		for (i = 0 ; i < 5 ; i++) {
-			data[j].WMAM.unkc[i] = be64_to_cpu(data[j].WMAM.unkc[i]);
-			data[j].WMAM.unkf[i] = be64_to_cpu(data[j].WMAM.unkf[i]);
+			data[j].WMAM.unkc[i] = be64d_to_cpu(data[j].WMAM.unkc[i]);
+			data[j].WMAM.unkf[i] = be64d_to_cpu(data[j].WMAM.unkf[i]);
 		}
 		for (i = 0 ; i < 11 ; i++) {
-			data[j].sharp_coef[i] = be64_to_cpu(data[j].sharp_coef[i]);
+			data[j].sharp_coef[i] = be64d_to_cpu(data[j].sharp_coef[i]);
 		}
 		for (i = 0 ; i < 20 ; i++) {
 			data[j].sharp[i] = be16_to_cpu(data[j].sharp[i]);
 		}
 		for (i = 0 ; i < 256 ; i++) {
-			data[j].WMAM.unka[i] = be64_to_cpu(data[j].WMAM.unka[i]);
-			data[j].WMAM.unkb[i] = be64_to_cpu(data[j].WMAM.unkb[i]);
-			data[j].WMAM.unkd[i] = be64_to_cpu(data[j].WMAM.unkd[i]);
-			data[j].WMAM.unke[i] = be64_to_cpu(data[j].WMAM.unke[i]);
-			data[j].WMAM.unkg[i] = be64_to_cpu(data[j].WMAM.unkg[i]);
+			data[j].WMAM.unka[i] = be64d_to_cpu(data[j].WMAM.unka[i]);
+			data[j].WMAM.unkb[i] = be64d_to_cpu(data[j].WMAM.unkb[i]);
+			data[j].WMAM.unkd[i] = be64d_to_cpu(data[j].WMAM.unkd[i]);
+			data[j].WMAM.unke[i] = be64d_to_cpu(data[j].WMAM.unke[i]);
+			data[j].WMAM.unkg[i] = be64d_to_cpu(data[j].WMAM.unkg[i]);
 
 			data[j].GNMby[i] = be16_to_cpu(data[j].GNMby[i]);
 			data[j].GNMgm[i] = be16_to_cpu(data[j].GNMgm[i]);
 			data[j].GNMrc[i] = be16_to_cpu(data[j].GNMrc[i]);
-			data[j].KH[i] = be64_to_cpu(data[j].KH[i]);
+
+			data[j].KH[i] = be64d_to_cpu(data[j].KH[i]);
 		}
 	}
 #endif
@@ -1856,6 +1873,7 @@ static void CP98xx_InitAptParams(const struct mitsu98xx_data *table, struct CP98
 static void CP98xx_InitWMAM(struct CP98xx_WMAM *wmam, const struct CP98xx_WMAM *src)
 {
 	int i;
+
 	for (i = 0 ; i < 256 ; i++) {
 		wmam->unka[i] = src->unka[i] / 255.0;
 		wmam->unkb[i] = src->unkb[i] / 255.0;
@@ -2295,37 +2313,31 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 		// XXX DoAptMWithParams();
 	}
 
-	/* Set up gamma table and do the conversion */
+	/* Set up gamma tables */
 	struct CP98xx_GammaParams gamma;
 	struct CP98xx_KHParams kh;
-	struct CP98xx_WMAM wmam;
 
 	memcpy(gamma.GNMgm, table->GNMgm, sizeof(gamma.GNMgm));
 	memcpy(gamma.GNMby, table->GNMby, sizeof(gamma.GNMby));
 	memcpy(gamma.GNMrc, table->GNMrc, sizeof(gamma.GNMrc));
 	memcpy(gamma.GammaAdj, table->GammaAdj, sizeof(gamma.GammaAdj));
-
 	memcpy(kh.KH, table->KH, sizeof(kh.KH));
 	kh.Start = table->KHStart;
 	kh.End = table->KHEnd;
 	kh.Step = table->KHStep;
 
-	/* Run through gamma conversion */
 	if (CP98xx_DoCorrectGammaTbl(&gamma, &kh, input) != 1) {
 		return 0;
 	}
+
+	/* Run through gamma conversion */
 	if (CP98xx_DoGammaConv(&gamma, input, output, already_reversed) != 1) {
 		return 0;
 	}
 
-	/* Run the WMAM flow */
-#pragma GCC diagnostic push
-#if (defined(__GNUC__) && (__GNUC__ >= 9))
-#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
-#endif
+	/* Set up and run through the WMAM flow */
+	struct CP98xx_WMAM wmam;
 	CP98xx_InitWMAM(&wmam, &table->WMAM);
-#pragma GCC diagnostic pop
-
 	if (CP98xx_DoWMAM(&wmam, output, 1) != 1) {
 		return 0;
 	}
