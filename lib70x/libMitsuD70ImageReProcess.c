@@ -56,7 +56,7 @@
 
 */
 
-#define LIB_VERSION "0.9.1"
+#define LIB_VERSION "0.9.2"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -66,6 +66,7 @@
 #include "libMitsuD70ImageReProcess.h"
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
+#define STATIC_ASSERT(test_for_true) _Static_assert((test_for_true), "(" #test_for_true ") failed")
 
 //-------------------------------------------------------------------------
 // Endian Manipulation macros
@@ -1452,7 +1453,7 @@ void CImageUtility_CreateBandImage16(struct BandImage *img, uint32_t *a2, int32_
 
 #endif
 
-/* XXXX XXXX CP98XX */
+/* CP98xx family */
 
 struct CP98xx_WMAM {
 	/* @    0 */	double   unka[256];
@@ -1463,7 +1464,7 @@ struct CP98xx_WMAM {
 	/* @ 8232 */	double   unkf[5];   /* Weight factors */
 	/* @ 8272 */	double   unkg[256];
 	/* @10320 */
-};
+} __attribute__((packed));
 
 /* CP98xx Tabular Data, as stored in data file! */
 struct mitsu98xx_data {
@@ -1477,10 +1478,11 @@ struct mitsu98xx_data {
 	/* @12008 */	int32_t KHStart;
 	/* @12012 */	int32_t KHEnd;
 	/* @12016 */	int32_t KHStep;
-	/* @12020 */	double   KH[256];
+	/* @12020 */	double  KH[256];
 	/* @14068 */
 } __attribute__((packed));
 
+/* Informational purposes only */
 struct mitsu98xx_tables {
 	struct mitsu98xx_data superfine;
 	struct mitsu98xx_data fine_std;
@@ -1489,6 +1491,9 @@ struct mitsu98xx_tables {
 
 #define M98XX_DATATABLE_SIZE  42204
 
+STATIC_ASSERT(sizeof(struct mitsu98xx_data) *3 == M98XX_DATATABLE_SIZE);
+
+/* Cooked versions for local state & manipulation */
 struct CP98xx_KHParams {
     double KH[256];
     int32_t Start;
@@ -1504,7 +1509,7 @@ struct CP98xx_GammaParams {
 };
 
 struct CP98xx_AptParams {
-    int16_t mask[8][6]; // really is [8][6]
+    int16_t mask[8][6];
     int unsharp;
     int mpx10;
 };
@@ -1679,7 +1684,7 @@ static int CP98xx_DoCorrectGammaTbl(struct CP98xx_GammaParams *Gamma,
 	for (i = 0; i < 256 ; i++) {
 		Gamma->GNMrc[i] = baseRC +
 			(baseKH * (Gamma->GNMrc[i] - baseRC)) + 0.5;
-		Gamma->GNMrc[i] = baseGM +
+		Gamma->GNMgm[i] = baseGM +
 			(baseKH * (Gamma->GNMgm[i] - baseGM)) + 0.5;
 		Gamma->GNMby[i] = baseBY +
 			(baseKH * (Gamma->GNMby[i] - baseBY)) + 0.5;
@@ -1700,18 +1705,34 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 
 	cols = inImage->cols - inImage->origin_cols;
 	rows = inImage->rows - inImage->origin_rows;
-	inBytesPerRow = inImage->bytes_per_row;
+	/* Output always starts at end and works back */
 	pixelsPerRow = outImage->bytes_per_row >> 1;
+	outRowPtr = (uint16_t*)((uint8_t*)outImage->imgbuf + (pixelsPerRow * (rows-1) * sizeof(uint16_t)));
+
+	/* Input is another matter.. */
+	inBytesPerRow = inImage->bytes_per_row;
 
 	if ((cols < 1) || (rows < 1) || (inBytesPerRow == 0))
 		return 0;
 
-	if (inBytesPerRow < 0) {
-		inRowPtr = inImage->imgbuf;
-		outRowPtr = outImage->imgbuf;
-	} else {
-		outRowPtr = (uint16_t*)((uint8_t*)outImage->imgbuf + (pixelsPerRow * (rows-1) * sizeof(uint16_t)));
-		inRowPtr = (uint8_t*)inImage->imgbuf + (inBytesPerRow * (rows-1));
+	if (inBytesPerRow < 0) { /* First row of input is at the beginning */
+		if (reverse) {
+			/* count backwards from end of buffer */
+			inBytesPerRow = -inBytesPerRow;
+			inRowPtr = (uint8_t*)inImage->imgbuf + (inBytesPerRow * (rows-1));
+		} else {
+			/* Count forward from start of buffer */
+			inRowPtr = inImage->imgbuf;
+		}
+	} else { /* First row of input is at the end */
+		if (reverse) {
+			/* Count forwards from start of buffer */
+			inBytesPerRow = -inBytesPerRow;
+			inRowPtr = (uint8_t*)inImage->imgbuf;
+		} else {
+			/* Count backwards from end of buffer */
+			inRowPtr = (uint8_t*)inImage->imgbuf + (inBytesPerRow * (rows-1));
+		}
 	}
 
 	maxTank = cols * 255;
@@ -1724,6 +1745,7 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 	double gammaAdj1 = Gamma->GammaAdj[1];
 	double gammaAdj0 = Gamma->GammaAdj[0];
 
+	/* Do gamma mapping with correction/adjustments... */
 	for (row = 0 ; row < rows && gammaAdj0 >= 0.5 ; row++) {
 		double calc3, calc2, calc1, calc0;
 		double gammaAdjX;
@@ -1782,24 +1804,13 @@ static int CP98xx_DoGammaConv(struct CP98xx_GammaParams *Gamma,
 		outRowPtr -= pixelsPerRow;
 	}
 
-	/* HACK:  Reverse the row data when we perform gamma correction,
-	          because Old Gutenprint sends it in the wrong order. */
-	for (row = 0 ; row < rows ; row++) {
-		int outRowBufOffset = 0;
-
-		if (reverse)
-			outRowBufOffset += (cols - 1) * 3;
-
-		for (col = 0, curRowBufOffset = 0 ; col < cols ; col ++) {
+	/* ...and pick up where the first loop left off, if we don't need adjustments */
+	for ( ; row < rows ; row++) {
+		for (col = 0, curRowBufOffset = 0 ; col < cols ; col ++, curRowBufOffset += 3) {
 			/* Mitsu code treats input as RGB, we always use BGR. */
-			outRowPtr[outRowBufOffset] = Gamma->GNMby[inRowPtr[curRowBufOffset]];
-			outRowPtr[outRowBufOffset + 1] = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]];
-			outRowPtr[outRowBufOffset + 2] = Gamma->GNMrc[inRowPtr[curRowBufOffset + 2]];
-			curRowBufOffset += 3;
-			if (!reverse)
-				outRowBufOffset += 3;
-			else
-				outRowBufOffset -= 3;
+			outRowPtr[curRowBufOffset] = Gamma->GNMby[inRowPtr[curRowBufOffset]];
+			outRowPtr[curRowBufOffset + 1] = Gamma->GNMgm[inRowPtr[curRowBufOffset + 1]];
+			outRowPtr[curRowBufOffset + 2] = Gamma->GNMrc[inRowPtr[curRowBufOffset + 2]];
 		}
 		inRowPtr -= inBytesPerRow;
 		outRowPtr -= pixelsPerRow;
@@ -1845,7 +1856,7 @@ static void CP98xx_InitAptParams(const struct mitsu98xx_data *table, struct CP98
 static void CP98xx_InitWMAM(struct CP98xx_WMAM *wmam, const struct CP98xx_WMAM *src)
 {
 	int i;
-	for (i = 0 ; i < 255 ; i++) {
+	for (i = 0 ; i < 256 ; i++) {
 		wmam->unka[i] = src->unka[i] / 255.0;
 		wmam->unkb[i] = src->unkb[i] / 255.0;
 		wmam->unkd[i] = src->unkd[i] / 255.0;
@@ -2303,7 +2314,7 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 	if (CP98xx_DoCorrectGammaTbl(&gamma, &kh, input) != 1) {
 		return 0;
 	}
-	if (CP98xx_DoGammaConv(&gamma, input, output, !already_reversed) != 1) {
+	if (CP98xx_DoGammaConv(&gamma, input, output, already_reversed) != 1) {
 		return 0;
 	}
 
@@ -2315,7 +2326,7 @@ int CP98xx_DoConvert(const struct mitsu98xx_data *table,
 	CP98xx_InitWMAM(&wmam, &table->WMAM);
 #pragma GCC diagnostic pop
 
-	if (CP98xx_DoWMAM(&wmam, output, !already_reversed) != 1) {
+	if (CP98xx_DoWMAM(&wmam, output, 1) != 1) {
 		return 0;
 	}
 
