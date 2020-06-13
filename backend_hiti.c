@@ -1217,62 +1217,7 @@ static int hiti_send_heat_data(struct hiti_ctx *ctx, uint8_t mode, uint8_t matte
 		}
 		break;
 	case P_HITI_52X:
-		fname = "P52x_CCPPri.bin";
-		break;
 	case P_HITI_720:
-		if (!mediatype) {
-			if (mode) {
-				fname = "P72x_CMQPrd.bin";
-				break;
-			} else {
-				fname = "P72x_CMPPrd.bin";
-				break;
-			}
-		} else {
-			if (mode) {
-				switch(mediaver) {
-				case 0:
-					fname = "P72x_CCQPrd.bin";
-					break;
-				case 1:
-					fname = "P72x_CCQP1rd.bin";
-					break;
-				case 2:
-					fname = "P72x_CCQP2rd.bin";
-					break;
-				case 3:
-					fname = "P72x_CCQP3rd.bin";
-					break;
-				case 4:
-				default:
-					fname = "P72x_CCQP4rd.bin";
-				break;
-				}
-			} else {
-				switch(mediaver) {
-				case 0:
-					fname = "P72x_CCPPrd.bin";
-					break;
-				case 1:
-					fname = "P72x_CCPP1rd.bin";
-					break;
-				case 2:
-					fname = "P72x_CCPP2rd.bin";
-					break;
-				case 3:
-					fname = "P72x_CCPP3rd.bin";
-					break;
-				case 4:
-				default:
-					fname = "P72x_CCPP4rd.bin";
-					break;
-				}
-			}
-		}
-		break;
-	case P_HITI_750:
-		fname = "P75x_CCPPri.bin";
-		break;
 	default:
 		fname = NULL;
 		break;
@@ -2449,10 +2394,10 @@ struct dyesub_backend hiti_backend = {
       * Use external "Cube LUT" implementation?
    - Commands 8008, 8011, EST_SEHT, ESD_SHTPC, RDC_ROC, PCC_STP, CMD_EDM_*
    - Test with P525, P720, P750
-   - Further investigation into P110S & P510 series
+   - Further investigation into P110 & P510 series
    - Start research into P530D, X610
    - Incorporate changes for CS-series card printers
    - More "Matrix table" decoding work
-   - Investigate Suspicion that HiTi keeps tweaking LUTs or Heat tables
+   - Investigate Suspicion that HiTi keeps tweaking LUTs and/or Heat tables
 
 */
