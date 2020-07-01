@@ -1668,20 +1668,23 @@ static int shinkos6145_query_stats(void *vctx,  struct printerstats *stats)
 		stats->model = "Brava 21";
 		break;
 	case P_SHINKO_S2245:
-		stats->mfg = "Sinfonia";
-		stats->model = "S3 / S2245";
-		break;
-	default:
 		if (usbID == USB_PID_KA_6900) {
 			stats->mfg = "Kodak";
 			stats->model = "6900";
 		} else if (usbID == USB_PID_HITI_M610) {
 			stats->mfg = "HiTi";
 			stats->model = "M610";
+		} else if (usbID == USB_PID_SHINKO_S2245) {
+			stats->mfg = "Sinfonia";
+			stats->model = "S3 / S2245";
 		} else {
 			stats->mfg = "Unknown";
 			stats->model = "Unknown";
 		}
+		break;
+	default:
+		stats->mfg = "Unknown";
+		stats->model = "Unknown";
 		break;
 	}
 
